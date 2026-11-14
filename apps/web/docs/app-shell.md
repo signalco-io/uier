@@ -85,9 +85,14 @@ the separately bundled review toolbar owns its own query cache.
   skeleton carries the loaded page's `data-page-width="wide"` and `data-header-wide`, which widen the shell's column
   and the project header. `CommentsLoading` (comments/) draws the search row (search, the list's status tabs, Filter,
   List/Board), the count line's own row where it has one, then the list with the first thread beside it, or the board's
-  four default columns and Archive's strip, from the left. The search row needs no data, so it is drawn for real but
+  columns every workflow has (Open, In progress and Done, each with its status's dot) and Archive's collapsed strip
+  (a faint edge, no fill), from the left. The search row needs no data, so it is drawn for real but
   `inert` and `aria-hidden` (search, the status tabs with the address's tab pressed and their counts loading, Filter,
-  List/Board with the opening view pressed; [uier #362](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_Wg-1DSXTyPI9bQLuSCxHj)). It picks the view the comments will open in from the address
+  List/Board with the opening view pressed; [uier #362](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_Wg-1DSXTyPI9bQLuSCxHj)).
+  A loading state shows only what every project has; what only some projects or people have appears with the loaded
+  page, never as a placeholder that can go away ([uier #439](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_K_yAq5Ee4WzEjnCBNx_2z)): Group by (it needs labels), the count line,
+  a column's sort and Archive all (for those who may change the board), Ready to verify (verification on), a workflow's
+  further statuses, and the Install tab. It picks the view the comments will open in from the address
   (`?view=board`), else the remembered one, and the list for Archive (`?status=archived`) as `ProjectComments` does.
   `ProjectCommentsLoading` (a server component, the page's and `ProjectLoading`'s fallback) holds two answers: the
   prefetched shell's guess from this browser (`CommentsLoading`: the address, read again as the skeleton commits so a
@@ -95,8 +100,12 @@ the separately bundled review toolbar owns its own query cache.
   own request-scoped boundary, the request's answer (`AddressCommentsLoading`: the router's `useSearchParams` and the
   view cookie), which streams before any comment is read.
   `PageChecksLoading` (pageChecks/) draws Across pages' two cards, Pages with its filter and order, and the table (the
-  cards under 48rem). While the project layout itself loads, `ProjectLoading` (projects/) draws the header and tabs over
-  the comments' skeleton. A project with no comments yet loads wide and then shows its narrower empty state; the
+  cards under 48rem). While the project layout itself loads, `ProjectLoading` (projects/) draws the header's skeleton (its
+  favicon, name and access are the project's, at the loaded header's 58 px) over the real `ProjectTabs`
+  (`ProjectLoadingTabs`: working links to Comments, Page checks and Settings, the project read from the address), then
+  the loading state of the page being opened (`ProjectLoadingPage`: the comments in their region, the page checks, or the
+  generic one). The project page renders its comments region (`CommentsSection`) outside its data boundary, so the
+  region and its `#comments` anchor are there while the comments load. A project with no comments yet loads wide and then shows its narrower empty state; the
   skeleton cannot know. `e2e/instant-nav.spec.ts` holds each tab switch in its loading state (`instant()`) and checks
   that the header and the project's name do not move when the page arrives (`pnpm test:instant`).
 - **Sidebar project order.** `ProjectOrderMenu` has two labelled radio groups: Sort (Recent activity, Recently

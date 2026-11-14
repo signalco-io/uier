@@ -109,8 +109,9 @@ export function CommentFilters({ className, unread, unreadCount, view, onView, s
 }) {
     const { t } = useAppI18n();
     const searchRef = useRef<HTMLInputElement>(null);
-    // A hidden project page Next keeps after navigating away gives up the id, so clearing filters focuses this one
-    const visible = useViewVisible();
+    // A hidden project page Next keeps after navigating away gives up the id, so clearing filters focuses this one. Only
+    // a shown view sets it (`untilShown`): a page that finishes loading after it was left mounts hidden and never takes it
+    const visible = useViewVisible({ untilShown: true });
     const searchShortcut = useKeyShortcutLabel('/');
     const [filtersOpen, setFiltersOpen] = useState(false);
     const router = useRouter();

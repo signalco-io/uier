@@ -119,6 +119,9 @@ test('A project\'s Comments and Page checks tabs load as wide as they will be, s
             await expect(status).toBeVisible();
             // The search row, the status tabs and the list, before any comment is shown
             await expect(page.getByRole('searchbox')).toHaveCount(0);
+            // Only the controls every project has (uier #439): Group by needs the project's labels
+            await expect(page.locator('[data-comments-loading] [inert] button[aria-label="Filter"]').filter({ visible: true })).toBeVisible();
+            await expect(page.locator('[data-comments-loading] button[aria-label="Group by"]')).toHaveCount(0);
             await capture(page, info, 'comments-loading');
             loading = await width();
         });
@@ -143,6 +146,14 @@ test('A project\'s Comments and Page checks tabs load as wide as they will be, s
             await expect(skeleton.locator('[inert] button[aria-label="Filter"]')).toBeVisible();
             await expect(skeleton.locator('[data-pressed]')).toHaveCount(1);
             await expect(page.getByRole('searchbox')).toHaveCount(0);
+            // Only what every board has (uier #439): no Group by (it needs labels); one column per Open, In progress and
+            // Done with its status's dot, without the column actions (sort and Archive all depend on who may change the
+            // board) or Ready to verify (verification is off); Archive's collapsed strip
+            await expect(skeleton.locator('button[aria-label="Group by"]')).toHaveCount(0);
+            await expect(skeleton.locator('[data-board-column-loading]')).toHaveCount(3);
+            await expect(skeleton.locator('[data-board-column-loading] [data-status-dot]')).toHaveCount(3);
+            await expect(skeleton.locator('[data-board-column-loading] button')).toHaveCount(0);
+            await expect(skeleton.locator('[data-board-archive-loading]')).toBeVisible();
             await capture(page, info, 'board-loading');
             loading = await width();
         });
