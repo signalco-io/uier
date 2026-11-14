@@ -92,3 +92,7 @@ human activity identity as ordinary status changes. It never writes a read recei
 ledger feeds MCP `feedback.archive_changed` (an `archived` boolean); email delivery excludes these
 events. Ordinary unread/workflow totals exclude the archive, with a separate authorized `archived`
 count. Restoring reveals the thread's existing unread state plus activity by other people.
+
+The held-response lifecycle regression gates/counts the ordinary `archive=exclude` list,
+while the aggregate counter still asserts no other reads occur while held. Separate archived
+reads were introduced by `7449cf8f` (#599); they are part of one round, not overlapping rounds.

@@ -104,3 +104,7 @@ ancestors. Public installation links remain subject to each browser's publicatio
 gates; local browser builds do not announce new store availability.
 
 Workflow discovery uses the allowlisted `GET statuses` operation and the same member-only handler as the embed review API. Guests cannot retrieve workflow names, descriptions or defaults.
+
+The cross-tab consent regression asserts the complete “Continue as” approval identity, since
+`c45a996a` (#722) also lists account names in Signed-in accounts. It checks both account switches
+and the final handoff, so a retained inactive account cannot satisfy the approval assertion.
