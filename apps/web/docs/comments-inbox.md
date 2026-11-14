@@ -259,7 +259,7 @@ than triggering a background page render. Failed reads keep the loaded window wi
 session loss navigates to sign-in and access loss returns to Projects. Hidden/offline realtime
 signals do not fetch; successful local writes reconcile even when the document is hidden.
 
-Each board column reserves a 16 px progress slot left of its actions, including expanded and
+Each board column reserves a 12 px progress slot left of its actions, the size of their icons (uier #432), including expanded and
 collapsed archive columns. Whole-window reads mark every column busy; continuations mark only their
 lane. One persistent polite status announces Loading comments for scope changes and explicit retries,
 outside the busy tree; same-scope background refreshes stay silent. The UI-kit
