@@ -49,3 +49,7 @@
   the admin-only action removes the flag permanently while preserving the source receipt, so polling
   never changes or recreates that project. Transfer strips the flag; deletion retains the row receipt
   to prevent recreation. See [workspace imports](integrations.md#workspace-projects-from-notion).
+
+- Notion-imported project codes use HMAC-SHA256 under the existing app server secret, rather than
+  a public hash of workspace and row identifiers. The saved row receipt preserves the project code
+  on subsequent imports, including after secret rotation; public review IDs remain independently random.

@@ -144,6 +144,10 @@ project deletion and transfer, preventing recreation or reassignment. Transfer d
 in the target workspace. There is no feedback content in receipts, leases or cursors. Removing/demoting
 the connecting admin stops credential use through the existing grant revocation checks.
 
+New project codes use domain-separated HMAC-SHA256 through `keyedHash` under the existing app server
+secret, so public workspace/row identifiers cannot predict them. Saved receipt codes remain authoritative
+across secret rotation. No additional secret is configured.
+
 `notion-projects.api.spec.ts` covers OAuth isolation, schema mappings, pagination/budgets, lost writes,
 manual/disconnect races, retained feedback, transfer/deletion, refresh, rate limits and authority.
 `notion-projects.spec.ts` covers admin setup, drafts, pause/disconnect, language and desktop/mobile access.

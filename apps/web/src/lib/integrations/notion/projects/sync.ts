@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { projectRefPk, workspacePk, type AppDoc, type DbProject, type DbProjectRef } from '../../../app/model';
 import { getAppStore, updateDoc, type AppMutation, type AppStore } from '../../../app/store';
 import { sha256Hex } from '../../../app/tokens';
+import { keyedHash } from '../../../comments/environment';
 import { ensureProjectPublicId } from '../../../app/projectPublicIds';
 import { notionWorkspaceAuthority } from './authority';
 import { NotionApiError, notionId, normalizedId, object, array, sameId, type JsonObject } from '../client';
@@ -25,9 +26,6 @@ async function commitRow(connection: NotionProjectsConnection, row: JsonObject, 
     const fields = projectFromNotionRow(row, connection.config.mapping!, schema);
     if (!fields) return false;
     const key = notionProjectRowKey(dataSourceId, rowId);
-    // The code claim comes first. Its source key distinguishes a replay after a lost write from a collision.
-    const projectId = (BigInt(`0x${sha256Hex(JSON.stringify([connection.workspaceId, key]))}`) % (36n ** 12n)).toString(36).padStart(12, '0');
-    const ref: DbProjectRef & { notionRowKey: string } = { type: 'project-ref', pk: projectRefPk(projectId), id: projectId, workspaceId: connection.workspaceId, notionRowKey: key };
     for (let attempt = 0; attempt < 8; attempt++) {
         const guards = await notionWorkspaceAuthority(connection.workspaceId, connection.connectedBy, store);
         const retained = await store.get<NotionProjectsConnection>(connection.pk, connection.id);
@@ -35,14 +33,22 @@ async function commitRow(connection: NotionProjectsConnection, row: JsonObject, 
         const used = await session.grant();
         if (!retained || !currentLease(retained.doc, connection) || !grant || used.generation !== grant.doc.generation) throw new NotionApiError(409, 'connection_changed');
         const receipt = await store.get<NotionProjectRow>(connection.pk, key);
-        const existing = await store.get<DbProject>(connection.pk, receipt?.doc.projectId ?? projectId);
+        // Existing receipts remain authoritative across key rotation. New codes need the app's
+        // server-held secret: public workspace/row identifiers must not reveal a review code.
+        const projectId = receipt?.doc.projectId ?? (BigInt(`0x${keyedHash('notion-project-code-v1', JSON.stringify([connection.workspaceId, key]))}`)
+            % (36n ** 12n)).toString(36).padStart(12, '0');
+        const existing = await store.get<DbProject>(connection.pk, projectId);
         if (receipt && (!existing || existing.doc.automaticallyManaged?.rowKey !== key || existing.doc.automaticallyManaged.connectionId !== connection.id
             || existing.doc.transfer || existing.doc.workspaceId !== connection.workspaceId)) return false;
         if (!receipt && existing) return false;
         if (await store.get<AppDoc>('project-deletion', projectId)) return false;
-        if (!receipt && !await store.create(ref)) {
-            const claimed = (await store.get<typeof ref>(ref.pk, ref.id))?.doc;
-            if (claimed?.type !== 'project-ref' || claimed.workspaceId !== connection.workspaceId || claimed.notionRowKey !== key) return false;
+        if (!receipt) {
+            // Claim before creating the project. Its source key distinguishes a lost-write replay from a collision.
+            const ref: DbProjectRef & { notionRowKey: string } = { type: 'project-ref', pk: projectRefPk(projectId), id: projectId, workspaceId: connection.workspaceId, notionRowKey: key };
+            if (!await store.create(ref)) {
+                const claimed = (await store.get<typeof ref>(ref.pk, ref.id))?.doc;
+                if (claimed?.type !== 'project-ref' || claimed.workspaceId !== connection.workspaceId || claimed.notionRowKey !== key) return false;
+            }
         }
         const now = new Date().toISOString();
         const project: DbProject = existing ? { ...existing.doc, ...fields, updatedAt: now } : { type: 'project', pk: workspacePk(connection.workspaceId),

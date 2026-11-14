@@ -12,13 +12,15 @@ import { beginNotionProjectsConnect } from '../src/lib/integrations/notion/proje
 import { finishNotionConnect, NotionSession } from '../src/lib/integrations/notion/connection';
 import { NotionClient, type JsonObject } from '../src/lib/integrations/notion/client';
 import { getNotionProjectsSettings, loadNotionProjectSchema, loadNotionProjectSources, saveNotionProjectMapping, stopNotionProjects } from '../src/lib/integrations/notion/projects/settings';
-import { makeNotionProjectManual, syncNotionProjects } from '../src/lib/integrations/notion/projects/sync';
+import { makeNotionProjectManual, notionProjectRowKey, syncNotionProjects } from '../src/lib/integrations/notion/projects/sync';
 import { notionProjectsConnectionId, notionProjectsGrantId, type NotionProjectsConnection, type NotionProjectRow } from '../src/lib/integrations/notion/projects/model';
 import type { NotionGrant } from '../src/lib/integrations/notion/model';
 import { projectFromNotionRow, validateProjectMapping } from '../src/lib/integrations/notion/projects/mapping';
 import { memberActor } from '../src/lib/review/actor';
 import { createProjectComment } from '../src/lib/review/comments';
 import { getCommentsStore } from '../src/lib/repo/commentsStore';
+import { createProject, findReviewProject } from '../src/lib/app/projects';
+import { sha256Hex } from '../src/lib/app/tokens';
 import { startNotionStub } from './support/notionStub';
 
 let stub: Awaited<ReturnType<typeof startNotionStub>>;
@@ -109,6 +111,33 @@ test('URL, text, multi-select and several columns converge; name/status edits an
     remote.properties.status.status.name = 'Open'; await f.sync(); expect((await f.projects())[0]!.status).toBe('active');
     expect((await getCommentsStore().get(comment.domain, comment.id))!.comment.thread.items[0]!.text).toBe('Keep this feedback');
     expect(stub.calls.filter(call => call.path !== '/v1/oauth/token').every(call => call.method === 'GET' || (call.method === 'POST' && (call.path === '/v1/search' || call.path.endsWith('/query'))))).toBe(true);
+});
+
+test('public row and workspace identifiers cannot derive a working project review code', async () => {
+    const f = await fixture(); const remote = row(f);
+    const rowKey = notionProjectRowKey(f.source.id, remote.id);
+    const publicGuess = (BigInt(`0x${sha256Hex(JSON.stringify([f.workspace.id, rowKey]))}`) % (36n ** 12n)).toString(36).padStart(12, '0');
+    await f.sync(); const project = (await f.projects())[0]!;
+    expect(project.id).toMatch(/^[a-z0-9]{12}$/);
+    expect(project.id).not.toBe(publicGuess);
+    expect(await findReviewProject(publicGuess)).toBeNull();
+    expect((await findReviewProject(project.id))?.id).toBe(project.id);
+    await f.sync();
+    expect(await f.projects()).toHaveLength(1);
+    expect((await f.projects())[0]!.id).toBe(project.id);
+});
+
+test('an existing row receipt retains its claimed project code when allocation changes', async () => {
+    const f = await fixture(); const remote = row(f, 'Updated name');
+    const project = await createProject(f.context, { name: 'Earlier name', urls: ['https://earlier.example'] });
+    const rowKey = notionProjectRowKey(f.source.id, remote.id);
+    await updateDoc<DbProject>(project.pk, project.id, value => ({ ...value,
+        automaticallyManaged: { provider: 'notion', connectionId: notionProjectsConnectionId, rowKey } }));
+    expect(await f.store.create<NotionProjectRow>({ type: 'notion-project-row', pk: f.workspace.pk, id: rowKey,
+        workspaceId: f.workspace.id, connectionId: notionProjectsConnectionId, dataSourceId: f.source.id, rowId: remote.id, projectId: project.id })).toBe(true);
+    await f.sync(); await f.sync();
+    expect(await f.projects()).toMatchObject([{ id: project.id, publicId: project.publicId, name: 'Updated name' }]);
+    expect((await findReviewProject(project.id))?.id).toBe(project.id);
 });
 
 test('manual override, deletion, transfer and missing or trashed rows never recreate or change projects', async () => {
