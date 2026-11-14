@@ -97,8 +97,11 @@ const attention = descending(page => [
 ]);
 const accessibility = descending(page => [accessibilityTotal(page.accessibility), page.accessibility?.critical ?? 0, page.accessibility?.serious ?? 0]);
 const seo = descending(page => [page.seo.warn]);
-/** Everything to look at: accessibility issues, SEO checks and Core Web Vitals over target; ties by attention */
-const issues = descending(page => [accessibilityTotal(page.accessibility) + page.seo.warn + vitalsOverTarget(page)]);
+/**
+ * Everything to look at, each once: accessibility issues and SEO checks to look at, which already count the Core Web
+ * Vitals over target (the toolbar's SEO summary includes them); ties by attention
+ */
+const issues = descending(page => [accessibilityTotal(page.accessibility) + page.seo.warn]);
 /** Vitals over target, then the furthest over (or nearest to) its target */
 const vitals = descending(page => [vitalsOverTarget(page),
     Math.max(-1, ...vitalNames.filter(name => page.vitals?.[name] !== undefined).map(name => page.vitals![name]! / vitalTargets[name].good))]);
