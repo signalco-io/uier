@@ -56,10 +56,18 @@ test('screenshots: capture automatically, stay out of the composer and expand fr
     await expect(draft.getByRole('button', { name: 'Attach screenshot' })).toHaveAttribute('aria-pressed', 'true');
     await expect(draft.getByRole('img')).toHaveCount(0);
     // Submit immediately: the form awaits the capture rather than racing it.
+    let releaseSave!: () => void;
+    const saveHeld = new Promise<void>(resolve => { releaseSave = resolve; });
+    const save = (url: URL) => /\/api\/(review\/[^/]+\/)?comments$/.test(url.pathname);
+    await page.route(save, async route => { if (route.request().method() === 'POST') await saveHeld; await route.continue(); });
     await draft.getByRole('button', { name: 'Post comment' }).click();
     const thread = page.getByRole('dialog', { name: 'Comment thread' });
+    // While it sends, the screenshot is already a placeholder of the thumbnail's size (uier #409)
+    await expect(page.getByRole('dialog', { name: 'Sending comment' }).locator('[data-image-placeholder]')).toBeVisible();
+    releaseSave();
     const thumbnail = thread.getByRole('button', { name: 'Screenshot of the commented part of the page' });
     await expect(thumbnail).toBeVisible();
+    await page.unroute(save);
     const saved = await savedComment(page, 'The headline says it well.');
     expect(saved.screenshot!.width).toBeGreaterThan(100);
     const box = await thumbnail.boundingBox();

@@ -64,6 +64,8 @@ function useSeen<T extends Element>() {
 export function CommentScreenshot({ comment, itemId }: { comment: CommentItem; itemId?: string }) {
     const item = itemId ? comment.thread.items.find(item => item.id === itemId) : undefined;
     const size = item && !item.deleted ? item.screenshot : itemId ? undefined : comment.screenshot;
+    // Still sending: there is nothing to fetch yet, so the placeholder shows until the saved message replaces it
+    const sending = Boolean(item && !item.deleted ? item.pending : comment.pending);
     const t = useMessages();
     const imageLimits = t.screenshot.limits;
     const label = itemId ? t.screenshot.replyImageAlt : t.screenshot.alt;
@@ -83,7 +85,7 @@ export function CommentScreenshot({ comment, itemId }: { comment: CommentItem; i
     const { data, isError } = useQuery({
         queryKey: itemId ? [...screenshotQueryKey(comment.id), 'reply', itemId] : [...screenshotQueryKey(comment.id), comment.screenshot?.revision ?? null],
         queryFn: () => getCommentScreenshot(comment.id, itemId),
-        enabled: Boolean(size) && seen,
+        enabled: Boolean(size) && seen && !sending,
         staleTime: Infinity,
         retry: 1
     });
@@ -181,8 +183,9 @@ export function CommentScreenshot({ comment, itemId }: { comment: CommentItem; i
             <div
                 ref={placeholderRef}
                 aria-hidden="true"
+                data-image-placeholder=""
                 className="mr-1 h-16 w-24 animate-pulse rounded-lg border bg-muted"
-                style={{ aspectRatio: `${size.width} / ${size.height}` }} />
+                style={size.width && size.height ? { aspectRatio: `${size.width} / ${size.height}` } : undefined} />
         )}
         {canReplace && (
             <Input type="file" accept="image/png,image/jpeg,image/webp" aria-label={t.screenshot.uploadInput} className="hidden"

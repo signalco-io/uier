@@ -51,6 +51,9 @@ Record screen and Upload recording are items of the same Attach menu; a recordin
 - Saved evidence can be uploaded or pasted, and redacted with opaque rectangles, using the shared API limits.
 - `CommentScreenshot` keeps the thumbnail alone. Upload image and Paste image are in its expanded view beside
   Redact screenshot (or beside "No screenshot").
+- A comment or reply that is still sending with a screenshot or image shows the thumbnail's placeholder
+  (`data-image-placeholder`, the thumbnail's fixed size) at once; the image is fetched once the saved message
+  replaces it ([uier #409](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_ZGmj2h7nGoa5E6mpHV0zU)).
 - Saved thumbnails expand in a popover in the shadow root. Redaction opens only from the expanded saved details;
   composers never preview images.
 - A replacement invalidates cached originals and updates every comment list.

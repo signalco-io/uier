@@ -175,7 +175,8 @@ assignee card, with Open in T3 Code or another desktop session link, at the top 
   use the same thumbnail/expanded dialog (`MessageImage`) as the first message, each through its authorized
   thread/reply image route. The thumbnail takes its final size from the saved width and height before the image
   arrives (at most 224 px high and the column's width), shows a pulsing `Skeleton` (`data-image-placeholder`, still with
-  reduced motion) until the image has loaded or failed, then fades the image in, so nothing jumps when it loads (uier #352). The thumbnail button keeps the name "Screenshot of the commented part of the page"
+  reduced motion) until the image has loaded or failed, then fades the image in, so nothing jumps when it loads (uier #352). A reply still sending shows only that placeholder, at the attached
+  image's size (`useAttachedImage` measures it), so its image does not pop in once it is saved ([uier #409](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_ZGmj2h7nGoa5E6mpHV0zU)). The thumbnail button keeps the name "Screenshot of the commented part of the page"
   (the toolbar's `screenshot.alt`); the image inside says only what it shows, "Commented part of the page"
   (`screenshot.imageAlt`), because screen readers already announce an image and the alt-text check flags "Screenshot of".
   `e2e/reply-images.spec.ts` covers picker, paste, retry, both surfaces, reload,

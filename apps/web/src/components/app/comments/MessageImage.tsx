@@ -16,7 +16,11 @@ const thumbnailMaxHeight = 224;
  * the saved width and height before the image arrives (no jump when it does), with a pulsing placeholder until it has
  * loaded, then the image fades in.
  */
-export function MessageImage({ image, reply = false }: { image: { url: string; width: number; height: number }; reply?: boolean }) {
+export function MessageImage({ image, reply = false, sending = false }: {
+    image: { url: string; width: number; height: number }; reply?: boolean;
+    /** A message still on its way: only the placeholder, at the final size, until the saved image replaces it (uier #409) */
+    sending?: boolean;
+}) {
     const { t } = useAppI18n();
     const [loaded, setLoaded] = useState(false);
     const imageRef = useRef<HTMLImageElement>(null);
@@ -29,13 +33,19 @@ export function MessageImage({ image, reply = false }: { image: { url: string; w
     // The button names the image; the image says what it shows, without "Screenshot of" (screen readers announce images)
     const label = reply ? t("Image attached to reply") : t("Screenshot of the commented part of the page");
     const alt = reply ? t("Image attached to reply") : t("Commented part of the page");
+    const box = sized ? { aspectRatio: `${image.width} / ${image.height}`, width: `${Math.min(image.width, Math.round(thumbnailMaxHeight * image.width / image.height))}px` } : undefined;
+    if (sending) {
+        return <span className="relative mt-1 block max-w-full self-start overflow-hidden rounded-lg border" style={box ?? { width: '6rem', height: '4rem' }}>
+            <Skeleton aria-hidden="true" data-image-placeholder="" className="absolute inset-0 rounded-none motion-reduce:animate-none" />
+        </span>;
+    }
     return <Dialog>
         <DialogTrigger render={<Button variant="ghost" className="mt-1 h-auto max-w-full self-start p-0" aria-label={label} />}>
             {sized ? (
                 // Its own width or what the height limit allows, narrowed to the column by `max-w-full` (a percentage
                 // width would collapse in the button, which takes its content's width)
                 <span className="relative block max-w-full overflow-hidden rounded-lg border"
-                    style={{ aspectRatio: `${image.width} / ${image.height}`, width: `${Math.min(image.width, Math.round(thumbnailMaxHeight * image.width / image.height))}px` }}>
+                    style={box}>
                     {!loaded && <Skeleton aria-hidden="true" data-image-placeholder="" className="absolute inset-0 rounded-none motion-reduce:animate-none" />}
                     <img ref={imageRef} src={image.url} width={image.width} height={image.height} alt={alt} loading="lazy"
                         onLoad={() => setLoaded(true)} onError={() => setLoaded(true)}

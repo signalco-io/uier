@@ -89,7 +89,9 @@ export function ReplyComposer({ projectId, userId, userName, comment, fieldRef, 
             try {
                 await drafts.run(key, async () => {
                     const sent: SentReply = { reply: { id: `pending-${sendId}`, author: { name: userName ?? t("You"), isMe: true }, text: input.text,
-                        mentions: input.mentions.map(({ start, end }) => ({ start, end })), createdAt: new Date().toISOString(), deleted: false, edited: false, canDelete: false, canFilterAuthor: false, pending: true },
+                        mentions: input.mentions.map(({ start, end }) => ({ start, end })), createdAt: new Date().toISOString(), deleted: false, edited: false, canDelete: false, canFilterAuthor: false, pending: true,
+                        // Its final size at once, as a placeholder until the saved image loads (uier #409)
+                        ...(sentImage ? { screenshot: { url: '', width: sentImage.size.width, height: sentImage.size.height } } : {}) },
                     previousReplyIds: comment.replies.map(item => item.id) };
                     update({ id: comment.id, ...sent });
                     unsend = onSend?.(sent);
