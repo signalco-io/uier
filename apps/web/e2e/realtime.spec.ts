@@ -275,7 +275,7 @@ test('background board reads preserve headers, focus and nodes through refresh, 
         expect((await post('New background comment')).status()).toBe(201);
         sockets.at(-1)!.send('{"type":"comments.changed"}');
         await expect(open.locator('[data-column-progress=true]')).toBeVisible();
-        await expect(page.getByRole('status').filter({ hasText: 'Loading comments' })).toHaveAttribute('aria-live', 'polite');
+        await expect(page.getByRole('status').filter({ hasText: 'Loading comments' })).toHaveCount(0);
         expect(await sort.boundingBox()).toEqual(before);
         await expect(search).toBeFocused();
         await page.emulateMedia({ reducedMotion: 'reduce' });

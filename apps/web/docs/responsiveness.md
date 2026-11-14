@@ -79,3 +79,7 @@ View changes and Back/Forward retain it. Changing selected labels invalidates pa
 signed cursors, including list cursors, so an old window cannot cross grouping scopes.
 
 Background reads reserve a progress slot in board column headers and announce one polite loading status; reduced motion stops the UI-kit spinner. See [idle snapshot checks](comments-inbox.md#idle-snapshot-checks).
+
+The project pager announces loading only when changing the shown scope or explicitly retrying.
+Same-scope background socket/action refreshes, including automatic read acknowledgements, leave
+the polite loading region empty while keeping the visual column indicators.

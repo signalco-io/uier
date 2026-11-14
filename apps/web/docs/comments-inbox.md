@@ -261,7 +261,8 @@ signals do not fetch; successful local writes reconcile even when the document i
 
 Each board column reserves a 16 px progress slot left of its actions, including expanded and
 collapsed archive columns. Whole-window reads mark every column busy; continuations mark only their
-lane. One persistent polite status announces Loading comments outside the busy tree. The UI-kit
+lane. One persistent polite status announces Loading comments for scope changes and explicit retries,
+outside the busy tree; same-scope background refreshes stay silent. The UI-kit
 spinner uses muted semantic tokens and stops rotating with reduced motion. Header geometry, mounted
 nodes, focus, failure/retry and data-only idle checks are guarded in `realtime.spec.ts`.
 
@@ -520,3 +521,7 @@ first loaded row. `thread-labels.spec.ts` covers switching/reloading both views 
 shared choice; `project-comment-pages.api.spec.ts` covers unselected labels and section paging.
 
 When project filters match no comments, the empty placeholder spans the same full content width as the filter and count rows (uier #382). It sets `w-(--page-wide)` with `page-wide`, so its own `w-full`, later in the CSS, does not keep it the column's width shifted left (uier #383).
+
+Successful board sort, Archive and Group by saves retain their confirmed values until an authorized
+snapshot reflects them. A late or failed data load cannot undo the saved choice when its action
+transition ends; failed saves still revert. See [optimistic updates](optimistic-status.md).

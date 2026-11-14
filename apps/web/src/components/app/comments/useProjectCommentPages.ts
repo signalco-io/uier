@@ -30,6 +30,8 @@ export function useProjectCommentPages(initial: Snapshot, query: CommentsQuery, 
     const desiredKey = projectCommentPageKey(query, sorts, archiveExpanded, workflow, `${initial.projectId}:${initial.userId}`, groupByLabel);
     const [data, setData] = useState(initial);
     const [loading, setLoading] = useState(false);
+    const [announcing, setAnnouncing] = useState(false);
+    const announceRetry = useRef(false);
     const [loadingLanes, setLoadingLanes] = useState<Set<CommentLane>>(new Set());
     const [error, setError] = useState<'budget' | 'unavailable'>();
     const [failedLanes, setFailedLanes] = useState<Set<CommentLane>>(new Set());
@@ -69,9 +71,10 @@ export function useProjectCommentPages(initial: Snapshot, query: CommentsQuery, 
         const useServer = serverMatches && serverUsed.current !== serverVersion && !refreshRequested;
         // The initial SSR window needs no duplicate HTTP request.
         if (serverMatches && initial.revision === state.current.revision && sameScope && !refreshRequested) {
-            controllers.current.delete(controller); setLoading(false); setError(undefined); return;
+            controllers.current.delete(controller); setLoading(false); setAnnouncing(false); setError(undefined); return;
         }
         setLoading(true); setError(undefined);
+        setAnnouncing(!sameScope || announceRetry.current); announceRetry.current = false;
         void (async () => {
             try {
                 // A fresh RSC first page suffices until a lane has more loaded. Restore all deeper
@@ -83,7 +86,7 @@ export function useProjectCommentPages(initial: Snapshot, query: CommentsQuery, 
             } catch (error) { if (!controller.signal.aborted) setError(error instanceof Error && error.message === '422' ? 'budget' : 'unavailable'); }
             finally {
                 controllers.current.delete(controller);
-                if (!controller.signal.aborted && version === generation.current) setLoading(false);
+                if (!controller.signal.aborted && version === generation.current) { setLoading(false); setAnnouncing(false); }
             }
         })();
         return () => { controller.abort(); controllers.current.delete(controller); };
@@ -113,5 +116,5 @@ export function useProjectCommentPages(initial: Snapshot, query: CommentsQuery, 
             if (version === generation.current) { busyLanes.current.delete(lane); setLoadingLanes(current => new Set([...current].filter(value => value !== lane))); }
         }
     };
-    return { refresh: () => setRetry(current => current + 1), data: data.projectId === initial.projectId && data.userId === initial.userId ? data : initial, loading: loading || !error && data.paging.key !== desiredKey, error, loadMore, loadingLanes, failedLanes, retry: () => setRetry(current => current + 1) };
+    return { announcing, refresh: () => setRetry(current => current + 1), data: data.projectId === initial.projectId && data.userId === initial.userId ? data : initial, loading: loading || !error && data.paging.key !== desiredKey, error, loadMore, loadingLanes, failedLanes, retry: () => { announceRetry.current = true; setRetry(current => current + 1); } };
 }
