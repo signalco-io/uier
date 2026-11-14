@@ -58,7 +58,13 @@ the separately bundled review toolbar owns its own query cache.
   gone; the tabs' line runs to the inset panel's edges, a divider between the header and the page (uier #237): a 1px
   line whose shadow `clip-path` keeps to its row, so it adds no sideways scrolling); the Comments label lines up with the
   page content and the tabs show no loading spinner (uier #272); its pages render the comments,
-  page checks, install guide or settings under it.
+  page checks, install guide or settings under it. The tabs' row sticks under the top bar while the page scrolls
+  ([uier #413](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_XruyWNqCAFUbbSnq7G-ux)):
+  it is the header's sibling (so its sticky range is the whole project page), `top-12` below lg (under the sticky bar)
+  and `top-0` in the panel's scroller from lg, with a background that runs to the panel's edges like the line. The
+  project layout sets `--project-tabs` (its 2.5rem height); what sticks below it clears it: the thread beside the
+  comments list (`CommentInbox`, its top, height and scroll margins), the rows' scroll margins, `VirtualCommentList`'s
+  reveal (`data-sticky-tabs`) and the settings' section links (`SettingsLayout`).
 - **Project loading** ([uier #344](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_iO2SPR02hm0K7M1qE9GlP)): the Comments and Page checks tabs load in skeletons shaped like the page and
   as wide as it will be, so neither the project header nor the content changes width when the page arrives. Each
   skeleton carries the loaded page's `data-page-width="wide"` and `data-header-wide`, which widen the shell's column

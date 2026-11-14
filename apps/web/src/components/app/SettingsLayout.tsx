@@ -25,8 +25,8 @@ export function SettingsLayout({ tabs, label, heading, children }: {
         <div className="flex flex-col gap-6 md:flex-row md:items-start md:gap-10">
             {heading && <h2 className="sr-only">{heading}</h2>}
             {/* Beside the section it stays in view: under the sticky top bar where the page scrolls (below lg), at the
-                top of the panel from lg */}
-            <LinkTabs tabs={tabs} label={label} variant="side" match="path" className="md:sticky md:top-18 md:w-44 md:shrink-0 lg:top-6" />
+                top of the panel from lg; on a project below its sticky tabs (`--project-tabs`, uier #413) */}
+            <LinkTabs tabs={tabs} label={label} variant="side" match="path" className="md:sticky md:top-[calc(4.5rem+var(--project-tabs,0px))] md:w-44 md:shrink-0 lg:top-[calc(1.5rem+var(--project-tabs,0px))]" />
             <div className="flex max-w-3xl min-w-0 flex-1 flex-col gap-6">
                 {children}
             </div>

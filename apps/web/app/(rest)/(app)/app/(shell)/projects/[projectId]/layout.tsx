@@ -40,10 +40,12 @@ async function ProjectLayoutContent({ children, params }: LayoutProps<'/app/proj
     return (
         // On the comments and page checks the header is as wide as what is under them (marked with data-header-wide):
         // the panel's width less the gutters, from the left, list and board alike (uier #363), so it stays put when the
-        // board scrolls. Other project pages keep the reading width.
-        <div className="group/project flex flex-col">
+        // board scrolls. Other project pages keep the reading width. The tabs are the header's sibling, not its child, so they
+        // can stick under the top bar while the whole page scrolls (uier #413); `--project-tabs` is their height, which what
+        // sticks below them (the thread beside the list, the settings' sections) clears.
+        <div className="group/project flex flex-col [--project-tabs:2.5rem]">
             <PageHeader
-                className="min-w-0 group-has-[[data-header-wide]]/project:page-wide"
+                className="min-w-0 pb-4 group-has-[[data-header-wide]]/project:page-wide"
                 media={<ProjectMark name={project.name} projectId={project.id} url={project.urls[0]} className="size-14 rounded-xl text-xl [&>img]:p-2.5" />}
                 title={project.name}
                 description={(
@@ -67,10 +69,9 @@ async function ProjectLayoutContent({ children, params }: LayoutProps<'/app/proj
                                 <span aria-hidden="true" className="size-1.5 rounded-full bg-[hsl(var(--brand-success))]" />{t("Done")}</Badge>
                         )}
                     </span>
-                )}>
-                <ProjectTabs projectId={project.id} install={!feedback} />
-            </PageHeader>
-            <div className="flex flex-col gap-6">
+                )} />
+            <ProjectTabs projectId={project.id} install={!feedback} />
+            <div className="flex flex-col gap-6 pt-6">
                 {children}
             </div>
         </div>
