@@ -12,6 +12,13 @@ are `/app/workspace/teams`, `/app/workspace/teams/[teamId]`, `/app/workspace/use
 revisions. See [teams and access](../../../docs/teams-and-access.md) for limits, history, erasure,
 Session-consistency limits, real preview Cosmos checks and rollback.
 
+- Direct project/review links resolve each live browser account independently, including its current
+  workspace membership and project/team grants. A destination's private comment and admin settings
+  checks also apply before that account becomes a choice. Exactly one choice selects its account and
+  workspace automatically; several choices use the existing picker. Resolution never combines accounts'
+  permissions or authorizes an API read with a parked credential. Missing and inaccessible resources
+  expose no account choices; access is rechecked by the switch POST and again by the destination.
+
 Workspace → People (`workspace/(tabs)/users/page.tsx`): the People and Invitations lists are one grid
 per card (`columnsGroup`, rows use `grid-cols-subgrid`), so the person, access and actions columns line
 up whichever actions a row has (your own row has no Remove). The grid starts at the card's `@2xl`

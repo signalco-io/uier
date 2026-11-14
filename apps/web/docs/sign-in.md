@@ -109,6 +109,14 @@ document navigation. Other app tabs recheck the active identity on focus, visibi
 pageshow and a browser-local change event. Account-scoped comment drafts remain separate.
 Reauthentication and coding-tool consent's Use another account retain the other accounts too.
 
+Direct project, comment, page-check and project-settings links use these same session semantics.
+When exactly one live browser account can open the destination, `/app/switch-project-account`
+continues automatically through the same-origin `open-project-link` POST, selects its workspace,
+and opens the original path and query in a fresh document. Several eligible accounts retain the
+picker; an already selected, authorized account continues normally. Prefetch and RSC reads never
+write session cookies. The POST rechecks current access, so a stale single-choice page can become
+the picker or the ordinary unavailable destination without selecting an unauthorized identity.
+
 Coverage: `account-sessions.api.spec.ts` tests isolation, cap, replacement, expiry, deletion,
 forgery, cross-site requests, cookie flags, proof age and API authorization. `account-switching.spec.ts`
 covers desktop/mobile menus, provider confirmation, cancellation, tab reconciliation and toolbar

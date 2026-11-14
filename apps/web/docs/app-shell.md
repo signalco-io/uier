@@ -267,4 +267,10 @@ for credential isolation and [account switching coverage](../e2e/account-switchi
 
 Project/workspace tabs, project lists and My work use the app language. Titles made from a project, client, workspace or person’s saved name remain unchanged. Request-specific translations run inside the Cache Components content boundary; the static loading shell can start in English before the app provider is available.
 
-Project links opened under the wrong account/workspace offer an explicit selection through `/app/switch-project-account`. Document preflight and RSC page reads share the project access checks; Proxy overwrites the internal original-link header to preserve the path and query. The selection page sits outside the sidebar shell.
+Project links opened under the wrong account/workspace resolve through `/app/switch-project-account`.
+A single authorized account/workspace opens automatically, with only the shared loading state;
+several eligible accounts show the existing picker outside the sidebar shell. Document preflight
+and RSC page reads share destination checks, including private comments and admin-only settings;
+Proxy overwrites the internal original-link header to preserve the path and query. Only a mounted
+navigation submits the same-origin switch POST, which rechecks access and opens a fresh document.
+Workspace and account routes without a resource identifier retain the current selection.

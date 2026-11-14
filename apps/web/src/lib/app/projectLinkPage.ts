@@ -11,7 +11,8 @@ export async function offerProjectLinkSwitch() {
 }
 
 export async function getVisibleProjectForPage(context: AppContext, projectId: string) {
+    // An account may see the project but not this private comment or admin settings section.
+    await offerProjectLinkSwitch();
     const project = await getVisibleProject(context, projectId);
-    if (!project) await offerProjectLinkSwitch();
     return project;
 }

@@ -22,6 +22,9 @@ import { ensureOwnWorkspace, getWorkspace } from '../src/lib/app/workspaces';
 import type { AppContext } from '../src/lib/app/context';
 import { PUBLIC_WORKSPACE_ID } from '../src/lib/comments/publicProjectPolicy';
 import { uniqueEmail } from './support/app';
+import { memberId, type DbMember } from '../src/lib/app/model';
+import { getMemoryCommentsStore } from '../src/lib/repo/memoryCommentsStore';
+import type { DbComment } from '../src/lib/db/schema';
 
 const origin = 'http://localhost:4104';
 const originalLocal = process.env.UIER_LOCAL;
@@ -316,7 +319,7 @@ test('project links offer only live signed-in accounts with access, including an
     const a = await account(jar, 'link-owner');
     const own = await loadAppContext(a.user);
     const project = await createProject(own!, { name: 'Private link target', urls: ['https://example.com'] });
-    const next = `/app/projects/${project.id}?comment=comment_test&view=board`;
+    const next = `/app/projects/${project.id}?view=board`;
     expect(await projectLinkAccounts(jar, next)).toEqual([]);
     const secondWorkspace = await createWorkspace(a.user, 'Another workspace');
     jar.values.set(cookieName(cookieNames.workspace), secondWorkspace.id);
@@ -326,7 +329,7 @@ test('project links offer only live signed-in accounts with access, including an
     const response = await proxy(new NextRequest(`${origin}${next}`, { headers: { cookie: jar.header() } }));
     expect(response.status).toBe(307);
     expect(new URL(response.headers.get('location')!).searchParams.get('next')).toBe(next);
-    const review = await proxy(new NextRequest(`${origin}/app/review/${project.id}?url=https%3A%2F%2Fexample.com&comment=comment_test`, { headers: { cookie: jar.header() } }));
+    const review = await proxy(new NextRequest(`${origin}/app/review/${project.id}?url=https%3A%2F%2Fexample.com`, { headers: { cookie: jar.header() } }));
     expect(new URL(review.headers.get('location')!).pathname).toBe('/app/switch-project-account');
     for (const invalid of ['/app/projects/missing00000', '//outside.example/app/projects/test', '/app/account', '/app/projects/new'])
         expect(await projectLinkAccounts(jar, invalid)).toEqual([]);
@@ -342,4 +345,117 @@ test('project links offer only live signed-in accounts with access, including an
         expect(denied.status).toBe(404);
         expect(denied.headers.get('location')).toBeNull();
     }
+});
+
+async function linkFixture() {
+    const jar = new Jar();
+    const owner = await account(jar, 'direct-link-owner');
+    const context = (await loadAppContext(owner.user))!;
+    const project = await createProject(context, { name: 'Private direct-link project', urls: ['https://example.com'] });
+    return { jar, owner, context, project, next: `/app/projects/${project.id}?view=board&from=link` };
+}
+
+async function addLinkMember(f: Awaited<ReturnType<typeof linkFixture>>, label: string, role: DbMember['role'] = 'commenter') {
+    const value = await account(f.jar, label);
+    await getAppStore().create<DbMember>({ ...f.context.member, id: memberId(value.user.id), userId: value.user.id, email: value.user.email, role });
+    return value;
+}
+
+test('direct links automatically select the only authorized account and workspace using the original session', async () => {
+    const f = await linkFixture();
+    const another = await createWorkspace(f.owner.user, 'Other workspace');
+    f.jar.values.set(cookieName(cookieNames.workspace), another.id);
+    for (const section of ['', '/page-checks', '/settings', '/settings/people']) {
+        await account(f.jar, `unrelated-${section.replaceAll('/', '-')}`);
+        const next = `/app/projects/${f.project.id}${section}?from=direct`;
+        const before = f.jar.header();
+        const preflight = await proxy(new NextRequest(`${origin}${next}`, { headers: { cookie: before } }));
+        expect(new URL(preflight.headers.get('location')!).searchParams.get('next')).toBe(next);
+        // Rendering and prefetching can discover the destination, but cannot select it.
+        expect(preflight.headers.get('set-cookie')).toBeNull();
+        const flight = await proxy(new NextRequest(`${origin}${next}`, { headers: { cookie: before, RSC: '1', 'Next-Router-Prefetch': '1' } }));
+        expect(flight.headers.get('set-cookie')).toBeNull();
+        const opened = await POST(request(f.jar, { action: 'open-project-link', next }));
+        expect(opened.status).toBe(200);
+        expect(await opened.json()).toEqual({ next });
+        f.jar.apply(opened);
+        expect(f.jar.get(primary())?.value).toBe(f.owner.token);
+        expect(f.jar.get(cookieName(cookieNames.workspace))?.value).toBe(f.project.workspaceId);
+        expect(readReviewSsoSession(f.jar.get(REVIEW_SSO_COOKIE_NAME)?.value)?.uid).toBe(f.owner.user.id);
+        expect((await appTicket(new Request(`${origin}/api/realtime/ticket?projectId=${f.project.id}`, { headers: { cookie: f.jar.header() } }))).status).toBe(200);
+    }
+});
+
+test('a workspace-only direct-link switch retains the account and another authorized account makes resolution ambiguous', async () => {
+    const f = await linkFixture();
+    const another = await createWorkspace(f.owner.user, 'Other workspace');
+    f.jar.values.set(cookieName(cookieNames.workspace), another.id);
+    const opened = await POST(request(f.jar, { action: 'open-project-link', next: f.next }));
+    f.jar.apply(opened);
+    expect(f.jar.get(primary())?.value).toBe(f.owner.token);
+    expect(f.jar.get(cookieName(cookieNames.workspace))?.value).toBe(f.project.workspaceId);
+    const second = await addLinkMember(f, 'also-authorized');
+    await account(f.jar, 'neither-authorized');
+    expect((await projectLinkAccounts(f.jar, f.next)).map(choice => choice.userId).sort()).toEqual([f.owner.user.id, second.user.id].sort());
+    const before = f.jar.header();
+    const ambiguous = await POST(request(f.jar, { action: 'open-project-link', next: f.next }));
+    expect(ambiguous.headers.get('set-cookie')).toBeNull();
+    expect(f.jar.header()).toBe(before);
+    const destination = await ambiguous.json() as { next: string };
+    expect(new URL(destination.next, origin).pathname).toBe('/app/switch-project-account');
+    // Existing explicit selection resolves the ambiguity; the selected live account then wins.
+    await switchBrowserAccount(f.jar, second.user.id);
+    f.jar.values.set(cookieName(cookieNames.workspace), f.project.workspaceId);
+    expect(await projectLinkAccounts(f.jar, f.next)).toEqual([]);
+});
+
+test('direct-link resolution checks admin settings and private comments for each account separately', async () => {
+    const f = await linkFixture();
+    const commenter = await addLinkMember(f, 'direct-commenter');
+    const next = `/app/projects/${f.project.id}/settings/people`;
+    expect(await projectLinkAccounts(f.jar, next)).toMatchObject([{ userId: f.owner.user.id }]);
+    const opened = await POST(request(f.jar, { action: 'open-project-link', next }));
+    f.jar.apply(opened);
+    expect(f.jar.get(primary())?.value).toBe(f.owner.token);
+    // Private comment authors can open their own thread. Other commenters cannot borrow
+    // project visibility or the parked author's identity for a normal API read.
+    const member = (await getAppStore().get<DbMember>(f.context.member.pk, f.context.member.id))!;
+    await getAppStore().replace({ ...member.doc, role: 'commenter' }, member.etag);
+    const now = new Date().toISOString();
+    const comment: DbComment = { id: 'comment_private_link', domain: `project:${f.project.id}`, projectId: f.project.id,
+        origin: 'https://example.com', path: '/', position: { type: 'page' }, private: true, authorId: `user:${f.owner.user.id}`,
+        createdAt: now, updatedAt: now, thread: { items: [{ id: 'first', text: 'Private destination', createdAt: now, authorId: `user:${f.owner.user.id}` }] } };
+    await getMemoryCommentsStore().create(comment);
+    await switchBrowserAccount(f.jar, commenter.user.id);
+    f.jar.values.set(cookieName(cookieNames.workspace), f.project.workspaceId);
+    for (const prefix of ['projects', 'review']) {
+        const next = `/app/${prefix}/${f.project.id}?comment=${comment.id}`;
+        expect(await projectLinkAccounts(f.jar, next)).toMatchObject([{ userId: f.owner.user.id }]);
+    }
+    expect(await projectLinkAccounts(f.jar, `/app/projects/${f.project.id}?comment=comment_missing`)).toEqual([]);
+    // Neither account has admin access now; being signed in to both cannot supply it.
+    expect(await projectLinkAccounts(f.jar, `/app/projects/${f.project.id}/settings/people`)).toEqual([]);
+});
+
+test('missing, inaccessible and newly revoked direct links reveal no choices and never change session state', async () => {
+    const f = await linkFixture();
+    await account(f.jar, 'no-link-access');
+    expect(await projectLinkAccounts(f.jar, f.next)).toHaveLength(1);
+    await getAppStore().delete(f.context.member.pk, f.context.member.id);
+    const before = f.jar.header();
+    for (const next of [f.next, '/app/projects/missing00000?view=board']) {
+        const response = await POST(request(f.jar, { action: 'open-project-link', next }));
+        expect(await response.json()).toEqual({ next });
+        expect(response.headers.get('set-cookie')).toBeNull();
+        expect(f.jar.header()).toBe(before);
+        const page = await proxy(new NextRequest(`${origin}${next}`, { headers: { cookie: f.jar.header() } }));
+        expect(page.status).toBe(404);
+        expect(page.headers.get('location')).toBeNull();
+        const chooser = await proxy(new NextRequest(`${origin}/app/switch-project-account?${new URLSearchParams({ next })}`, { headers: { cookie: f.jar.header() } }));
+        expect(chooser.status).toBe(404);
+        expect(chooser.headers.get('location')).toBeNull();
+    }
+    const crossSite = await POST(request(f.jar, { action: 'open-project-link', next: f.next }, { origin: 'https://outside.example', 'sec-fetch-site': 'cross-site' }));
+    expect(crossSite.status).toBe(403);
+    expect(crossSite.headers.get('set-cookie')).toBeNull();
 });
