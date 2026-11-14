@@ -1,5 +1,10 @@
 // App discussion and page-check source phrases. Translate wording, never saved member content.
 const messages = {
+    "Filter pages": "Filter pages",
+    "Most fixed": "Most fixed",
+    "Most issues": "Most issues",
+    "Most new issues": "Most new issues",
+    "Show": "Show",
     "This search is too large. Narrow the environment or author and try again.": "This search is too large. Narrow the environment or author and try again.",
     "Comments could not be refreshed. Your loaded comments are still shown.": "Comments could not be refreshed. Your loaded comments are still shown.",
     "More comments could not be loaded.": "More comments could not be loaded.",
@@ -415,7 +420,6 @@ const messages = {
     "Shorten selector": "Shorten selector",
     "Show all pages": "Show all pages",
     "Show full selector": "Show full selector",
-    "Show pages": "Show pages",
     "Show the page": "Show the page",
     "Show {value0} pages": "Show {value0} pages",
     "Sidebar": "Sidebar",
@@ -596,6 +600,7 @@ const messages = {
     "{value0}, environment and page": "{value0}, environment and page",
     "{value0}{value1} · Original source unavailable": "{value0}{value1} · Original source unavailable",
     "{value0}{value1}, clear filter": "{value0}{value1}, clear filter",
+    "{value0}{value1}, reset order": "{value0}{value1}, reset order",
     "{value} on this page, over the {target} target.": "{value} on this page, over the {target} target.",
     "{value} on this page, within the {target} target.": "{value} on this page, within the {target} target.",
     "Pages appear as members review the site with the toolbar. Extension reviews are not included yet.": "Pages appear as members review the site with the toolbar. Extension reviews are not included yet.",

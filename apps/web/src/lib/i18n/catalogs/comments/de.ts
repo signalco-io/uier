@@ -1,6 +1,11 @@
 import type en from './en';
 
 const messages: Record<keyof typeof en, string> = {
+    "Filter pages": "Seiten filtern",
+    "Most fixed": "Meiste behoben",
+    "Most issues": "Meiste Probleme",
+    "Most new issues": "Meiste neue Probleme",
+    "Show": "Anzeigen",
     "This search is too large. Narrow the environment or author and try again.": "Diese Suche ist zu groß. Grenze die Umgebung oder den Autor ein und versuche es erneut.",
     "Comments could not be refreshed. Your loaded comments are still shown.": "Kommentare konnten nicht aktualisiert werden. Bereits geladene Kommentare werden weiterhin angezeigt.",
     "More comments could not be loaded.": "Weitere Kommentare konnten nicht geladen werden.",
@@ -415,7 +420,6 @@ const messages: Record<keyof typeof en, string> = {
     "Shorten selector": "Selektor kürzen",
     "Show all pages": "Alle Seiten anzeigen",
     "Show full selector": "Vollständigen Selektor anzeigen",
-    "Show pages": "Seiten anzeigen",
     "Show the page": "Die Seite anzeigen",
     "Show {value0} pages": "{value0} Seiten anzeigen",
     "Sidebar": "Seitenleiste",
@@ -596,6 +600,7 @@ const messages: Record<keyof typeof en, string> = {
     "{value0}, environment and page": "{value0}, Umgebung und Seite",
     "{value0}{value1} · Original source unavailable": "{value0}{value1} · Ursprüngliche Quelle nicht verfügbar",
     "{value0}{value1}, clear filter": "{value0}{value1}, Filter entfernen",
+    "{value0}{value1}, reset order": "{value0}{value1}, Reihenfolge zurücksetzen",
     "{value} on this page, over the {target} target.": "{value} auf dieser Seite, über dem Zielwert {target}.",
     "{value} on this page, within the {target} target.": "{value} auf dieser Seite, im Zielbereich {target}.",
     "Pages appear as members review the site with the toolbar. Extension reviews are not included yet.": "Seiten erscheinen, sobald Mitglieder die Website mit der Toolbar prüfen. Reviews über die Erweiterung sind noch nicht enthalten.",

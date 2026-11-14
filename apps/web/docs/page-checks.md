@@ -69,21 +69,53 @@ pass); a transfer keeps it, since it is keyed by the project.
   or search results, using only checked pages from the same environment. Unchecked groupings stay text;
   unrelated checked pages are never added to the finding. The count describes the finding's pages.
   A page under a level shows the rest of its address; the whole address stays its link's name.
+- Each Across pages card's count has a mark beside it (`Finding`'s `kind`): the three warnings (shared titles, shared
+  descriptions, without a description) the amber triangle while they find pages ([uier #415](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1%2Fpage-checks&comment=comment_vAJSSLp3zTWc8g2E9AYAX))
+  and the green check at 0 ([uier #414](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1%2Fpage-checks&comment=comment_B-eIW8MK34hosRDVpZID_)); Not indexed, neither good nor bad, the muted info
+  the toolbar's SEO panel uses for a note. The mark is `aria-hidden`: the count's name ("5 pages") and the card's title say it.
 - **Pages**: a table from the `@3xl` container width (a card per page under it, like the site addresses
   table): the page (its address opens it in review in a new tab, with `projectReview`; an address no longer
   among the project's is text), its title (and environment when the project has several), axe-core's issues by
   impact, the SEO checks to look at and passed, Core Web Vitals against the panel's targets, when it was last
   checked and the change since the check before. Each result is an icon in BRAND.md's colours beside its words.
+- **Many pages** ([uier #418](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1%2Fpage-checks&comment=comment_l6jVAJQKJos_g98bWaPrw), `useVirtualRows.ts`): over 40 pages, the table and the cards render only the rows near the
+  screen (6 above and below), with space for the rest, following whatever scrolls the page (the window below lg, the
+  panel from lg) through a capture-phase scroll listener and the list's box. Each rendered row is measured and
+  remembered, so rows that leave keep their height and nothing on screen moves; columns have fixed shares
+  (`table-fixed`, a `colgroup`) so the rows that come and go never change their widths. The header row sticks under
+  the project's sticky tabs (`--project-tabs`, [app shell](app-shell.md); under the top bar where the window scrolls
+  below lg, at the panel's top from lg), one layer under them so their background covers it; its line is an inset shadow,
+  since a collapsed table leaves a border behind, and the kit's sideways-scrolling table container is made visible so
+  it does not hold the header. Keyboard: the row with focus stays rendered wherever the page scrolls, and so do its
+  neighbours up to the nearest row with something to focus (a review link or a measured vital) each way, so Tab and
+  Shift+Tab land on the next row even after the page scrolled away, and the browser brings it on screen
+  (`virtualParts` in `src/lib/pageChecks/virtualRows.ts`, pure, covered by the API spec). Assistive tech gets the full count
+  (`aria-rowcount` and `aria-rowindex` on the table, `aria-setsize` and `aria-posinset` on the cards). Find in page
+  sees only rendered rows, so Ctrl or Cmd+F renders the whole shown list (at most 200 pages) until the filter or order
+  changes it; the browser menu's Find does not, which is the tradeoff. A project with 40 pages or fewer renders them all.
+- **The change since the check before** (`ChangeResult`, [uier #416](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1%2Fpage-checks&comment=comment_BhfUdA2PZJBySoOaaj6CU)): each count that rose or fell on its own
+  line under the check's time, after a trend arrow: down in green (`--brand-success`) for fewer issues or SEO checks to
+  look at, up in amber (`--brand-warning`) for more, a muted dash for no change; a first check has none. The words
+  ("2 fewer issues") stay, so the arrows are `aria-hidden` and colour is never the only signal.
 - **Core Web Vitals' targets** (uier #220, `VitalResult`): each measured vital opens a popover on hover, on keyboard
   focus or on a tap or click, with its name, this page's value and its two states, the current one marked:
   within target (the toolbar SEO panel's good value or less) and over target (with the panel's warning).
   `vitalTargets` in `src/lib/pageChecks/model.ts` mirrors the toolbar's `webVitals.ts` and `en.ts`; there is no
   third level, so the view shows none. The popup keeps focus on its trigger; Escape closes it until focus leaves.
 - **Show** and **Order** sit in the Pages heading row, beside the list they change, not above Across pages
-  (uier #256).
+  (uier #256). On a phone (below `sm`) what is in effect takes its own line under the heading and the buttons.
+- They look like the comments' Filter and Group by ([uier #417](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1%2Fpage-checks&comment=comment_mR3--cXjK_XOLjCSS5M1u), [comment filters](comment-filters.md)): icon-only ghost
+  buttons with a tooltip that names them, Filter pages (`ListFilterIcon`) and Sort pages (`ArrowDownUpIcon`), each
+  opening a menu of radio items, every option with its icon (`filterIcons`, `orderIcons` in `PageChecksView.tsx`).
+  A filter or order other than the default shows as a chip left of them, "Show: Needs attention" or "Sort: Most fixed",
+  whose button clears it (named "Show: Needs attention, clear filter", "Sort: Most fixed, reset order").
 - **Order** (`?sort=`, `setUrlSearchParams`, no server request): Needs attention first by default (critical,
   then serious, then all accessibility issues, then SEO to look at, then Core Web Vitals over target),
-  Accessibility issues, SEO to look at, Last checked or Page. A column the order follows has `aria-sort`.
+  Most issues (worst offenders: accessibility issues and SEO to look at added up, each once: the SEO count already
+  holds the Core Web Vitals over target; ties by attention), Most fixed and Most new issues since the check before (`pageCheckChangeTotals`: accessibility issues and
+  SEO to look at that went or came, summed; a first check last; [uier #417](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1%2Fpage-checks&comment=comment_mR3--cXjK_XOLjCSS5M1u)), Accessibility issues, SEO to look at,
+  Core Web Vitals over target (then the furthest over its target), Last checked or Page. All from the summaries the
+  view already has. A column the order follows has `aria-sort`.
 - **Show** (`?show=`, uier #221, `filterPageChecks` in `insights.ts`): All pages by default, Needs attention
   (accessibility issues, SEO to look at or a Core Web Vital over target), each of those three alone, or Passes
   all checks (audit present, SEO results present, all three vitals measured, and no issues). Incomplete checks

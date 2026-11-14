@@ -13,7 +13,7 @@ import type { PageCheckInsights, SharedText } from '@/src/lib/pageChecks/insight
 import type { PageCheckRow } from '@/src/lib/pageChecks/model';
 import { pathTree, type PathNode } from '@/src/lib/pageChecks/pathTree';
 import { cn } from '@/src/lib/utils';
-import { PageLink, type PageEnvironment } from './PageCheckParts';
+import { noteIcon, PageLink, passIcon, warnIcon, type PageEnvironment } from './PageCheckParts';
 
 type Links = { projectId: string; environments: readonly PageEnvironment[]; checkedPages: readonly PageCheckRow[] };
 
@@ -27,10 +27,13 @@ const pageMatches = (page: PageCheckRow, query: string) =>
 
 /**
  * One finding across pages: a card with its count and what it means. Its pages are closed until asked
- * for (uier #219), then listed in a bounded scroll, with a search when there are many.
+ * for (uier #219), then listed in a bounded scroll, with a search when there are many. A warning's count
+ * has the amber triangle (uier #415), or the green check when it has none (uier #414); a note (pages not
+ * indexed: neither good nor bad) the muted info, the toolbar SEO panel's mark for a note.
  */
-function Finding({ id, title, description, count, empty, children }: {
+function Finding({ id, kind, title, description, count, empty, children }: {
     id: string;
+    kind: 'warning' | 'note';
     title: string;
     description: string;
     count: number;
@@ -41,6 +44,8 @@ function Finding({ id, title, description, count, empty, children }: {
     const { t, language } = useAppI18n();
     const [open, setOpen] = useState(false);
     const [search, setSearch] = useState('');
+    const mark = kind === 'note' ? noteIcon : count ? warnIcon : passIcon;
+    const Icon = mark.icon;
     return (
         <Card size="sm" role="region" aria-labelledby={`${id}-title`} data-page-checks-finding={id}>
             <CardHeader>
@@ -49,7 +54,8 @@ function Finding({ id, title, description, count, empty, children }: {
                 </CardTitle>
                 <CardDescription>{description}</CardDescription>
                 <CardAction>
-                    <Badge variant="outline" className="font-mono tabular-nums">
+                    <Badge variant="outline" className="font-mono tabular-nums" data-finding-mark={kind === 'note' ? 'note' : count ? 'warning' : 'pass'}>
+                        <Icon data-icon="inline-start" aria-hidden="true" className={mark.stroke} />
                         <span aria-hidden="true">{count}</span><span className="sr-only">{count === 1 ? t('1 page') : t('{count} pages', { count })}</span>
                     </Badge>
                 </CardAction>
@@ -157,19 +163,19 @@ export function AcrossPages({ insights, ...links }: Links & { insights: PageChec
         <section aria-labelledby="across-pages-title" className="flex flex-col gap-3">
             <h2 id="across-pages-title" className="m-0 text-base font-semibold tracking-[-0.01em]">{t("Across pages")}</h2>
             <div className="grid items-start gap-4 md:grid-cols-2">
-                <Finding id="shared-titles" title={t("Shared titles")} count={pagesIn(insights.sharedTitles)}
+                <Finding id="shared-titles" kind="warning" title={t("Shared titles")} count={pagesIn(insights.sharedTitles)}
                     description={t("Indexable pages of one site address with the same title.")} empty={t("No pages share a title.")}>
                     {query => <SharedList groups={insights.sharedTitles} links={links} query={query} />}
                 </Finding>
-                <Finding id="shared-descriptions" title={t("Shared descriptions")} count={pagesIn(insights.sharedDescriptions)}
+                <Finding id="shared-descriptions" kind="warning" title={t("Shared descriptions")} count={pagesIn(insights.sharedDescriptions)}
                     description={t("Indexable pages of one site address with the same meta description.")} empty={t("No pages share a description.")}>
                     {query => <SharedList groups={insights.sharedDescriptions} links={links} query={query} />}
                 </Finding>
-                <Finding id="without-description" title={t("Without a description")} count={insights.withoutDescription.length}
+                <Finding id="without-description" kind="warning" title={t("Without a description")} count={insights.withoutDescription.length}
                     description={t("Indexable pages with no meta description.")} empty={t("Every indexable page has one.")}>
                     {query => <PageList pages={insights.withoutDescription} label={t("Pages without a description")} links={links} query={query} />}
                 </Finding>
-                <Finding id="not-indexed" title={t("Not indexed")} count={insights.noindex.length}
+                <Finding id="not-indexed" kind="note" title={t("Not indexed")} count={insights.noindex.length}
                     description={t("Pages that ask search engines not to index them.")} empty={t("No page asks not to be indexed.")}>
                     {query => <PageList pages={insights.noindex} label={t("Pages not indexed")} links={links} query={query} />}
                 </Finding>

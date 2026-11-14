@@ -15,8 +15,9 @@ import { POST, OPTIONS } from '../app/api/review/[projectId]/page-checks/route';
 import { listPageChecks, pageCheckId, savePageCheck } from '../src/lib/pageChecks/store';
 import { PAGE_CHECKS_PER_MEMBER_PER_HOUR, PAGE_CHECKS_PER_PROJECT_PER_DAY, projectPageChecksLimit } from '../src/lib/pageChecks/limits';
 import { PAGE_CHECKS_MAX_PAGES, PAGE_CHECKS_TTL_SECONDS, pageChecksPk, pageCheckRow, type PageCheckRow } from '../src/lib/pageChecks/model';
-import { filterPageChecks, isPageCheckFilter, pageCheckChange, pageCheckFilters, pageCheckInsights, sortPageChecks } from '../src/lib/pageChecks/insights';
+import { filterPageChecks, isPageCheckFilter, pageCheckChange, pageCheckChangeTotals, pageCheckFilters, pageCheckInsights, sortPageChecks } from '../src/lib/pageChecks/insights';
 import { pathTree, type PathNode } from '../src/lib/pageChecks/pathTree';
+import { virtualParts, type VirtualPart } from '../src/lib/pageChecks/virtualRows';
 
 // `POST /api/review/<code>/page-checks` and the store behind the app's Page checks view
 // (apps/web/docs/page-checks.md): members only, strict validation, the latest summary per page with
@@ -264,9 +265,55 @@ test('across pages: shared titles and descriptions per site address, pages witho
         .toEqual(['/b', '/a', '/c', '/d', 'staging:/a', '/hidden']);
     expect(sortPageChecks(pages, 'checked')[0]!.path).toBe('/c');
     expect(sortPageChecks(pages, 'seo').map(page => page.path).slice(0, 2)).toEqual(['/a', '/c']);
+    // Most issues of any kind, ties by attention (uier #417); Core Web Vitals over target first
+    expect(sortPageChecks(pages, 'issues').map(page => `${page.origin === site ? '' : 'staging:'}${page.path}`))
+        .toEqual(['/a', '/c', '/b', '/d', 'staging:/a', '/hidden']);
+    expect(sortPageChecks(pages, 'vitals')[0]!.path).toBe('/d');
+    // Vitals over target are already among the SEO checks to look at: counted once, not again
+    const slow = row('/slow', { seo: { warn: 2, pass: 3 }, vitals: { lcp: 4000, cls: 0.5 } });
+    const plain = row('/plain', { seo: { warn: 3, pass: 2 } });
+    expect(sortPageChecks([slow, plain], 'issues').map(page => page.path)).toEqual(['/plain', '/slow']);
+    // Most fixed and most new since the check before; a first check last
+    const before = '2026-10-01T00:00:00.000Z';
+    const none = { critical: 0, serious: 0, moderate: 0, minor: 0 };
+    const changed = [
+        row('/up', { seo: { warn: 3, pass: 1 }, previous: { seo: { warn: 1, pass: 3 }, checkedAt: before } }),
+        row('/down', { accessibility: { ...none, serious: 1 }, seo: { warn: 0, pass: 4 }, previous: { accessibility: { ...none, serious: 4 }, seo: { warn: 1, pass: 3 }, checkedAt: before } }),
+        row('/mixed', { accessibility: { ...none, moderate: 2 }, seo: { warn: 1, pass: 3 }, previous: { accessibility: none, seo: { warn: 3, pass: 1 }, checkedAt: before } }),
+        row('/same', { previous: { seo: { warn: 0, pass: 5 }, checkedAt: before } }),
+        row('/first')
+    ];
+    expect(pageCheckChangeTotals(changed[2]!)).toEqual({ fewer: 2, more: 2 });
+    expect(pageCheckChangeTotals(changed[4]!)).toBeUndefined();
+    expect(sortPageChecks(changed, 'fixed').map(page => page.path)).toEqual(['/down', '/mixed', '/same', '/up', '/first']);
+    expect(sortPageChecks(changed, 'new').map(page => page.path)).toEqual(['/up', '/mixed', '/same', '/down', '/first']);
     // The view never receives the check states
     const full = { ...pages[0]!, checks: { 'seo:title': 'pass' as const } };
     expect(pageCheckRow(full)).not.toHaveProperty('checks');
+});
+
+test('the virtual list keeps the focused row and its neighbours, and its height, wherever the page scrolls (uier #418)', () => {
+    const items = Array.from({ length: 120 }, (_, index) => ({ id: `p${index}` }));
+    const rows = (parts: VirtualPart<{ id: string }>[]) => parts.flatMap(part => part.kind === 'row' ? [part.index] : []);
+    const height = (parts: VirtualPart<{ id: string }>[], gap = 0) =>
+        parts.reduce((total, part) => total + (part.kind === 'row' ? 100 : part.height), 0) + (parts.length - 1) * gap;
+    const base = { virtual: true, sizes: new Map<string, number>(), estimate: 100 };
+    // Short or not virtual: every row
+    expect(rows(virtualParts(items, { ...base, virtual: false, viewport: { top: 0, height: 900 } }))).toHaveLength(120);
+    // Scrolled to page 100 with focus still on the first page: it and the next one stay, so Tab lands on page 2
+    const scrolled = virtualParts(items, { ...base, viewport: { top: 10_000, height: 900 }, focusedId: 'p0' });
+    expect(rows(scrolled)).toEqual([0, 1, ...Array.from({ length: 21 }, (_, index) => 94 + index)]);
+    expect(height(scrolled)).toBe(12_000);
+    // A neighbour with nothing to focus is passed over to the next one that has, on both sides
+    const passed = virtualParts(items, { ...base, viewport: { top: 10_000, height: 900 }, focusedId: 'p50',
+        focusable: item => !['p49', 'p48', 'p51'].includes(item.id) });
+    expect(rows(passed).filter(index => index < 90)).toEqual([47, 48, 49, 50, 51, 52]);
+    // With measured rows and a gap between them (the cards), the list keeps its whole height
+    const sizes = new Map(items.slice(0, 30).map((item, index) => [item.id, 150 + index]));
+    const cards = virtualParts(items, { ...base, sizes, gap: 12, viewport: { top: 5000, height: 800 }, focusedId: 'p3' });
+    const measured = (parts: VirtualPart<{ id: string }>[]) => parts.reduce((total, part) =>
+        total + (part.kind === 'row' ? sizes.get(part.item.id) ?? 100 : part.height), 0) + (parts.length - 1) * 12;
+    expect(measured(cards)).toBe([...sizes.values()].reduce((a, b) => a + b, 0) + 90 * 100 + 119 * 12);
 });
 
 test('across pages: addresses as a hierarchy of path segments, a query under its path, empty single levels merged (uier #219)', async () => {
