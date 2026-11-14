@@ -147,14 +147,14 @@ the separately bundled review toolbar owns its own query cache.
   (up to three; the sidebar takes part of a window). A card is one header: the favicon, the name (a link over the whole
   card) and on its line two quiet icon buttons, Open review (`ReviewLinksMenu` with `compact`: a tooltip, named
   "Open review for <project>", a menu when the project has several addresses) and More actions for admins; under the
-  name one meta line with the client, who can comment and, at the line's right end, the open count inside a comment
-  bubble (`CommentCountBubble`: drawn like `MessageSquareIcon` in the text colour, widening for two and three digits,
-  named "11 open comments" for screen readers; uier #167), shown only while something is open (uier #169). No footer and no text button. The page renders both the active and the done list (and
+  name one meta line with the client, who can comment and, at the line's right end, the open count after uier's own
+  comment icon (`CommentCount`: the pin, `<Mark />` at the 16px of the other meta icons in the text colour,
+  named "11 open comments" for screen readers; uier #167, [uier #424](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects&comment=comment_H123NTb75m07tg3DdnMo0)), shown only while something is open (uier #169). No footer and no text button. The page renders both the active and the done list (and
   each one's empty state), and `ProjectStatusTabs` (`projects/ProjectStatusTabs.tsx`) shows the one `?status=`
   names. Active and Done are `LinkTabs` with `query`: a click writes the address with `setUrlSearchParams`
   (`push`), so the other list shows at once with no server request;
   Back, Forward and reload keep the tab, and opening a tab in a new window loads its href. Open counts come
-  from `loadProjectUsage` for every listed project. `ClientFilter` still navigates (server filter) and keeps
+  from `loadProjectUsage` for every listed project. `ClientFilter` sits at the right end of the tabs' row ([uier #423](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects&comment=comment_UgreCvXX844P085P2y67j)) and still navigates (server filter) and keeps
   the status from the current address. Its menu and trigger show each client's `ClientMark` beside the name; All
   clients and No client get an empty dashed tile of the same size so the names line up.
 - The project's Open review (in the top bar) is a menu with Review and Visit site for every address; the header does not

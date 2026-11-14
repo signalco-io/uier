@@ -22,7 +22,7 @@ import { ProjectMark } from '@/src/components/app/projects/ProjectMark';
 import { ClientMark } from '@/src/components/app/clients/ClientMark';
 import { ClientFilter } from '@/src/components/app/projects/ClientFilter';
 import { ProjectStatusPanel, ProjectStatusTabs } from '@/src/components/app/projects/ProjectStatusTabs';
-import { CommentCountBubble } from '@/src/components/app/projects/CommentCountBubble';
+import { CommentCount } from '@/src/components/app/projects/CommentCount';
 import { ReviewLinksMenu } from '@/src/components/app/projects/ReviewLinksMenu';
 import { AccessIcon, projectAccessLabels } from '@/src/components/app/projects/projectLabels';
 
@@ -112,8 +112,8 @@ async function ProjectsPageContent({ searchParams }: PageProps<'/app/projects'>)
                                                 <AccessIcon access={project.access} className="size-4 shrink-0" aria-hidden="true" />
                                                 <span className="truncate">{t(access.label)}</span>
                                             </span>
-                                            {/* The number inside a comment bubble at the line's right end, so it never wraps on its own; none open shows no bubble */}
-                                            {open > 0 && <CommentCountBubble count={open} className="ml-auto" />}
+                                            {/* uier's pin and the number at the line's right end, so it never wraps on its own; none open shows nothing */}
+                                            {open > 0 && <CommentCount count={open} className="ml-auto" />}
                                         </CardDescription>
                                     </CardHeader>
                                 </Card>
