@@ -114,8 +114,8 @@ type Links = { projectId: string; environments: PageEnvironment[] };
 
 /**
  * The pages as a table, from the `@3xl` width of the list (uier #418): only the rows near the screen render
- * (`useVirtualRows`), under a header that sticks below the top bar (the window scrolls below lg) or at the top of
- * the panel (from lg). The columns have fixed shares (`table-fixed`), so the rows that come and go never move them.
+ * (`useVirtualRows`), under a header that sticks below the project's sticky tabs (`--project-tabs`, under the top
+ * bar where the window scrolls below lg; at the panel's top from lg), one layer under them (`z-[9]`). The columns have fixed shares (`table-fixed`), so the rows that come and go never move them.
  */
 function PageTable({ pages, ariaSort, links }: { pages: PageCheckRow[]; ariaSort: (column: string) => 'ascending' | 'descending' | undefined; links: Links }) {
     const { t } = useAppI18n();
@@ -132,7 +132,7 @@ function PageTable({ pages, ariaSort, links }: { pages: PageCheckRow[]; ariaSort
                     <col className="w-[20%]" />
                 </colgroup>
                 {/* Its line is a shadow: a collapsed table's border stays behind when the header sticks */}
-                <TableHeader className="sticky top-12 z-10 lg:top-0 [&_th]:bg-background [&_th]:shadow-[inset_0_-1px_0_hsl(var(--border))] [&_th:first-child]:rounded-tl-[11px] [&_th:last-child]:rounded-tr-[11px] [&_tr]:border-b-0">
+                <TableHeader className="sticky top-[calc(3rem+var(--project-tabs,0px))] z-[9] lg:top-[var(--project-tabs,0px)] [&_th]:bg-background [&_th]:shadow-[inset_0_-1px_0_hsl(var(--border))] [&_th:first-child]:rounded-tl-[11px] [&_th:last-child]:rounded-tr-[11px] [&_tr]:border-b-0">
                     <TableRow aria-rowindex={virtual ? 1 : undefined} className="hover:bg-transparent">
                         <TableHead scope="col" aria-sort={ariaSort('page')} className="pl-4">{t("Page")}</TableHead>
                         <TableHead scope="col" aria-sort={ariaSort('accessibility')}>{t("Accessibility")}</TableHead>

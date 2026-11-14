@@ -83,7 +83,8 @@ pass); a transfer keeps it, since it is keyed by the project.
   panel from lg) through a capture-phase scroll listener and the list's box. Each rendered row is measured and
   remembered, so rows that leave keep their height and nothing on screen moves; columns have fixed shares
   (`table-fixed`, a `colgroup`) so the rows that come and go never change their widths. The header row sticks under
-  the top bar (`top-12`, the window scrolls below lg) or at the panel's top (from lg); its line is an inset shadow,
+  the project's sticky tabs (`--project-tabs`, [app shell](app-shell.md); under the top bar where the window scrolls
+  below lg, at the panel's top from lg), one layer under them so their background covers it; its line is an inset shadow,
   since a collapsed table leaves a border behind, and the kit's sideways-scrolling table container is made visible so
   it does not hold the header. Keyboard: the row with focus stays rendered wherever the page scrolls, and Tab reaches
   every row (the browser scrolls the focused row on screen, which renders the next). Assistive tech gets the full count
