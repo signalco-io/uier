@@ -108,7 +108,13 @@ type ProjectCommentsProps = {
 };
 
 /** The project's comments in a list (a status tab) or on a board (a column per status), filtered by people and page. */
-export function ProjectComments({ labels = [], workflow = defaultStatusWorkflow, projectId, revision, access, isAdmin, comments: savedComments, query: serverQuery, userId, assignees, installHref, environments, authorFilter, boardSorts: savedSorts, boardArchiveExpanded: savedArchiveExpanded = false, boardGroupByLabel = false, boardGroupLabelIds, canSortBoard, initialView, paging: savedPaging, openedComment: savedOpenedComment }: ProjectCommentsProps) {
+export function ProjectComments(props: ProjectCommentsProps) {
+    const [fresh, setFresh] = useState<{ source: ProjectCommentsProps; snapshot: Partial<ProjectCommentsProps> }>();
+    return <ProjectCommentsView {...props} {...(fresh?.source === props ? fresh.snapshot : {})}
+        onSnapshot={snapshot => setFresh({ source: props, snapshot })} />;
+}
+
+function ProjectCommentsView({ labels = [], workflow = defaultStatusWorkflow, projectId, revision, access, isAdmin, comments: savedComments, query: serverQuery, userId, assignees, installHref, environments, authorFilter, boardSorts: savedSorts, boardArchiveExpanded: savedArchiveExpanded = false, boardGroupByLabel = false, boardGroupLabelIds, canSortBoard, initialView, paging: savedPaging, openedComment: savedOpenedComment, onSnapshot }: ProjectCommentsProps & { onSnapshot: (snapshot: Partial<ProjectCommentsProps>) => void }) {
     const { t } = useAppI18n();
     // The presentation filters and the open thread change with the address at once, even while a
     // change waits for the server (`useUrlSearchParams`)
@@ -174,7 +180,7 @@ export function ProjectComments({ labels = [], workflow = defaultStatusWorkflow,
     const groupIds = selectedGroupLabels({ boardGroupByLabel, boardGroupLabelIds }, labels);
     const groupedLabels = labels.filter(label => groupIds && groupIds.includes(label.id));
     const pager = useProjectCommentPages({ projectId, userId, comments: savedComments, revision, paging: savedPaging, openedComment: savedOpenedComment },
-        { ...query, q: urlQuery.q }, boardSorts, archiveExpanded, workflow, openComment.openId, groupIds);
+        { ...query, q: urlQuery.q }, boardSorts, archiveExpanded, workflow, openComment.openId, groupIds, onSnapshot);
     const [optimisticComments, updateComment] = useOptimisticCommentUpdates(pager.data.comments,
         JSON.stringify([projectId, userId, query.environment, query.author]));
     // Priority first (Urgent to Low), then number, highest first: the list, selection and keyboard follow this
@@ -314,7 +320,8 @@ export function ProjectComments({ labels = [], workflow = defaultStatusWorkflow,
     const selectionScope = JSON.stringify([projectId, userId, query.environment, query.author, query.unread, query.people, query.page, query.status, query.q, query.priority, query.label, query.view]);
     return (
         <CommentUpdatesProvider value={updateComment}>
-        <RealtimeComments projectId={projectId} revision={revision} environment={serverQuery.environment} author={serverQuery.author} />
+        <RealtimeComments projectId={projectId} revision={pager.data.revision} pending={pager.loading} onRefresh={pager.refresh} environment={serverQuery.environment} author={serverQuery.author} />
+        <span role="status" aria-live="polite" className="sr-only">{pager.loading || pager.loadingLanes.size > 0 ? t("Loading comments") : ''}</span>
         <CommentsSearchNavigationProvider value={commitSearch}>
         {/* The filter rows, the count line and the comments share one spacing: the gap between search and the status tabs.
             The header (search, Filter, the view toggle, the status tabs) is as wide as what is under it, the panel's width

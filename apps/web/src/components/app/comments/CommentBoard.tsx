@@ -17,7 +17,6 @@ import type { ProjectCommentView } from '../../../lib/app/projectComments';
 import { Button } from '@/src/components/ui/button';
 import { Sheet, SheetContent, SheetTitle } from '@/src/components/ui/sheet';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/src/components/ui/tooltip';
-import { Spinner } from '@/src/components/ui/spinner';
 import type { AssigneeOption } from './CommentCard';
 import { CommentRow, commentRowId, BoardRowScope } from './CommentRow';
 import { commentStatus, commentStatuses, GlowingStateDot, StateMenu, type CommentStatus } from './CommentStatus';
@@ -33,6 +32,7 @@ import { isShortcutTarget, useShortcutsEnabled } from '../keyboard/keys';
 import { HoldTouchSensor } from './holdTouchSensor';
 import { longPressDelay, pressTolerance } from './TriageSelection';
 import { VirtualCommentList, revealVirtualComment, type CommentPageControl, type CommentListPosition } from './VirtualCommentList';
+import { Spinner } from '@/src/components/ui/spinner';
 import { PagedCommentCard } from './PagedCommentCard';
 
 /** The board's columns: every status, in order (`commentStatuses`); drag and drop and Move follow this list */
@@ -212,6 +212,13 @@ function BoardCard({ project, comment, href, opened, moving, tabbable, onOpen, o
     );
 }
 
+/** Always reserves the icon's space, including while the lane is idle. */
+function ColumnProgress({ loading }: { loading?: boolean }) {
+    return <span aria-hidden="true" data-column-progress={Boolean(loading)} className="ml-auto flex size-4 shrink-0 items-center text-muted-foreground">
+        {loading && <Spinner className="motion-reduce:animate-none" />}
+    </span>;
+}
+
 type ColumnState = 'idle' | 'home' | 'target' | 'over' | 'refused';
 
 /**
@@ -219,12 +226,13 @@ type ColumnState = 'idle' | 'home' | 'target' | 'over' | 'refused';
  * one under it is highlighted, and the others are dimmed and refuse it. Its header ends with the column's
  * sort for the people who may change it (`onSort`).
  */
-function BoardColumn({ status, definition, columnIds, count, state, sort, onSort, archiveAll, children }: {
+function BoardColumn({ loading, status, definition, columnIds, count, state, sort, onSort, archiveAll, children }: {
     status: CommentStatus;
     definition: WorkflowStatus;
     columnIds: string[];
     count: number;
     state: ColumnState;
+    loading?: boolean;
     sort: BoardSort;
     onSort?: (status: BoardColumnKey, sort: BoardSort) => void;
     /** Archive all (uier #357), for the people who may triage */
@@ -248,9 +256,10 @@ function BoardColumn({ status, definition, columnIds, count, state, sort, onSort
                     <span className="truncate" title={definition.description || definition.label}>{workflowStatusLabel(definition, t)}</span>
                     <span className="font-normal tabular-nums text-muted-foreground">{count}</span>
                 </h3>
+                <ColumnProgress loading={loading} />
                 {/* Archive all, left of the sort, while a Done column has cards (uier #357, #370) */}
                 {archivable && archiveAll && <ArchiveAllButton scope={archiveAll} lane={definition.id} label={workflowStatusLabel(definition, t)} count={count} />}
-                {onSort && <BoardSortMenu label={workflowStatusLabel(definition, t)} status={status} sort={sort} onChange={next => onSort(status, next)} className={archivable ? 'ml-0' : undefined} />}
+                {onSort && <BoardSortMenu label={workflowStatusLabel(definition, t)} status={status} sort={sort} onChange={next => onSort(status, next)} className="ml-0" />}
             </div>
             {children}
         </section>
@@ -264,8 +273,9 @@ function BoardColumn({ status, definition, columnIds, count, state, sort, onSort
  * it again. The choice is the project's, like the columns' sorts (`onExpandedChange`). It is not a drop target and
  * its cards don't move: Restore comment in the thread returns one to its status. While a card is dragged it is dimmed.
  */
-function ArchiveColumn({ label = 'Archive', count, sort, onSort, expanded, dimmed, onExpandedChange, children }: {
+function ArchiveColumn({ loading, label = 'Archive', count, sort, onSort, expanded, dimmed, onExpandedChange, children }: {
     label?: string;
+    loading?: boolean;
     count: number;
     sort: BoardSort;
     onSort?: (status: BoardColumnKey, sort: BoardSort) => void;
@@ -321,7 +331,8 @@ function ArchiveColumn({ label = 'Archive', count, sort, onSort, expanded, dimme
                             {label}
                             <span className="font-normal tabular-nums text-muted-foreground">{count}</span>
                         </h3>
-                        {onSort && <BoardSortMenu label={label} status="archive" sort={sort} onChange={next => onSort('archive', next)} className="mr-0" />}
+                        <ColumnProgress loading={loading} />
+                        {onSort && <BoardSortMenu label={label} status="archive" sort={sort} onChange={next => onSort('archive', next)} className="ml-0 mr-0" />}
                         <Tooltip>
                             <TooltipTrigger render={(
                                 // Takes no more height than the column's name; 44 px to tap on a touch screen
@@ -343,6 +354,7 @@ function ArchiveColumn({ label = 'Archive', count, sort, onSort, expanded, dimme
                     <span className="flex items-center gap-2 md:[writing-mode:vertical-rl]">
                         <ArchiveIcon className="opacity-60 transition-opacity duration-150 group-hover/archive:opacity-100 group-focus-visible/archive:opacity-100 motion-reduce:transition-none md:rotate-90" />
                         <span>{label}</span>{' '}
+                        <ColumnProgress loading={loading} />
                         <span className="font-normal tabular-nums text-muted-foreground">{count}</span>
                     </span>
                 </Button>
@@ -625,7 +637,7 @@ export function CommentBoard({ projectOf, columns: categoryColumns, workflow, ve
                         const slot = <li key="placeholder" aria-hidden="true" data-drop-placeholder="" style={{ height: drag?.height }}
                             className="rounded-lg border border-dashed border-foreground/30 bg-background/60" />;
                         return (
-                            <BoardColumn key={status} status={categoryOf(status)} definition={definition(status)} columnIds={statuses} count={paging?.[status]?.total ?? cards.length} state={state} sort={sorts[categoryOf(status)]} onSort={onSort} archiveAll={archiveAll}>
+                            <BoardColumn loading={paging?.[status]?.loading} key={status} status={categoryOf(status)} definition={definition(status)} columnIds={statuses} count={paging?.[status]?.total ?? cards.length} state={state} sort={sorts[categoryOf(status)]} onSort={onSort} archiveAll={archiveAll}>
                                 {cards.length || placeholder >= 0 ? (
                                     <VirtualCommentList pageScroll items={cards} control={paging?.[status]} focusedId={focusId ?? tabStop?.id}
                                         label={t("{value0} comments list", { value0: workflowStatusLabel(definition(status), t) })}
@@ -644,7 +656,7 @@ export function CommentBoard({ projectOf, columns: categoryColumns, workflow, ve
                             </BoardColumn>
                         );
                     })}
-                    {archive && archiveDefinitions.map(archiveStatus => <ArchiveColumn key={archiveStatus.id} label={workflowStatusLabel(archiveStatus, t)} count={paging?.[archiveStatus.id]?.total ?? archiveCards(archiveStatus).length} sort={sorts.archive} onSort={onSort} expanded={archive.expanded} dimmed={Boolean(drag)} onExpandedChange={archive.onExpandedChange}>
+                    {archive && archiveDefinitions.map(archiveStatus => <ArchiveColumn loading={paging?.[archiveStatus.id]?.loading} key={archiveStatus.id} label={workflowStatusLabel(archiveStatus, t)} count={paging?.[archiveStatus.id]?.total ?? archiveCards(archiveStatus).length} sort={sorts.archive} onSort={onSort} expanded={archive.expanded} dimmed={Boolean(drag)} onExpandedChange={archive.onExpandedChange}>
                         {archiveCards(archiveStatus).length ? (
                             <VirtualCommentList pageScroll items={archiveCards(archiveStatus)} control={paging?.[archiveStatus.id]} focusedId={focusId ?? tabStop?.id}
                                 label={t("Archived comments list")} render={(comment, _index, position) => (

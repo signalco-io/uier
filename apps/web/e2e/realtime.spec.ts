@@ -157,7 +157,7 @@ async function idleFixture(page: Page, request: Parameters<typeof verifiedReview
     return { sockets, project, headers };
 }
 
-test('unchanged idle comments skip app shell renders and retain one five-minute shell safety refresh', async ({ page, request }) => {
+test('unchanged idle comments skip app shell renders and retain one five-minute data safety refresh', async ({ page, request }) => {
     const { project } = await idleFixture(page, request);
     const revisionUrl = `/api/projects/${project}/comments/revision`;
     const revision = await page.request.get(revisionUrl);
@@ -173,10 +173,10 @@ test('unchanged idle comments skip app shell renders and retain one five-minute 
         expect((await checked).status()).toBe(200);
         expect(reads).toHaveLength(0);
     }
-    const rendered = page.waitForResponse(response => new URL(response.url()).pathname === `/app/projects/${project}` && response.request().headers().rsc === '1');
+    const rendered = page.waitForResponse(response => response.url().includes(`/api/projects/${project}/comments/pages`));
     await page.clock.fastForward(60_000);
     expect((await rendered).status()).toBe(200);
-    expect(reads).toHaveLength(1);
+    expect(reads).toHaveLength(0);
 });
 
 test('the refreshed page revision includes a mutation committed after its revision check', async ({ page, request }) => {
@@ -198,11 +198,11 @@ test('the refreshed page revision includes a mutation committed after its revisi
     await page.clock.fastForward(60_000);
     await expect(commentRowLink(page, 2)).toBeVisible();
     await expect(commentRowLink(page, 1)).toBeVisible();
-    expect(reads).toHaveLength(1);
+    expect(reads).toHaveLength(0);
     const checked = page.waitForResponse(response => response.url().includes(`/api/projects/${project}/comments/revision`));
     await page.clock.fastForward(60_000);
     expect((await checked).status()).toBe(200);
-    expect(reads).toHaveLength(1);
+    expect(reads).toHaveLength(0);
 });
 
 test('an idle revision check rechecks the session and redirects an ended session', async ({ page, request }) => {
@@ -238,6 +238,66 @@ test('a late changed revision response does not refresh a hidden tab', async ({ 
         release();
         await checked;
         await page.clock.runFor(500);
+        expect(reads).toHaveLength(0);
+    } finally { release(); }
+});
+
+
+test('background board reads preserve headers, focus and nodes through refresh, failure and retry', async ({ page, request }) => {
+    const sockets = await transport(page);
+    await signIn(page, uniqueEmail('background-board'));
+    const project = await createProject(page, { urls: [site.origin()] });
+    await setProjectAccess(page, project, 'Anyone with the link');
+    const headers = await verifiedReviewHeaders(request, project, site.origin());
+    const post = (text: string) => request.post(`/api/review/${project}/comments`, { headers, data: {
+        path: `/${project}/pricing`, position: { type: 'page' }, kind: 'feedback', text, authorName: 'Reviewer'
+    } });
+    expect((await post('Existing comment')).status()).toBe(201);
+    await page.goto(`/app/projects/${project}?view=board`);
+    const open = page.getByRole('region', { name: 'Open comments', exact: true });
+    await expect(open).toBeVisible();
+    await expect.poll(() => sockets.length).toBeGreaterThan(0);
+    const reads = shellRefreshes(page, project);
+    const original = await open.elementHandle();
+    const search = page.getByRole('searchbox', { name: 'Search feedback', exact: true });
+    await search.focus();
+    const sort = open.locator('[data-board-sort]');
+    const before = await sort.boundingBox();
+    let release!: () => void;
+    const wait = new Promise<void>(resolve => { release = resolve; });
+    let fail = false;
+    await page.route(`**/api/projects/${project}/comments/pages`, async route => {
+        await wait;
+        if (fail) await route.fulfill({ status: 503, json: { error: 'Unavailable' } });
+        else await route.continue();
+    });
+    try {
+        expect((await post('New background comment')).status()).toBe(201);
+        sockets.at(-1)!.send('{"type":"comments.changed"}');
+        await expect(open.locator('[data-column-progress=true]')).toBeVisible();
+        await expect(page.getByRole('status').filter({ hasText: 'Loading comments' })).toHaveAttribute('aria-live', 'polite');
+        expect(await sort.boundingBox()).toEqual(before);
+        await expect(search).toBeFocused();
+        await page.emulateMedia({ reducedMotion: 'reduce' });
+        await expect(open.locator('[data-slot=spinner]').last()).toHaveCSS('animation-name', 'none');
+        expect(await original!.evaluate(node => node.isConnected)).toBe(true);
+        release();
+        await expect(open.getByRole('listitem')).toHaveCount(2);
+        await expect(open.locator('[data-column-progress=false]')).toBeVisible();
+        await expect(open.locator('[data-column-progress] [data-slot=spinner]')).toHaveCount(0);
+        expect(await sort.boundingBox()).toEqual(before);
+        fail = true;
+        sockets.at(-1)!.send('{"type":"comments.changed"}');
+        await expect(page.getByText('Comments could not be refreshed. Your loaded comments are still shown.')).toBeVisible();
+        await expect(open.getByRole('listitem')).toHaveCount(2);
+        fail = false;
+        await page.getByRole('button', { name: 'Try again', exact: true }).first().click();
+        await expect(page.getByText('Comments could not be refreshed. Your loaded comments are still shown.')).toHaveCount(0);
+        const saved = page.waitForResponse(response => response.url().includes(`/api/projects/${project}/comments/pages`));
+        await page.getByRole('button', { name: 'Mark all as read', exact: true }).filter({ visible: true }).click();
+        expect((await saved).status()).toBe(200);
+        await expect(page.getByRole('button', { name: /unread, show only unread$/ })).toHaveCount(0);
+        expect(await original!.evaluate(node => node.isConnected)).toBe(true);
         expect(reads).toHaveLength(0);
     } finally { release(); }
 });

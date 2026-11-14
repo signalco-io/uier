@@ -74,3 +74,8 @@ The paged regression at 4× CPU slowdown measured CLS 0 on desktop and 0.027126 
 both below 0.1. The mobile entry was the expected shift of existing cards when a live arrival was
 inserted above them inside Open; the board top, filter row and search geometry stayed unchanged.
 These measurements are local Chromium evidence, not acceptance of the original Edge report.
+
+For uier #410, background socket/action reads use only the paged data endpoint, preserving the page
+tree. Every board header reserves its progress slot while idle. `realtime.spec.ts` holds a read and
+asserts identical action geometry, node identity and focus, plus reduced-motion and failure/retry
+behavior on desktop/mobile. This adds no new production CLS measurement.

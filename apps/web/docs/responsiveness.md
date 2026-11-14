@@ -1,7 +1,7 @@
 # Page and mutation responsiveness
 
 Project comment views mount `RealtimeComments`: native Vercel sockets notify, then refresh the
-authorized server snapshot in a transition. `src/lib/realtime` owns origin/viewer-bound tickets,
+authorized paged data snapshot without an RSC/page refresh. `src/lib/realtime` owns origin/viewer-bound tickets,
 current authorization and a shared, two-second compact Cosmos metadata source. Never broadcast
 comment bodies/ids or bypass private-thread visibility. Keep four-minute connection renewal,
 HTTP fallback, draft preservation and the provider boundaries. See [realtime](../../../docs/api.md#realtime-comment-changes)
@@ -41,8 +41,9 @@ Whatever changes the shown threads, cards and rows move to their new places (`La
 [the inbox and board note](comments-inbox.md#motion)).
 `commentsQuery.ts` is the shared pure parser. `CommentUpdates` owns optimistic status, assignment,
 follow and read changes for cards, counters and board columns. Failed actions revert through
-`useOptimistic`; bulk read keeps rendered cursors and partial-failure retry behavior. Actions already
-revalidate and return updated RSC data: do not add a second `router.refresh()` after those writes.
+`useOptimistic`; bulk read keeps rendered cursors and partial-failure retry behavior. Comment actions return receipts without page revalidation. Their client adapters notify the project
+pager only after success; My work retains its RSC refresh through a separate listener. Do not add
+`router.refresh()` to project comment writes.
 Successful reads and adopted comment writes retain their changed fields until each paged/detail snapshot observes
 them; action completion alone cannot retire optimism. See [optimistic comment updates](optimistic-status.md)
 for adopted operations, remaining migrations and stale-response regressions (uier #407).
@@ -63,7 +64,7 @@ navigation audit, deliberate document boundaries and regression coverage.
 
 
 Project comment pagination keeps one in-flight read per column and aborts stale generations when a
-query/view/workflow changes. A realtime RSC snapshot rebuilds the loaded lane depths in one batched request (at most eight pages per lane); it does not
+query/view/workflow changes. A realtime data snapshot rebuilds the loaded lane depths in one batched request (at most eight pages per lane); it does not
 unmount the open composer. Column totals come from the server, with optimistic deltas only for
 loaded rows being changed. Idle revision checks omit bodies and canonical enrichment. Read mutations
 retain their explicit rendered cursors; the paged view labels their partial scope Mark shown as read.
@@ -76,3 +77,5 @@ the save. Members use the separate custom workflow mutation, which waits for con
 The project Group by choice is saved once for List and Board, independently of URL filters.
 View changes and Back/Forward retain it. Changing selected labels invalidates page keys and
 signed cursors, including list cursors, so an old window cannot cross grouping scopes.
+
+Background reads reserve a progress slot in board column headers and announce one polite loading status; reduced motion stops the UI-kit spinner. See [idle snapshot checks](comments-inbox.md#idle-snapshot-checks).

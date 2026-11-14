@@ -49,3 +49,7 @@ mark-as-read through its success toast and status through another reviewer's lat
 coverage. `optimistic-comments.api.spec.ts` covers cursor freshness, server timestamps, superseding
 fields and out-of-order completions. Read failure/retry and automatic acknowledgement coverage remain
 in `activity.spec.ts` and `comment-auto-read.spec.ts`.
+
+Successful action adapters now notify the data pager without page revalidation (uier #410).
+Confirmed-write retention still bridges the independent page/detail requests. A failed read keeps
+both the authorized loaded window and its retained changes until retry succeeds.

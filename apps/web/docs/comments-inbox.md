@@ -185,7 +185,7 @@ defaults does not initialize Zod. Actions and persistence use that same schema b
   (`boardSortActionSchema`), loads the project with the visible-project check, and
   `saveProjectBoardSort` checks the column's choices and the person again before it writes the project
   document (`updateDoc`, one point read and replace). Unlike `updateProject` it takes uier's feedback
-  projects too: it is how their board reads, not a setting uier manages. The page revalidates; a choice
+  projects too: it is how their board reads, not a setting uier manages. The authorized data window refreshes; a choice
   shows at once (`useOptimistic`) and goes back with an error toast if saving fails, with no success
   toast. Open boards elsewhere pick it up on their next load.
 - `ProjectComments` sorts each column (`sortBoardColumn`, ties in the list's order), so everything that
@@ -249,14 +249,22 @@ covers both themes on desktop/mobile, app/toolbar assignment, agents, filters, M
 
 ### Idle snapshot checks
 
-`RealtimeComments` receives the revision of the server snapshot shown by `ProjectComments`.
-Ready/foreground and periodic safety signals compare it with the same authorized view on the server
-before a full refresh. Unchanged views preserve the existing shell, selected thread, composers,
-focus and optimistic updates. Actual socket changes still refresh immediately. The next baseline
-always comes from the completed page render, not the earlier check. Session/access loss and failed
-checks use the normal server page to reconcile. Hidden/offline views never refresh from late check
-responses. A full five-minute shell safety refresh keeps unrelated sidebar changes bounded;
-[app shell](app-shell.md#idle-comments-refreshes) describes the cost and freshness tradeoff.
+`RealtimeComments` receives the revision of the authorized paged snapshot shown by `ProjectComments`.
+Ready/foreground and periodic safety signals compare it before refreshing data. Socket changes and
+successful comment actions refresh the loaded lane depths through the private/no-store pages API,
+without `router.refresh()`, page revalidation or a Suspense fallback. The completed data response
+supplies the next revision and project metadata. Unchanged idle checks do no extra work; the
+five-minute safety reconciliation also fetches data only. The sidebar updates on navigation rather
+than triggering a background page render. Failed reads keep the loaded window with Try again;
+session loss navigates to sign-in and access loss returns to Projects. Hidden/offline realtime
+signals do not fetch; successful local writes reconcile even when the document is hidden.
+
+Each board column reserves a 16 px progress slot left of its actions, including expanded and
+collapsed archive columns. Whole-window reads mark every column busy; continuations mark only their
+lane. One persistent polite status announces Loading comments outside the busy tree. The UI-kit
+spinner uses muted semantic tokens and stops rotating with reduced motion. Header geometry, mounted
+nodes, focus, failure/retry and data-only idle checks are guarded in `realtime.spec.ts`.
+
 The fingerprint includes the effective label catalog once at snapshot level and omits each
 comment's duplicate `availableLabels`, like its duplicate `workflow`. Per-thread labels and IDs
 still detect assignment changes; catalog edits still change the snapshot revision.
@@ -429,9 +437,8 @@ through fresh snapshots; deleted/inaccessible details close on a fresh 404.
 
 Filter changes keep URL/history controls immediate, cancel stale page requests and replace the window.
 Socket/action refreshes send one `depths` map and rebuild all loaded lanes from a single scan,
-capped at eight pages (200 rows) per lane. A fresh RSC first page can be reused until deeper pages
-are loaded; deeper refreshes need one additional HTTP request, rather than one request per page.
-Loading another page preserves the full-window revision baseline, so a router refresh with that page response’s revision still rebuilds every loaded lane.
+capped at eight pages (200 rows) per lane. An explicit navigation can still supply a fresh RSC first page; background refreshes always use one HTTP request for the complete loaded window.
+Loading another page preserves the full-window revision baseline, so the next data refresh still rebuilds every loaded lane.
 Scroll and composers remain mounted while moved/deleted rows leave. Enrichment reuses the scan
 request’s read cursors and subscriptions; a thread becoming private between scan and canonical
 read is skipped. Idle revision checks use routing metadata without
