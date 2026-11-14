@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { urlWith } from '@/src/hooks/use-url-search-params';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select';
 import { ClientMark } from '@/src/components/app/clients/ClientMark';
+import { cn } from '@/src/lib/utils';
 import type { ClientSummary } from '@/src/lib/app/clients';
 
 type FilterClient = Pick<ClientSummary, 'id' | 'name' | 'icon' | 'color' | 'logoUrl'>;
@@ -22,7 +23,7 @@ function FilterMark({ client }: { client?: FilterClient }) {
  * The choice shows at once while the projects load, and the list keeps the status tab in the address.
  * Each client shows its `ClientMark`, in the menu and on the trigger.
  */
-export function ClientFilter({ clients, value }: { clients: FilterClient[]; value?: string }) {
+export function ClientFilter({ clients, value, className }: { clients: FilterClient[]; value?: string; className?: string }) {
     const { t } = useAppI18n();
     const router = useRouter();
     const [, startTransition] = useTransition();
@@ -36,7 +37,7 @@ export function ClientFilter({ clients, value }: { clients: FilterClient[]; valu
             setShown(next ?? 'all');
             router.push(`${pathname}${search}`);
         })}>
-            <SelectTrigger size="sm" aria-label={t("Client")} className="w-56 max-w-full">
+            <SelectTrigger size="sm" aria-label={t("Client")} className={cn('w-56 max-w-full', className)}>
                 <SelectValue>
                     {(selected: string | null) => {
                         const item = itemOf(selected);
