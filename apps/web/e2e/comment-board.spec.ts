@@ -179,14 +179,14 @@ test('the board widens on a wide window, the filters and project headers and the
     const mark = page.getByRole('heading', { level: 1 }).locator('xpath=../../*[1]');
     const settings = page.getByRole('main').getByLabel('Settings', { exact: true });
     // The count line: the guests' threads are unread, so it shows their count (uier #187). With this room it is in the
-    // search row (uier #300), left of the search, which is directly left of Filter and the view toggle (uier #403)
+    // search row (uier #300), left of Filter, Group by, the search and the view toggle (uier #403, #411)
     const unread = page.getByRole('status').filter({ hasText: /^\d+ unread$/ });
     const countLine = unread.locator('xpath=..');
     const filter = page.getByRole('button', { name: /^Filter/ });
     // The filters and project headers are full width from the left (uier #363): the project's mark starts with the
     // first column, the view toggle and the settings button end at the page's right edge, the panel less its 32 px
-    // gutter, however far the columns reach; the search is directly left of Filter (uier #403), and the count line is
-    // left of the search
+    // gutter, however far the columns reach; the search is directly left of the view toggle, after Filter (uier #411),
+    // and the count line is left of Filter
     const headerSpans = async (first: Locator) => {
         const left = (await placement(first)).left, right = 32;
         expect(left).toBeCloseTo(32, 0);
@@ -195,9 +195,9 @@ test('the board widens on a wide window, the filters and project headers and the
         expect((await placement(settings)).right).toBeCloseTo(right, 0);
         const searchBox = (await search.boundingBox())!, lineBox = (await countLine.boundingBox())!, filterBox = (await filter.boundingBox())!;
         const viewBox = (await view.boundingBox())!;
-        expect(lineBox.x + lineBox.width).toBeLessThanOrEqual(searchBox.x);
-        expect(filterBox.x - (searchBox.x + searchBox.width)).toBeCloseTo(8, 0);
-        expect(filterBox.x + filterBox.width).toBeLessThanOrEqual(viewBox.x);
+        expect(lineBox.x + lineBox.width).toBeLessThanOrEqual(filterBox.x);
+        expect(filterBox.x + filterBox.width).toBeLessThanOrEqual(searchBox.x);
+        expect(viewBox.x - (searchBox.x + searchBox.width)).toBeCloseTo(8, 0);
         expect(Math.abs((lineBox.y + lineBox.height / 2) - (filterBox.y + filterBox.height / 2))).toBeLessThan(4);
     };
     // The page keeps the reading width, 64rem with the 32 px gutters, centred

@@ -64,8 +64,8 @@ const rowTitles = ['w-3/4', 'w-2/3', 'w-5/6', 'w-1/2', 'w-3/5', 'w-2/3'];
 /**
  * The search row as `CommentFilters` draws it, drawn for real but inert (uier #362): nothing in it needs the comments.
  * In the list the status tabs first, at its left edge (Active, Done, All, the address's pressed, their counts still
- * loading; uier #405); on the right the search, then Filter and Group by as icons (uier #403, #404) and List/Board
- * with the opening view pressed.
+ * loading; uier #405); on the right Filter and Group by as icons (uier #404), the search and List/Board with the
+ * opening view pressed (uier #403, #411).
  */
 function FiltersPlaceholder({ view, status }: { view: CommentsView; status: StatusFilter }) {
     const { t } = useAppI18n();
@@ -92,12 +92,12 @@ function FiltersPlaceholder({ view, status }: { view: CommentsView; status: Stat
                 </div>
             )}
             <div className={filterControls}>
+                <Button variant="ghost" size="icon" tabIndex={-1} aria-label={t("Filter")} className={filterIconButton}><ListFilterIcon /></Button>
+                <Button variant="ghost" size="icon" tabIndex={-1} aria-label={t("Group by")} className={filterIconButton}><LayersIcon /></Button>
                 <InputGroup className={searchInput}>
                     <InputGroupAddon><SearchIcon /></InputGroupAddon>
                     <InputGroupInput type="search" tabIndex={-1} readOnly placeholder={t("Search feedback")} className="text-ellipsis pointer-coarse:min-h-11" />
                 </InputGroup>
-                <Button variant="ghost" size="icon" tabIndex={-1} aria-label={t("Filter")} className={filterIconButton}><ListFilterIcon /></Button>
-                <Button variant="ghost" size="icon" tabIndex={-1} aria-label={t("Group by")} className={filterIconButton}><LayersIcon /></Button>
                 <div className={cn('flex shrink-0 items-center', segmentedGroup)}>
                     {([['list', ListIcon], ['board', KanbanIcon]] as const).map(([value, Icon]) => (
                         <span key={value} data-pressed={view === value ? '' : undefined}

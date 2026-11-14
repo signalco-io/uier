@@ -150,7 +150,7 @@ export function CommentFilters({ className, unread, unreadCount, view, onView, s
     return (
         <div className={cn('flex w-full min-w-0 flex-col gap-2', className)}>
             {/* In the list the status tabs first, at the list's left edge (uier #405); the filters in effect after them,
-                right-aligned against the search, which sits directly left of Filter, Group by and List/Board (uier #403).
+                right-aligned against Filter, Group by, the search and List/Board, in that order (uier #403, #411).
                 One line from `sm`: the search, then the tabs give up their room; on a phone the search and the buttons
                 have the row, the tabs and the filters in effect each their own line under it. */}
             <div className="flex min-w-0 flex-wrap items-center gap-2 sm:flex-nowrap">
@@ -179,20 +179,6 @@ export function CommentFilters({ className, unread, unreadCount, view, onView, s
                     </div>
                 )}
                 <div className={filterControls}>
-                    <InputGroup className={searchInput}>
-                        <InputGroupAddon><SearchIcon /></InputGroupAddon>
-                        <InputGroupInput ref={searchRef} id={visible ? 'feedback-search' : undefined} type="search" aria-label={t("Search feedback")} maxLength={MAX_FEEDBACK_SEARCH} className="text-ellipsis pointer-coarse:min-h-11"
-                            // `/` goes here from the page (`AppShortcuts`)
-                            data-shortcut-search="" aria-keyshortcuts={searchShortcut}
-                            placeholder={t("Search feedback")} value={search} onChange={event => onSearch(event.target.value)} />
-                        {search && (
-                            <InputGroupAddon align="inline-end">
-                                <InputGroupButton size="icon-xs" aria-label={t("Clear search")} onClick={() => { onSearch(''); searchRef.current?.focus(); }}>
-                                    <XIcon />
-                                </InputGroupButton>
-                            </InputGroupAddon>
-                        )}
-                    </InputGroup>
                 <Popover open={filtersOpen} onOpenChange={setFiltersOpen}>
                     {/* Icon-only (uier #404), named "Filter", or "Filter 2" with two in effect; the badge shows the count */}
                     <Tooltip>
@@ -302,6 +288,20 @@ export function CommentFilters({ className, unread, unreadCount, view, onView, s
                     </PopoverContent>
                 </Popover>
                     {grouping}
+                    <InputGroup className={searchInput}>
+                        <InputGroupAddon><SearchIcon /></InputGroupAddon>
+                        <InputGroupInput ref={searchRef} id={visible ? 'feedback-search' : undefined} type="search" aria-label={t("Search feedback")} maxLength={MAX_FEEDBACK_SEARCH} className="text-ellipsis pointer-coarse:min-h-11"
+                            // `/` goes here from the page (`AppShortcuts`)
+                            data-shortcut-search="" aria-keyshortcuts={searchShortcut}
+                            placeholder={t("Search feedback")} value={search} onChange={event => onSearch(event.target.value)} />
+                        {search && (
+                            <InputGroupAddon align="inline-end">
+                                <InputGroupButton size="icon-xs" aria-label={t("Clear search")} onClick={() => { onSearch(''); searchRef.current?.focus(); }}>
+                                    <XIcon />
+                                </InputGroupButton>
+                            </InputGroupAddon>
+                        )}
+                    </InputGroup>
                     {/* A new layout starts with no thread open (the board would open it in a sheet over itself). The choice is
                         remembered as the default and kept in the address, list too, so it wins over the remembered one there */}
                     <CommentsViewToggle view={view} onChange={next => {
