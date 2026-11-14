@@ -38,6 +38,8 @@ export async function projectPagingJourney(page: Page, request: APIRequestContex
     await expect(column.getByRole('heading')).toHaveText('Open60');
     const window = column.locator('[data-comment-window]');
     await expect(window).toBeVisible();
+    // A column grows with its cards and the page scrolls the board (uier #400): bring the column's end into view
+    const scrollColumnToEnd = () => window.evaluate(element => element.lastElementChild?.scrollIntoView({ block: 'end' }));
     expect(await column.locator('[data-board-card]').count()).toBeLessThan(25);
     expect(details).toEqual([]);
     await column.getByRole('link').first().focus();
@@ -60,15 +62,15 @@ export async function projectPagingJourney(page: Page, request: APIRequestContex
         else if (fail && route.request().postDataJSON().cursor) { fail = false; await route.fulfill({ status: 503, json: { error: 'unavailable' } }); }
         else await route.continue();
     });
-    await window.evaluate(element => { element.scrollTop = element.scrollHeight; });
+    await scrollColumnToEnd();
     await expect(column.getByRole('button', { name: 'Try again', exact: true })).toBeVisible();
     await expect(column.getByText('More comments could not be loaded.', { exact: true })).toBeVisible();
     await column.getByRole('button', { name: 'Try again', exact: true }).click();
     await expect.poll(() => pages.filter(result => result.lane === 'open').length).toBeGreaterThan(0);
-    await window.evaluate(element => { element.scrollTop = element.scrollHeight; });
+    await scrollColumnToEnd();
     await expect.poll(() => pages.filter(result => result.lane === 'open').length).toBeGreaterThanOrEqual(2);
     await expect(window).toHaveAttribute('data-loaded-count', '60');
-    await window.evaluate(element => { element.scrollTop = element.scrollHeight; });
+    await scrollColumnToEnd();
     await expect(column.getByRole('link', { name: new RegExp(`Comment #${oldest!.number} `) })).toBeVisible();
     expect(await column.locator('[data-board-card]').count()).toBeLessThan(25);
     await expect(column.getByRole('heading')).toHaveText('Open60');
@@ -79,6 +81,8 @@ export async function projectPagingJourney(page: Page, request: APIRequestContex
     await expect.poll(() => replayRequests.slice(beforeRefresh).filter(request => request.depths?.open === 3).length).toBe(1);
     await expect(window).toHaveAttribute('data-loaded-count', '60');
     expect(replayRequests.slice(beforeRefresh).filter(request => request.cursor)).toEqual([]);
+    // Mark all as read is above the board: the page scrolled up to it, so the oldest card is out of the window again
+    await scrollColumnToEnd();
     await column.getByRole('link', { name: new RegExp(`Comment #${oldest!.number} `) }).click();
     await expect(page.getByRole('article')).toContainText('A discussion to load only when opened.');
     expect(details.length).toBeGreaterThan(0);

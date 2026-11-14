@@ -63,8 +63,8 @@ whole lifetime, including previous client navigations, contributes to its larges
 Project pagination retains the populated width marker and reserved count row even when the first
 page has no rows (for example, all matches are in collapsed Archive). Server-side view preference
 resolution happens before selecting initial pages, so hydration does not replace the server's view.
-Virtual row spacers keep the column's scroll extent; subsequent pages extend inside its bounded
-scroller. Below 1024 px the inbox spacers preserve its document scroll extent instead, so the list
+Virtual row spacers keep the column's height, which the page scrolls; subsequent pages extend the
+column (uier #400). Below 1024 px the inbox spacers preserve its document scroll extent instead, so the list
 does not become a small nested viewport. The existing CLS regression remains the geometry guard;
 the larger fixture records DOM
 and payload measurements separately ([paging](comments-inbox.md#measurement-and-remaining-database-work)).

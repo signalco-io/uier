@@ -59,7 +59,10 @@ rows with the status filter it waits for their entrance motion to settle before 
   edge to edge of the panel, padded by the page gutter (`page-bleed`, `--page-gutter`), so the first and last columns
   line up with the page content at either end and the others scroll under the panel's edges, not short of them. Where
   the columns fit there is no scrollbar, scrollbars that take room included (the panel's width is measured inside its
-  scrollbar, [app shell](app-shell.md)). A column's card list (and the list layout's, `VirtualCommentList`) scrolls with
+  scrollbar, [app shell](app-shell.md)). A board column is as tall as its cards and never scrolls on its own: the page
+  (the panel from `lg`) scrolls the whole board up and down, like Trello, while the board still scrolls sideways
+  (`VirtualCommentList pageScroll`: its window of rendered cards and its Load more follow the page's scroll, [uier #400](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_HAW9079MAbgj_V7IdH5WF)).
+  The list scrolls with
   a thin scrollbar in the muted ink on a clear track (`scrollbar-subtle` in `app/global.css`, darker on hover), not the
   platform's wide grey bar ([uier #365](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_Qy7RLDJqawBo6PHlCuKyS)). On dark a card is the page's black, a step
   darker than its column, so it stands apart (light keeps paper cards on the muted column). The board's grid is wider than the reading width (`md:page-bleed`,
@@ -408,7 +411,8 @@ author controls available with a narrowing message; it never presents partial to
 retain their 422 error.
 `VirtualCommentList` measures variable-height rows and renders the viewport with overscan; spacer
 items cannot shrink. Focused/dragged cards stay mounted, and keyboard navigation reveals its target
-before focusing it. Each column scrolls vertically within the existing horizontal board. List rows
+before focusing it. Columns have no scroller of their own: they virtualize against the page's scroll (the window, or
+the panel from 1024 px) inside the horizontal board, and reveal a card by scrolling the page. List rows
 use document/window virtualization below 1024 px, with no nested list scroll box. Horizontal clipping prevents visually hidden inline labels after long titles from extending the document viewport; wider lists retain a bounded scroller. Rows expose their absolute `aria-posinset` and the server total as `aria-setsize`. My work retains its existing data source and category lanes.
 
 Selection and Select shown results use the explicitly loaded matching summaries (up to the existing

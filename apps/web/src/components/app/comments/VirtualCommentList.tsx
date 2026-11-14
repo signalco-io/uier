@@ -11,10 +11,23 @@ export type CommentListPosition = Pick<AriaAttributes, 'aria-setsize' | 'aria-po
 const revealEvent = 'uier-reveal-comment';
 export function revealVirtualComment(id: string) { document.dispatchEvent(new CustomEvent(revealEvent, { detail: id })); }
 
-/** Measured rows with overscan. The narrow inbox follows the document; board columns scroll independently. */
-export function VirtualCommentList<T extends { id: string }>({ items, label, render, control, focusedId, className, onFocus, listRef, footer, gap = 8, itemAttribute = 'data-board-card', documentScroll = false }: {
+/** The element that scrolls the page around `element` (the app's panel from lg), or none where the window does */
+function pageScroller(element: HTMLElement) {
+    for (let parent = element.parentElement; parent && parent !== document.body; parent = parent.parentElement) {
+        if (/auto|scroll/.test(getComputedStyle(parent).overflowY)) return parent;
+    }
+    return null;
+}
+
+/**
+ * Measured rows with overscan.
+ * - `pageScroll` (board columns): the list never scrolls itself, it grows with its rows and follows whatever scrolls
+ *   the page (the window, or the app's panel from lg), so the whole board scrolls together (uier #400).
+ * - `documentScroll` (the inbox): below lg it follows the document; from lg it scrolls itself.
+ */
+export function VirtualCommentList<T extends { id: string }>({ items, label, render, control, focusedId, className, onFocus, listRef, footer, gap = 8, itemAttribute = 'data-board-card', documentScroll = false, pageScroll = false }: {
     items: T[]; label: string; render: (item: T, index: number, position: CommentListPosition) => ReactNode; control?: CommentPageControl;
-    documentScroll?: boolean;
+    documentScroll?: boolean; pageScroll?: boolean;
     focusedId?: string; className?: string; onFocus?: React.FocusEventHandler<HTMLUListElement>; itemAttribute?: string; listRef?: RefObject<HTMLUListElement | null>; footer?: ReactNode; gap?: number;
 }) {
     const { t } = useAppI18n();
@@ -46,15 +59,21 @@ export function VirtualCommentList<T extends { id: string }>({ items, label, ren
         // The CSS already removes the narrow inbox's height constraint before hydration.
         // Read the media query on the first layout pass too: its full document height is
         // never a viewport, even before the window-mode state update has committed.
-        const followsWindow = documentScroll && window.matchMedia('(max-width: 1023px)').matches;
-        const readViewport = () => setViewport(followsWindow ? { top: Math.max(0, -list.getBoundingClientRect().top), height: window.innerHeight }
-            : { top: list.scrollTop, height: list.clientHeight || 600 });
-        const scroller = followsWindow ? window : list;
-        readViewport(); scroller.addEventListener('scroll', readViewport, { passive: true });
+        // A list that follows the page reads its place in the window, whatever scrolls it: the window, or the app's
+        // panel from lg (a scroll anywhere reaches the document in its capture phase).
+        const followsPage = pageScroll || (documentScroll && window.matchMedia('(max-width: 1023px)').matches);
+        const readViewport = () => {
+            const next = followsPage ? { top: Math.max(0, -list.getBoundingClientRect().top), height: window.innerHeight }
+                : { top: list.scrollTop, height: list.clientHeight || 600 };
+            // Other scrollers (the board sideways, a thread) leave it where it was: no render
+            setViewport(current => current.top === next.top && current.height === next.height ? current : next);
+        };
+        const scroller = followsPage ? document : list;
+        readViewport(); scroller.addEventListener('scroll', readViewport, { passive: true, capture: followsPage });
         const resize = new ResizeObserver(readViewport); resize.observe(list);
         window.addEventListener('resize', readViewport);
-        return () => { scroller.removeEventListener('scroll', readViewport); resize.disconnect(); window.removeEventListener('resize', readViewport); };
-    }, [Boolean(control), windowScroll, documentScroll]);
+        return () => { scroller.removeEventListener('scroll', readViewport, { capture: followsPage }); resize.disconnect(); window.removeEventListener('resize', readViewport); };
+    }, [Boolean(control), windowScroll, documentScroll, pageScroll]);
     useLayoutEffect(() => {
         if (!virtual || !root.current) return;
         const observer = new ResizeObserver(entries => {
@@ -76,7 +95,12 @@ export function VirtualCommentList<T extends { id: string }>({ items, label, ren
             setRevealed(id);
             const top = offsets[index]!;
             if (windowScroll) window.scrollTo({ top: window.scrollY + root.current.getBoundingClientRect().top + top - 56 });
-            else if (top < root.current.scrollTop || top + (sizes.current.get(id) ?? 100) > root.current.scrollTop + root.current.clientHeight) root.current.scrollTop = top;
+            else if (pageScroll) {
+                // Brought on screen in the page's scroller (the window below lg, clear of its sticky top bar)
+                const scroller = pageScroller(root.current), box = scroller?.getBoundingClientRect() ?? { top: 56, bottom: window.innerHeight };
+                const start = root.current.getBoundingClientRect().top + top, end = start + (sizes.current.get(id) ?? 100);
+                if (start < box.top || end > box.bottom) (scroller ?? window).scrollBy({ top: start - box.top - 16 });
+            } else if (top < root.current.scrollTop || top + (sizes.current.get(id) ?? 100) > root.current.scrollTop + root.current.clientHeight) root.current.scrollTop = top;
         };
         document.addEventListener(revealEvent, reveal);
         return () => document.removeEventListener(revealEvent, reveal);
@@ -87,9 +111,9 @@ export function VirtualCommentList<T extends { id: string }>({ items, label, ren
         if (!marker || !list || !hasMore || loading || failed) return;
         const observer = new IntersectionObserver(entries => {
             if (entries.some(entry => entry.isIntersecting) && list.checkVisibility()) control?.loadMore();
-        }, { root: documentScroll && window.matchMedia('(max-width: 1023px)').matches ? null : list, rootMargin: '0px 0px 100px 0px' });
+        }, { root: pageScroll || (documentScroll && window.matchMedia('(max-width: 1023px)').matches) ? null : list, rootMargin: '0px 0px 100px 0px' });
         observer.observe(marker); return () => observer.disconnect();
-    }, [hasMore, loading, failed, items.length, control?.loadMore, windowScroll, documentScroll]);
+    }, [hasMore, loading, failed, items.length, control?.loadMore, windowScroll, documentScroll, pageScroll]);
     const children: ReactNode[] = [];
     let previous = 0;
     for (const index of visible) {
@@ -99,7 +123,7 @@ export function VirtualCommentList<T extends { id: string }>({ items, label, ren
     }
     if (previous < items.length) children.push(<li key="space-end" role="presentation" aria-hidden="true" style={{ height: Math.max(0, offsets[items.length]! - offsets[previous]! - gap) }} />);
     return <ul ref={node => { root.current = node; if (listRef) listRef.current = node; }} aria-label={label} aria-busy={loading || undefined} onFocus={onFocus} data-loaded-count={items.length} data-comment-window={control ? '' : undefined}
-        className={cn('m-0 flex list-none flex-col gap-2 p-0 [&>li]:shrink-0', control && 'scrollbar-subtle max-h-[max(20rem,calc(100svh-22rem))] overflow-y-auto overscroll-y-contain [overflow-anchor:none]', control && documentScroll && 'max-lg:max-h-none max-lg:overflow-x-clip max-lg:overflow-y-visible max-lg:overscroll-auto', className)}>
+        className={cn('m-0 flex list-none flex-col gap-2 p-0 [&>li]:shrink-0', control && !pageScroll && 'scrollbar-subtle max-h-[max(20rem,calc(100svh-22rem))] overflow-y-auto overscroll-y-contain [overflow-anchor:none]', control && documentScroll && 'max-lg:max-h-none max-lg:overflow-x-clip max-lg:overflow-y-visible max-lg:overscroll-auto', className)}>
         {children}
         {footer}
         {control?.hasMore && <li ref={sentinel} role="presentation" className="flex shrink-0 flex-col items-center justify-center p-2">
