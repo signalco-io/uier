@@ -392,7 +392,6 @@ export const es: Messages = {
         namePlaceholder: 'Se muestra con tus comentarios',
         enterName: 'Escribe tu nombre para comentar.',
         characters: ' caracteres',
-        mentionHint: '@ para mencionar',
         mentionHelp: 'Escribe @ para mencionar a alguien con acceso.',
         discard: 'Descartar',
         mentionPeople: 'Mencionar personas',

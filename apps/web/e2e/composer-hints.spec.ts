@@ -125,7 +125,7 @@ test('project members and guests get the same keyboard description', async ({ pa
     await setProjectAccess(page, project, 'Anyone with the link');
     await page.goto(`/app/review/${project}?url=${encodeURIComponent(`${site.origin()}/${project}/pricing`)}`);
     const member = await startPoint(page);
-    await expect(member.getByText('@ to mention', { exact: true })).toBeVisible();
+    await expect(member.getByText('@ to mention', { exact: true })).toHaveCount(0);
     await expect(member.getByText(newLineHint, { exact: true })).toHaveCount(0);
     await expect(member.getByRole('textbox', { name: 'Comment', exact: true }))
         .toHaveAccessibleDescription('Type @ to mention someone with access. Enter to send. Shift+Enter for a new line.');

@@ -404,7 +404,6 @@ export const en = {
         enterName: 'Enter your name to comment.',
         /** After "120/5000", for screen readers */
         characters: ' characters',
-        mentionHint: '@ to mention',
         mentionHelp: 'Type @ to mention someone with access.',
         discard: 'Discard',
         mentionPeople: 'Mention people',

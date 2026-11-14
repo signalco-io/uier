@@ -392,7 +392,6 @@ export const hr: Messages = {
         namePlaceholder: 'Prikazuje se uz vaše komentare',
         enterName: 'Upišite ime kako biste komentirali.',
         characters: ' znakova',
-        mentionHint: '@ za spominjanje',
         mentionHelp: 'Upišite @ kako biste spomenuli nekoga s pristupom.',
         discard: 'Odbaci',
         mentionPeople: 'Spomeni osobe',

@@ -391,7 +391,6 @@ export const de: Messages = {
         namePlaceholder: 'Wird bei Ihren Kommentaren angezeigt',
         enterName: 'Geben Sie Ihren Namen ein, um zu kommentieren.',
         characters: ' Zeichen',
-        mentionHint: '@ zum Erwähnen',
         mentionHelp: 'Geben Sie @ ein, um eine Person mit Zugriff zu erwähnen.',
         discard: 'Verwerfen',
         mentionPeople: 'Personen erwähnen',

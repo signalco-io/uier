@@ -27,15 +27,18 @@ Edits keep labeled Cancel and Save buttons. No line under the text box: what Ent
 keyboard shortcuts list ([keyboard](keyboard.md)). The text box is the rich [message editor](message-editor.md):
 Markdown typed in it formats as it is written, and a dropped image file is attached like Attach image
 (`onImageDrop`). Its draft API is unchanged: `CommentComposer` keeps the Markdown and the mention ranges in
-`useDrafts` under its `draftKey`, and `initialText`/`initialMentions` start an edit.
+`useDrafts` under its `draftKey`, and `initialText`/`initialMentions` start an edit. No visible "@ to mention" hint
+([uier #431](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects&comment=comment_yPJEk4jKzwg5rDrkNrsOR)):
+member text boxes keep the mention help in their screen-reader description, and typing `@` still opens the
+mention picker.
 
 New-message composers also accept one [screen recording](recordings.md). Capture controls and a recording's
 preview belong to the form's owner, so expanding and collapsing retain it. Capturing, reading and uploading
 follow the same send/recovery boundaries as the message; recording bytes never enter the saved draft.
 
 `CommentComposer` is one bordered box: the text box (it grows with its text; Enter sends, Shift+Enter is a new
-line, `enterKeyHint`), Attach (from `image` and `recording`), its `attachments` (the screenshot toggle), a hint or a
-counter, Discard while there is text, and Send.
+line, `enterKeyHint`), Attach (from `image` and `recording`), its `attachments` (the screenshot toggle), the
+character counter near the limit, Discard while there is text, and Send.
 Discard and Send are plain icon buttons with their tooltips: an X, since Discard has no labeled button beside
 Send, and Send, since Enter sends. They are 44 px on touch screens. `beforeText` goes between the quote and the
 box ([a rewrite's suggestions](#a-rewrite)). Screenshots and Attach image: [screenshots](screenshots.md#the-form).

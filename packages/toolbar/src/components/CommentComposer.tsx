@@ -355,12 +355,7 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
                                 {text.length}/{commentTextMaxLength}
                                 <span className="sr-only">{t.composer.characters}</span>
                             </>
-                        ) : isMember && (
-                            <>
-                                <span aria-hidden="true" title={t.composer.mentionHelp}>{t.composer.mentionHint}</span>
-                                <span className="sr-only">{t.composer.mentionHelp}</span>
-                            </>
-                        )}
+                        ) : isMember && <span className="sr-only">{t.composer.mentionHelp}</span>}
                     </span>
                     </Row>
                     <Row spacing={0.5} className="shrink-0">
