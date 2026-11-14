@@ -78,6 +78,18 @@ pass); a transfer keeps it, since it is keyed by the project.
   among the project's is text), its title (and environment when the project has several), axe-core's issues by
   impact, the SEO checks to look at and passed, Core Web Vitals against the panel's targets, when it was last
   checked and the change since the check before. Each result is an icon in BRAND.md's colours beside its words.
+- **Many pages** ([uier #418](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1%2Fpage-checks&comment=comment_l6jVAJQKJos_g98bWaPrw), `useVirtualRows.ts`): over 40 pages, the table and the cards render only the rows near the
+  screen (6 above and below), with space for the rest, following whatever scrolls the page (the window below lg, the
+  panel from lg) through a capture-phase scroll listener and the list's box. Each rendered row is measured and
+  remembered, so rows that leave keep their height and nothing on screen moves; columns have fixed shares
+  (`table-fixed`, a `colgroup`) so the rows that come and go never change their widths. The header row sticks under
+  the top bar (`top-12`, the window scrolls below lg) or at the panel's top (from lg); its line is an inset shadow,
+  since a collapsed table leaves a border behind, and the kit's sideways-scrolling table container is made visible so
+  it does not hold the header. Keyboard: the row with focus stays rendered wherever the page scrolls, and Tab reaches
+  every row (the browser scrolls the focused row on screen, which renders the next). Assistive tech gets the full count
+  (`aria-rowcount` and `aria-rowindex` on the table, `aria-setsize` and `aria-posinset` on the cards). Find in page
+  sees only rendered rows, so Ctrl or Cmd+F renders the whole shown list (at most 200 pages) until the filter or order
+  changes it; the browser menu's Find does not, which is the tradeoff. A project with 40 pages or fewer renders them all.
 - **The change since the check before** (`ChangeResult`, [uier #416](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1%2Fpage-checks&comment=comment_BhfUdA2PZJBySoOaaj6CU)): each count that rose or fell on its own
   line under the check's time, after a trend arrow: down in green (`--brand-success`) for fewer issues or SEO checks to
   look at, up in amber (`--brand-warning`) for more, a muted dash for no change; a first check has none. The words
@@ -88,7 +100,7 @@ pass); a transfer keeps it, since it is keyed by the project.
   `vitalTargets` in `src/lib/pageChecks/model.ts` mirrors the toolbar's `webVitals.ts` and `en.ts`; there is no
   third level, so the view shows none. The popup keeps focus on its trigger; Escape closes it until focus leaves.
 - **Show** and **Order** sit in the Pages heading row, beside the list they change, not above Across pages
-  (uier #256).
+  (uier #256). On a phone (below `sm`) what is in effect takes its own line under the heading and the buttons.
 - They look like the comments' Filter and Group by ([uier #417](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1%2Fpage-checks&comment=comment_mR3--cXjK_XOLjCSS5M1u), [comment filters](comment-filters.md)): icon-only ghost
   buttons with a tooltip that names them, Filter pages (`ListFilterIcon`) and Sort pages (`ArrowDownUpIcon`), each
   opening a menu of radio items, every option with its icon (`filterIcons`, `orderIcons` in `PageChecksView.tsx`).

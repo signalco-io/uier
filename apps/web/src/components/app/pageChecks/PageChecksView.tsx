@@ -41,11 +41,11 @@ import {
     type PageCheckOrder
 } from '@/src/lib/pageChecks/insights';
 import type { PageCheckRow } from '@/src/lib/pageChecks/model';
-import { cn } from '@/src/lib/utils';
 import { filterIconButton } from '../comments/CommentsViewToggle';
 import { RelativeTime } from '../comments/DateTime';
 import { AcrossPages } from './AcrossPages';
 import { AccessibilityResult, ChangeResult, PageCell, SeoResult, VitalsResult, type PageEnvironment } from './PageCheckParts';
+import { useVirtualRows } from './useVirtualRows';
 
 /** Each order's and filter's icon in their menus and in the chip of the one in effect (uier #417) */
 const orderIcons: Record<PageCheckOrder, LucideIcon> = {
@@ -110,6 +110,90 @@ function Checked({ page }: { page: PageCheckRow }) {
     );
 }
 
+type Links = { projectId: string; environments: PageEnvironment[] };
+
+/**
+ * The pages as a table, from the `@3xl` width of the list (uier #418): only the rows near the screen render
+ * (`useVirtualRows`), under a header that sticks below the top bar (the window scrolls below lg) or at the top of
+ * the panel (from lg). The columns have fixed shares (`table-fixed`), so the rows that come and go never move them.
+ */
+function PageTable({ pages, ariaSort, links }: { pages: PageCheckRow[]; ariaSort: (column: string) => 'ascending' | 'descending' | undefined; links: Links }) {
+    const { t } = useAppI18n();
+    const { parts, virtual, container } = useVirtualRows(pages, { estimate: 100 });
+    return (
+        // The kit's table container scrolls sideways, which would hold the sticky header; these columns fit their room
+        <div className="hidden rounded-xl border @3xl/page-checks:block [&>[data-slot=table-container]]:overflow-visible">
+            <Table aria-labelledby="checked-pages-title" aria-rowcount={virtual ? pages.length + 1 : undefined} data-page-checks-table className="table-fixed">
+                <colgroup>
+                    <col className="w-[32%]" />
+                    <col className="w-[16%]" />
+                    <col className="w-[16%]" />
+                    <col className="w-[16%]" />
+                    <col className="w-[20%]" />
+                </colgroup>
+                {/* Its line is a shadow: a collapsed table's border stays behind when the header sticks */}
+                <TableHeader className="sticky top-12 z-10 lg:top-0 [&_th]:bg-background [&_th]:shadow-[inset_0_-1px_0_hsl(var(--border))] [&_th:first-child]:rounded-tl-[11px] [&_th:last-child]:rounded-tr-[11px] [&_tr]:border-b-0">
+                    <TableRow aria-rowindex={virtual ? 1 : undefined} className="hover:bg-transparent">
+                        <TableHead scope="col" aria-sort={ariaSort('page')} className="pl-4">{t("Page")}</TableHead>
+                        <TableHead scope="col" aria-sort={ariaSort('accessibility')}>{t("Accessibility")}</TableHead>
+                        <TableHead scope="col" aria-sort={ariaSort('seo')}>{t("SEO")}</TableHead>
+                        <TableHead scope="col" aria-sort={ariaSort('vitals')} className="whitespace-normal">{t("Core Web Vitals")}</TableHead>
+                        <TableHead scope="col" aria-sort={ariaSort('checked')} className="pr-4">{t("Checked")}</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody {...container}>
+                    {parts.map(part => part.kind === 'space' ? (
+                        <tr key={part.key} aria-hidden="true" data-virtual-space="">
+                            <td colSpan={5} className="p-0" style={{ height: part.height }} />
+                        </tr>
+                    ) : (
+                        <TableRow key={part.item.id} data-page-check={part.item.path} data-row-key={part.item.id}
+                            aria-rowindex={virtual ? part.index + 2 : undefined} className="align-top">
+                            <TableCell className="py-3 pl-4 align-top whitespace-normal">
+                                <PageCell page={part.item} {...links} />
+                            </TableCell>
+                            <TableCell className="py-3 align-top whitespace-normal"><AccessibilityResult page={part.item} /></TableCell>
+                            <TableCell className="py-3 align-top whitespace-normal"><SeoResult page={part.item} /></TableCell>
+                            <TableCell className="py-3 align-top whitespace-normal"><VitalsResult page={part.item} /></TableCell>
+                            <TableCell className="py-3 pr-4 align-top whitespace-normal"><Checked page={part.item} /></TableCell>
+                        </TableRow>
+                    ))}
+                </TableBody>
+            </Table>
+        </div>
+    );
+}
+
+/** A card per page under the `@3xl` width of the list, only the ones near the screen rendered (uier #418) */
+function PageCards({ pages, links }: { pages: PageCheckRow[]; links: Links }) {
+    const { t } = useAppI18n();
+    // 12 px between the cards (`gap-3`)
+    const { parts, virtual, container } = useVirtualRows(pages, { estimate: 220, gap: 12 });
+    return (
+        <ul aria-labelledby="checked-pages-title" className="m-0 flex list-none flex-col gap-3 p-0 @3xl/page-checks:hidden" {...container}>
+            {parts.map(part => {
+                if (part.kind === 'space') return <li key={part.key} aria-hidden="true" data-virtual-space="" style={{ height: part.height }} />;
+                const page = part.item;
+                return (
+                    <li key={page.id} data-page-check={page.path} data-row-key={page.id} className="flex flex-col gap-3 rounded-xl border p-4 text-sm"
+                        aria-setsize={virtual ? pages.length : undefined} aria-posinset={virtual ? part.index + 1 : undefined}>
+                        <PageCell page={page} {...links} />
+                        <dl className="m-0 grid grid-cols-2 gap-x-4 gap-y-3">
+                            {([[t("Accessibility"), <AccessibilityResult key="a" page={page} />], ['SEO', <SeoResult key="s" page={page} />],
+                                [t("Core Web Vitals"), <VitalsResult key="v" page={page} />], [t("Checked"), <Checked key="c" page={page} />]] as const).map(([label, value]) => (
+                                <div key={label} className="flex min-w-0 flex-col gap-1">
+                                    <dt className="text-xs text-muted-foreground">{t(label)}</dt>
+                                    <dd className="m-0 min-w-0">{value}</dd>
+                                </div>
+                            ))}
+                        </dl>
+                    </li>
+                );
+            })}
+        </ul>
+    );
+}
+
 /**
  * A project's Page checks (`/app/projects/<id>/page-checks`): what the toolbar's background checks
  * found on each page its members reviewed. Across pages first (shared titles and descriptions, pages
@@ -157,14 +241,16 @@ export function PageChecksView({ projectId, pages, environments }: {
                 <>
                     <AcrossPages checkedPages={pages} insights={pageCheckInsights(pages)} {...links} />
                     <section aria-labelledby="checked-pages-title" className="@container/page-checks flex flex-col gap-3">
-                        {/* The filter and order sit with the list they change (uier #256) */}
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                            <h2 id="checked-pages-title" className="m-0 text-base font-semibold tracking-[-0.01em]">
+                        {/* The filter and order sit with the list they change (uier #256). The heading and the two buttons share a
+                            line; what is in effect sits between them, or on a phone on its own line under them, like the
+                            comments' filters in effect */}
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                            <h2 id="checked-pages-title" className="m-0 mr-auto text-base font-semibold tracking-[-0.01em]">
                                 {t("Pages ")}<span className="font-normal text-muted-foreground tabular-nums">
                                     {filter === 'all' ? pages.length : t("{shown} of {total}", { shown: sorted.length, total: pages.length })}
                                 </span>
                             </h2>
-                            <div className="flex max-w-full min-w-0 flex-wrap items-center justify-end gap-2">
+                            {(filter !== 'all' || order !== 'attention') && <div className="flex max-w-full min-w-0 flex-wrap items-center justify-end gap-2 max-sm:order-last max-sm:w-full max-sm:justify-start">
                                 {/* What is in effect beside the actions, each with its own clear, like the comments' filters */}
                                 {filter !== 'all' && (
                                     <SettingChip name={t("Show")} icon={filterIcons[filter]} value={t(pageCheckFilterLabels[filter])}
@@ -176,7 +262,9 @@ export function PageChecksView({ projectId, pages, environments }: {
                                         label={t("{value0}{value1}, reset order", { value0: `${t("Sort")}: `, value1: t(pageCheckOrderLabels[order]) })}
                                         onClear={() => setUrlSearchParams({ sort: undefined })} />
                                 )}
-                                {/* Icon-only ghost buttons with a tooltip, like the comments' Filter and Group by (uier #417) */}
+                            </div>}
+                            {/* Icon-only ghost buttons with a tooltip, like the comments' Filter and Group by (uier #417) */}
+                            <div className="flex shrink-0 items-center gap-1">
                                 <DropdownMenu>
                                     <Tooltip>
                                         <TooltipTrigger render={<DropdownMenuTrigger render={<Button variant="ghost" size="icon" aria-label={t("Filter pages")} className={filterIconButton} />} />}>
@@ -237,48 +325,8 @@ export function PageChecksView({ projectId, pages, environments }: {
                             </Empty>
                         )}
                         {/* A table where the column is wide enough; a card per page under it */}
-                        <div className={cn('hidden rounded-xl border', sorted.length > 0 && '@3xl/page-checks:block')}>
-                            <Table aria-labelledby="checked-pages-title" data-page-checks-table>
-                                <TableHeader>
-                                    <TableRow className="hover:bg-transparent">
-                                        <TableHead scope="col" aria-sort={ariaSort('page')} className="pl-4">{t("Page")}</TableHead>
-                                        <TableHead scope="col" aria-sort={ariaSort('accessibility')}>{t("Accessibility")}</TableHead>
-                                        <TableHead scope="col" aria-sort={ariaSort('seo')}>{t("SEO")}</TableHead>
-                                        <TableHead scope="col" aria-sort={ariaSort('vitals')}>{t("Core Web Vitals")}</TableHead>
-                                        <TableHead scope="col" aria-sort={ariaSort('checked')} className="pr-4">{t("Checked")}</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {sorted.map(page => (
-                                        <TableRow key={page.id} data-page-check={page.path} className="align-top">
-                                            <TableCell className="max-w-80 py-3 pl-4 align-top whitespace-normal">
-                                                <PageCell page={page} {...links} />
-                                            </TableCell>
-                                            <TableCell className="py-3 align-top"><AccessibilityResult page={page} /></TableCell>
-                                            <TableCell className="py-3 align-top"><SeoResult page={page} /></TableCell>
-                                            <TableCell className="py-3 align-top"><VitalsResult page={page} /></TableCell>
-                                            <TableCell className="min-w-36 py-3 pr-4 align-top whitespace-normal"><Checked page={page} /></TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </div>
-                        {sorted.length > 0 && <ul aria-labelledby="checked-pages-title" className="m-0 flex list-none flex-col gap-3 p-0 @3xl/page-checks:hidden">
-                            {sorted.map(page => (
-                                <li key={page.id} data-page-check={page.path} className="flex flex-col gap-3 rounded-xl border p-4 text-sm">
-                                    <PageCell page={page} {...links} />
-                                    <dl className="m-0 grid grid-cols-2 gap-x-4 gap-y-3">
-                                        {([[t("Accessibility"), <AccessibilityResult key="a" page={page} />], ['SEO', <SeoResult key="s" page={page} />],
-                                            [t("Core Web Vitals"), <VitalsResult key="v" page={page} />], [t("Checked"), <Checked key="c" page={page} />]] as const).map(([label, value]) => (
-                                            <div key={label} className="flex min-w-0 flex-col gap-1">
-                                                <dt className="text-xs text-muted-foreground">{t(label)}</dt>
-                                                <dd className="m-0 min-w-0">{value}</dd>
-                                            </div>
-                                        ))}
-                                    </dl>
-                                </li>
-                            ))}
-                        </ul>}
+                        {sorted.length > 0 && <PageTable pages={sorted} ariaSort={ariaSort} links={links} />}
+                        {sorted.length > 0 && <PageCards pages={sorted} links={links} />}
                     </section>
                 </>
             )}
