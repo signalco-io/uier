@@ -112,7 +112,7 @@ async function ProjectsPageContent({ searchParams }: PageProps<'/app/projects'>)
                                                 <AccessIcon access={project.access} className="size-4 shrink-0" aria-hidden="true" />
                                                 <span className="truncate">{t(access.label)}</span>
                                             </span>
-                                            {/* uier's pin and the number at the line's right end, so it never wraps on its own; none open shows nothing */}
+                                            {/* uier's pin with the open count in it at the line's right end, so it never wraps on its own; none open shows nothing */}
                                             {open > 0 && <CommentCount count={open} className="ml-auto" />}
                                         </CardDescription>
                                     </CardHeader>
