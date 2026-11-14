@@ -18,6 +18,7 @@ import { ProjectGeneralForm } from '@/src/components/app/projects/ProjectGeneral
 import { projectAiTitleMode, workspaceAiTitles } from '@/src/lib/titles/settings';
 import { projectRewriteInstructions, workspaceRewriteInstructions } from '@/src/lib/rewrite/settings';
 import { projectSettingsContext } from './settingsContext';
+import { projectLinks } from '@/src/lib/app/projectLinks';
 
 export async function generateMetadata(): Promise<Metadata> {
     const { t } = await getAppI18n();
@@ -38,6 +39,7 @@ async function ProjectSettingsPageContent({ params }: PageProps<'/app/projects/[
     return (
         <>
             <ProjectGeneralForm projectId={project.id} name={project.name} clientName={projectClient(project, clients)?.name} clients={clientNames(projects, clients)}
+                links={projectLinks(project)}
                 aiTitles={projectAiTitleMode(project)} workspaceAiTitles={workspaceAiTitles(context.workspace)}
                 rewriteInstructions={projectRewriteInstructions(project)} workspaceRewriteInstructions={workspaceRewriteInstructions(context.workspace)} />
             <Suspense fallback={<AppPageLoading />}>

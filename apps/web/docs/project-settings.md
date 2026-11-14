@@ -25,6 +25,18 @@
   (project emails, comment excerpts); radios and text wait for Save. Account's Profile uses the same footer.
 - **Usage** (General, `#usage`) is a grid of label/value cells; each cell spans two rows of the grid (`grid-rows-subgrid`),
   so a label that wraps keeps the numbers of its row on one line.
+- **Links** (General, [uier #434](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_TtHasM-SZdDcd8B3elfu-)): up to 10 links to the project's other tools, each an address and an optional label
+  (60 characters), part of General's one draft and save (`ProjectLinksFields.tsx`: a row per link, a table where the card is
+  wide enough; Add link moves the focus into the new row, removing one keeps it in the list). Addresses are http or https
+  only, schemeless ones get HTTPS, and addresses with a user name or password are refused; path, query and hash are kept
+  (`normalizeProjectLinkUrl` in `lib/app/projectLinks.ts`, `projectLinksSchema` in `projects.ts`, checked again by
+  `updateProject`). Rows with nothing typed are left out; older forms without the field keep the saved links. They are
+  stored in order on the project (`DbProject.links`), read through `projectLinks` (stored values that are no longer web
+  addresses are dropped) and shown in the project header ([app shell](app-shell.md)). `projectLinkProvider` recognises
+  GitHub, GitLab (also self-hosted `gitlab.` hosts), Azure DevOps (Boards and Repos from the path), Slack, Notion, Figma,
+  Google Drive (Drive and Docs addresses), Discord and Linear by host; each shows its mark (`ProjectLinkIcon`: the
+  integrations' logos, plus `serviceLogos` in `IntegrationLogo.tsx`), any other address Lucide's link. An empty label shows
+  the service's name, else the host, which the label's placeholder previews. `project-links{,.api}.spec.ts` cover them.
 - The board's column sorts are the project's too, but they are chosen on the board, from each column's header, by
   everyone who triages the project, and saved at once ([column sorts](comments-inbox.md#board-column-sorts)).
 

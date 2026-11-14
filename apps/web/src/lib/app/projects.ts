@@ -10,12 +10,13 @@ import { getAppStore, updateDoc } from './store';
 import { projectRefPk, workspacePk, type DbProject, type DbProjectRef, type ProjectAccess, type ProjectStatus } from './model';
 import { hasProjectAccess, loadWorkspaceAccessForRender } from './access';
 import type { AppContext } from './context';
-import { MAX_PROJECT_BRIEF_LENGTH, MAX_PROJECT_NAME_LENGTH, MAX_PROJECT_URLS } from './limits';
+import { MAX_PROJECT_BRIEF_LENGTH, MAX_PROJECT_LINK_LABEL_LENGTH, MAX_PROJECT_LINKS, MAX_PROJECT_NAME_LENGTH, MAX_PROJECT_URLS } from './limits';
 import { ensurePublicProject, isUierProvisionedProject } from '../comments/publicProject';
 import { assertMutableWorkspace, assertMutableProject } from '../comments/publicProjectPolicy';
 import { ensureProjectPublicId, isLiveProject, isProjectPublicId, projectByPublicId } from './projectPublicIds';
 import { createProjectWithClient, ensureProjectClient } from './clients';
 import { normalizeSiteUrl } from './siteUrl';
+import { normalizeProjectLinkUrl } from './projectLinks';
 import { projectRewriteInstructionsSchema } from '../rewrite/settings';
 
 export { projectClientNameSchema } from './clients';
@@ -52,6 +53,22 @@ export const projectUrlsSchema = z.array(siteUrlSchema)
     .min(1, 'Enter the address of your site.')
     .max(MAX_PROJECT_URLS, `A project can have up to ${MAX_PROJECT_URLS} addresses.`)
     .transform(urls => [...new Set(urls)]);
+
+/**
+ * The project's links (General settings), in order: a label up to 60 characters (empty shows the service or the
+ * host) and an http or https address, stored in full (`projectLinks.ts`)
+ */
+export const projectLinksSchema = z.array(z.object({
+    label: z.string().trim().max(MAX_PROJECT_LINK_LABEL_LENGTH, `Use at most ${MAX_PROJECT_LINK_LABEL_LENGTH} characters.`),
+    url: z.string().transform((value, context) => {
+        const url = normalizeProjectLinkUrl(value);
+        if (!url) {
+            context.addIssue({ code: 'custom', message: value.trim() ? `"${value.trim().slice(0, 80)}" is not a website address.` : 'Enter an address for each link.' });
+            return z.NEVER;
+        }
+        return url;
+    })
+}).strict()).max(MAX_PROJECT_LINKS, `A project can have up to ${MAX_PROJECT_LINKS} links.`);
 
 export const projectNameSchema = z.string().trim()
     .min(1, 'Enter a project name.')
@@ -187,6 +204,8 @@ export type ProjectUpdate = Partial<{
     environments: import('./environments').ProjectEnvironment[];
     name: string;
     brief: string | undefined;
+    /** `undefined` removes the project's links */
+    links: import('./projectLinks').ProjectLink[] | undefined;
     urls: string[];
     status: ProjectStatus;
     access: ProjectAccess;
@@ -201,6 +220,7 @@ export async function updateProject(workspaceId: string, projectId: string, upda
     if (update.threadLabels !== undefined) update = { ...update, threadLabels: projectThreadLabelsSchema.parse(update.threadLabels) };
     if (update.statusWorkflow !== undefined) update = { ...update, statusWorkflow: projectStatusWorkflowSchema.parse(update.statusWorkflow) };
     if (update.feedbackTypes !== undefined) update = { ...update, feedbackTypes: projectFeedbackTypesSchema.parse(update.feedbackTypes) };
+    if (update.links !== undefined) update = { ...update, links: projectLinksSchema.parse(update.links) };
     return await updateDoc<DbProject>(workspacePk(workspaceId), projectId, project => ({
         ...project,
         ...update,

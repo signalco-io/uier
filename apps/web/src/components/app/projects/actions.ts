@@ -21,6 +21,7 @@ import {
     projectAccessModes,
     projectClientNameSchema,
     projectBriefSchema,
+    projectLinksSchema,
     projectNameSchema,
     projectPageStateSchema,
     projectUrlsSchema,
@@ -42,6 +43,7 @@ import { selectWorkspace } from '../../../lib/app/workspaceCookie';
 import { projectAiTitleMode, projectAiTitleModes } from '../../../lib/titles/settings';
 import { projectToolbarLanguageMode, projectToolbarLanguageModeSchema } from '../../../lib/app/toolbarLanguage';
 import { projectRewriteInstructions, projectRewriteInstructionsInput } from '../../../lib/rewrite/settings';
+import { projectLinks } from '../../../lib/app/projectLinks';
 
 /** One origin's environment: a label, and the group of addresses it shares feedback with */
 const environmentSchema = z.array(z.object({
@@ -108,7 +110,11 @@ export async function updateProjectGeneralAction(_: ActionState, formData: FormD
         }) : undefined;
         const { context, project } = await adminProject(formData.get('projectId'));
         assertMutableProject(context.workspace.id, project.id);
+        // Forms loaded before links existed leave them untouched; parsed once the person may change them
+        const links = formData.has('links') ? projectLinksSchema.parse(jsonField(formData.get('links'))) : undefined;
         const update: ProjectUpdate = {};
+        if (links !== undefined && JSON.stringify(links) !== JSON.stringify(projectLinks(project)))
+            update.links = links.length > 0 ? links : undefined;
         if (hasRewriteInstructions && JSON.stringify(rewriteInstructions) !== JSON.stringify(projectRewriteInstructions(project)))
             update.rewriteInstructions = rewriteInstructions;
         if (name !== project.name)
@@ -121,6 +127,15 @@ export async function updateProjectGeneralAction(_: ActionState, formData: FormD
             await setProjectClient(context, project.id, clientName);
         revalidatePath('/app', 'layout');
     }, 'Saved.');
+}
+
+/** A form field that holds JSON; anything else is a form to check again */
+function jsonField(value: FormDataEntryValue | null): unknown {
+    try {
+        return JSON.parse(String(value));
+    } catch {
+        throw new UserFacingError('Check the form and try again.');
+    }
 }
 
 const accessSchema = z.enum(projectAccessModes as [ProjectAccess, ...ProjectAccess[]], 'Choose who can comment.');

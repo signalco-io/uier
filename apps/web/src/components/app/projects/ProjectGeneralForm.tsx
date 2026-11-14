@@ -16,13 +16,17 @@ import { projectAiTitleModes, type ProjectAiTitleMode } from '../../../lib/title
 import type { ProjectSetting, ProjectSettingMode } from '../../../lib/app/inheritedSettings';
 import { ProjectRewriteInstructionsFields } from './ProjectRewriteInstructionsFields';
 import { keepValues } from './keepFormValues';
+import { ProjectLinksFields, projectLinksPayload } from './ProjectLinksFields';
+import type { ProjectLink } from '../../../lib/app/projectLinks';
 
-/** General: the project's name, client, AI thread titles and rewrite guidance, one save */
-export function ProjectGeneralForm({ projectId, name, clientName, clients, aiTitles, workspaceAiTitles, rewriteInstructions, workspaceRewriteInstructions }: {
+/** General: the project's name, client, links, AI thread titles and rewrite guidance, one save */
+export function ProjectGeneralForm({ projectId, name, clientName, clients, links, aiTitles, workspaceAiTitles, rewriteInstructions, workspaceRewriteInstructions }: {
     projectId: string;
     name: string;
     clientName?: string;
     clients: string[];
+    /** Links to the project's other tools, shown in its header (uier #434) */
+    links: ProjectLink[];
     /** The project's own choice, or the workspace's setting */
     aiTitles: ProjectAiTitleMode;
     /** The workspace's setting, which `workspace` follows */
@@ -33,7 +37,7 @@ export function ProjectGeneralForm({ projectId, name, clientName, clients, aiTit
     const { t } = useAppI18n();
     const formId = useId();
     const [state, formAction, pending] = useActionState(updateProjectGeneralAction, null);
-    const { draft, dirty, update, discard } = useSettingsDraft({ name, clientName: clientName ?? '', aiTitles,
+    const { draft, dirty, update, discard } = useSettingsDraft({ name, clientName: clientName ?? '', links, aiTitles,
         rewriteMode: (rewriteInstructions?.mode ?? 'workspace') as ProjectSettingMode, rewriteInstructions: rewriteInstructions?.value ?? '' }, state);
     const aiTitleOptions = [
         { value: 'workspace', label: workspaceAiTitles ? t("Workspace setting (on)") : t("Workspace setting (off)") },
@@ -48,6 +52,7 @@ export function ProjectGeneralForm({ projectId, name, clientName, clients, aiTit
             footer={<SaveFooter formId={formId} state={state} pending={pending} dirty={dirty} onDiscard={discard} />}>
             <form id={formId} action={formAction} onResetCapture={keepValues}>
                 <input type="hidden" name="projectId" value={projectId} />
+                <input type="hidden" name="links" value={JSON.stringify(projectLinksPayload(draft.links))} />
                 <FieldGroup>
                     <Field>
                         <FieldLabel htmlFor={`${formId}-name`}>{t("Project name")}</FieldLabel>
@@ -68,6 +73,7 @@ export function ProjectGeneralForm({ projectId, name, clientName, clients, aiTit
                         <FieldDescription>{t("Who the project is for. Edit a client's name, icon and colour on")}{' '}<Link href={KnownPages.AppClients} className="underline underline-offset-4 hover:text-foreground">{t("Clients")}</Link>.
                         </FieldDescription>
                     </Field>
+                    <ProjectLinksFields links={draft.links} disabled={pending} onChange={change => update(current => ({ ...current, links: change(current.links) }))} />
                     <Field>
                         <FieldLabel htmlFor={`${formId}-ai-titles`}>{t("Thread titles")}</FieldLabel>
                         <input type="hidden" name="aiTitles" value={draft.aiTitles} />

@@ -196,6 +196,8 @@ export type DbProject = AppDoc & {
     clientName?: string;
     /** Plain-text instructions shared only with people who can comment. */
     brief?: string;
+    /** Links to the project's other tools (repository, boards, chat, designs), in its header for its members (`projectLinks.ts`) */
+    links?: import('./projectLinks').ProjectLink[];
     /** Site URLs (origin and optional path); the first one is the main site */
     urls: string[];
     /** Opt-in meaningful URL state. Missing on older projects: pathname only. */

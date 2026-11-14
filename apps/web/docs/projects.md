@@ -40,6 +40,8 @@
   acts as `SYSTEM_ACTOR` (`accessMutations.ts`), which may only remove access. A new workspace-keyed record
   type that names a project must be handled by the transfer and [project transfer](../../../docs/project-transfer.md);
   `e2e/project-transfer{,.api}.spec.ts` cover it.
+- Project links (`DbProject.links`, [project settings](project-settings.md)) live on the project document: deletion removes
+  them with it and a transfer copies them. They are member-only: no review API, guest page, export or MCP output includes them.
 - Project addresses use `normalizeSiteUrl` in `src/lib/app/projects.ts`: schemeless localhost,
   `.localhost` subdomains and loopback IPs default to HTTP, other hosts to HTTPS. Explicit schemes
   and ports are preserved. Review CORS and redirects still require an exact configured origin.

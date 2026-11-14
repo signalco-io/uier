@@ -172,7 +172,9 @@ own colours ([Google sign-in](../../docs/google-sign-in.md)); the buttons around
 outline button as every other sign-in option. The others are the
 logos of connected services in a project's Integrations settings: each is the provider's own filled
 mark on a bordered tile, in ink and paper where the provider allows a one-colour logo (GitHub,
-Linear, Notion) and in its own colours where it does not (Slack, Azure DevOps). The AI agents that
+Linear, Notion) and in its own colours where it does not (Slack, Azure DevOps). A project's links in its
+header and General settings show the same marks at 16 px without the tile, plus GitLab and Discord in ink and
+paper and Figma and Google Drive in their own colours; any other link is Lucide's link icon. The AI agents that
 work under an assignee (Claude, Codex, ChatGPT, Cursor) show their product's one-colour mark in ink and
 paper on a bordered circle, as do the connected apps and access tokens in Account → Coding agents; in
 compact assignment groups they are small badges on their person's avatar edge. People remain separate groups, and hover cards indent smaller agent avatars beneath

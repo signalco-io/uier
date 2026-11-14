@@ -68,6 +68,9 @@ the separately bundled review toolbar owns its own query cache.
   project layout sets `--project-tabs` (its 2.5rem height); what sticks below it clears it: the thread beside the
   comments list (`CommentInbox`, its top, height and scroll margins), the rows' scroll margins, `VirtualCommentList`'s
   reveal (`data-sticky-tabs`) and the settings' section links (`SettingsLayout`).
+- **Project links** ([uier #434](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_TtHasM-SZdDcd8B3elfu-)): after the client and who can comment (and the Done badge), the header's row lists the
+  project's links (`ProjectLinks`), each its service's mark and its label, opening in a new tab (`noopener noreferrer`).
+  Everyone who sees the header sees them; admins edit them in Settings → General ([project settings](project-settings.md)).
 - **Header popovers** (uier #420, #421): the client and who-can-comment labels under a project's name are `LinkPopover`s
   (`src/components/app/LinkPopover.tsx`). Each opens a popover on hover and, when the label is a link, when the keyboard focuses
   it (Tab then moves into it, Escape closes it and leaves the focus on the label); a click or Enter follows the link, and a

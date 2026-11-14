@@ -27,6 +27,8 @@ const messages: Record<keyof typeof en, string> = {
     "Use at most {count} characters for the client name.": "Upotrijebite najviše {count} znakova za naziv klijenta.",
     "Use at most {count} characters for the description.": "Upotrijebite najviše {count} znakova za opis.",
     "A project can have up to {count} addresses.": "Projekt može imati najviše {count} adresa.",
+    "A project can have up to {count} links.": "Projekt može imati najviše {count} poveznica.",
+    "Enter an address for each link.": "Unesite adresu za svaku poveznicu.",
     "A workspace can have up to {count} active teams.": "Radni prostor može imati najviše {count} aktivnih timova.",
     "You can create up to {count} workspaces.": "Možete izraditi najviše {count} radnih prostora.",
     "You can add up to {count} passkeys. Remove one first.": "Možete dodati najviše {count} pristupnih ključeva. Prvo uklonite jedan.",
