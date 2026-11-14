@@ -46,7 +46,7 @@ const services: [IntegrationProviderId, string][] = [
 export default function ClientReviewGuide() {
     return <main className="flex flex-col pb-16">
         <GuideHeader title={guides.clientReviews.title} lead={guides.clientReviews.description} outline={Object.values(sections)}>
-            <Button variant="solid" size="lg" href={KnownPages.App} className="self-start">Create a project</Button>
+            <Button variant="solid" size="lg" href={KnownPages.App}>Create a project</Button>
         </GuideHeader>
 
         <GuideSteps>

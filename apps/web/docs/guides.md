@@ -13,7 +13,9 @@ are in `src/components/marketing/guides/`; use them only for the guides, and kee
 there rather than in the shared marketing components.
 
 - `GuideHeader`: a link back to `/guides`, the title, the description and the actions, with the
-  outline beside them ("In this guide": every step and section, linked to its id).
+  outline beside them ("In this guide": every step and section, linked to its id). Its column
+  aligns children to the start, so an action passed directly (a lone `Button`) keeps its own width
+  instead of stretching across the column; `PageHeader` on the other public pages does the same.
 - `GuideSteps` and `GuideStep`: the numbered steps on a rail. Each step is a `section` with its `id`
   and an `h2` (`${id}-title`), like `PageSection`, so tests find it as a region by its title. A small
   picture goes in `aside` (beside the step on wide screens), a wide one under the text. On small

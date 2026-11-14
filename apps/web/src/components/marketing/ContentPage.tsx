@@ -9,7 +9,7 @@ import { cx } from '@signalco/ui-primitives/cx';
 /** `media` goes above the title, e.g. an integration's logo */
 export function PageHeader({ title, lead, media, children }: PropsWithChildren<{ title: string; lead: ReactNode; media?: ReactNode; }>) {
     return (
-        <header className="flex max-w-[720px] flex-col gap-5 pt-12 md:pt-20">
+        <header className="flex max-w-[720px] flex-col items-start gap-5 pt-12 md:pt-20">
             {media}
             <h1 className="text-[40px] font-semibold leading-[1.1] tracking-[-0.03em]">{title}</h1>
             <p className="text-lg leading-relaxed text-muted-foreground">{lead}</p>

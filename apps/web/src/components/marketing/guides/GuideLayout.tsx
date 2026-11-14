@@ -29,8 +29,9 @@ export function StepNumber({ number, small }: { number: number; small?: boolean 
 export function GuideHeader({ title, lead, outline, children }: PropsWithChildren<{ title: string; lead: ReactNode; outline: GuideOutlineItem[] }>) {
     return (
         <header className="grid grid-cols-1 items-start gap-10 pt-12 md:pt-20 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:gap-16">
-            <div className="flex min-w-0 flex-col gap-5">
-                <a href={KnownPages.Guides} className="-mx-1 inline-flex items-center gap-1.5 self-start rounded-md px-1 text-sm font-medium text-muted-foreground hover:text-foreground">
+            {/* items-start: actions passed as children keep their own width instead of stretching */}
+            <div className="flex min-w-0 flex-col items-start gap-5">
+                <a href={KnownPages.Guides} className="-mx-1 inline-flex items-center gap-1.5 rounded-md px-1 text-sm font-medium text-muted-foreground hover:text-foreground">
                     <ArrowLeftIcon size={16} strokeWidth={1.75} aria-hidden="true" />
                     Guides
                 </a>

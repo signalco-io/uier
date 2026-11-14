@@ -9,7 +9,9 @@ official sources. Unknown slugs return 404.
 unsupported or unverified, with a detail and source per documented competitor capability. Its
 `checkedOn` is the date the vendor sources were actually reviewed, not a build date. Update the
 date only after rechecking those sources. These pages are written by uier and say they compare
-documented capabilities rather than a hands-on benchmark. Do not infer missing competitor
+documented capabilities rather than a hands-on benchmark: that note sits in each page's "Sources
+and scope" section, not under the hero actions, and the `/compare` hub (no sources section) does not
+repeat it. Do not infer missing competitor
 features from documentation silence or turn an unverified entry into a negative. Preserve plan,
 browser and capture-mode caveats. Do not count coming-soon features as available or claim MCP
 is exclusive to uier. Link current pricing matrices instead of copying volatile price amounts.
