@@ -12,8 +12,8 @@ The app's `CommentCard` follows the same layout, icons and words: change both to
 first reply, named "Comment #6, 3 messages", and the thread's people beside it
 ([who is in the thread](composer-popovers.md#who-is-in-the-thread)).
 
-The thread's status but Open is on the pin too (`PinStatus.tsx`, uier #364): a 10 px circle with a border in
-the status's colour and a soft gradient of it (by category for custom statuses), in the pin's white ring, on its
+The thread's status but Open is on the pin too (`PinStatus.tsx`, uier #364): a 10 px circle with a ring in a
+gradient of the status's colour around a solid dot of it (by category for custom statuses, uier #402), in the pin's white ring, on its
 round top-right edge above the message count (uier #397), so the pin keeps its size and reads on light and dark
 pages. It is a smaller, quieter take on the glowing dots of the app's board columns. The pin's name
 ends with the status ("Comment #6, 3 messages, In progress", a custom status's own name; `selectedWorkflowStatus`
