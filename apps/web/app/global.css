@@ -20,6 +20,8 @@
 @source '../node_modules/@uier/brand/src';
 /* The message editor's document classes (ProseMirror's nodes, made outside React) */
 @source '../node_modules/@uier/toolbar/src/editor';
+/* The device details popover's content, shared with the toolbar (`@uier/toolbar/device-details`) */
+@source '../node_modules/@uier/toolbar/src/deviceDetails';
 
 /* Geist (sans) and Geist Mono, loaded with next/font in app/layout.tsx (variables set on <html>) */
 @theme inline {

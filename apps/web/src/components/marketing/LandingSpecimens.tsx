@@ -4,7 +4,7 @@ import { cx } from '@signalco/ui-primitives/cx';
 import { FlagIcon, GitPullRequestIcon } from 'lucide-react';
 import { Pin } from '@uier/brand/Pin';
 import type { IntegrationProviderId } from '@/src/lib/integrations/model';
-import { BrowserMark, OsMark } from '../app/comments/DeviceMark';
+import { BrowserMark, OsMark } from '@uier/toolbar/device-details';
 import { IntegrationLogo } from '../app/integrations/IntegrationLogo';
 
 // Static pictures of the review layer and the app for the landing page's feature tiles. The live

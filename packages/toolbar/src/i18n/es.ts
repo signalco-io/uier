@@ -730,15 +730,10 @@ export const es: Messages = {
         copied: 'Detalles de reproducción copiados',
         copy: 'Copiar detalles de reproducción',
         notCopied: 'No se pudo copiar. Selecciona los detalles y cópialos.',
-        model: 'Modelo',
-        input: 'Entrada',
-        inputs: { touch: 'Táctil', mouse: 'Ratón o panel táctil' },
-        colorScheme: 'Esquema de color',
-        colorSchemes: { light: 'Claro', dark: 'Oscuro' },
-        reducedMotion: 'Movimiento reducido',
-        on: 'Activado',
-        off: 'Desactivado',
-        pageLanguage: 'Idioma de la página'
+        tiles: {
+            model: 'Modelo', input: 'Entrada', theme: 'Tema', motion: 'Movimiento', language: 'Idioma',
+            touch: 'Táctil', mouse: 'Ratón', light: 'Claro', dark: 'Oscuro', reduced: 'Reducido', standard: 'Estándar'
+        }
     },
     seo: {
         labels: {

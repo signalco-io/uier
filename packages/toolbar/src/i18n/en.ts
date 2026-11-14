@@ -755,15 +755,11 @@ export const en = {
         copied: 'Reproduction details copied',
         copy: 'Copy reproduction details',
         notCopied: 'Couldn’t copy. Select the details and copy them instead.',
-        model: 'Model',
-        input: 'Input',
-        inputs: { touch: 'Touch', mouse: 'Mouse or trackpad' },
-        colorScheme: 'Colour scheme',
-        colorSchemes: { light: 'Light', dark: 'Dark' },
-        reducedMotion: 'Reduced motion',
-        on: 'On',
-        off: 'Off',
-        pageLanguage: 'Page language'
+        /** The details' tiles (`deviceTiles`): short words, since a tile is half the popover wide; copied details keep the full ones */
+        tiles: {
+            model: 'Model', input: 'Input', theme: 'Theme', motion: 'Motion', language: 'Language',
+            touch: 'Touch', mouse: 'Mouse', light: 'Light', dark: 'Dark', reduced: 'Reduced', standard: 'Standard'
+        }
     },
     seo: {
         labels: {

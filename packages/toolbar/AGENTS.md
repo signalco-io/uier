@@ -119,6 +119,7 @@ they behave goes in that note, not here.
 | `components/CommentSelectionPopover.tsx`, `RewriteIcon.tsx` | the toolbar for selected text: Add comment and Rewrite ([point mode](docs/point-mode.md#selected-text)) |
 | `components/RewriteSuggestions.tsx`, `hooks/useRewriteSuggestions.tsx` | AI suggestions in a rewrite's form ([popovers](docs/composer-popovers.md#a-rewrite)) |
 | `components/info/`, `hooks/useHoverPopover.ts` | the browser and device a comment was left from, and their details popover ([device details](docs/device-details.md)) |
+| `src/deviceDetails/` | the details popover's content and marks, shared with the app (`@uier/toolbar/device-details`) ([device details](docs/device-details.md)) |
 | `src/screenshot.ts`, `components/CommentScreenshot.tsx`, `components/ComposerAttachments.tsx` | capture, the screenshot toggle and saved thumbnails ([screenshots](docs/screenshots.md)) |
 | `components/ComposerAttachMenu.tsx` | Attach: one menu with Attach image, Record screen and Upload recording ([screenshots](docs/screenshots.md#the-form), [recordings](docs/recordings.md)) |
 | `src/screenshotPolicy.ts`, `src/suppliedScreenshot.ts`, `components/ScreenshotRedaction.tsx`, `hooks/useReplaceScreenshot.ts` | saved images: upload, paste and redaction ([screenshots](docs/screenshots.md#saved-images)) |
