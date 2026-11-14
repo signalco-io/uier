@@ -179,27 +179,24 @@ test('the board widens on a wide window, the filters and project headers and the
     const mark = page.getByRole('heading', { level: 1 }).locator('xpath=../../*[1]');
     const settings = page.getByRole('main').getByLabel('Settings', { exact: true });
     // The count line: the guests' threads are unread, so it shows their count (uier #187). With this room it is in the
-    // search row (uier #300), after the search and left of Filter and the view toggle (uier #398)
+    // search row (uier #300), left of the search, which is directly left of Filter and the view toggle (uier #403)
     const unread = page.getByRole('status').filter({ hasText: /^\d+ unread$/ });
     const countLine = unread.locator('xpath=..');
     const filter = page.getByRole('button', { name: /^Filter/ });
-    // The filters and project headers are full width from the left (uier #363): search and the project's mark start
-    // with the first column, the view toggle and the settings button end at the page's right edge, the panel less its
-    // 32 px gutter, however far the columns reach; the search's group is as wide as the first column (uier #398), and the
-    // count line is between it and Filter, which is beside the view toggle
-    const searchGroup = page.locator('[data-search-field]').filter({ has: page.locator('#feedback-search') });
+    // The filters and project headers are full width from the left (uier #363): the project's mark starts with the
+    // first column, the view toggle and the settings button end at the page's right edge, the panel less its 32 px
+    // gutter, however far the columns reach; the search is directly left of Filter (uier #403), and the count line is
+    // left of the search
     const headerSpans = async (first: Locator) => {
         const left = (await placement(first)).left, right = 32;
         expect(left).toBeCloseTo(32, 0);
-        expect((await placement(search)).left).toBeCloseTo(left, 0);
         expect((await placement(view)).right).toBeCloseTo(right, 0);
         expect((await placement(mark)).left).toBeCloseTo(left, 0);
         expect((await placement(settings)).right).toBeCloseTo(right, 0);
         const searchBox = (await search.boundingBox())!, lineBox = (await countLine.boundingBox())!, filterBox = (await filter.boundingBox())!;
-        const groupBox = (await searchGroup.boundingBox())!, viewBox = (await view.boundingBox())!;
-        expect(searchBox.x + searchBox.width).toBeLessThanOrEqual(groupBox.x + groupBox.width + 0.5);
-        expect(lineBox.x).toBeGreaterThan(groupBox.x + groupBox.width);
-        expect(lineBox.x + lineBox.width).toBeLessThanOrEqual(filterBox.x);
+        const viewBox = (await view.boundingBox())!;
+        expect(lineBox.x + lineBox.width).toBeLessThanOrEqual(searchBox.x);
+        expect(filterBox.x - (searchBox.x + searchBox.width)).toBeCloseTo(8, 0);
         expect(filterBox.x + filterBox.width).toBeLessThanOrEqual(viewBox.x);
         expect(Math.abs((lineBox.y + lineBox.height / 2) - (filterBox.y + filterBox.height / 2))).toBeLessThan(4);
     };
@@ -238,19 +235,18 @@ test('the board widens on a wide window, the filters and project headers and the
     const split = list.locator('xpath=..');
     await headerSpans(list);
     expect((await placement(split)).right).toBeCloseTo(32, 0);
-    // The search and the status tabs after it are exactly as wide as the list, from its left edge to its right (uier #384,
-    // #398): the tabs end where the list does
+    // The status tabs start the row, at the list's left edge (uier #405), the search on the right
     const listBox = (await list.boundingBox())!;
-    await expect.poll(async () => Math.round((await placement(searchGroup)).width)).toBe(Math.round(listBox.width));
     const tabsBox = (await page.getByRole('group', { name: 'Status', exact: true }).boundingBox())!;
-    expect(tabsBox.x).toBeGreaterThan((await search.boundingBox())!.x + (await search.boundingBox())!.width);
-    expect(tabsBox.x + tabsBox.width).toBeCloseTo(listBox.x + listBox.width, 0);
-    // A search with no result: its empty state is as wide as the header, from the search to the view toggle (uier #383)
+    expect(tabsBox.x).toBeCloseTo(listBox.x, 0);
+    expect(tabsBox.x + tabsBox.width).toBeLessThan((await search.boundingBox())!.x);
+    // A search with no result: its empty state is as wide as the header, from the status tabs to the view toggle (uier #383)
+    const headerLeft = (await placement(list)).left;
     await page.locator('#feedback-search').fill('nothing matches this');
     const empty = page.locator('[data-slot="empty"]').filter({ hasText: 'Nothing here' });
     await expect(empty).toBeVisible();
     const emptyPlacement = await placement(empty);
-    expect(emptyPlacement.left).toBeCloseTo((await placement(search)).left, 0);
+    expect(emptyPlacement.left).toBeCloseTo(headerLeft, 0);
     expect(emptyPlacement.right).toBeCloseTo(32, 0);
     await page.locator('#feedback-search').fill('');
     await expect(list).toBeVisible();
@@ -300,15 +296,11 @@ test('the board widens on a wide window, the filters and project headers and the
     expect((await placement(column('Open'))).left).toBeCloseTo(laptopComments!.left, 0);
     // The filters and project headers stay at the panel's width less the gutters and do not scroll with the board
     const headers = async () => ({ search: await placement(search), view: await placement(view), mark: await placement(mark), settings: await placement(settings) });
-    // The search is as wide as the first column under it (uier #355, #398)
-    const openWidth = (await column('Open').boundingBox())!.width;
-    await expect.poll(async () => Math.round((await placement(searchGroup)).width)).toBe(Math.round(openWidth));
     const laptopHeader = await headers();
-    expect(laptopHeader.search.left).toBeCloseTo(laptopComments!.left, 0);
     expect(laptopHeader.view.right).toBeCloseTo(laptopComments!.right, 0);
     expect(laptopHeader.mark.left).toBeCloseTo(laptopComments!.left, 0);
     expect(laptopHeader.settings.right).toBeCloseTo(laptopComments!.right, 0);
-    // The count line stays in the search row, left of Filter
+    // The count line stays in the search row, left of the search and Filter
     const laptopLine = (await countLine.boundingBox())!, laptopFilter = (await filter.boundingBox())!;
     expect(laptopLine.x + laptopLine.width).toBeLessThanOrEqual(laptopFilter.x);
     expect(Math.abs((laptopLine.y + laptopLine.height / 2) - (laptopFilter.y + laptopFilter.height / 2))).toBeLessThan(4);

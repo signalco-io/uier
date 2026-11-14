@@ -320,7 +320,7 @@ The populated inbox keeps `data-page-width="wide"` on its outer container and de
 width from the chosen view, even when presentation filters match nothing. Removing the board must
 not remove the shell's width container or recenter the search and project header. The unread/action
 row reserves 32 px (44 px on touch) throughout a populated inbox's lifetime, including when empty,
-where the comments are narrower than 56rem; wider, it is in the search row left of Filter (uier #398), where it adds
+where the comments are narrower than 56rem; wider, it is in the search row left of the search (uier #398, #403), where it adds
 no row and its appearing or going away moves nothing else ([comment filters](comment-filters.md)), and
 the reserved row is hidden. Live arrivals and reading the last unread thread cannot move the comments. A row's unread dot sits
 in its left padding, out of the flow, so reading it leaves its title and path where they are.
@@ -330,7 +330,7 @@ viewport (1674 Ã— 1366) and on Mobile Chrome, with 20 API-created threads and 4Ã
 records every `layout-shift` source and before/after rectangle in `project-cls.json`, with the toolbar's
 largest-session-window calculation (recent input and toolbar-only entries excluded). It checks the
 painted view before releasing scripts, read-all, a background unread arrival, an empty search and
-Give feedback's toolbar injection, plus unchanged board/header geometry, the count line left of Filter on
+Give feedback's toolbar injection, plus unchanged board/header geometry, the count line left of the search on
 desktop (under it on a phone) and Filter staying put through read-all and the arrival. The full report and limits
 are in [the CLS investigation](project-comments-cls.md).
 
@@ -499,7 +499,7 @@ selection scope, and the routing projection retains label IDs without loading me
 
 The project offers **Group by**, saved for everyone by members who can triage. Selected labels have horizontal board lanes, followed by Ungrouped; multi-label threads appear in each matching lane. Each label/status cell has its own cursor, total and loaded window. Moves change status within the lane; label edits remain explicit thread controls. Duplicate cards have separate DOM focus targets and only the board opened from owns the thread sheet.
 
-The search row's **Group by** menu sits immediately after Filter in both project views.
+The search row's **Group by** menu sits immediately after Filter in both project views, an icon-only button with a tooltip (uier #404).
 Label opens the effective catalog to choose the labels that get swimlanes; No grouping clears
 that choice. The project saves selected IDs with the existing triage permission. Older all-label
 preferences keep their meaning until edited. Ungrouped includes threads with no selected label,

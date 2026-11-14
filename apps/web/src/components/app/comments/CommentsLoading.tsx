@@ -2,7 +2,7 @@
 
 import { useLayoutEffect, useReducer, useSyncExternalStore } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { ChevronDownIcon, KanbanIcon, ListFilterIcon, ListIcon, SearchIcon } from 'lucide-react';
+import { ChevronDownIcon, KanbanIcon, LayersIcon, ListFilterIcon, ListIcon, SearchIcon } from 'lucide-react';
 import { useAppI18n } from '@/src/lib/i18n/client';
 import { cn } from '@/src/lib/utils';
 import { Button } from '@/src/components/ui/button';
@@ -11,7 +11,7 @@ import { Skeleton } from '@/src/components/ui/skeleton';
 import { parseCommentsView } from '@/src/lib/app/commentsViewPreference';
 import { isActiveStatusFilter, isDoneStatusFilter, statusFilterLabels, type CommentsView, type StatusFilter } from './commentLabels';
 import { storedCommentsView } from './commentsView';
-import { searchBesideList, searchField, searchInput, segmentedGroup, segmentedItem } from './CommentsViewToggle';
+import { filterControls, filterIconButton, searchInput, segmentedGroup, segmentedItem, statusTabsBox } from './CommentsViewToggle';
 
 const subscribeNothing = () => () => {};
 
@@ -63,8 +63,9 @@ const rowTitles = ['w-3/4', 'w-2/3', 'w-5/6', 'w-1/2', 'w-3/5', 'w-2/3'];
 
 /**
  * The search row as `CommentFilters` draws it, drawn for real but inert (uier #362): nothing in it needs the comments.
- * The search with, in the list, the status tabs after it (Active, Done, All, the address's pressed, their counts still
- * loading; uier #398); Filter and List/Board on the right with the opening view pressed.
+ * In the list the status tabs first, at its left edge (Active, Done, All, the address's pressed, their counts still
+ * loading; uier #405); on the right the search, then Filter and Group by as icons (uier #403, #404) and List/Board
+ * with the opening view pressed.
  */
 function FiltersPlaceholder({ view, status }: { view: CommentsView; status: StatusFilter }) {
     const { t } = useAppI18n();
@@ -75,38 +76,36 @@ function FiltersPlaceholder({ view, status }: { view: CommentsView; status: Stat
         { value: 'all', label: t(statusFilterLabels.all), pressed: status === 'all', menu: false }
     ];
     return (
-        <div inert aria-hidden="true" className="flex min-w-0 flex-wrap items-center gap-2">
-            <div data-search-field="" className={searchField}>
+        <div inert aria-hidden="true" className="flex min-w-0 flex-wrap items-center gap-2 sm:flex-nowrap">
+            {view === 'list' && (
+                <div className={cn(statusTabsBox, 'overflow-x-hidden')}>
+                    <div className={cn('flex w-max min-w-full items-center sm:min-w-0', segmentedGroup)}>
+                        {tabs.map(tab => (
+                            <span key={tab.value} className="contents">
+                                <span data-pressed={tab.pressed ? '' : undefined} className={cn('inline-flex items-center justify-center gap-1 text-sm font-medium whitespace-nowrap grow sm:grow-0', segmentedItem)}>
+                                    {tab.label} <Skeleton className="h-3 w-4 animate-none" />
+                                </span>
+                                {tab.menu && <Button variant="ghost" size="icon-xs" tabIndex={-1} className={cn(segmentedItem, '-ml-0.5 w-6 min-w-6 px-0 pointer-coarse:min-w-8')}><ChevronDownIcon /></Button>}
+                            </span>
+                        ))}
+                    </div>
+                </div>
+            )}
+            <div className={filterControls}>
                 <InputGroup className={searchInput}>
                     <InputGroupAddon><SearchIcon /></InputGroupAddon>
                     <InputGroupInput type="search" tabIndex={-1} readOnly placeholder={t("Search feedback")} className="text-ellipsis pointer-coarse:min-h-11" />
                 </InputGroup>
-                {view === 'list' && (
-                    <div className="order-last -mx-1 -my-0.5 max-w-[calc(100%+0.5rem)] basis-[calc(100%+0.5rem)] overflow-x-hidden px-1 py-0.5 sm:order-none sm:max-w-[calc(100%-6rem)] sm:shrink-0 sm:basis-auto">
-                        <div className={cn('flex w-max min-w-full items-center sm:min-w-0', segmentedGroup)}>
-                            {tabs.map(tab => (
-                                <span key={tab.value} className="contents">
-                                    <span data-pressed={tab.pressed ? '' : undefined} className={cn('inline-flex items-center justify-center gap-1 text-sm font-medium whitespace-nowrap grow sm:grow-0', segmentedItem)}>
-                                        {tab.label} <Skeleton className="h-3 w-4 animate-none" />
-                                    </span>
-                                    {tab.menu && <Button variant="ghost" size="icon-xs" tabIndex={-1} className={cn(segmentedItem, '-ml-0.5 w-6 min-w-6 px-0 pointer-coarse:min-w-8')}><ChevronDownIcon /></Button>}
-                                </span>
-                            ))}
-                        </div>
-                    </div>
-                )}
-            </div>
-            <Button variant="outline" tabIndex={-1} className="ml-auto shrink-0 pointer-coarse:min-h-11">
-                <ListFilterIcon data-icon="inline-start" />
-                {t("Filter")}
-            </Button>
-            <div className={cn('flex shrink-0 items-center', segmentedGroup)}>
-                {([['list', ListIcon], ['board', KanbanIcon]] as const).map(([value, Icon]) => (
-                    <span key={value} data-pressed={view === value ? '' : undefined}
-                        className={cn('inline-flex items-center justify-center px-0 pointer-coarse:min-h-[38px] pointer-coarse:min-w-11', segmentedItem)}>
-                        <Icon className="size-4" />
-                    </span>
-                ))}
+                <Button variant="ghost" size="icon" tabIndex={-1} aria-label={t("Filter")} className={filterIconButton}><ListFilterIcon /></Button>
+                <Button variant="ghost" size="icon" tabIndex={-1} aria-label={t("Group by")} className={filterIconButton}><LayersIcon /></Button>
+                <div className={cn('flex shrink-0 items-center', segmentedGroup)}>
+                    {([['list', ListIcon], ['board', KanbanIcon]] as const).map(([value, Icon]) => (
+                        <span key={value} data-pressed={view === value ? '' : undefined}
+                            className={cn('inline-flex items-center justify-center px-0 pointer-coarse:min-h-[38px] pointer-coarse:min-w-11', segmentedItem)}>
+                            <Icon className="size-4" />
+                        </span>
+                    ))}
+                </div>
             </div>
         </div>
     );
@@ -125,10 +124,7 @@ function CommentsSkeleton({ title, view, status }: { title: string; view: Commen
     return (
         <div role="status" aria-label={t(title)} data-page-width="wide" data-comments-loading={view} className="@container/comments flex flex-col gap-2">
             <span className="sr-only">{t(title)}…</span>
-            {/* The search as wide as the first column under it, as `ProjectComments` measures it (uier #355): the list's
-                track beside its thread, or a board column */}
-            <div data-header-wide={view} className={cn('flex min-w-0 flex-col gap-2 page-wide', board ? 'md:[--search-width:20rem]'
-                : cn('@3xl/comments:[--search-width:18rem] @4xl/comments:[--search-width:max(17rem,clamp(22rem,30%,28rem))]', searchBesideList))}>
+            <div data-header-wide={view} className="flex min-w-0 flex-col gap-2 page-wide">
                 <FiltersPlaceholder view={view} status={status} />
             </div>
             {/* The count line's own row, where it is not in the search row (`countLineInHeader`) */}

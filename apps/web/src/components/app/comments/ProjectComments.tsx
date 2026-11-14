@@ -10,7 +10,7 @@ import { useAppI18n } from '@/src/lib/i18n/client';
 import type { ThreadLabel } from '../../../lib/app/threadLabel';
 import { defaultStatusWorkflow, statusForComment, orderedStatuses, type StatusWorkflow } from '../../../lib/app/statusWorkflow';
 import { commentAssignees } from '@uier/toolbar/agents';
-import { useEffect, useLayoutEffect, useOptimistic, useRef, useState, useTransition, type RefObject } from 'react';
+import { useEffect, useLayoutEffect, useOptimistic, useRef, useState, useTransition } from 'react';
 import { toast } from 'sonner';
 import Link from 'next/link';
 import { setUrlSearchParams, useUrlSearchParams } from '@/src/hooks/use-url-search-params';
@@ -26,7 +26,6 @@ import { KnownPageLinks } from '../../../knownPages';
 import { InviteButton } from '../users/InviteDialog';
 import type { AssigneeOption } from './CommentCard';
 import { CommentFilters, countLineInHeader } from './CommentFilters';
-import { searchBesideList } from './CommentsViewToggle';
 import { pageMatches } from './pageFilter';
 import { CommentInbox, useOpenComment } from './CommentInbox';
 import { CommentBoard } from './CommentBoard';
@@ -129,7 +128,6 @@ export function ProjectComments({ labels = [], workflow = defaultStatusWorkflow,
     }, [explicit, initialView]);
     const containerRef = useRef<HTMLDivElement>(null);
     const openComment = useOpenComment(containerRef);
-    useFirstColumnWidth(containerRef);
     // Environment and author navigate through authorization; presentation filters fetch fresh
     // summary pages while their URL controls update immediately.
     const urlKey = searchParams.toString();
@@ -296,11 +294,6 @@ export function ProjectComments({ labels = [], workflow = defaultStatusWorkflow,
     // The empty states take it too, their own `w-full` set aside: it comes after `page-wide` in the CSS and would keep
     // them the column's width, shifted left (uier #383)
     const emptyWideClassName = headerWide && 'w-(--page-wide) page-wide';
-    // The search with the status tabs (uier #398) is as wide as the first column under it, the list beside its thread or the board's first column, so
-    // their edges line up (uier #355; `--first-column`, measured by `useFirstColumnWidth`). Narrower, where the list
-    // takes the whole width, it keeps its own width
-    const searchClassName = cn(headerWide === 'list' && ['@3xl/comments:[--search-width:var(--first-column,20rem)]', searchBesideList],
-        headerWide === 'board' && 'md:[--search-width:var(--first-column,20rem)]');
     const unreadShown = Math.max(0, pager.data.paging.unreadCount + delta(comment => Boolean(comment.activity?.unread)
         && (board ? comment.archivedAt ? archiveExpanded && !boardStatus : !boardStatus || commentStatus(comment) === boardStatus
             : statusMatches(query.status, commentStatus(comment), comment.archivedAt))));
@@ -329,7 +322,7 @@ export function ProjectComments({ labels = [], workflow = defaultStatusWorkflow,
         <div ref={containerRef} data-page-width={populated ? 'wide' : undefined} aria-busy={pager.loading || undefined}
             // The board's columns start at the left, under the search (uier #363); My work's board keeps its own
             className="@container/comments flex flex-col gap-2 [&_[data-board-scroll]]:justify-start">
-            <div data-header-wide={headerWide} className={cn('flex min-w-0 flex-col gap-2', threadOnly && '@max-3xl/comments:hidden', wideClassName, searchClassName)}>
+            <div data-header-wide={headerWide} className={cn('flex min-w-0 flex-col gap-2', threadOnly && '@max-3xl/comments:hidden', wideClassName)}>
             <CommentFilters grouping={<CommentGrouping labels={labels} selected={groupIds || []} disabled={!canSortBoard || sorting} onChange={ids => startSorting(async () => {
                     const result = await setBoardGroupingAction(projectId, ids.length > 0, ids).catch(() => ({ ok: false as const, error: t("Could not save the board. Try again.") }));
                     if (result && !result.ok) toast.error(result.error);
@@ -384,41 +377,4 @@ export function ProjectComments({ labels = [], workflow = defaultStatusWorkflow,
         </CommentsSearchNavigationProvider>
         </CommentUpdatesProvider>
     );
-}
-
-/**
- * Keeps `--first-column` on the comments' container at the width of the first column under the filters: the board's
- * first column, or the list's (beside its thread). The search takes it (uier #355). Columns mount and unmount with
- * the view and the filters, so the container's own resizes and changes below it look for the column again.
- */
-function useFirstColumnWidth(containerRef: RefObject<HTMLDivElement | null>) {
-    useLayoutEffect(() => {
-        const container = containerRef.current;
-        if (!container) return;
-        let column: Element | null = null;
-        const measure = () => {
-            const width = column?.getBoundingClientRect().width;
-            if (width) container.style.setProperty('--first-column', `${Math.round(width)}px`);
-            else container.style.removeProperty('--first-column');
-        };
-        const columns = new ResizeObserver(measure);
-        const find = () => {
-            const next = container.querySelector('[data-board-scroll] > section') ?? container.querySelector('[data-comment-id]')?.closest('ul') ?? null;
-            if (next !== column) {
-                if (column) columns.unobserve(column);
-                column = next;
-                if (column) columns.observe(column);
-            }
-            measure();
-        };
-        // Once a frame at most: rows mount and unmount as the lists scroll
-        let frame = 0;
-        const schedule = () => { if (!frame) frame = requestAnimationFrame(() => { frame = 0; find(); }); };
-        const resizes = new ResizeObserver(schedule);
-        resizes.observe(container);
-        const changes = new MutationObserver(schedule);
-        changes.observe(container, { childList: true, subtree: true });
-        find();
-        return () => { cancelAnimationFrame(frame); resizes.disconnect(); columns.disconnect(); changes.disconnect(); };
-    }, [containerRef]);
 }

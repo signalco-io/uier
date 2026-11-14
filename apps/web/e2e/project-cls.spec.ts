@@ -76,7 +76,7 @@ test('project comments keep CLS below 0.1 through a remembered board load and un
     await page.waitForTimeout(1_100);
     const board = page.locator('[data-board-scroll]');
     const beforeRead = await board.boundingBox();
-    // With room the count line is in the search row, left of Filter (uier #300, #398); on a phone it keeps its own row under it
+    // With room the count line is in the search row, left of the search and Filter (uier #300, #403); on a phone it keeps its own row under it
     const filter = page.getByRole('button', { name: 'Filter', exact: true });
     const filterBeforeRead = (await filter.boundingBox())!;
     const markAll = (await page.getByRole('button', { name: 'Mark all as read', exact: true }).boundingBox())!;
