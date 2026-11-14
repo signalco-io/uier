@@ -123,3 +123,5 @@ an empty gate that would remove the layer. A returned reviewer-scope change stil
 caches and remounts; API reads and writes continue to check the current session independently.
 
 Thread label controls use the same thread surface as the discussion. They are project-member-only and preserve the current managed workspace label-settings restrictions.
+
+Toolbar anchor placements are measured again when a reviewable surface finishes an animation or transition. An opening menu can start at zero opacity without a later resize or DOM mutation; the final measurement lets a linked comment continue into that menu.

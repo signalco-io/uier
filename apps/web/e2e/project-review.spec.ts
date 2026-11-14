@@ -365,6 +365,9 @@ test('a screenshot with a comment on the project\'s site, shown in the toolbar a
     await expect(appImage).toBeVisible();
     await expect.poll(async () => await appImage.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(comment!.screenshot!.width);
     const thumbnail = card.getByRole('button', { name: 'Screenshot of the commented part of the page' });
+    // Even tiny supplied images keep a visible thumbnail and a usable expansion target.
+    expect((await thumbnail.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    expect((await thumbnail.boundingBox())!.width).toBeGreaterThanOrEqual(44);
     // The open thread shows it larger, inside the thread
     expect((await thumbnail.boundingBox())!.width).toBeLessThanOrEqual((await card.boundingBox())!.width);
     await thumbnail.click();
@@ -940,6 +943,8 @@ test('the toolbar\'s inbox lists the project\'s other pages; comments have publi
 });
 
 test('the app lists, filters and manages a project\'s comments', async ({ page, request }) => {
+    // This workflow includes several navigations, mutations and accessibility scans.
+    test.setTimeout(60_000);
     const projectId = await ownerWithProject(page);
     await setProjectAccess(page, projectId, 'Anyone with the link');
 

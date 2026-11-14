@@ -286,3 +286,5 @@ right edge; desktop and mobile), the hover preview (read-only, the focus kept, t
 hidden, closing on leave, a click in it or on the pin opening the thread, a message's avatar naming its author; a long
 thread's every message, scrolled by the wheel without scrolling the page and kept when it opens; desktop) and a tap
 opening the thread at once (mobile).
+
+The page-feedback draft regression checks the edit after reload in the automatically restored inbox; pressing Inbox again would close it and hide the restored edit.

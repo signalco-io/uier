@@ -251,3 +251,5 @@ List/board summaries retain recognized PR URLs from full authorized messages bef
 the opener and omitting replies. Detected URLs carry no manual-link removal permission.
 `project-comment-pages.api.spec.ts` covers long openers, replies and deleted-message exclusion;
 `pull-requests.spec.ts` checks the same links in the thread, list card and board.
+
+Image thumbnails reserve at least 44 px in each dimension, including tiny supplied evidence, so their border cannot collapse the image and expansion remains usable. The project-review screenshot case covers a 3×2 replacement in the toolbar and app.

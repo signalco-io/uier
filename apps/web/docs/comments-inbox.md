@@ -3,6 +3,8 @@
 `e2e/project-review.spec.ts` checks the row's author through the avatar's accessible name and
 the page path separately, so layout changes keep both pieces of information covered. After restoring
 rows with the status filter it waits for their entrance motion to settle before scanning contrast.
+The combined list/filter/manage regression has a 60-second budget for its repeated navigation,
+mutations and accessibility scans; individual assertions retain their usual timeouts.
 
 - The comments page is an inbox. `comments/CommentInbox.tsx` lists compact rows (`CommentRow.tsx`). The title line:
   the author (`AuthorAvatar`: a member's picture or initial with the AI agent that wrote it for them
@@ -529,3 +531,5 @@ transition ends; failed saves still revert. See [optimistic updates](optimistic-
 Reply actions return the authorized saved activity sequence. Pending replies remain until the
 thread snapshot covers that sequence, including a receipt replay after reload whose saved message
 was already present when Retry was pressed. The lost-response case in `e2e/app.spec.ts` guards this.
+
+On narrow screens, filters give way only to a thread still shown in the current list. If changing its status removes it from that list, the filters return and its open-thread URL is cleared, even while the broader scope retains its detail. The project-review management workflow covers reopening the last Done thread.

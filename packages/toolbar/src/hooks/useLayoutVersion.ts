@@ -42,6 +42,12 @@ function schedule() {
     });
 }
 
+// Opacity/transform animations can initially hide a newly mounted surface without changing
+// its layout size. Measure again when it settles, even if no mutation or resize follows.
+function surfaceMotionFinished(event: Event) {
+    if (event.target instanceof Element && event.target.matches(toolbarReviewSurfaces)) schedule();
+}
+
 function start() {
     // Invalidate text caches after a gap with no subscribers (and therefore no observer).
     if (observedBefore) domVersion++;
@@ -67,6 +73,8 @@ function start() {
     toolbarRoot = canReviewToolbar() ? getToolbarHost()?.shadowRoot : null;
     if (toolbarRoot) {
         toolbarRoot.addEventListener('scroll', schedule, { capture: true, passive: true });
+        toolbarRoot.addEventListener('animationend', surfaceMotionFinished);
+        toolbarRoot.addEventListener('transitionend', surfaceMotionFinished);
         observeToolbarSurfaces();
         // Watch the shells, not their thread content: layout-triggered renders must not keep
         // interrupting React's deferred inbox rendering (or observe our own pin/outline updates).
@@ -96,6 +104,8 @@ function stop() {
     toolbarObserver?.disconnect();
     toolbarObserver = undefined;
     toolbarRoot?.removeEventListener('scroll', schedule, { capture: true });
+    toolbarRoot?.removeEventListener('animationend', surfaceMotionFinished);
+    toolbarRoot?.removeEventListener('transitionend', surfaceMotionFinished);
     toolbarRoot = undefined;
     window.cancelAnimationFrame(frame);
     frame = 0;
