@@ -13,9 +13,9 @@ import { BoardSortMenu } from './BoardSortMenu';
 import { sortBoardColumn } from './commentOrder';
 import { myWorkSortColumn, type MyWorkGroup, type MyWorkSorts } from './myWorkSorts';
 
-/** Each of My work's lists: its heading, what it holds and its icon */
-const groupLabels: Record<MyWorkGroup, { title: string; description: string; icon: ReactNode }> = {
-    assigned: { title: 'Assigned to you', description: 'Open threads you are the assignee of', icon: <UserIcon /> },
+/** Each of My work's lists: its heading, what it holds (when the heading does not already say it) and its icon */
+const groupLabels: Record<MyWorkGroup, { title: string; description?: string; icon: ReactNode }> = {
+    assigned: { title: 'Assigned to you', icon: <UserIcon /> },
     mentions: { title: 'Mentions you', description: 'Open threads whose messages mention you', icon: <AtSignIcon /> },
     unread: { title: 'Unread', description: 'Other threads with activity you have not read', icon: <MailIcon /> }
 };
@@ -50,9 +50,9 @@ export function MyWorkGroups({ groups, sorts, onSort }: {
                             <span aria-hidden="true" className="self-center text-muted-foreground [&_svg]:size-4">{icon}</span>
                             <h2 id={id} className="m-0 text-base font-semibold">{t(title)}</h2>
                             <span className="text-sm text-muted-foreground tabular-nums">{items.length}</span>
-                            <p className="m-0 ml-auto hidden text-sm text-muted-foreground sm:block">{t(description)}</p>
+                            {description && <p className="m-0 ml-auto hidden text-sm text-muted-foreground sm:block">{t(description)}</p>}
                             <BoardSortMenu status={myWorkSortColumn(group)} label={t(title)} group sort={sorts[group]} onChange={sort => onSort(group, sort)}
-                                className="mr-0 self-center sm:ml-0" />
+                                className={description ? 'mr-0 self-center sm:ml-0' : 'mr-0 self-center'} />
                         </div>
                         <MyWorkList label={t(title)} items={sortItems(items, sorts[group])} />
                     </section>

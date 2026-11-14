@@ -404,7 +404,6 @@ const messages = {
     "Open the invitation link": "Open the invitation link",
     "Open the new team": "Open the new team",
     "Open threads whose messages mention you": "Open threads whose messages mention you",
-    "Open threads you are the assignee of": "Open threads you are the assignee of",
     "Open workspace": "Open workspace",
     "Open your site to check that the toolbar loads and connects. Leave the new window open until the check finishes.": "Open your site to check that the toolbar loads and connects. Leave the new window open until the check finishes.",
     "Opening the site and waiting for its toolbar.": "Opening the site and waiting for its toolbar.",
