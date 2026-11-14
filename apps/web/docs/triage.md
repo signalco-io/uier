@@ -75,3 +75,7 @@ Bulk assignment retains the single-target replacement action: it replaces every 
 selected person (Unassigned clears all). The app sends the content revision with the assignment
 snapshot, so a change to any co-assignee/agent conflicts rather than silently removing newer work.
 Results return all current assignees and their agent views so status/priority batches preserve them.
+
+The 51-result cap regression scrolls the document on narrow screens and the list on desktop,
+matching the responsive paging behavior introduced in `ef1c73e3` (#688); it still checks all 50
+writes and the untouched oldest result.

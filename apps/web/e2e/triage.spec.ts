@@ -435,11 +435,17 @@ test('selection caps at the first 50 shown and leaves the remaining result untou
     test.setTimeout(60_000);
     const { project, headers, comments } = await fixture(page, request, 51);
     const window = page.locator('[data-comment-window]');
-    await window.evaluate(element => { element.scrollTop = element.scrollHeight; });
+    // #688 (ef1c73e3): narrow lists follow the document, desktop lists scroll themselves.
+    const scrollList = async (end: boolean) => window.evaluate((element, end) => {
+        if (matchMedia('(max-width: 1023px)').matches)
+            globalThis.scrollTo(0, end ? globalThis.scrollY + element.getBoundingClientRect().bottom - innerHeight : 0);
+        else element.scrollTop = end ? element.scrollHeight : 0;
+    }, end);
+    await scrollList(true);
     await expect(window).toHaveAttribute('data-loaded-count', '50');
-    await window.evaluate(element => { element.scrollTop = element.scrollHeight; });
+    await scrollList(true);
     await expect(window).toHaveAttribute('data-loaded-count', '51');
-    await window.evaluate(element => { element.scrollTop = 0; });
+    await scrollList(false);
     await selectShownResults(page, 'Select first 50 shown');
     await expect(page.getByText('50 selected', { exact: true })).toBeVisible();
     // The first 50 in the list's order: by number, highest first, so the oldest one is left out
