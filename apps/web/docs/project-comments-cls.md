@@ -79,3 +79,6 @@ For uier #410, background socket/action reads use only the paged data endpoint, 
 tree. Every board header reserves its progress slot while idle. `realtime.spec.ts` holds a read and
 asserts identical action geometry, node identity and focus, plus reduced-motion and failure/retry
 behavior on desktop/mobile. This adds no new production CLS measurement.
+
+The pre-hydration check waits for the Open comments region to be visible while external scripts
+remain blocked. Streamed rows alone can still belong to a hidden segment awaiting reveal.

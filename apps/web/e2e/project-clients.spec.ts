@@ -470,7 +470,10 @@ test('client logos save from the avatar picker and appear on every client mark, 
     expect((await page.request.get(first!)).status()).toBe(404);
     // A logo pasted while the popover has focus, or dropped on the closed avatar, saves the same way (uier #242)
     let previous = await picture.getAttribute('src');
-    await avatar.getByRole('button', { name: 'Change logo' }).focus();
+    const changeLogo = avatar.getByRole('button', { name: 'Change logo' });
+    await expect(changeLogo).toBeEnabled();
+    await changeLogo.focus();
+    await expect(changeLogo).toBeFocused();
     await pasteFile(page, await photo(160));
     await expect(picture).not.toHaveAttribute('src', previous!);
     await expect.poll(() => picture.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(160);

@@ -62,7 +62,10 @@ test('project comments keep CLS below 0.1 through a remembered board load and un
         await page.goto(`/app/projects/${project}`, { waitUntil: 'commit' });
         await page.waitForFunction(() => performance.getEntriesByName('first-contentful-paint').length > 0);
         await expect(page.locator('[data-comment-row]')).toHaveCount(20);
-        paintedView = await page.getByRole('region', { name: 'Open comments', exact: true }).count() ? 'board' : 'list';
+        // Streamed rows can be in a hidden segment before React reveals the board.
+        // Wait for the server-rendered region while external scripts are still held.
+        await expect(page.getByRole('region', { name: 'Open comments', exact: true })).toBeVisible();
+        paintedView = 'board';
         // More than one rendered frame is required for a before/after layout-shift entry.
         await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
     } finally { release(); }

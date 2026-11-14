@@ -525,3 +525,7 @@ When project filters match no comments, the empty placeholder spans the same ful
 Successful board sort, Archive and Group by saves retain their confirmed values until an authorized
 snapshot reflects them. A late or failed data load cannot undo the saved choice when its action
 transition ends; failed saves still revert. See [optimistic updates](optimistic-status.md).
+
+Reply actions return the authorized saved activity sequence. Pending replies remain until the
+thread snapshot covers that sequence, including a receipt replay after reload whose saved message
+was already present when Retry was pressed. The lost-response case in `e2e/app.spec.ts` guards this.

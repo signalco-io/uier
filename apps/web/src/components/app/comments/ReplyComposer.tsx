@@ -36,9 +36,9 @@ export function ReplyComposer({ projectId, userId, userName, comment, fieldRef, 
     onClose: () => void;
     /**
      * A reply being sent: the card keeps showing it until the refreshed thread has the saved one, as the optimistic
-     * reply ends with the send (uier #377). The returned function takes it back when the send fails.
+     * reply ends with the send (uier #377). The returned function confirms its saved sequence, or takes it back when the send fails.
      */
-    onSend?: (sent: SentReply) => () => void;
+    onSend?: (sent: SentReply) => (confirmedSequence?: number) => void;
 }) {
     const { t } = useAppI18n();
     const drafts = useMemo(() => appCommentDrafts(projectId, userId, comment.id), [projectId, userId, comment.id]);
@@ -85,7 +85,7 @@ export function ReplyComposer({ projectId, userId, userName, comment, fieldRef, 
         attachment.remove();
         startTransition(async () => {
             let saved = false;
-            let unsend: (() => void) | undefined;
+            let unsend: ((confirmedSequence?: number) => void) | undefined;
             try {
                 await drafts.run(key, async () => {
                     const sent: SentReply = { reply: { id: `pending-${sendId}`, author: { name: userName ?? t("You"), isMe: true }, text: input.text,
@@ -106,6 +106,7 @@ export function ReplyComposer({ projectId, userId, userName, comment, fieldRef, 
                         }, userId).catch(() => { throw new Error(t('The recording could not be uploaded.')); }) : undefined;
                     const result = await replyCommentAction({ ...input, idempotencyKey, screenshot: sentImage?.dataUrl, recordingId });
                     if (!result?.ok) throw new Error(result?.error ?? t("Could not post the reply. Try again."));
+                    if (result.commentSequence !== undefined) unsend?.(result.commentSequence);
                 });
                 saved = true;
                 if (sentRecording) recording.clear(sentRecording);

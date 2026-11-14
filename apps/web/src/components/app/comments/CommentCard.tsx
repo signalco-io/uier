@@ -275,7 +275,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
     const [replying, setReplying] = useState(false);
     // Replies sent from here stay shown until the refreshed thread has them, as the optimistic one ends with the send
     // (uier #377). The saved reply keeps the pending one's list key, so it replaces it in place without a remount.
-    const [sent, setSent] = useState<(SentReply & { savedId?: string })[]>([]);
+    const [sent, setSent] = useState<(SentReply & { savedId?: string; confirmedSequence?: number })[]>([]);
     const { replies, newlySaved } = useMemo(() => {
         const keys = new Map<string, string>();
         const held: ProjectCommentMessage[] = [];
@@ -284,11 +284,14 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
             // Each saved reply answers one sent reply, so two sends of the same words stay two
             const savedId = entry.savedId ?? savedReply(comment.replies.filter(item => !keys.has(item.id)), entry)?.id;
             if (savedId) keys.set(savedId, entry.reply.id);
-            else if (!comment.replies.some(item => item.id === entry.reply.id)) held.push(entry.reply);
+            // A receipt replay can already be in previousReplyIds after reload. Once the
+            // snapshot covers the confirmed write, it needs no extra pending message.
+            else if (!(entry.confirmedSequence !== undefined && (comment.activity?.sequence ?? 0) >= entry.confirmedSequence)
+                && !comment.replies.some(item => item.id === entry.reply.id)) held.push(entry.reply);
             if (savedId && !entry.savedId) newlySaved.set(entry, savedId);
         }
         return { replies: [...comment.replies, ...held].map(item => ({ item, key: keys.get(item.id) ?? item.id })), newlySaved };
-    }, [comment.replies, sent]);
+    }, [comment.replies, comment.activity?.sequence, sent]);
     useEffect(() => {
         // Remember which saved reply each one became, so a later delete or edit of it cannot bring the pending one back
         if (newlySaved.size) setSent(current => current.map(entry => newlySaved.has(entry) ? { ...entry, savedId: newlySaved.get(entry) } : entry));
@@ -742,7 +745,9 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                     ? <ReplyComposer projectId={projectId} userId={userId} userName={assignees.find(person => person.userId === userId)?.name} comment={comment} fieldRef={replyField} onClose={() => { focusReplyButton.current = true; setReplying(false); }}
                         onSend={entry => {
                             setSent(current => [...current, entry]);
-                            return () => setSent(current => current.filter(item => item !== entry));
+                            return confirmedSequence => setSent(current => confirmedSequence === undefined
+                                ? current.filter(item => item.reply.id !== entry.reply.id)
+                                : current.map(item => item.reply.id === entry.reply.id ? { ...item, confirmedSequence } : item));
                         }} />
                     : <Button ref={replyButton} variant="ghost" size="sm" className="ml-7 self-start text-muted-foreground hover:text-foreground pointer-coarse:min-h-11" aria-keyshortcuts={replyShortcut} onClick={() => setReplying(true)}>
                         <ReplyIcon data-icon="inline-start" />{t("Reply")}

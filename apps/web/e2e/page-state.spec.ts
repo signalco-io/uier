@@ -33,7 +33,7 @@ test('query/hash views, links, legacy feedback and SPA drafts stay with their or
     await settings.getByRole('checkbox', { name: 'Use hash routes (#/page or #!/page)' }).check();
     await settings.getByRole('button', { name: 'Save', exact: true }).click();
     await expect(settings.getByRole('status').filter({ hasText: 'Saved.' })).toBeVisible();
-    await expect(settings.getByRole('checkbox')).toBeChecked();
+    await expect(settings.getByRole('checkbox', { name: 'Use hash routes (#/page or #!/page)', exact: true })).toBeChecked();
     await expect(page).toHaveTitle(/uier/);
     await expectNoAxeViolations(page);
     const viewA = `${basePath}?category=a&tab=overview#/catalog?tab=summary`;
@@ -92,6 +92,10 @@ test('query/hash views, links, legacy feedback and SPA drafts stay with their or
     await linkA.click();
     await expect(openThread(page)).toContainText('Feedback for view A');
     await page.reload();
+    // The inbox is restored on reload and covers the pin on narrow screens.
+    await expect(inbox).toBeVisible();
+    await page.getByRole('button', { name: 'Close sidebar', exact: true }).click();
+    await expect(inbox).toBeHidden();
     await expect(commentBubbles(page)).toHaveCount(1);
     await commentBubbles(page).click();
     await expect(openThread(page)).toContainText('Feedback for view A');
@@ -111,7 +115,7 @@ test('query/hash views, links, legacy feedback and SPA drafts stay with their or
     await settings.getByRole('checkbox', { name: 'Use hash routes (#/page or #!/page)' }).uncheck();
     await settings.getByRole('button', { name: 'Save', exact: true }).click();
     await expect(settings.getByRole('status').filter({ hasText: 'Saved.' })).toBeVisible();
-    await expect(settings.getByRole('checkbox')).not.toBeChecked();
+    await expect(settings.getByRole('checkbox', { name: 'Use hash routes (#/page or #!/page)', exact: true })).not.toBeChecked();
     await page.goto(href!);
     await expect(page.getByRole('complementary', { name: 'Comments' })).toContainText('Feedback for view A');
     await expect(page.getByRole('complementary', { name: 'Comments' })).not.toContainText('Feedback for view B');
