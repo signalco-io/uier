@@ -31,7 +31,7 @@ const checks = [
 export default function NextJsGuide() {
     return <main className="flex flex-col pb-16">
         <GuideHeader title={guides.nextJs.title} lead={guides.nextJs.description} outline={Object.values(sections)}>
-            <Button variant="solid" size="lg" href={KnownPages.App} className="self-start">Create a project</Button>
+            <Button variant="solid" size="lg" href={KnownPages.App}>Create a project</Button>
         </GuideHeader>
 
         <GuideSteps>
