@@ -129,8 +129,10 @@ export function PairComparisonPage({ slug }: { slug: CompetitorSlug }) {
         </PageHeader>
 
         <PageSection id="choose" title="Choose by the work you need to finish" lead="Both tools collect visual feedback. The difference is what you need around that feedback." wide>
-            <Panel className="md:grid-cols-2"><ProductChoice product={uier} title="Choose uier for live-page review" /><ProductChoice product={competitor} title={choiceTitles[slug]} /></Panel>
-            <p className="text-xs text-muted-foreground">Conceptual workflow illustrations, not product screenshots. No scores or rankings.</p>
+            <div className="flex flex-col gap-1">
+                <Panel className="md:grid-cols-2"><ProductChoice product={uier} title="Choose uier for live-page review" /><ProductChoice product={competitor} title={choiceTitles[slug]} /></Panel>
+                <p className="text-xs text-muted-foreground">Conceptual workflow illustrations, not product screenshots. No scores or rankings.</p>
+            </div>
         </PageSection>
 
         <PageSection id="features" title="The feature comparison" lead="A check is a documented capability. The scope beside it matters just as much." wide>
