@@ -5,7 +5,7 @@ description: Recreate monitor.mjs, the watcher and state helper of the uier-moni
 
 # Recreate the uier monitor helper
 
-This skill carries `monitor.mjs` version 1.6.0, sha256 `fe656b472d8b9b2c44287634e6cfc4c49d8d2d7de395eb584fabfebc5c5db6b0`. It needs Node 18 or later
+This skill carries `monitor.mjs` version 1.6.1, sha256 `d878d4555ebc166c631422648fc8c0eb09b6ef3e278bd8262c6c51dff0fb7ec9`. It needs Node 18 or later
 and has no dependencies. The uier-monitor skill runs it as `ROOT/monitor.mjs`, where `ROOT` is
 `$(git rev-parse --path-format=absolute --git-common-dir)/uier-monitor`.
 
@@ -19,8 +19,8 @@ and has no dependencies. The uier-monitor skill runs it as `ROOT/monitor.mjs`, w
    ```
 
 2. Only when this file isn't on disk, write the code below to `$ROOT/monitor.mjs` exactly as shown.
-3. Check it: `node "$ROOT/monitor.mjs" version` must print version 1.6.0 and sha256
-   `fe656b472d8b9b2c44287634e6cfc4c49d8d2d7de395eb584fabfebc5c5db6b0`. If the hash differs, write the file again; never patch it by hand.
+3. Check it: `node "$ROOT/monitor.mjs" version` must print version 1.6.1 and sha256
+   `d878d4555ebc166c631422648fc8c0eb09b6ef3e278bd8262c6c51dff0fb7ec9`. If the hash differs, write the file again; never patch it by hand.
 
 Don't edit the code here. Its source is `.claude/skills/uier-monitor/scripts/monitor.mjs` in the uier
 repository, and `build-script-skill.mjs` next to it writes this file.
@@ -45,7 +45,7 @@ import { dirname, join, resolve } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 
-const VERSION = '1.6.0';
+const VERSION = '1.6.1';
 const DEFAULT_ENDPOINT = 'https://uier.io/api/mcp';
 const KEYCHAIN_SERVICE = 'uier-mcp';
 const BOOLEAN_FLAGS = new Set(['replace', 'screenshots', 'help', 'persistent', 'take', 'detach', 'apply']);
@@ -429,11 +429,38 @@ function storeToken(account, value) {
 
 function connection(state, account) {
     const value = readToken(state, account);
-    return value ? { endpoint: process.env.UIER_MCP_URL || state?.project?.endpoint || DEFAULT_ENDPOINT, token: value, id: 0 } : null;
+    if (!value) return null;
+    const endpoint = process.env.UIER_MCP_URL || state?.project?.endpoint || DEFAULT_ENDPOINT;
+    // Share only retry timing across watchers and one-off calls using this connection. Never write
+    // the token, endpoint, reply or idempotency key to the cooldown file.
+    const key = createHash('sha256').update(endpoint).update('\0').update(value).digest('hex');
+    return { endpoint, token: value, id: 0,
+        replyCooldownFile: join(process.env.UIER_MONITOR_HOME || join(homedir(), '.uier-monitor'), 'cooldowns', `${key}.json`) };
 }
 
 class UierError extends Error {
     constructor(kind, message) { super(message); this.kind = kind; }
+}
+
+function retrySeconds(value) {
+    const seconds = Number(value);
+    return Number.isFinite(seconds) && seconds > 0 ? Math.ceil(seconds) : undefined;
+}
+
+function replyRetryAt(ctx) {
+    const saved = ctx.replyCooldownFile ? readJson(ctx.replyCooldownFile, {}) : {};
+    return Math.max(Number.isFinite(ctx.replyRetryAt) ? ctx.replyRetryAt : 0,
+        Number.isFinite(saved.replyRetryAt) ? saved.replyRetryAt : 0);
+}
+
+async function rememberReplyCooldown(ctx, seconds) {
+    ctx.replyRetryAt = Math.max(replyRetryAt(ctx), Date.now() + seconds * 1000);
+    if (ctx.replyCooldownFile) await withLock(dirname(ctx.replyCooldownFile), 'reply-cooldown', () => {
+        // Several helpers can hit the limit together. A shorter retry must not overwrite a
+        // longer deadline that another process recorded while this one waited for the lock.
+        ctx.replyRetryAt = replyRetryAt(ctx);
+        writeJson(ctx.replyCooldownFile, { replyRetryAt: ctx.replyRetryAt });
+    });
 }
 
 async function rpc(ctx, method, params) {
@@ -451,13 +478,19 @@ async function rpc(ctx, method, params) {
             throw new UierError('network', `uier is unreachable: ${error.message}`);
         }
         if (response.status === 401 || response.status === 403) throw new UierError('auth', `uier refused the token (HTTP ${response.status}).`);
-        if (response.status === 429 || response.status >= 500) {
+        if (response.status === 429) {
+            const header = response.headers.get('retry-after');
+            const seconds = retrySeconds(header) ?? retrySeconds((Date.parse(header ?? '') - Date.now()) / 1000) ?? 60;
+            throw Object.assign(new UierError('server', `uier answered HTTP 429. Try again in ${seconds} seconds.`),
+                { code: 'rate_limited', retryAfterSeconds: seconds });
+        }
+        if (response.status >= 500) {
             if (attempt < 3) { await sleep(Math.min(Number(response.headers.get('retry-after')) || 5 * (attempt + 1), 60) * 1000); continue; }
             throw new UierError('server', `uier answered HTTP ${response.status}.`);
         }
         const message = parseRpc(await response.text());
         if (!message) throw new UierError('protocol', `Unexpected answer from uier (HTTP ${response.status}).`);
-        if (message.error) throw new UierError('rpc', message.error.message ?? 'JSON-RPC error');
+        if (message.error) throw Object.assign(new UierError('rpc', message.error.message ?? 'JSON-RPC error'), { rpcCode: message.error.code });
         return message.result;
     }
 }
@@ -474,15 +507,35 @@ function parseRpc(text) {
 }
 
 async function tool(ctx, name, args) {
+    if (name === 'reply_to_feedback') {
+        const seconds = retrySeconds((replyRetryAt(ctx) - Date.now()) / 1000);
+        if (seconds) throw Object.assign(new UierError('tool', `Reply cooldown: try again in ${seconds} seconds.`),
+            { code: 'rate_limited', fromTool: true, retryAfterSeconds: seconds });
+    }
+    try { return await invokeTool(ctx, name, args); }
+    catch (error) {
+        if (name === 'reply_to_feedback' && error.code === 'rate_limited') {
+            error.retryAfterSeconds = retrySeconds(error.retryAfterSeconds) ?? 60;
+            await rememberReplyCooldown(ctx, error.retryAfterSeconds);
+        }
+        throw error;
+    }
+}
+
+async function invokeTool(ctx, name, args) {
     const result = await rpc(ctx, 'tools/call', { name, arguments: args });
     const text = result?.content?.find?.(part => part.type === 'text')?.text;
     if (result?.isError) {
         const message = (text ?? `${name} failed`).slice(0, 300);
         let details = result.structuredContent;
         if (!details?.error) { try { details = JSON.parse(text ?? '{}'); } catch { details = {}; } }
-        const code = details?.error;
+        // SDK input validation happens before the tool callback and may return only text,
+        // without the application's structured error envelope. Recognize its bounded prefix.
+        const code = typeof details?.error === 'string' ? details.error
+            : /^(?:Input validation error\b|Invalid arguments for tool\b)/.test(message) ? 'invalid_arguments' : undefined;
         const error = new UierError(/forbidden|not_found|needs `feedback|unauthori/i.test(message) ? 'auth' : 'tool', message);
         error.code = typeof code === 'string' ? code : undefined;
+        error.retryAfterSeconds = retrySeconds(details?.retryAfterSeconds);
         error.fromTool = true;
         if (typeof details?.message === 'string') error.detail = details.message.slice(0, 200);
         throw error;
@@ -491,12 +544,12 @@ async function tool(ctx, name, args) {
     try { return JSON.parse(text ?? 'null') ?? {}; } catch { return { text }; }
 }
 
-async function allPages(ctx, name, args, maxPages = 40) {
+async function allPages(ctx, name, args, maxPages = 40, limit = 25) {
     let first;
     const items = [];
     let cursor = 0;
     for (let page = 0; page < maxPages; page++) {
-        const result = await tool(ctx, name, { ...args, limit: 25, cursor });
+        const result = await tool(ctx, name, { ...args, limit, cursor });
         first ??= result;
         items.push(...(result.items ?? []));
         if (result.nextCursor === null || result.nextCursor === undefined || result.nextCursor === cursor) break;
@@ -573,7 +626,8 @@ async function call(options) {
     if (!ctx) { print({ ok: false, tool: name, code: 'no-token' }); process.exitCode = 1; return; }
     try { print({ ok: true, tool: name, result: await tool(ctx, name, args) }); }
     catch (error) {
-        print({ ok: false, tool: name, code: error.code ?? error.kind, message: error.detail ?? error.message });
+        print({ ok: false, tool: name, code: error.code ?? error.kind, message: error.detail ?? error.message,
+            ...(error.retryAfterSeconds ? { retryAfterSeconds: error.retryAfterSeconds } : {}) });
         process.exitCode = 1;
     }
 }
@@ -944,7 +998,20 @@ function classify(event, state, seen) {
 // Compare current state too, including closed threads that may have a missed reply.
 async function reconcile(ctx, state, seen, found, updates = []) {
     const now = Date.now();
-    const open = await allPages(ctx, 'list_feedback', { projectId: state.project.id, status: 'all' });
+    const args = { projectId: state.project.id, status: 'all' };
+    let open;
+    if (!seen.stateViewUnsupportedAt || now - seen.stateViewUnsupportedAt >= DAY) {
+        try {
+            open = await allPages(ctx, 'list_feedback', { ...args, view: 'state' }, 40, 1000);
+            delete seen.stateViewUnsupportedAt;
+        } catch (error) {
+            // Older servers reject the new view/limit. Remember only that schema mismatch, not
+            // authorization, network or cursor trouble, and try the compact view again tomorrow.
+            if (error.code !== 'invalid_arguments' && error.rpcCode !== -32602) throw error;
+            seen.stateViewUnsupportedAt = now;
+        }
+    }
+    open ??= await allPages(ctx, 'list_feedback', args);
     const listed = new Set();
     const reportedNow = new Set(found.map(hit => hit.commentId));
     seen.reported ??= {};
@@ -1409,6 +1476,9 @@ async function closeDeployed(ctx, state, seen, found, updates, { entry, run }, l
         // in flight: check before every write, and plan again next cycle when it changed.
         try {
             if (!record.replied) {
+                // A quota belongs to the connection, not this comment. Keep watching and renewing
+                // leases while it cools down; another closing or `M call` shares the same deadline.
+                if (replyRetryAt(ctx) > Date.now()) return;
                 if (!planCurrent(fresh(), planned, entry)) return;
                 const text = fill(draft.reply);
                 if (text.length > 1000) throw Object.assign(new Error('The reply is longer than 1000 characters.'), { fromTool: true, code: 'too_long' });

@@ -186,6 +186,63 @@ test('worker reports attempts that failed in this run separately from ledgers wa
     expect((await app.get<NotificationDelivery>(ledger.pk, ledger.id))?.doc).toMatchObject({ active: true, status: 'queued', failures: 1, lastCode: 'Error' });
 });
 
+test('worker deadlines retain pending discovery and leave unattempted deliveries queued for the next turn', async () => {
+    const f = await fixture(), app = getAppStore(), comments = getCommentsStore();
+    let now = Date.now();
+    const sent: EmailMessage[] = [];
+    const transport: typeof deliverNotificationEmail = async message => { sent.push(message); now += 1_000; return { status: 'sent' }; };
+    const exhausted = await runNotificationWorker(baseUrl, transport, app, { deadline: now, now: () => now });
+    expect(exhausted.checked).toBe(0);
+    expect(sent).toEqual([]);
+    expect((await current(f.comment)).notificationPending).toBe(true);
+    expect(await deliveries(f.project)).toEqual([]);
+
+    const second = await createProjectComment(request, f.project, f.guest, { text: 'Next queued thread', origin: 'https://reviewed.example',
+        path: '/second', position: { type: 'page' }, kind: 'feedback', authorName: 'Ana' });
+    for (const comment of [f.comment, second]) {
+        const stored = (await comments.get(comment.domain, comment.id))!;
+        const due = { ...stored.comment, notificationEvents: stored.comment.notificationEvents?.map(event => ({ ...event, at: old })) };
+        await comments.replace(due, stored.etag);
+        await discoverThreadNotifications(f.project, due);
+    }
+    const scoped = { ...app, async query<T extends AppDoc>(input: Parameters<typeof app.query>[0]) {
+        return (await app.query<T>(input)).filter(row => row.pk === notificationPk(f.project.id));
+    } };
+    now += 30 * 60_000;
+    const firstTurn = await runNotificationWorker(baseUrl, transport, scoped, { deadline: now + 1_000, now: () => now });
+    expect(firstTurn.checked).toBe(1);
+    expect(firstTurn.failed).toBe(0);
+    expect(sent).toHaveLength(1);
+    expect((await deliveries(f.project)).filter(row => row.active && !row.attempt)).toHaveLength(1);
+    const nextTurn = await runNotificationWorker(baseUrl, transport, scoped, { deadline: now + 60_000, now: () => now });
+    expect(nextTurn.checked).toBe(1);
+    expect(sent).toHaveLength(2);
+    expect((await deliveries(f.project)).every(row => !row.active && row.status === 'accepted')).toBe(true);
+});
+
+test('discovery exhaustion reserves a delivery turn while undiscovered sources remain pending', async () => {
+    const due = await fixture(), app = getAppStore(), comments = getCommentsStore();
+    const saved = (await comments.get(due.comment.domain, due.comment.id))!;
+    const thread = { ...saved.comment, notificationEvents: saved.comment.notificationEvents?.map(event => ({ ...event, at: old })) };
+    await comments.replace(thread, saved.etag);
+    await discoverThreadNotifications(due.project, thread);
+    const pending = await fixture();
+    let now = Date.now() + 30 * 60_000;
+    const started = now;
+    const scoped = { ...app, async query<T extends AppDoc>(input: Parameters<typeof app.query>[0]) {
+        if (input.missingTtl) { now = started + 120_000; return [] as T[]; }
+        return (await app.query<T>(input)).filter(row => row.pk === notificationPk(due.project.id));
+    } };
+    const sent: EmailMessage[] = [];
+    const result = await runNotificationWorker(baseUrl, async message => {
+        sent.push(message); return { status: 'sent' };
+    }, scoped, { deadline: started + 180_000, now: () => now });
+    expect(result.checked).toBe(1);
+    expect(sent).toHaveLength(1);
+    expect((await current(pending.comment)).notificationPending).toBe(true);
+    expect(await deliveries(pending.project)).toEqual([]);
+});
+
 test('owners receive new feedback, participants receive batched replies/status, actors do not receive their own activity', async () => {
     const f = await fixture();
     const sent: EmailMessage[] = [];

@@ -218,6 +218,7 @@ CI applies changes (`pulumi up`); do not run it locally. See [CI/CD](#cicd).
 | [`pulumi_reusable.yml`](../.github/workflows/pulumi_reusable.yml) | called | Installs and builds `infra/`, logs into Azure (OIDC) and runs `pulumi preview` / `up`. |
 | [`vercel-build_reusable.yml`](../.github/workflows/vercel-build_reusable.yml) | called | Builds with public settings and no deployment credentials; uploads only the prebuilt output for this workflow run and attempt. |
 | [`vercel-deploy_reusable.yml`](../.github/workflows/vercel-deploy_reusable.yml) | called | Validates and deploys this run's prebuilt output in an environment-bound job, without checking out the repository. |
+| [`notifications.yml`](../.github/workflows/notifications.yml) | manual | Runs recovery and preview/legacy maintenance with the separate data-only GitHub identity. Production scheduling uses the private Vercel worker; see [notifications](review-notifications.md). |
 
 - **`main`** is the only long-lived branch and is production. Pushes run `pulumi up` and a Vercel
   production deployment served on `uier.io`, unless all changed paths are excluded by `deploy.yml`.

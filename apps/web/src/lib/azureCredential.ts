@@ -1,5 +1,5 @@
 import { AzureCliCredential, ClientAssertionCredential } from '@azure/identity';
-import { getVercelOidcToken } from '@vercel/oidc';
+import { vercelAzureAssertion } from './worker/oidc';
 
 /** Explicit operator/worker CLI logins stay separate from deployed Vercel federation. */
 export function azureDataCredential() {
@@ -19,5 +19,5 @@ export function azureDataCredential() {
         return new AzureCliCredential({ tenantId });
     }
     if (mode) throw new Error('Unsupported Azure data credential mode.');
-    return new ClientAssertionCredential(tenantId, clientId, () => getVercelOidcToken());
+    return new ClientAssertionCredential(tenantId, clientId, vercelAzureAssertion);
 }

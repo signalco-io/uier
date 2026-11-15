@@ -2,8 +2,8 @@
 name: "Review notifications"
 
 on:
-  schedule:
-    - cron: '*/5 * * * *'
+  # Production work is scheduled by Vercel. Keep manual recovery and privileged
+  # preview maintenance under the existing data-only GitHub identity.
   workflow_dispatch:
     inputs:
       retry_delivery:
@@ -62,7 +62,8 @@ jobs:
     if: github.ref == 'refs/heads/main'
     environment: production-worker
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # Less than the shared 15-minute lease: a killed manual run must stop before takeover.
+    timeout-minutes: 13
     permissions:
       contents: read
       id-token: write

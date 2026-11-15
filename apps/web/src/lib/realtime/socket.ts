@@ -4,7 +4,7 @@ import { canSeeComment } from '../review/comments';
 import { isVisible } from '../comments/visibility';
 import { actorAuthorId } from '../review/actor';
 import { authorizeRealtime, readRealtimeTicket, realtimeScopes, type RealtimeClaims } from './tickets';
-import { createRealtimeSources, REALTIME_INTERVAL_MS, visibleRevision, type RealtimeSource } from './source';
+import { createRealtimeSources, REALTIME_IDLE_AFTER_MS, REALTIME_IDLE_INTERVAL_MS, REALTIME_INTERVAL_MS, visibleRevision, type RealtimeSource } from './source';
 
 const sourceFor = createRealtimeSources(domain => getCommentsStore().listRealtime(domain));
 
@@ -42,6 +42,7 @@ export function acceptRealtimeSocket(socket: WebSocket, origin: string, apiOrigi
         const scopes = realtimeScopes(claims);
         sources = scopes.map(scope => sourceFor(scope.domain));
         let revision: string | undefined;
+        let changedAt = Date.now();
         const poll = async () => {
             try {
                 if (ended) return;
@@ -59,8 +60,13 @@ export function acceptRealtimeSocket(socket: WebSocket, origin: string, apiOrigi
                     if (socket.bufferedAmount > 16_384) { finish(1013); return; }
                     socket.send(JSON.stringify({ type: revision === undefined ? 'ready' : 'comments.changed' }));
                     revision = next;
+                    changedAt = Date.now();
                 }
-                timer = setTimeout(() => { void poll(); }, REALTIME_INTERVAL_MS);
+                // Idle viewers still authorize every poll. Only a visible change restores the
+                // active cadence, so private activity cannot keep another viewer's socket busy.
+                const interval = Date.now() - changedAt >= REALTIME_IDLE_AFTER_MS
+                    ? REALTIME_IDLE_INTERVAL_MS : REALTIME_INTERVAL_MS;
+                timer = setTimeout(() => { void poll(); }, interval);
             } catch {
                 // No identity, token, project, database payload or private thread in logs/frames.
                 console.warn('[realtime] Subscription ended during authorization or storage read.');

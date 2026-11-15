@@ -2,6 +2,7 @@ import { execFile } from 'node:child_process';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 import { build } from 'esbuild';
 import { expect, test } from '@playwright/test';
@@ -9,11 +10,18 @@ import { expect, test } from '@playwright/test';
 const execute = promisify(execFile);
 let directory: string;
 let worker: string;
+let nativeWorker: string;
 
 test.beforeAll(async () => {
     directory = await mkdtemp(join(tmpdir(), 'uier-worker-test-'));
     worker = join(directory, 'worker.mjs');
+    nativeWorker = join(directory, 'scheduled-worker.mjs');
     const modules: Record<string, string> = {
+        '../src/lib/app/store': `const docs = new Map(); let version = 0;
+            const store = { async get(pk,id) { return docs.get(pk+":"+id) ?? null; },
+                async create(doc) { const key=doc.pk+":"+doc.id; if(docs.has(key)) return false; docs.set(key,{doc,etag:String(++version)}); return true; },
+                async replace(doc,etag) { const key=doc.pk+":"+doc.id; if(docs.get(key)?.etag!==etag) return "conflict"; docs.set(key,{doc,etag:String(++version)}); return "ok"; } };
+            export function getAppStore() { return store; }`,
         '../src/lib/repo/commentsStore': 'export function getCommentsStore() { return { async migrateScreenshots() { console.log("CALL migrate production"); return {migrated:0,failed:0}; } }; }',
         '../src/lib/repo/cosmosCommentsStore': 'export function createCosmosCommentsStore() { return { async migrateScreenshots() { console.log("CALL migrate preview"); return {migrated:0,failed:0}; }, async sweepScreenshotBlobs() { console.log("CALL blobs"); return {removed:0,failed:0}; } }; }',
         "../src/lib/db/client": `function item() { return { async read() { console.log("PROBE cosmos"); if (process.env.UIER_WORKER_TEST_ACCESS_FAILURE === "1") throw new Error("isolated access denied"); throw {code:404}; } }; }
@@ -30,11 +38,26 @@ test.beforeAll(async () => {
         '../src/lib/integrations/worker': 'export async function runIntegrationWorker() { console.log("CALL integrations"); return {discovered:{checked:0,deferred:0},providers:[],blocked:0}; }',
         '../src/lib/mcp/events/delivery': 'export async function runMcpEventWorker() { console.log("CALL mcp-events"); if (process.env.UIER_WORKER_TEST_EVENTS_FAILURE === "1") throw new TypeError("isolated event endpoint detail"); return {projects:1,discovered:2,delivered:1,retrying:1,failed:0,skipped:0,terminated:0,deferred:0}; }'
     };
+    const resolvedModules = new Map(Object.entries(modules).map(([path, contents]) => [resolve('scripts', path), { path, contents }]));
     await build({ entryPoints: [resolve('scripts/notifications-worker.ts')], outfile: worker, bundle: true,
         platform: 'node', format: 'esm', plugins: [{ name: 'isolated-transports', setup(builder) {
-            builder.onResolve({ filter: /.*/ }, args => Object.hasOwn(modules, args.path)
-                ? { path: args.path, namespace: 'worker-test' } : undefined);
+            builder.onResolve({ filter: /.*/ }, args => {
+                const mock = args.path.startsWith('.') ? resolvedModules.get(resolve(args.resolveDir, args.path)) : undefined;
+                return mock ? { path: mock.path, namespace: 'worker-test' } : undefined;
+            });
             builder.onLoad({ filter: /.*/, namespace: 'worker-test' }, args => ({ contents: modules[args.path], loader: 'js' }));
+        } }] });
+    await build({ entryPoints: [resolve('scripts/scheduled-worker.ts')], outfile: nativeWorker, bundle: true,
+        platform: 'node', format: 'esm',
+        banner: { js: "import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);" },
+        plugins: [{ name: 'native-runner', setup(builder) {
+            builder.onResolve({ filter: /worker\/run$/ }, args => args.importer.endsWith('/scripts/scheduled-worker.ts')
+                ? { path: 'runner', namespace: 'native-test' } : undefined);
+            builder.onLoad({ filter: /.*/, namespace: 'native-test' }, () => ({ loader: 'js', resolveDir: resolve('.'), contents:
+                `export {assertWorkerEnvironment} from ${JSON.stringify(resolve('src/lib/worker/run.ts'))};
+                export async function runScheduledWorker(options) { console.log("NATIVE RUN " + JSON.stringify(options ?? {}));
+                    if (process.env.UIER_WORKER_TEST_RUN_FAILURE === "1") throw new Error("fixture-private-provider-detail");
+                    return {status:"completed",failed:0,phases:[]}; }` }));
         } }] });
 });
 test.afterAll(async () => { await rm(directory, { recursive: true, force: true }); });
@@ -149,4 +172,38 @@ test('account keys and non-Actions contexts are refused before probing or proces
             stdout: expect.not.stringContaining('PROBE '),
         });
     }
+});
+
+test('private native CloudEvents accept only the fixed static production schedule and ignore recovery payloads', async () => {
+    const headers = { 'ce-specversion': '1.0', 'ce-type': 'com.vercel.schedule.v1beta', 'ce-source': '/fixture',
+        'ce-id': 'fixture-execution', 'ce-vssscheduleid': 'fixture-schedule', 'ce-vssschedulename': 'review-notifications',
+        'ce-vssnamespace': 'default', 'ce-vssscheduledat': '2026-11-15T12:00:00Z', 'ce-vssschedulesource': 'static',
+        'ce-vssexpression': '*/5 * * * *' };
+    const env: NodeJS.ProcessEnv = { ...process.env, UIER_DEPLOYMENT_ENV: 'production', VERCEL_ENV: '', GITHUB_ACTIONS: '', UIER_AZURE_AUTH_MODE: '',
+        COSMOSDB_ENDPOINT: 'https://isolated-test.documents.azure.com/', COSMOSDB_CONNECTION_STRING: '',
+        UIER_COMMENTS_SECRET: 'fixture', AZURE_TENANT_ID: 'fixture-tenant', AZURE_CLIENT_ID: 'fixture-client',
+        COSMOSDB_APP_CONTAINER: 'app', COSMOSDB_COMMENTS_CONTAINER: 'comments', AZURE_SCREENSHOTS_CONTAINER: 'screenshots' };
+    const invoke = (extra: Record<string, string> = {}, config = env) => execute(process.execPath, ['--input-type=module', '-e',
+        `import handler from ${JSON.stringify(pathToFileURL(nativeWorker).href)};
+         const response = await handler.fetch(new Request('https://private.invalid/?previewMaintenance=true', {
+           method:'POST', headers:${JSON.stringify({ ...headers, ...extra })},
+           body:JSON.stringify({previewMaintenance:true, retryDelivery:'not-authorized', integrationsOnly:true}) }));
+         console.log('HTTP '+response.status);`], { env: config });
+    const valid = await invoke();
+    expect(valid.stdout).toContain('NATIVE RUN {}');
+    expect(valid.stdout).toContain('HTTP 200');
+    const refusedMetadata: Record<string, string>[] = [{ 'ce-vssnamespace': 'production' },
+        { 'ce-vssschedulename': 'unexpected' }, { 'ce-vssschedulesource': 'dynamic' }];
+    for (const extra of refusedMetadata)
+        await expect(invoke(extra)).rejects.toMatchObject({ stdout: expect.not.stringContaining('NATIVE RUN'),
+            stderr: expect.stringContaining('Unexpected worker schedule') });
+    const malformed = await invoke({ 'ce-type': 'wrong' });
+    expect(malformed.stdout).toContain('HTTP 400');
+    expect(malformed.stdout).not.toContain('NATIVE RUN');
+    await expect(invoke({}, { ...env, UIER_DEPLOYMENT_ENV: 'preview' })).rejects.toMatchObject({
+        stdout: expect.not.stringContaining('NATIVE RUN'), stderr: expect.stringContaining('production deployment configuration') });
+    const failure = await invoke({}, { ...env, UIER_WORKER_TEST_RUN_FAILURE: '1' }).catch(error => error as { stdout: string; stderr: string });
+    expect(failure.stderr).toContain('The scheduled worker needs retry.');
+    expect(failure.stdout + failure.stderr).not.toContain('fixture-private-provider-detail');
+    expect(failure.stderr).toContain('"errorClass":"Error"');
 });

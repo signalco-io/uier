@@ -4,6 +4,8 @@ import type { DbComment } from '../db/schema';
 /** Server-only metadata. Neither these rows nor their hashes cross the socket. */
 export type RealtimeComment = Pick<DbComment, 'id' | 'domain' | 'path' | 'private' | 'authorId'> & { revision: string };
 export const REALTIME_INTERVAL_MS = 2_000;
+export const REALTIME_IDLE_INTERVAL_MS = 5_000;
+export const REALTIME_IDLE_AFTER_MS = 10_000;
 
 /** Provider boundary: a future pub/sub provider can replace the shared Cosmos projection. */
 export type RealtimeSource = { read: () => Promise<RealtimeComment[]>; release: () => void };
@@ -16,7 +18,7 @@ export function visibleRevision(comments: RealtimeComment[], visible: (comment: 
 }
 
 /** Coalesce concurrent sockets per partition/instance. Cosmos remains the cross-instance source. */
-export function createRealtimeSources(read: (domain: string) => Promise<RealtimeComment[]>, now = Date.now) {
+export function createRealtimeSources(read: (domain: string) => Promise<RealtimeComment[]>, now = () => Date.now()) {
     const entries = new Map<string, { users: number; at: number; value?: RealtimeComment[]; pending?: Promise<RealtimeComment[]> }>();
     return (domain: string): RealtimeSource => {
         let entry = entries.get(domain);

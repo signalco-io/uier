@@ -14,7 +14,7 @@ import { getAppStore } from '../src/lib/app/store';
 import { findOrCreateUser } from '../src/lib/app/users';
 import { ensureOwnWorkspace } from '../src/lib/app/workspaces';
 import { createProject, updateProject, getProject } from '../src/lib/app/projects';
-import { memberId, type DbMember } from '../src/lib/app/model';
+import { memberId, userPk, workspacePk, type AppDoc, type DbMember } from '../src/lib/app/model';
 import type { AppContext } from '../src/lib/app/context';
 import { createProjectComment, getProjectComment, replyToProjectComment, setProjectCommentPrivate, setProjectCommentResolved, removeProjectComment } from '../src/lib/review/comments';
 import { RATE_LIMIT_MEMBER_REPLIES } from '../src/lib/comments/limits';
@@ -29,6 +29,7 @@ import { withNotificationEvent } from '../src/lib/notifications/events';
 import { PUBLIC_PROJECT_ID, PUBLIC_WORKSPACE_ID, USER_FEEDBACK_PROJECT_ID, joinPublicProject } from '../src/lib/comments/publicProject';
 import { pngImage, jpegImage } from './support/images';
 import { screenshotBytes } from '../src/lib/screenshots/blobStore';
+import { aiTitleSource } from '../src/lib/titles/model';
 
 const originalEnv = { UIER_LOCAL: process.env.UIER_LOCAL, UIER_COMMENTS_SECRET: process.env.UIER_COMMENTS_SECRET, UIER_BASE_URL: process.env.UIER_BASE_URL };
 const base = 'http://127.0.0.1:6514';
@@ -525,7 +526,8 @@ test('official HTTP client reads context and image, then records approved reply/
         for (const name of ['list_projects', 'list_feedback', 'list_assignees']) {
             const tool = tools.find(tool => tool.name === name)!;
             expect(tool.description).toContain('1–25 (default 20)');
-            expect(tool.inputSchema.properties?.limit).toMatchObject({ minimum: 1, maximum: 25, default: 20, description: expect.stringContaining('nextCursor') });
+            expect(tool.inputSchema.properties?.limit).toMatchObject({ minimum: 1, maximum: name === 'list_feedback' ? 1000 : 25, default: 20, description: expect.stringContaining('nextCursor') });
+            if (name === 'list_feedback') expect(tool.inputSchema.properties?.view).toMatchObject({ enum: ['summary', 'state'], default: 'summary' });
         }
         expect(tools.find(tool => tool.name === 'get_feedback')!.inputSchema.properties?.projectId)
             .toMatchObject({ description: expect.stringContaining('Never infer it from the reviewed page URL') });
@@ -680,13 +682,14 @@ test('scopes, project boundaries, private threads/images, membership loss, expir
         expect(data(await client.callTool({ name: 'get_feedback', arguments: args })).screenshotResource).toBeUndefined();
         await expect(client.readResource({ uri: `uier://projects/${f.project.id}/feedback/${f.comment.id}/screenshot` })).rejects.toThrow();
         expect((await client.callTool({ name: 'reply_to_feedback', arguments: { ...args, text: 'Not authorized', idempotencyKey: idempotencyKey() } })).isError).toBe(true);
-        expect(data(await client.callTool({ name: 'list_feedback', arguments: { projectId: f.other.id } })).error).toBe('not_found');
+        for (const view of ['summary', 'state']) expect(data(await client.callTool({ name: 'list_feedback', arguments: { projectId: f.other.id, view } })).error).toBe('not_found');
         await expect(client.readResource({ uri: `uier://projects/${f.other.id}/feedback/${f.comment.id}/screenshot` })).rejects.toThrow();
         await setProjectCommentPrivate(f.project, f.actor, f.comment.id, true);
         expect(data(await client.callTool({ name: 'get_feedback', arguments: args })).error).toBe('not_found');
-        expect(data(await client.callTool({ name: 'list_feedback', arguments: { projectId: f.project.id } })).items).toEqual([]);
+        for (const view of ['summary', 'state']) expect(data(await client.callTool({ name: 'list_feedback', arguments: { projectId: f.project.id, view } })).items).toEqual([]);
         const stored = (await getAppStore().get<DbMember>(member.pk, member.id))!;
         await getAppStore().replace({ ...stored.doc, projects: [] }, stored.etag);
+        expect(data(await client.callTool({ name: 'list_feedback', arguments: { projectId: f.project.id, view: 'state' } })).error).toBe('not_found');
         expect(data(await client.callTool({ name: 'list_projects', arguments: {} })).items).toEqual([]);
         const expired = (await getAppStore().get<McpCredential>(credential.pk, credential.id))!;
         await getAppStore().replace({ ...expired.doc, expiresAt: '2020-01-01T00:00:00.000Z' }, expired.etag);
@@ -1146,5 +1149,135 @@ test('MCP refuses verification on a default project and hides Ready definitions 
         expect(rejected.message).toContain('Mark the comment done instead');
         const done = data(await client.callTool({ name: 'set_feedback_status', arguments: { projectId: f.other.id, commentId: comment.id, status: 'done', idempotencyKey: idempotencyKey() } }));
         expect(done.stage).toBe('done');
+    } finally { await client.close(); }
+});
+
+
+/** Count real in-memory persistence boundaries while exercising the MCP handler and its live checks. */
+function countListReads(f: Awaited<ReturnType<typeof fixture>>) {
+    const memory = globalThis as typeof globalThis & {
+        __uierAppMemoryStore: { partitions: Map<string, Map<string, { doc: AppDoc }>> };
+        __uierCommentsMemoryStore2: { domains: Map<string, Map<string, unknown>> };
+    };
+    const reads = { commentLists: 0, user: 0, project: 0, workspace: 0, workspaceQueries: 0 };
+    const comments = memory.__uierCommentsMemoryStore2.domains.get(f.comment.domain)!;
+    const user = memory.__uierAppMemoryStore.partitions.get(userPk(f.user.id))!;
+    const workspace = memory.__uierAppMemoryStore.partitions.get(workspacePk(f.project.workspaceId))!;
+    const commentValues = comments.values, userGet = user.get, workspaceGet = workspace.get, workspaceValues = workspace.values;
+    comments.values = function () { reads.commentLists++; return commentValues.call(this); };
+    user.get = function (id) { reads.user++; return userGet.call(this, id); };
+    workspace.get = function (id) {
+        if (id === f.project.id) reads.project++;
+        if (id === f.project.workspaceId) reads.workspace++;
+        return workspaceGet.call(this, id);
+    };
+    workspace.values = function () { reads.workspaceQueries++; return workspaceValues.call(this); };
+    return { reads, restore() { comments.values = commentValues; user.get = userGet; workspace.get = workspaceGet; workspace.values = workspaceValues; } };
+}
+
+test('compact state reconciles 201 threads with one list and less payload while retaining the summary state', async ({}, testInfo) => {
+    const f = await fixture();
+    for (let index = 0; index < 200; index++) await seed(f, {
+        createdAt: new Date(Date.UTC(2020, 0, 1, 0, 0, index)).toISOString(),
+        number: index + 2, assigneeId: index % 2 ? f.user.id : undefined,
+        thread: { items: [{ id: `item_${index}`, authorId: 'guest-reviewer', text: `Reconciliation feedback ${index}` }] },
+        resolved: index % 3 === 0, private: index % 5 === 0
+    });
+    const { token } = await createMcpCredential(f.context, { name: 'Compact state', projectIds: [f.project.id], scopes: ['feedback:read'], days: 7 });
+    const client = await connect(token);
+    const readAll = async (view: 'summary' | 'state', limit: number) => {
+        const counted = countListReads(f);
+        const items: Record<string, any>[] = [];
+        let cursor: number | null = 0, bytes = 0;
+        try {
+            while (cursor !== null) {
+                const response = data(await client.callTool({ name: 'list_feedback', arguments: { projectId: f.project.id, view, limit, cursor } }));
+                expect(response.error).toBeUndefined();
+                bytes += Buffer.byteLength(JSON.stringify(response));
+                items.push(...response.items);
+                cursor = response.nextCursor;
+            }
+            return { items, reads: counted.reads, bytes };
+        } finally { counted.restore(); }
+    };
+    try {
+        const summary = await readAll('summary', 25);
+        const state = await readAll('state', 1000);
+        expect(state.items).toHaveLength(201);
+        expect(state.items).toEqual(summary.items.map(item => ({ id: item.id, number: item.number, updatedAt: item.updatedAt,
+            resolved: item.resolved, stage: item.stage, priority: item.priority, private: item.private,
+            assignee: item.assignee ? { id: item.assignee.id } : null, authorKind: item.authorKind, replyCount: item.replyCount })));
+        expect(summary.reads.commentLists).toBe(9);
+        expect(state.reads.commentLists).toBe(1);
+        expect(state.reads.user).toBeLessThan(summary.reads.user / 4);
+        expect(state.reads.workspaceQueries).toBeLessThan(summary.reads.workspaceQueries / 4);
+        expect(state.bytes).toBeLessThan(summary.bytes * 0.6);
+        expect(JSON.stringify(state.items)).not.toContain('guest-reviewer');
+        expect(state.items.every(item => !('summary' in item) && !('verification' in item) && !('unread' in item))).toBe(true);
+        const filteredSummary = data(await client.callTool({ name: 'list_feedback', arguments: { projectId: f.project.id, assignee: 'me', unread: true, search: 'Reconciliation', limit: 25 } }));
+        const filteredState = data(await client.callTool({ name: 'list_feedback', arguments: { projectId: f.project.id, assignee: 'me', unread: true, search: 'Reconciliation', view: 'state', limit: 25 } }));
+        expect(filteredState.items.map((item: { id: string }) => item.id)).toEqual(filteredSummary.items.map((item: { id: string }) => item.id));
+        await testInfo.attach('mcp-list-reconciliation-comparison', { contentType: 'application/json', body: JSON.stringify({
+            fixture: '201 visible threads, mixed assignment, privacy and status; memory-store boundaries',
+            summary: { reads: summary.reads, responseBytes: summary.bytes }, state: { reads: state.reads, responseBytes: state.bytes },
+            scope: 'Full reconciliation calls and structured result bytes; not measured hosted latency, Cosmos RU or Azure transfer bytes.'
+        }, null, 2) });
+    } finally { await client.close(); }
+});
+
+test('compact state byte paging continues without lost rows inside the latest 1000-thread window', async () => {
+    const f = await fixture();
+    for (let index = 0; index < 1000; index++) await seed(f, {
+        id: `comment_${String(index).padStart(120, '0')}`, number: index + 2,
+        createdAt: new Date(Date.UTC(2020, 0, 1, 0, 0, index)).toISOString(),
+        assigneeId: `u_${'a'.repeat(64)}`
+    });
+    const { token } = await createMcpCredential(f.context, { name: 'Byte pages', projectIds: [f.project.id], scopes: ['feedback:read'], days: 7 });
+    const client = await connect(token);
+    try {
+        const first = data(await client.callTool({ name: 'list_feedback', arguments: { projectId: f.project.id, view: 'state', limit: 1000 } }));
+        expect(first.error).toBeUndefined();
+        expect(first.searchWindow).toBe(1000);
+        expect(first.items.length).toBeGreaterThan(0);
+        expect(first.items.length).toBeLessThan(1000);
+        expect(first.nextCursor).toBe(first.items.length);
+        expect(Buffer.byteLength(JSON.stringify(first))).toBeLessThanOrEqual(256 * 1024);
+        const second = data(await client.callTool({ name: 'list_feedback', arguments: { projectId: f.project.id, view: 'state', limit: 1000, cursor: first.nextCursor } }));
+        expect(second.error).toBeUndefined();
+        expect(second.nextCursor).toBeNull();
+        const ids = [...first.items, ...second.items].map((item: { id: string }) => item.id);
+        expect(new Set(ids).size).toBe(1000);
+        expect(ids).toEqual((await getCommentsStore().listAll(f.comment.domain, 1000)).map(comment => comment.id));
+        for (const input of [{ limit: 26 }, { view: 'state', limit: 1001 }, { view: 'everything', limit: 1 }])
+            expect((await client.callTool({ name: 'list_feedback', arguments: { projectId: f.project.id, ...input } })).isError).toBe(true);
+    } finally { await client.close(); }
+});
+
+test('summary pages enrich only returned rows and reuse the live workspace title setting', async () => {
+    const f = await fixture();
+    const source = f.comment.thread.items[0]!.text;
+    const titled = await seed(f, { createdAt: '2000-01-01T00:00:00.000Z', assigneeId: f.user.id,
+        aiTitle: { text: 'Current title', source: aiTitleSource(source), model: 'test', generatedAt: new Date().toISOString(), cleanup: 2 } });
+    const { token } = await createMcpCredential(f.context, { name: 'Page enrichment', projectIds: [f.project.id], scopes: ['feedback:read'], days: 7 });
+    const client = await connect(token);
+    const measuredPage = async (cursor: number) => {
+        const counted = countListReads(f);
+        try { return { response: data(await client.callTool({ name: 'list_feedback', arguments: { projectId: f.project.id, limit: 1, cursor } })), reads: counted.reads }; }
+        finally { counted.restore(); }
+    };
+    try {
+        const plain = await measuredPage(0), assigned = await measuredPage(1), empty = await measuredPage(2);
+        expect(plain.response.items[0].id).toBe(f.comment.id);
+        expect(assigned.response.items[0]).toMatchObject({ id: titled.id, title: 'Current title', assignee: { id: f.user.id, name: f.user.name } });
+        expect(empty.response.items).toEqual([]);
+        expect(plain.reads.user).toBe(empty.reads.user);
+        expect(plain.reads.project).toBe(empty.reads.project);
+        expect(assigned.reads.user).toBe(plain.reads.user + 1);
+        expect(assigned.reads.project).toBe(plain.reads.project + 1);
+        expect(assigned.reads.workspaceQueries).toBe(plain.reads.workspaceQueries + 2);
+        expect(assigned.reads.workspace).toBe(plain.reads.workspace);
+        const workspace = (await getAppStore().get(workspacePk(f.project.workspaceId), f.project.workspaceId))!;
+        await getAppStore().replace({ ...workspace.doc, aiTitles: false }, workspace.etag);
+        expect((await measuredPage(1)).response.items[0]).not.toHaveProperty('title');
     } finally { await client.close(); }
 });

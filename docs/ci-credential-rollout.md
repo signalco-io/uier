@@ -220,6 +220,11 @@ package works after removing its source dependencies and refuses runner-file ref
 
 ### Scheduled worker boundary
 
+This stage's GitHub schedule describes the historical rollout. Production scheduling later moves
+to a private Vercel function using the existing production app identity, without preview rights.
+The GitHub worker identity and settings below remain for manual recovery and preview maintenance;
+see the current [worker contract](review-notifications.md).
+
 The GitHub five-minute schedule is retained. `notifications.yml` builds a standalone worker and its
 traced dependencies without credentials. A separate **production-worker** environment allows only
 `main`, with no reviewers, wait timer or tags. Its Azure subject is

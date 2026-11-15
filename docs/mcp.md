@@ -531,6 +531,15 @@ Paths use the project's page-state policy. Page and environment filtering happen
 before the window; other filters, including unread, only search that window. Environment accepts
 only a returned option id, `unknown` or `removed`; omit it to search all environments.
 
+For an occasional monitoring reconciliation, request `view: 'state'` and `limit: 1000`. This
+returns compact rows with `id`, `number`, `updatedAt`, `resolved`, `stage`, `priority`, `private`,
+the first `assignee: { id }` or `null`, `authorKind` when available, and `replyCount`. It omits
+content and display enrichment. Authorization, filters and the latest-1000-thread window stay
+the same, including the unread filter when supplied. Whole rows stop at the response byte limit;
+always follow `nextCursor`, even when a page has fewer than the requested rows. Offsets can shift
+when threads change. Keep the event cursor between reconciliations instead of repeatedly listing
+all state. The default `view: 'summary'` retains its 1–25 limit and full summaries.
+
 `get_feedback_batch` takes `{ projectId, commentIds }` and returns
 `{ actingAs, contentTrust, items, remainingIds }`. Each item contains `commentId` and either the
 same `context`, `markdown` and optional `screenshotResource` / `replyScreenshotResources` as `get_feedback`, or an `error` and

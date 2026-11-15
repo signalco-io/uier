@@ -255,6 +255,74 @@ RU consumption. Measure `comments.realtime` operation charges and concurrent soc
 introducing that storage/write-path complexity; the audit's all-query RU total cannot attribute
 the cost to realtime alone.
 
+## Read and polling optimizations on 15 November 2026
+
+The read-only Azure audit for 14 November 11:30–15 November 11:30 UTC measured
+2,978,813 RU and 1,278,453 requests in production `app` and `comments`, using minute buckets,
+**Total** for RU and **Count** for requests. Queries accounted for 61.14% of RU and app point
+reads 25.18%. These provider metrics identify containers and SDK operations, not routes.
+No operation diagnostic events were available to attribute the total to realtime or MCP.
+
+Azure Cost Management reported €3.7271 before tax for 1–14 November: €1.9388 in Cosmos
+`Inter Region Data Transfer Out`, €1.7673 in RU charges and €0.0211 in other meters. Recent
+charges can still settle; this is not the final invoice and excludes Vercel and Anthropic.
+[Cosmos charges for internet egress as well as cross-region traffic](https://learn.microsoft.com/en-us/azure/cosmos-db/network-bandwidth),
+so this meter does not establish that a second database region exists or that moving the
+Vercel function region would remove the charge.
+
+`list_feedback` now has a compact `view: 'state'` for occasional monitor reconciliation.
+It retains live access checks and the latest-1000-thread window, returns whole rows within
+256 KiB, and continues with `nextCursor` when the byte limit stops a page. Summary requests
+still return at most 25 rows. Both views filter before paging; display enrichment runs only
+for returned summary rows. The watcher retains its event cursor and 15-minute safety recovery,
+using compact state for the recovery scan. No cross-request access or comment cache was added.
+
+The [fixture receipt](evidence/read-optimizations-2026-11-15.json), from
+`e2e/mcp.api.spec.ts`, compares complete reconciliation of 201 visible threads through the
+25-row summary path and the 1000-row state path. It proves identical reconciliation state:
+
+| Boundary / result | Summary pages | Compact state |
+| --- | ---: | ---: |
+| Comment list calls | 9 | 1 |
+| User reads | 26 | 2 |
+| Project reads | 17 | 1 |
+| Workspace reads | 9 | 1 |
+| Workspace queries | 25 | 1 |
+| Structured result bytes | 132,814 | 48,328 |
+
+These are in-memory persistence boundaries and MCP result bytes, not measured Cosmos RU,
+database egress bytes or hosted latency. The state view omits display details; ordinary
+summaries keep them. Byte-limit continuation, private visibility and access revocation are
+covered separately. Do not extrapolate the fixture's reduction to all production traffic.
+
+Realtime sockets now keep their two-second active cadence, then poll every five seconds after
+ten seconds without a visible change. A visible change resets the cadence; private activity
+invisible to that viewer does not. Every poll still checks live access before reading and
+notifying. Shared metadata retains its two-second age limit. Fake-clock socket tests guard
+actual read counts, hidden changes, hard deletion, revocation and cleanup. The interval change
+means 60% fewer idle polling cycles, not a measured 60% reduction in account RU or hosting cost.
+
+Monitor replies preserve server `retryAfterSeconds` from both tool errors and HTTP 429s.
+A timestamp-only cooldown shared by helpers using the same connection prevents repeated
+attempts while cursor reads and agent lease renewal continue. Existing idempotency keys survive
+the cooldown. The [worker schedule investigation](review-notifications.md#schedule-investigation-15-november-2026)
+records the separate run-creation gaps and migration to a private Vercel Schedule with a shared
+lease. GitHub retains manual recovery and privileged preview maintenance rather than a cron.
+
+Keep diagnostic sampling off by default. A bounded investigation using the existing
+`UIER_COSMOS_DIAGNOSTICS_SAMPLE_RATE` can compare `comments.realtime`, interactive and scheduled
+work before asserting production savings; an environment/configuration deployment is separate
+from these source changes.
+
+Local validation after integrating the Vercel migration passed `pnpm typecheck`, `pnpm build`
+and the required `pnpm test` (1,227 passed, one gated test skipped). The affected worker,
+notifications and Azure credential API run passed 56 tests, and combined deployment/plugin/helper
+script checks passed 83. Workflow lint and generated skill consistency passed. The actual native
+production artifact was built and packaged with the pinned Vercel CLI; see the
+[readiness receipt](evidence/vercel-scheduler-readiness-2026-11-15.json).
+No live monitor was restarted. Hosted savings and actual Vercel schedule execution remain
+unverified until the changes are deployed and read back.
+
 ## Diagnostics and store contract
 
 `AppStore.query` still drains every SDK page unless its caller explicitly supplies an existing

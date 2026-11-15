@@ -1,0 +1,33 @@
+{
+  "fixture": "201 visible threads, mixed assignment, privacy and status; memory-store boundaries",
+  "summary": {
+    "reads": {
+      "commentLists": 9,
+      "user": 26,
+      "project": 17,
+      "workspace": 9,
+      "workspaceQueries": 25
+    },
+    "responseBytes": 132814
+  },
+  "state": {
+    "reads": {
+      "commentLists": 1,
+      "user": 2,
+      "project": 1,
+      "workspace": 1,
+      "workspaceQueries": 1
+    },
+    "responseBytes": 48328
+  },
+  "scope": "Full reconciliation calls and structured result bytes; not measured hosted latency, Cosmos RU or Azure transfer bytes.",
+  "version": 1,
+  "measuredOn": "2026-11-15",
+  "sourceTest": "apps/web/e2e/mcp.api.spec.ts",
+  "stateParity": "Both full result sequences project to identical monitoring state; display fields are deliberately omitted in state view.",
+  "limitations": [
+    "In-memory persistence boundaries are not Cosmos RU measurements.",
+    "Structured MCP result bytes are not database egress bytes.",
+    "Fixture observations do not attribute production metrics to individual routes."
+  ]
+}

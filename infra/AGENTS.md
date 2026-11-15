@@ -49,8 +49,8 @@ Owner-managed Azure `CanNotDelete` locks now cover the resource group and Cosmos
 addition to Pulumi protection. CI cannot manage locks; never bypass them for a deploy.
 
 CI uses `production` for updates and `preview` for PR/manual-main previews, with separate Azure
-apps and provider tokens. `production-worker` is main-only and has its own OIDC subject/data app;
-it cannot reuse the deployment identity's subject. None requires reviewers or a wait timer.
+apps and provider tokens. The manual GitHub `production-worker` is main-only and has its own OIDC
+subject/data app; it cannot reuse the deployment identity's subject. None requires reviewers or a wait timer.
 `AleksandarDev` remains administrator. See the [credential rollout](../docs/ci-credential-rollout.md)
 for exact subjects, scopes and live verification. Reusable callers explicitly name allowed secrets; the target job environment overrides their values.
 Previews pass empty integration/Anthropic slots and receive no production integration credentials.
@@ -66,9 +66,13 @@ Preview `scripts/preview-environment.mjs` extracts only variable metadata from e
 `src/previewEnvironment.ts` preserves existing optional production values during a dry run; updates
 reject the snapshot, so placeholders cannot reach production. Keep the five protected integration
 key resources registered. State/key reads are sensitive even without resource-management writes.
-`scripts/configure-worker.mjs` refreshes the worker's strict settings snapshot from deployed inputs,
-in memory and through GitHub stdin. Run it after provider/mail/key rotations before retiring old keys.
-The worker gets no account, state or deployment keys. Production Cosmos access is keyless too;
+`scripts/configure-worker.mjs` refreshes the manual GitHub worker's strict settings snapshot from
+deployed inputs, in memory and through GitHub stdin. Run it after provider/mail/key rotations before retiring old keys.
+The manual GitHub worker gets no account, state or deployment keys. The private Vercel scheduled
+function uses the existing production app environment, production-only Cosmos identity and Blob key;
+it is not a separate identity or an allowlisted settings boundary. Do not broaden its Cosmos scope
+to preview or add the production Vercel OIDC subject to the privileged GitHub worker identity.
+Production Cosmos access is keyless too;
 its existing screenshot-storage key is separate and unchanged. Cosmos key authentication and key-based
 metadata writes are disabled with `disableLocalAuth: true` and
 `disableKeyBasedMetadataWriteAccess: true`. Keep them enabled as protections; never restore a Cosmos
@@ -87,7 +91,8 @@ do not suppress endpoint drift with `ignoreChanges` or hardcode an account URL.
 
 `src/screenshots.ts` adds protected private Azure Blob containers `screenshots` / `screenshots-preview`
 in a new Standard LRS Hot account. No CDN, anonymous access, versioning or soft deletion. Production
-retains its server-only retrievable app key; the scheduled worker uses its separate OIDC data role.
+retains its server-only retrievable app key, also used by the private Vercel scheduled function;
+the manual GitHub worker uses its separate OIDC data role.
 Previews retain OIDC and get
 Blob Data Contributor on their container plus Blob Delegator at account scope. These two Azure RBAC
 assignments require owner-arranged assignment permission beyond CI’s resource-group Contributor.
@@ -221,7 +226,7 @@ provider credential / rotation allowlist in `src/integrations.ts`. The program r
 local endpoint overrides, empty/non-string values and invalid or colliding key ids without echoing
 submitted names or values. All supplied values are Pulumi secrets and production-only, retrievable encrypted Vercel
 variables (`sensitive: false`). Existing retrievable variable flags remain unchanged to avoid replacement during this migration.
-Authorized Vercel members can retrieve them; the worker receives its own allowlisted GitHub settings
+Authorized Vercel members can retrieve them; the manual worker receives its own allowlisted GitHub settings
 snapshot, which must be refreshed after credential/key changes. Never log or upload credential values. `UIER_DEPLOYMENT_ENV=production` is set separately; it is never customer-controlled.
 The allowlist also carries the Google sign-in client (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`;
 [Google sign-in](../docs/google-sign-in.md)) and the separate Microsoft sign-in client

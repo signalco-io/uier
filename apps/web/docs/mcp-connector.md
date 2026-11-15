@@ -221,7 +221,8 @@ Account guidance and `mcp/workflows.ts` explain where feedback about uier itself
 workspace's public-feedback project). Missing project grants stay `not_found` without exposing
 project existence; direct users to `list_projects` and to reconnecting or explicit token setup
 rather than expanding access. List-tool descriptions and field schemas must both
-state the 1–25 limit and `nextCursor` pagination, since clients may flatten schema constraints.
+state the default summary 1–25 limit and `nextCursor` pagination, since clients may flatten schema constraints.
+`list_feedback` also names its explicit compact `state` view and that view’s 1–1000 limit.
 
 Assignment reads add `assignees[]` and per-person `agents[]`, with the first entry mirrored into
 `assignee` / `agent`. `assign_feedback` accepts exactly one of legacy `assigneeId` (replace with one,
@@ -249,7 +250,8 @@ MCP status and
 person-assignment changes are own activity for that account and do not acknowledge earlier unread
 activity. Other members still see those changes as unread. Human replies retain their existing read
 behavior. See [read state](read-state-and-activity.md#read-cursors-and-freshness). Feedback, anchors, names and images are untrusted content. Search is deliberately bounded
-to the latest 1000 threads; pages contain at most 25 summaries. Keep the documented context
+to the latest 1000 threads; summary pages contain at most 25 rows. The explicit compact
+`state` view can return up to 1000 state rows within the same window and response byte limit. Keep the documented context
 contract shared with developer issue export: `projectFeedbackExport` in `review/feedbackContext.ts`
 produces the same `@uier/toolbar/feedback-context` packet. Screenshot resource reads must honor
 its deleted-evidence filtering too. `e2e/mcp.api.spec.ts` exercises the official HTTP client
@@ -423,6 +425,25 @@ environment ids against `environmentOptions` plus `unknown`/`removed`; never use
 fallback selection for MCP input. Other filters apply only within that window. Read the connection
 owner's cursor after filtering visibility; never acknowledge it. Deleted first messages omit
 author kind and screenshot presence, and author ids never enter summaries.
+
+`list_feedback` filters raw authorized comments before paging, then prepares display details only
+for the returned summary page. It loads participant names only when a returned row has assignment
+or verification details, skips cursor enrichment for an empty page, and uses the already loaded live
+workspace for the AI-title setting. Unread filtering still loads the complete matching cursor set
+before pagination; no access decision, comments or display metadata survives a request.
+
+The optional `view: 'state'` is for occasional watcher reconciliation, between event-cursor polls.
+It accepts `limit` 1–1000 (default 20); the default `view: 'summary'` keeps the 1–25 limit. Both use
+the same live scope/project/member/private checks, filters and newest-1000 storage window. State rows
+include only `id`, `number`, `updatedAt`, `resolved`, `stage`, `priority`, `private`, the first
+`assignee: { id }` or `null`, `authorKind` when its first message is present, and `replyCount`.
+They omit content, display names, title/label/workflow definitions, verification details and unread
+status. The unread filter is still honored when requested. State requests skip participant and
+read-cursor enrichment unless that filter needs cursors. Whole state rows stop before the 256 KiB
+result limit; always continue `nextCursor`, even when fewer than the requested rows return. The
+cursor remains an offset in the current filtered window, not a snapshot or a wider history scan.
+`e2e/mcp.api.spec.ts` covers compact/summary state parity, paging after the byte limit, live access,
+and a 201-thread fixture’s list/read boundaries and result bytes.
 
 `get_feedback_batch` accepts 1–10 distinct ids and reuses the shared packet exporter in request order.
 `createProjectFeedbackExportReader` creates one lazy enrichment context for that call: participant

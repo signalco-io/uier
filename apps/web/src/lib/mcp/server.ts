@@ -25,8 +25,8 @@ import { idempotencyKeySchema, reviewPathSchema, textSchema } from '../comments/
 import { getProjectComment, getProjectScreenshot, listProjectComments, MAX_PROJECT_COMMENTS, replyToProjectComment, setProjectCommentAssignee, setProjectCommentAssignees, setProjectCommentResolved, setProjectCommentStatus, setProjectCommentArchived } from '../review/comments';
 import { actorAuthorId, assertCanUseComments } from '../review/actor';
 import { createProjectFeedbackExportReader, projectFeedbackExport } from '../review/feedbackContext';
-import { manualThreadTitle, threadTitle } from '../titles/model';
-import { loadAiTitlesEnabled } from '../titles/threadTitles';
+import { threadTitle } from '../titles/model';
+import { aiTitlesEnabled } from '../titles/settings';
 import { sha256Hex } from '../app/tokens';
 import { eligibleParticipants } from '../review/participants';
 import { projectId, commentId, thread } from './schemas';
@@ -43,6 +43,7 @@ import { noteMcpError, type McpRequestLog } from './telemetry';
 import { environmentFilter, environmentOptions } from '../app/environments';
 import { projectCommentRouting } from '../app/projectCommentRouting';
 import { loadReadSequences } from '../comments/readState';
+import { readActivity } from '../comments/activity';
 import { userIdSchema } from '../app/validation';
 import { agentKinds, inferAgentKind, MAX_AGENT_MODEL_LENGTH, MAX_AGENT_REASONING_LENGTH, MAX_AGENT_SESSION_LENGTH } from '@uier/toolbar/agents';
 import { attachmentId, setProjectCommentAgent, setProjectCommentAgentWorking } from '../review/assigneeAgent';
@@ -74,6 +75,8 @@ function screenshotResources(projectId: string, commentId: string, context: Feed
 }
 const feedbackFilters = z.object({
     projectId, ...page,
+    view: z.enum(['summary', 'state']).default('summary').describe('summary: display details, up to 25 results. state: compact monitoring state, up to 1000 results; use event cursors between occasional reconciliation scans.'),
+    limit: z.number().int().min(1).max(1000).default(20).describe('Results per page: 1–25 for summary, 1–1000 for state. A byte-limited state page can return fewer; always follow nextCursor.'),
     search: z.string().max(200).default(''),
     archive: z.enum(['exclude', 'only', 'all']).default('exclude').describe('Archived threads are excluded by default. only: archive view; all: include both. Workflow status is separate.'),
     priority: z.enum(priorities).optional(),
@@ -87,7 +90,10 @@ const feedbackFilters = z.object({
     authorKind: z.enum(['member', 'guest']).optional(),
     unread: z.boolean().optional(),
     hasScreenshot: z.boolean().optional()
-}).strict();
+}).strict().superRefine((input, context) => {
+    if (input.view !== 'state' && input.limit > 25) context.addIssue({ code: 'too_big', origin: 'number', maximum: 25, inclusive: true,
+        path: ['limit'], message: 'Summary pages return at most 25 results.' });
+});
 const feedEventsInput = z.object({
     projectId,
     events: z.array(z.enum(mcpEventNames)).min(1).max(mcpEventNames.length)
@@ -204,7 +210,7 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
         const workflow = await loadStatusWorkflow(project);
         return result({ actingAs: actingAsFor(user), contentTrust: 'untrusted', ...workflow, statuses: orderedStatuses(workflow) });
     }));
-    server.registerTool('list_feedback', { description: `Search/list visible feedback in the latest 1000 threads matching the page and environment. Limit: 1–25 (default 20); follow nextCursor. Other filters apply within that window. Reading never marks feedback read. Cursor is an offset within the current result; concurrent additions can shift pages. ${untrusted}`, inputSchema: feedbackFilters, annotations: readAnnotations }, input => safely(async () => {
+    server.registerTool('list_feedback', { description: `Search/list visible feedback in the latest 1000 threads matching the page and environment. summary: display details, limit 1–25 (default 20). state: compact monitoring state, limit 1–1000, with fewer results if the response byte limit is reached. Default limit 20; always follow nextCursor. Other filters apply within that window. Reading never marks feedback read. Cursor is an offset within the current result; concurrent additions can shift pages. ${untrusted}`, inputSchema: feedbackFilters, annotations: readAnnotations }, input => safely(async () => {
         const { project, actor, user } = await mcpProject(identity, input.projectId);
         const actingAs = actingAsFor(user);
         const workspace = await getWorkspace(project.workspaceId);
@@ -216,29 +222,67 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
         const comments = await listProjectComments(project, actor, input.path === undefined ? undefined : pagePath(input.path, project.pageState),
             input.environment === undefined ? undefined : environmentFilter(project, input.environment), undefined, undefined, input.archive);
         const authorId = actorAuthorId(actor);
-        const [participants, reads, titles] = await Promise.all([participantNames(project), loadReadSequences(`project:${project.id}`, authorId),
-            comments.some(comment => comment.aiTitle && !manualThreadTitle(comment)) ? loadAiTitlesEnabled(project) : false]);
         const search = input.search.toLocaleLowerCase();
-        const items = comments.filter(comment => (input.labelId === undefined || labelsForComment(labels, comment).some(label => label.id === input.labelId))
-            && (input.priority === undefined || commentPriority(comment.priority) === input.priority)
-            && (input.status === 'all' || (input.status === 'open' ? !comment.resolved
-                : feedbackStage({ ...comment, verificationEnabled: project.verificationEnabled === true }) === (input.status === 'resolved' ? 'done' : input.status)))
-            && comment.thread.items.some(item => !item.deletedAt && item.text.toLocaleLowerCase().includes(search)))
-            .map(comment => {
+        // Filter stored values before paging: display names, verification and titles cannot affect a match.
+        let matching = comments.filter(comment => {
+            const first = comment.thread.items[0];
+            const authorKind = first && !first.deletedAt ? first.authorId?.startsWith('user:') ? 'member' : 'guest' : undefined;
+            const assignees = input.assignee === undefined ? [] : assignedUserIds(comment);
+            return (input.labelId === undefined || labelsForComment(labels, comment).some(label => label.id === input.labelId))
+                && (input.priority === undefined || commentPriority(comment.priority) === input.priority)
+                && (input.status === 'all' || (input.status === 'open' ? !comment.resolved
+                    : feedbackStage({ ...comment, verificationEnabled: project.verificationEnabled === true }) === (input.status === 'resolved' ? 'done' : input.status)))
+                && comment.thread.items.some(item => !item.deletedAt && item.text.toLocaleLowerCase().includes(search))
+                && (input.anchorType === undefined || comment.position.type === input.anchorType)
+                && (input.assignee === undefined || (input.assignee === 'unassigned' ? !assignees.length
+                    : assignees.includes(input.assignee === 'me' ? user.id : input.assignee)))
+                && (input.authorKind === undefined || authorKind === input.authorKind)
+                && (input.hasScreenshot === undefined || Boolean(first && !first.deletedAt && comment.screenshot) === input.hasScreenshot);
+        });
+        // Unread filtering needs all matching cursors; ordinary pages need them only after a page exists.
+        const filteredReads = matching.length && input.unread !== undefined
+            ? await loadReadSequences(`project:${project.id}`, authorId) : undefined;
+        if (filteredReads) matching = matching.filter(comment => readActivity(comment, authorId, filteredReads.get(comment.id)).unread === input.unread);
+        const page = slice(matching, input.cursor, input.limit);
+        const envelope = { actingAs, contentTrust: 'untrusted', environments, searchWindow: MAX_PROJECT_COMMENTS };
+        if (input.view === 'state') {
+            // Reconciliation needs state, not display enrichment. Keep offset continuation when bytes stop a page.
+            const items = [];
+            let bytes = resultBytes({ ...envelope, items: [], nextCursor: 1000 });
+            for (const comment of page.items) {
                 const first = comment.thread.items[0];
-                const { path, source, assignee, assignees, activity } = projectCommentRouting(comment, project, participants, authorId, reads.get(comment.id));
-                return { verification: verificationDetails(comment, project, actor, participants), id: comment.id, number: comment.number, kind: comment.kind ?? 'comment', ...(feedbackTypeSnapshot(comment.feedbackType, comment.kind) ? { feedbackType: feedbackTypeSnapshot(comment.feedbackType, comment.kind) } : {}),
-                    ...(commentCheck(comment.check) ? { check: commentCheck(comment.check) } : {}), priority: commentPriority(comment.priority), workflowStatus: statusForComment(workflow, comment), labels: labelsForComment(labels, comment), archivedAt: comment.archivedAt, resolved: Boolean(comment.resolved), stage: feedbackStage({ ...comment, verificationEnabled: project.verificationEnabled === true }), private: Boolean(comment.private),
-                    title: threadTitle(comment, titles)?.text, summary: first?.deletedAt ? 'Comment deleted' : first?.text.slice(0, 240), updatedAt: comment.updatedAt,
-                    path, environment: { id: source.environment, label: source.label }, anchorType: comment.position.type, assignee: assignee ?? null, assignees,
-                    authorKind: first && !first.deletedAt ? first.authorId?.startsWith('user:') ? 'member' : 'guest' : undefined,
-                    replyCount: Math.max(0, comment.thread.items.length - 1), unread: activity.unread, hasScreenshot: Boolean(first && !first.deletedAt && comment.screenshot) };
-            }).filter(item => (input.anchorType === undefined || item.anchorType === input.anchorType)
-                && (input.assignee === undefined || (input.assignee === 'unassigned' ? !item.assignees.length : item.assignees.some(person => person.id === (input.assignee === 'me' ? user.id : input.assignee))))
-                && (input.authorKind === undefined || item.authorKind === input.authorKind)
-                && (input.unread === undefined || item.unread === input.unread)
-                && (input.hasScreenshot === undefined || item.hasScreenshot === input.hasScreenshot));
-        return result({ actingAs, contentTrust: 'untrusted', environments, searchWindow: MAX_PROJECT_COMMENTS, ...slice(items, input.cursor, input.limit) });
+                const assignee = assignedUserIds(comment)[0];
+                const item = { id: comment.id, number: comment.number, updatedAt: comment.updatedAt,
+                    resolved: Boolean(comment.resolved), stage: feedbackStage({ ...comment, verificationEnabled: project.verificationEnabled === true }),
+                    priority: commentPriority(comment.priority), private: Boolean(comment.private), assignee: assignee ? { id: assignee } : null,
+                    authorKind: first && !first.deletedAt ? first.authorId?.startsWith('user:') ? 'member' as const : 'guest' as const : undefined,
+                    replyCount: Math.max(0, comment.thread.items.length - 1) };
+                const itemBytes = Buffer.byteLength(JSON.stringify(item)) + (items.length ? 1 : 0);
+                if (bytes + itemBytes > MAX_RESULT_BYTES) break;
+                items.push(item);
+                bytes += itemBytes;
+            }
+            if (page.items.length && !items.length) throw apiErrors.tooLarge(MAX_RESULT_BYTES);
+            return result({ ...envelope, items, nextCursor: items.length < page.items.length ? input.cursor + items.length : page.nextCursor });
+        }
+        const [participants, reads] = await Promise.all([
+            page.items.some(comment => assignedUserIds(comment).length || comment.verification)
+                ? participantNames(project) : new Map<string, string>(),
+            filteredReads ?? (page.items.length ? loadReadSequences(`project:${project.id}`, authorId) : new Map<string, number>())
+        ]);
+        // The workflow/label workspace read already supplied the current title setting too.
+        const titles = aiTitlesEnabled(workspace, project);
+        const items = page.items.map(comment => {
+            const first = comment.thread.items[0];
+            const { path, source, assignee, assignees, activity } = projectCommentRouting(comment, project, participants, authorId, reads.get(comment.id));
+            return { verification: verificationDetails(comment, project, actor, participants), id: comment.id, number: comment.number, kind: comment.kind ?? 'comment', ...(feedbackTypeSnapshot(comment.feedbackType, comment.kind) ? { feedbackType: feedbackTypeSnapshot(comment.feedbackType, comment.kind) } : {}),
+                ...(commentCheck(comment.check) ? { check: commentCheck(comment.check) } : {}), priority: commentPriority(comment.priority), workflowStatus: statusForComment(workflow, comment), labels: labelsForComment(labels, comment), archivedAt: comment.archivedAt, resolved: Boolean(comment.resolved), stage: feedbackStage({ ...comment, verificationEnabled: project.verificationEnabled === true }), private: Boolean(comment.private),
+                title: threadTitle(comment, titles)?.text, summary: first?.deletedAt ? 'Comment deleted' : first?.text.slice(0, 240), updatedAt: comment.updatedAt,
+                path, environment: { id: source.environment, label: source.label }, anchorType: comment.position.type, assignee: assignee ?? null, assignees,
+                authorKind: first && !first.deletedAt ? first.authorId?.startsWith('user:') ? 'member' : 'guest' : undefined,
+                replyCount: Math.max(0, comment.thread.items.length - 1), unread: activity.unread, hasScreenshot: Boolean(first && !first.deletedAt && comment.screenshot) };
+        });
+        return result({ ...envelope, items, nextCursor: page.nextCursor });
     }));
     server.registerTool('get_feedback_batch', { description: `Read 1–10 distinct authorized threads in request order without marking them read. Missing, deleted and inaccessible threads return not_found. Only whole packets fit within 256 KiB; retry remainingIds separately. ${untrusted}`, inputSchema: batchInput, annotations: readAnnotations }, input => safely(async () => {
         const { project, actor, user } = await mcpProject(identity, input.projectId);

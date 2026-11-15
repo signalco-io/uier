@@ -2,10 +2,18 @@
 
 Project comment views mount `RealtimeComments`: native Vercel sockets notify, then refresh the
 authorized paged data snapshot without an RSC/page refresh. `src/lib/realtime` owns origin/viewer-bound tickets,
-current authorization and a shared, two-second compact Cosmos metadata source. Never broadcast
+current authorization and a shared compact Cosmos metadata source. Sockets poll every two seconds,
+then every five seconds after ten seconds without a change visible to their viewer. A visible change
+restores the two-second cadence; private activity invisible to that viewer does not. Every poll
+still checks live access before reading or notifying, including idle polls (revocation is detected
+on the next poll, up to five seconds later plus read latency). Concurrent sockets share metadata
+reads within an instance with a two-second maximum cache age. Never broadcast
 comment bodies/ids or bypass private-thread visibility. Keep four-minute connection renewal,
 HTTP fallback, draft preservation and the provider boundaries. See [realtime](../../../docs/api.md#realtime-comment-changes)
-and `e2e/realtime.api.spec.ts` / `e2e/realtime.spec.ts`. Sockets need Fluid compute, enabled on the
+and `e2e/realtime.api.spec.ts` / `e2e/realtime.spec.ts`. `realtime-performance.api.spec.ts` uses a
+fake clock to guard idle read counts, the return to active polling, hard deletion, private changes,
+revocation and timer cleanup. Its 60% reduction in idle polling cycles is not a measured production
+RU or hosting saving. Sockets need Fluid compute, enabled on the
 Vercel project by Pulumi (`infra/src/vercel.ts`), not `vercel.json`: prebuilt CI deploys never read it.
 
 Agent working leases (`assigneeAgent.workingUntil`) use the same etag-based realtime refetch as
