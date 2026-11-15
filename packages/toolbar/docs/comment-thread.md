@@ -31,6 +31,8 @@ Checked in `apps/web/e2e/toolbar-thread.spec.ts`.
 - One thread layout for the popover and the inbox, so an opened thread shows its messages and reply box first.
 - The source line shows in the inbox, and on the page only when the original source is unavailable.
 - Messages have an avatar column and no dividers.
+- A longer thread shows its first and last message with "Show all N messages" between them, set between two
+  `bg-border` lines so the gap reads as hidden messages (uier #443). Using it shows them and moves focus to the first.
 - No thread activity (who changed what): that history is in the app only (uier #374).
 - A saved screenshot is a thumbnail ([saved images](screenshots.md#saved-images)).
 
