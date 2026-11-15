@@ -302,6 +302,9 @@ once for Check again too, the panel lists the page's issues, and the page has no
 element and requested nothing for it; a smaller page gets its button's issue count from the background audit.
 The runtime test polls the saved comment count after draft submission: optimistic message text
 can appear before the worker finishes saving, including a committed-but-lost write retry.
+The strict-CSP posting/reload check waits for the toolbar's `Comment posted` success announcement
+before reloading. Visible text alone can be the optimistic thread while screenshot/device capture
+is still pending; reloading then interrupts the send and correctly leaves a recoverable draft.
 The closed typed worker envelope and shared route contract reject arbitrary URLs/operations,
 credential/header injection and malformed payloads. API tests retain current membership, origin,
 privacy, comments-off, handoff/PKCE and idempotency coverage. App setup has desktop/mobile keyboard

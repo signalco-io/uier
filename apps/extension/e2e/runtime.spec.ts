@@ -253,6 +253,9 @@ test('packaged isolated runtime uses real sign-in, helper and worker under stric
     const composer = reviewed.getByRole('textbox', { name: 'Comment', exact: true });
     await composer.fill('Strict CSP extension feedback'); await composer.press('Enter');
     await expect(reviewed.getByText('Strict CSP extension feedback', { exact: true })).toBeVisible();
+    // Text appears optimistically while screenshot/device capture and the worker write are pending.
+    // Reload only after the API has saved it, or pagehide correctly restores an unsent draft.
+    await expect(reviewed.getByRole('status').filter({ hasText: 'Comment posted' })).toBeVisible();
     await reviewed.reload();
     await expect(reviewed.getByRole('navigation', { name: 'uier feedback', exact: true })).toBeVisible();
     await expect(commentBubble(reviewed, 1)).toBeVisible();
