@@ -591,10 +591,14 @@ reply, assignment or status controls.
 
 While visible and connected, the card calls `get_feedback` through the host every 30 seconds;
 **Refresh** requests an immediate read. Every read rechecks the connection's current scope,
-project access and thread visibility. The card shows when it last received data and marks a
-failed refresh as disconnected/stale. A denied or missing thread clears the displayed content.
-No background service or event subscription is created, and a historical card is not guaranteed
-to stay live after its host connection stops.
+project access and thread visibility. The card shows when it last checked. When the host doesn't
+answer in time, it keeps the last result, says it could not check for updates and keeps trying.
+A refused or missing thread, and any error the host returns for a read, clears the displayed
+content: the card can't tell refused access from a client that disconnected, so it says either may
+be the cause. When the host connection ends or never starts, Refresh is disabled and the card asks
+you to request the thread again. Screen readers hear changes to the thread's status, not each
+check. No background service or event subscription is created, and a historical card is not
+guaranteed to stay live after its host connection stops.
 
 Rendering depends on the host's [MCP Apps support](https://modelcontextprotocol.io/extensions/apps/overview).
 [T3 Code documents cards](https://github.com/pingdotgg/t3code/blob/main/docs/user/html-renders.md#mcp-apps)

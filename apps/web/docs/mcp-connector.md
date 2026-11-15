@@ -391,10 +391,18 @@ credentials, external scripts or images. Its CSP declares no external connection
 domains. The host supplies data through the MCP Apps bridge, and refreshes call `get_feedback`
 through that same authenticated host every 30 seconds while visible, or on **Refresh**.
 Do not add an alternate browser API, cookie authentication or tokens to the card. Each read must
-retain the ordinary live scope, project and visibility checks. A failed refresh is visibly stale;
-denied or missing feedback removes the displayed content. No writes, screenshots, event
-subscriptions or read-cursor updates belong to this card. The tool is for a requested thread
-display, not for every monitor poll. See [the client contract](../../../docs/mcp.md#thread-cards).
+retain the ordinary live scope, project and visibility checks. A read the host doesn't answer in
+time keeps the last result with a warning, and the 30-second checks continue. A tool error, invalid
+packet or JSON-RPC error removes the displayed content: an RPC error can't tell refused access from a
+client that lost its server, so the card clears for both and its copy names both. A failed
+`ui/initialize` or a `ui/resource-teardown` ends the card: Refresh is disabled and the card asks
+for the thread again. Refresh is otherwise disabled only while nothing has loaded; a running read
+ignores more clicks, so focus stays on it through each check. Only the notice line and status
+changes are live regions; the last-checked time stays out of them, so a check that changes nothing
+announces nothing. The status dot follows BRAND.md (Open an ink ring). No writes, screenshots,
+event subscriptions or read-cursor updates belong to this card. The tool is for a requested
+thread display, not for every monitor poll. Tests: `e2e/mcpApp.spec.ts` (a host in a page, the
+built card in its iframe). See [the client contract](../../../docs/mcp.md#thread-cards).
 
 `list_feedback` shares path, source, assignment and activity projection with the app through
 `app/projectCommentRouting.ts`. Canonicalize its optional path with `pagePath`; pass path and
