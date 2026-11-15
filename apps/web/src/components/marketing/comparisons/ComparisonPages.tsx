@@ -17,7 +17,7 @@ const choiceTitles: Record<CompetitorSlug, string> = {
 
 function SupportIcon({ support }: { support: Support }) {
     const Icon = statusIcons[support];
-    return <Icon size={16} strokeWidth={1.75} aria-hidden="true" className="mt-0.5 shrink-0" />;
+    return <Icon size={16} strokeWidth={1.75} aria-hidden="true" className={`mt-0.5 shrink-0${support === 'yes' ? ' text-[hsl(var(--brand-success))]' : ''}`} />;
 }
 
 function FactCell({ fact, product, dimension, compact }: { fact: Fact; product: string; dimension: string; compact?: boolean }) {
@@ -38,7 +38,7 @@ function FeatureMatrix({ products, compact = false }: { products: Product[]; com
         </ul>
         <p id="matrix-help" className="text-sm text-muted-foreground">{compact ? 'Scroll across for every tool. Open Details for caveats and the source behind each entry.' : 'Scroll across on a narrow screen. Each entry includes its scope and, where applicable, a source.'} Not verified means unknown, not unsupported.</p>
         <div role="region" aria-label="Feature comparison table" aria-describedby="matrix-help" tabIndex={0} className="overflow-x-auto rounded-2xl border focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring">
-            <table className={`w-full border-collapse text-left ${compact ? 'min-w-[1120px]' : 'min-w-[600px]'}`}>
+            <table className={`w-full table-fixed border-collapse text-left ${compact ? 'min-w-[1120px]' : 'min-w-[600px]'}`}>
                 <caption className="sr-only">Website feedback capabilities compared: {products.map(product => product.name).join(', ')}</caption>
                 <thead className="bg-muted/50"><tr>
                     <th scope="col" className="w-44 p-4 text-sm font-medium">Workflow or feature</th>
@@ -101,7 +101,7 @@ function RelatedComparisons({ except }: { except?: CompetitorSlug }) {
 const tradeoffs: Record<CompetitorSlug, { keep: string; lose: string; test: string }> = {
     bugherd: {
         keep: 'Use BugHerd if your team depends on audio explanations, Figma or file review, due dates or custom Kanban columns.',
-        lose: 'In uier, you would use live-page comments, short screen recordings and a fixed four-status workflow. File proofing, due dates and custom columns do not carry over.',
+        lose: 'In uier, you would use live-page comments, short screen recordings and custom statuses grouped under five fixed stages. File proofing and due dates do not carry over.',
         test: 'Try one client review from first comment to reviewer confirmation. Check that uier’s five integrations cover the destinations you need; it does not provide BugHerd’s full integration catalog.'
     },
     'marker-io': {
@@ -133,8 +133,10 @@ export function PairComparisonPage({ slug }: { slug: CompetitorSlug }) {
         </div>
 
         <PageSection id="choose" title="Choose by the work you need to finish" lead="Both tools collect visual feedback. The difference is what you need around that feedback." wide>
-            <Panel className="md:grid-cols-2"><ProductChoice product={uier} title="Choose uier for live-page review" /><ProductChoice product={competitor} title={choiceTitles[slug]} /></Panel>
-            <p className="text-xs text-muted-foreground">Conceptual workflow illustrations, not product screenshots. No scores or rankings.</p>
+            <div className="flex flex-col gap-1">
+                <Panel className="md:grid-cols-2"><ProductChoice product={uier} title="Choose uier for live-page review" /><ProductChoice product={competitor} title={choiceTitles[slug]} /></Panel>
+                <p className="text-xs text-muted-foreground">Conceptual workflow illustrations, not product screenshots. No scores or rankings.</p>
+            </div>
         </PageSection>
 
         <PageSection id="features" title="The feature comparison" lead="A check is a documented capability. The scope beside it matters just as much." wide>
@@ -178,7 +180,7 @@ export function AllToolsPage() {
         <PageSection id="features" title="Compare the actual capabilities" lead="No overall winner. Unsupported and unverified capabilities stay visible alongside supported ones." wide><FeatureMatrix products={products} compact /></PageSection>
 
         <PageSection id="gaps" title="When uier will not cover the job" lead="Use another tool, or keep it alongside uier, when these are requirements.">
-            <Panel><Tile title="Reproduce a sequence"><p>uier supports short screen recordings with explicit permission. Built-in capture has no audio and ends on full-page navigation. Session replay, console logs and network capture are unavailable. Marker.io documents replay and diagnostics; BugHerd and Usersnap document recording. Their capture modes are different.</p></Tile><Tile title="Approve assets"><p>uier does not proof PDFs, design files, video or email. Pastel supports multi-format canvases and version approvals. BugHerd also lists file and Figma review.</p></Tile><Tile title="Run product research"><p>uier has no satisfaction surveys, public voting or roadmap. Usersnap combines these with visual feedback.</p></Tile><Tile title="Customize every stage"><p>uier’s statuses are Open, In progress, Ready to verify and Done. There are no custom statuses or release-wide sign-offs. BugHerd supports customizable board columns.</p></Tile></Panel>
+            <Panel><Tile title="Reproduce a sequence"><p>uier supports short screen recordings with explicit permission. Built-in capture has no audio and ends on full-page navigation. Session replay, console logs and network capture are unavailable. Marker.io documents replay and diagnostics; BugHerd and Usersnap document recording. Their capture modes are different.</p></Tile><Tile title="Approve assets"><p>uier does not proof PDFs, design files, video or email. Pastel supports multi-format canvases and version approvals. BugHerd also lists file and Figma review.</p></Tile><Tile title="Run product research"><p>uier has no satisfaction surveys, public voting or roadmap. Usersnap combines these with visual feedback.</p></Tile><Tile title="Customize every stage"><p>uier supports up to 30 custom statuses, grouped under Open, In progress, Ready to verify, Done and Archive. There are no due dates or release-wide sign-offs. BugHerd supports customizable board columns with due dates.</p></Tile></Panel>
         </PageSection>
 
         <PageSection id="setup" title="The practical differences" lead="Plan limits, reviewer access and integration behavior can change the decision." wide><Panel className="md:grid-cols-2">{products.map(product => <ProductPracticalities key={product.name} product={product} />)}</Panel></PageSection>
@@ -206,7 +208,7 @@ export function ComparisonHub() {
         <PageSection id="alternatives" title="Compare one alternative" lead="Read the overlap, the missing capabilities and the practical differences side by side." wide><RelatedComparisons /></PageSection>
 
         <PageSection id="limits" title="Where uier fits" lead="Live-page comments, assignment and human fix verification.">
-            <Panel><Tile title="See the review workflow"><p>Start with the <InlineLink href={KnownPages.ClientReviewGuide}>client review guide</InlineLink>, <InlineLink href={KnownPages.FeedbackTriage}>feedback triage</InlineLink> and <InlineLink href={KnownPages.FixVerification}>fix verification</InlineLink>.</p></Tile><Tile title="Check the boundaries"><p>Screen recordings are limited to 60 seconds and 25 MiB. Session replay, file proofing, satisfaction surveys and custom statuses are unavailable. Check <InlineLink href={KnownPageLinks.comparison('website-feedback-tools')}>the full feature matrix</InlineLink> before replacing a tool you rely on.</p></Tile><Tile title="Check installation and handoff"><p>See the <InlineLink href={KnownPages.BrowserExtension}>desktop extension</InlineLink>, <InlineLink href={KnownPages.Integrations}>integrations</InlineLink>, <InlineLink href={KnownPages.Ai}>coding-agent workflow</InlineLink> and <InlineLink href={KnownPages.PageChecks}>page-check limits</InlineLink>.</p></Tile></Panel>
+            <Panel><Tile title="See the review workflow"><p>Start with the <InlineLink href={KnownPages.ClientReviewGuide}>client review guide</InlineLink>, <InlineLink href={KnownPages.FeedbackTriage}>feedback triage</InlineLink> and <InlineLink href={KnownPages.FixVerification}>fix verification</InlineLink>.</p></Tile><Tile title="Check the boundaries"><p>Screen recordings are limited to 60 seconds and 25 MiB. Session replay, file proofing and satisfaction surveys are unavailable. Check <InlineLink href={KnownPageLinks.comparison('website-feedback-tools')}>the full feature matrix</InlineLink> before replacing a tool you rely on.</p></Tile><Tile title="Check installation and handoff"><p>See the <InlineLink href={KnownPages.BrowserExtension}>desktop extension</InlineLink>, <InlineLink href={KnownPages.Integrations}>integrations</InlineLink>, <InlineLink href={KnownPages.Ai}>coding-agent workflow</InlineLink> and <InlineLink href={KnownPages.PageChecks}>page-check limits</InlineLink>.</p></Tile></Panel>
             <Button variant="solid" href={KnownPages.App} className="self-start">Try uier on a page</Button>
         </PageSection>
     </main>;

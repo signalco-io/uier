@@ -21,7 +21,7 @@ allowlist and screenshot/recording policies. Short screen recordings have explic
 permission, size and duration limits; built-in capture has no audio and ends on full-page navigation.
 The ledger marks them available and keeps those limits in the detail text.
 Keep its absent replay, console/network capture,
-file proofing, surveys and custom workflow capabilities visible. Image attachments do not imply
+file proofing, surveys and due dates visible. Custom statuses (up to 30, grouped under the five fixed stages) are available. Image attachments do not imply
 asset proofing, in-browser checks do not imply scheduled site crawling, and per-thread reviewer
 confirmation does not approve an entire asset version or release. No competitor-history importer
 is provided. Change these entries with the product.
