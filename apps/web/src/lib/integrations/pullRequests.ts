@@ -146,6 +146,9 @@ async function privateReader(project: DbProject, ref: PullRequestLink, sourceAut
 
 type StateRead = { state?: PullRequestState; authorize?: () => Promise<boolean> };
 async function stateFor(project: DbProject, ref: PullRequestLink, sourceAuthority: () => Promise<boolean>): Promise<StateRead> {
+    // Self-managed MR links are display-only. Never send their repository paths to GitLab.com,
+    // fetch an arbitrary host from a message, or reuse another provider's credentials.
+    if (ref.provider === 'gitlab' && new URL(ref.url).origin !== 'https://gitlab.com') return {};
     try {
         const reader = await privateReader(project, ref, sourceAuthority);
         if (reader) {

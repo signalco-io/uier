@@ -69,7 +69,8 @@ merges and deployment retries. Read the [monitor guide](uier-monitor.md) and the
 starting it. A request to read one comment alone does not invoke that workflow.
 
 Monitoring requires a local coding client, a repository checkout, Git, Node.js 18 or later and
-an authenticated `gh` CLI. The target repository's runtime requirements still apply. Its
+an authenticated `gh` CLI for GitHub or `glab` for GitLab (including self-managed hosts).
+The target repository's runtime requirements still apply. Its
 watcher uses a separate scoped token, stores local state under the shared git directory, names
 that directory in a small file under `~/.uier-monitor` for the local dashboard, and reads uier and
 GitHub. The [plugin README](../plugins/uier/README.md#what-runs-and-where-data-goes)

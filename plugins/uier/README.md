@@ -66,7 +66,8 @@ feedback you ask it to read under its own terms. See the
 [terms](https://uier.io/legal/terms-of-service).
 
 Monitoring requires a local coding client, a repository checkout, Git, Node.js 18 or later and
-the authenticated GitHub CLI (`gh`) for pull requests and deployment checks. The repository's own
+the authenticated GitHub CLI (`gh`) or GitLab CLI (`glab`) for pull/merge requests and deployment
+checks, including self-managed GitLab hosts. The repository's own
 runtime requirements also apply. The helper has no npm dependencies. It polls uier and uses `gh`
 to read repository/PR/check/deployment state from GitHub; it does not run as a hosted chat service.
 Fix sessions run your repository's commands and follow its contribution rules. Nothing runs on

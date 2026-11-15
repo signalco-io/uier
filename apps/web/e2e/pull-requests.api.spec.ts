@@ -37,7 +37,7 @@ test('recognizes and deduplicates provider links in current Markdown, bare URLs 
     ]);
     expect(links.map(link => link.url)).toEqual(['https://github.com/owner/repo/pull/472', 'https://gitlab.com/team/sub/repo/-/merge_requests/8',
         'https://dev.azure.com/org/My%20Project/_git/Website/pullrequest/17']);
-    for (const url of ['https://github.com.evil.test/a/b/pull/1', 'https://gitlab.internal/a/b/-/merge_requests/1',
+    for (const url of ['https://github.com.evil.test/a/b/pull/1',
         'http://github.com/a/b/pull/1', 'https://user:pass@github.com/a/b/pull/1', 'https://github.com:444/a/b/pull/1',
         'https://github.com/a/b/issues/1', 'https://dev.azure.com/org/p/_git/%2f..%2f/pullrequest/1',
         'https://gitlab.com/a/%2e%2e/-/merge_requests/1', 'https://gitlab.com/a/b%2fc/-/merge_requests/1',
@@ -136,12 +136,28 @@ test('public APIs receive no credentials and provider URLs are constructed rathe
         expect(String(url)).toMatch(/^https:\/\/gitlab.com\/api\/v4\/projects\/a%2F/);
         return json({ iid: 2, state: 'opened', draft: true });
     };
-    expect((await f.load()).map(value => value.state)).toEqual(['merged', 'draft', undefined]);
+    expect((await f.load()).map(value => value.state)).toEqual(['merged', 'draft', undefined, undefined]);
     expect(calls).toHaveLength(2);
     await f.load(); expect(calls).toHaveLength(2);
     const stranger = await findOrCreateUser(`${randomUUID()}@example.com`);
     await expect(f.load(stranger.id)).rejects.toMatchObject({ status: 404 });
     expect(calls).toHaveLength(2);
+});
+
+test('self-managed GitLab MRs retain their host, subgroup path and link ownership without server requests', async () => {
+    const { setProjectCommentPullRequest } = await import('../src/lib/review/pullRequests');
+    const url = 'https://git.podravka.io/team/subgroup/project/-/merge_requests/4';
+    const portUrl = 'https://gitlab.example.test:8443/team/project/-/merge_requests/8';
+    const f = await fixture(`[MR !4](${url}/diffs?view=1#top) ${portUrl}`);
+    expect(parsePullRequestLink(`${url}/diffs?view=1#top`)).toEqual({ provider: 'gitlab', repository: 'team/subgroup/project', number: 4, url });
+    expect(parsePullRequestLink(portUrl)?.url).toBe(portUrl);
+    const saved = await setProjectCommentPullRequest(f.project, { kind: 'member', userId: f.owner.id, name: 'Owner', isAdmin: true }, f.comment.id, url);
+    expect(saved.pullRequests).toEqual([{ url, addedBy: `user:${f.owner.id}` }]);
+    expect(threadPullRequestLinks(saved.thread.items, saved.pullRequests).map(link => link.url)).toEqual([url, portUrl]);
+    let calls = 0;
+    globalThis.fetch = async () => { calls++; throw new Error('Self-managed links must not initiate a server request'); };
+    expect(await f.load()).toEqual([{ url, state: undefined }, { url: portUrl, state: undefined }]);
+    expect(calls).toBe(0);
 });
 
 test('private GitHub states require the exact project binding, current admin and installation authority, even from cache', async () => {

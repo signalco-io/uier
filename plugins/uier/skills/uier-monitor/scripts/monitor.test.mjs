@@ -519,13 +519,265 @@ test('options may come before the command, so a shell function can append --stat
     assert.equal(context.parseArgs([]).command, 'help');
 });
 
-// runtime() stubs the GitHub polls; put the real ones back where a test exercises them.
+// runtime() stubs host polls; put the real ones back where a test exercises them.
 function restore(context, ...names) {
     for (const name of names) {
         const start = source.indexOf(`function ${name}(`);
         vm.runInContext(source.slice(start, source.indexOf('\n}\n', start) + 3), context);
     }
 }
+
+function gitlabFixture() {
+    const f = runtime();
+    restore(f.context, 'pollPullRequests', 'pollDeploys');
+    const state = { repo: { provider: 'gitlab', host: 'git.podravka.io', slug: 'team/subgroup/project', base: 'development' },
+        harness: { prWatch: true }, workflow: { strict: false, requiredChecks: [], deploy: { kind: 'deployments', environment: 'production/eu' } },
+        prs: { 4: { state: 'open', group: 'g4' } }, groups: { g4: { state: 'pr', pr: 4 } }, deploys: { pending: [] } };
+    const calls = [], ancestors = new Set();
+    const api = { mr: { iid: 4, state: 'opened', sha: 'current-head', detailed_merge_status: 'mergeable',
+        head_pipeline: { id: 20, sha: 'current-head', status: 'success' } }, jobs: [], releases: [], parents: [], pipeline: { updated_at: 'first-attempt' } };
+    f.context.spawnSync = (command, args, options) => {
+        calls.push({ command, args: [...args], cwd: options.cwd });
+        if (command === 'git') {
+            if (args[0] === 'merge-base') return { status: ancestors.has(`${args[2]}..${args[3]}`) ? 0 : 1 };
+            if (args[0] === 'branch') return { status: 0, stdout: '' };
+            assert.equal(args[0], 'fetch');
+            assert.equal(args.at(-1), 'development');
+            return { status: 0 };
+        }
+        assert.equal(command, 'glab', 'GitLab operations must never invoke gh');
+        assert.equal(args[0], 'api');
+        assert.equal(args[1], '--hostname');
+        assert.equal(args[2], 'git.podravka.io');
+        const endpoint = args[3];
+        assert.ok(endpoint.startsWith('projects/team%2Fsubgroup%2Fproject/'));
+        let body;
+        if (endpoint.endsWith('/merge_requests/4')) body = api.mr;
+        else if (endpoint.includes('/jobs?')) body = api.jobs;
+        else if (endpoint.includes('/repository/commits/')) body = { parent_ids: api.parents };
+        else if (endpoint.includes('/deployments?') || endpoint.includes('/pipelines?')) body = api.releases;
+        else if (/\/pipelines\/\d+$/.test(endpoint)) body = api.pipeline;
+        else assert.fail(`Unexpected GitLab endpoint: ${endpoint}`);
+        return { status: 0, stdout: args.includes('--paginate') ? body.map(item => JSON.stringify(item)).join('\n') : JSON.stringify(body) };
+    };
+    return { ...f, state, calls, api, ancestors, seen: {}, found: [], updates: [] };
+}
+
+test('GitLab polls ready MRs itself in T3 and trusts remote auto-merge instead of optimistic saved flags', () => {
+    const f = gitlabFixture();
+    f.state.prs[4].autoMerge = true;
+    f.context.pollPullRequests(f.state, f.seen, f.found);
+    assert.equal(f.found[0].type, 'pr');
+    assert.equal(f.found[0].pr, 4);
+    assert.equal(f.found[0].checks, 'success');
+    f.context.pollPullRequests(f.state, f.seen, f.found);
+    assert.equal(f.found.length, 1);
+    for (const flag of ['merge_when_pipeline_succeeds', 'auto_merge_enabled']) {
+        f.api.mr[flag] = true;
+        const found = [], seen = {};
+        f.context.pollPullRequests(f.state, seen, found);
+        assert.equal(found.length, 0);
+        delete f.api.mr[flag];
+        f.context.pollPullRequests(f.state, seen, found);
+        assert.equal(found[0].checks, 'success', 'canceling remote auto-merge needs a decision even when the head is unchanged');
+    }
+});
+
+test('GitLab wakes for CI failures, conflicts, reviews, discussions, required rebases and closed MRs', () => {
+    const f = gitlabFixture();
+    f.api.mr.merge_when_pipeline_succeeds = true;
+    for (const status of ['failed', 'canceled']) {
+        f.api.mr.head_pipeline.status = status;
+        const found = [];
+        f.context.pollPullRequests(f.state, {}, found);
+        assert.equal(found[0].checks, 'failure');
+    }
+    f.api.mr.head_pipeline.status = 'success';
+    for (const status of ['conflict', 'requested_changes', 'not_approved', 'discussions_not_resolved', 'need_rebase']) {
+        f.api.mr.detailed_merge_status = status;
+        const found = [];
+        f.context.pollPullRequests(f.state, {}, found);
+        assert.equal(found[0].type, 'pr', status);
+        if (status === 'conflict') assert.equal(found[0].mergeable, 'CONFLICTING');
+        if (status === 'need_rebase') {
+            f.state.workflow.strict = true;
+            const strictFound = [];
+            f.context.pollPullRequests(f.state, {}, strictFound);
+            assert.equal(strictFound[0].behind, true);
+        }
+    }
+    f.api.mr.state = 'closed';
+    const found = [];
+    f.context.pollPullRequests(f.state, {}, found);
+    assert.equal(found[0].state, 'closed');
+});
+
+test('GitLab never treats absent, stale, manual or skipped head pipelines as passing checks', () => {
+    const f = gitlabFixture();
+    for (const pipeline of [null, { status: 'success' }, { sha: 'old-head', status: 'success' },
+        ...['running', 'manual', 'skipped'].map(status => ({ sha: 'current-head', status }))]) {
+        f.api.mr.head_pipeline = pipeline;
+        assert.equal(f.context.pullRequest(f.state, 4, '/repo').checks, 'pending');
+    }
+    f.api.mr.head_pipeline = { id: 20, sha: 'synthetic-merge', source: 'merge_request_event', status: 'success' };
+    f.api.parents = ['target-head', 'old-head'];
+    assert.equal(f.context.pullRequest(f.state, 4, '/repo').checks, 'pending');
+    f.api.parents = ['target-head', 'current-head'];
+    assert.equal(f.context.pullRequest(f.state, 4, '/repo').checks, 'success');
+});
+
+test('GitLab reads all required jobs, preserves aggregate pipeline gates and keeps missing jobs pending', () => {
+    const f = gitlabFixture();
+    f.state.workflow.requiredChecks = ['typecheck', 'browser'];
+    f.api.jobs = [{ name: 'typecheck', status: 'success' }, { name: 'browser', status: 'success' }];
+    assert.equal(f.context.pullRequest(f.state, 4, '/repo').checks, 'success');
+    assert.ok(f.calls.some(call => call.args.includes('--paginate') && call.args.includes('ndjson')));
+    for (const status of ['manual', 'skipped', 'running']) {
+        f.api.jobs[1].status = status;
+        assert.equal(f.context.pullRequest(f.state, 4, '/repo').checks, 'pending');
+    }
+    f.api.jobs.pop();
+    assert.equal(f.context.pullRequest(f.state, 4, '/repo').checks, 'pending');
+    f.api.jobs.push({ name: 'browser', status: 'failed' });
+    f.api.mr.head_pipeline.status = 'running';
+    assert.equal(f.context.pullRequest(f.state, 4, '/repo').checks, 'failure');
+    f.api.jobs[1].status = 'success';
+    assert.equal(f.context.pullRequest(f.state, 4, '/repo').checks, 'pending');
+    f.api.mr.head_pipeline.status = 'failed';
+    assert.equal(f.context.pullRequest(f.state, 4, '/repo').checks, 'failure');
+});
+
+test('GitLab permits a missing pipeline only when explicitly optional and the MR is mergeable', () => {
+    const f = gitlabFixture();
+    f.api.mr.head_pipeline = null;
+    assert.equal(f.context.pullRequest(f.state, 4, '/repo').checks, 'pending');
+    f.state.workflow.pipelineRequired = false;
+    assert.equal(f.context.pullRequest(f.state, 4, '/repo').checks, 'success');
+    f.state.workflow.requiredChecks = ['required-job'];
+    assert.equal(f.context.pullRequest(f.state, 4, '/repo').checks, 'pending');
+    f.state.workflow.requiredChecks = [];
+    f.api.mr.detailed_merge_status = 'checking';
+    assert.equal(f.context.pullRequest(f.state, 4, '/repo').checks, 'pending');
+});
+
+test('GitLab records merge commits, squash merges and fast-forward merges with their groups', async () => {
+    for (const [fields, expected] of [[{ merge_commit_sha: 'merge-sha', squash_commit_sha: 'squash-sha' }, 'merge-sha'],
+        [{ squash_commit_sha: 'squash-sha' }, 'squash-sha'], [{}, 'current-head']]) {
+        const f = gitlabFixture();
+        Object.assign(f.api.mr, fields, { state: 'merged' });
+        f.files.set('/state/state.json', structuredClone(f.state));
+        f.context.pollPullRequests(f.state, f.seen, f.found, f.updates);
+        assert.equal(f.found[0].sha, expected);
+        assert.equal(f.found[0].quiet, true);
+        await f.context.updateState('/state', f.updates);
+        const next = f.files.get('/state/state.json');
+        assert.equal(next.prs[4].state, 'merged');
+        assert.equal(next.groups.g4.state, 'merged');
+        assert.deepEqual(next.deploys.pending.map(entry => [entry.pr, entry.sha, [...entry.groups]]), [[4, expected, ['g4']]]);
+    }
+});
+
+test('GitLab pending deploys learn their merge SHA or report a closed MR without deploying', () => {
+    for (const state of ['merged', 'closed']) {
+        const f = gitlabFixture();
+        f.state.deploys.pending.push({ pr: 4, groups: ['g4'] });
+        Object.assign(f.api.mr, { state, merge_commit_sha: 'merge-sha' });
+        assert.equal(f.context.pollDeploys(f.state, f.seen, f.found, f.updates).length, 0);
+        assert.equal(f.found[0].type, state === 'merged' ? 'merged' : 'pr-closed');
+        for (const update of f.updates) update(f.state);
+        assert.equal(f.state.deploys.pending[0].sha, state === 'merged' ? 'merge-sha' : undefined);
+    }
+});
+
+test('GitLab deployments close only for the configured environment/branch and ancestry containing the merge', () => {
+    const f = gitlabFixture();
+    f.state.deploys.pending.push({ pr: 4, sha: 'merge-sha', groups: ['g4'] });
+    f.api.releases = [{ id: 30, ref: 'development', sha: 'unrelated-sha', status: 'success' },
+        { id: 29, ref: 'other', sha: 'merge-sha', status: 'success' },
+        { id: 28, ref: 'development', tag: true, sha: 'merge-sha', status: 'success' }];
+    assert.equal(f.context.pollDeploys(f.state, f.seen, f.found).length, 0);
+    assert.ok(f.calls.some(call => call.args[3]?.includes('environment=production%2Feu')));
+    f.api.releases.push({ id: 27, ref: 'development', sha: 'later-sha', status: 'success', deployable: { web_url: 'https://git.podravka.io/job/27' } });
+    f.ancestors.add('merge-sha..later-sha');
+    // Failed ancestry is cached; this pair was not checked until this new release appeared.
+    const deployed = f.context.pollDeploys(f.state, f.seen, f.found);
+    assert.equal(deployed.length, 1);
+    assert.equal(deployed[0].run.id, 27);
+    assert.equal(deployed[0].run.url, 'https://git.podravka.io/job/27');
+});
+
+test('GitLab deployment failures deduplicate per attempt and report missing deployments after twenty minutes', () => {
+    const f = gitlabFixture();
+    f.state.deploys.pending.push({ pr: 4, sha: 'merge-sha' });
+    const release = { id: 30, ref: 'development', sha: 'merge-sha', status: 'running', updated_at: 'first' };
+    f.api.releases = [release];
+    const poll = () => f.context.pollDeploys(f.state, f.seen, f.found);
+    poll();
+    f.advance(21 * 60_000);
+    poll();
+    assert.equal(f.found.length, 0);
+    release.status = 'failed';
+    poll(); poll();
+    assert.equal(f.found.length, 1);
+    assert.equal(f.found[0].type, 'deploy-failed');
+    release.status = 'canceled'; release.updated_at = 'retry';
+    poll();
+    assert.equal(f.found.length, 2);
+    f.api.releases = [];
+    poll(); poll();
+    assert.equal(f.found.length, 3);
+    assert.equal(f.found.at(-1).type, 'deploy-missing');
+});
+
+test('GitLab deployment pipelines exclude MR pipelines and only finish after branch deployment success', () => {
+    const f = gitlabFixture();
+    f.state.workflow.deploy = { kind: 'pipelines' };
+    f.state.deploys.pending.push({ pr: 4, sha: 'merge-sha' });
+    f.api.releases = [{ id: 20, ref: 'development', sha: 'merge-sha', source: 'merge_request_event', status: 'success' },
+        { id: 19, ref: 'other', sha: 'merge-sha', source: 'push', status: 'success' }];
+    assert.equal(f.context.pollDeploys(f.state, f.seen, f.found).length, 0);
+    const run = { id: 21, ref: 'development', sha: 'merge-sha', source: 'push', status: 'manual', updated_at: 'first' };
+    f.api.releases.push(run);
+    assert.equal(f.context.pollDeploys(f.state, f.seen, f.found).length, 0);
+    run.status = 'failed';
+    f.context.pollDeploys(f.state, f.seen, f.found);
+    assert.equal(f.found[0].type, 'deploy-failed');
+    f.context.pollDeploys(f.state, f.seen, f.found);
+    assert.equal(f.found.length, 1);
+    f.api.pipeline.updated_at = 'second-attempt';
+    f.context.pollDeploys(f.state, f.seen, f.found);
+    assert.equal(f.found.length, 2, 'a failed retry of the same pipeline ID must wake again');
+    run.status = 'success';
+    assert.equal(f.context.pollDeploys(f.state, f.seen, f.found)[0].run.id, 21);
+    delete f.state.workflow.deploy;
+    assert.throws(() => f.context.pollDeploys(f.state, f.seen, []), /needs workflow.deploy/);
+    f.state.workflow.deploy = { kind: 'actions' };
+    assert.throws(() => f.context.pollDeploys(f.state, f.seen, []), /Unsupported GitLab deploy kind/);
+    f.state.workflow.deploy = { kind: 'none' };
+    assert.equal(f.context.pollDeploys(f.state, f.seen, [])[0].run, null);
+});
+
+test('GitLab host defaults, authentication and malformed responses never fall back to GitHub', () => {
+    const f = gitlabFixture();
+    delete f.state.repo.host;
+    f.state.repo.url = 'https://git.podravka.io/team/subgroup/project';
+    assert.equal(f.context.pullRequest(f.state, 4, '/repo').state, 'OPEN');
+    f.context.spawnSync = () => ({ error: { code: 'ENOENT' } });
+    assert.throws(() => f.context.pullRequest(f.state, 4, '/repo'), /GitLab CLI/);
+    f.context.spawnSync = () => ({ status: 1, stderr: 'HTTP 401: unauthorized' });
+    assert.throws(() => f.context.pullRequest(f.state, 4, '/repo'), /HTTP 401/);
+    f.context.spawnSync = () => ({ status: 0, stdout: '<html>sign in</html>' });
+    assert.throws(() => f.context.pullRequest(f.state, 4, '/repo'), /invalid JSON/);
+});
+
+test('GitLab cleanup recognizes published closed/merged MR heads after source branch deletion', () => {
+    const f = gitlabFixture();
+    for (const state of ['merged', 'closed', 'opened']) {
+        f.api.mr.state = state;
+        assert.equal(f.context.published(f.state, '/repo', 'current-head', 4), state !== 'opened');
+        assert.equal(f.context.published(f.state, '/repo', 'unpushed-head', 4), false);
+    }
+});
 
 function closingFixture({ writes = 'available', verify = false, fail = null } = {}) {
     const { context, files } = runtime();
@@ -576,6 +828,14 @@ test('the watcher closes drafted comments after their deploy and reports one qui
     assert.deepEqual(next.deploys.pending.map(entry => entry.pr), [8]);
     assert.ok(next.watcherUpdatedAt);
     assert.equal(next.updatedAt, undefined);
+});
+
+test('GitLab closing replies link the merge commit on the self-managed host', async () => {
+    const f = closingFixture();
+    f.state.repo = { provider: 'gitlab', host: 'git.podravka.io', slug: 'team/subgroup/project' };
+    f.files.set('/state/state.json', structuredClone(f.state));
+    await f.context.closeDeployed({}, f.state, f.seen, f.found, f.updates, { entry: f.state.deploys.pending[0] });
+    assert.equal(f.calls[0].args.text, `Fixed in [\`abcdef1\`](https://git.podravka.io/team/subgroup/project/-/commit/${f.sha}). Done.`);
 });
 
 async function applyUpdates(f) {

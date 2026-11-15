@@ -21,7 +21,7 @@ allowlist and screenshot/recording policies. Short screen recordings have explic
 permission, size and duration limits; built-in capture has no audio and ends on full-page navigation.
 The ledger marks them available and keeps those limits in the detail text.
 Keep its absent replay, console/network capture,
-file proofing, surveys and custom workflow capabilities visible. Image attachments do not imply
+file proofing, surveys and due dates visible. Custom statuses (up to 30, grouped under the five fixed stages) are available. Image attachments do not imply
 asset proofing, in-browser checks do not imply scheduled site crawling, and per-thread reviewer
 confirmation does not approve an entire asset version or release. No competitor-history importer
 is provided. Change these entries with the product.
@@ -29,7 +29,13 @@ is provided. Change these entries with the product.
 `ComparisonPages.tsx` renders the hub, full matrix and pairwise pages using the existing public
 page building blocks. `WorkflowPicture.tsx` draws conceptual workflow illustrations from brand
 tokens, not competitor screenshots or replicas. Each picture is decorative; the nearby visible
-text carries the meaning. Feature tables have proper headers, a keyboard-focusable horizontal
+text carries the meaning. `ComparisonCover.tsx` is each pairwise page's cover, beside the header on
+wide screens and under it on narrow ones, as on the browser extension page: uier's `<Mark />` and the
+alternative's official logo on bordered tiles over a dot grid, each with its name under it. The
+logos in `public/compare` are unchanged copies of what the vendors publish: Marker.io's colour
+symbol from marker.io/brand, and the square site icons bugherd.com, usersnap.com and
+usepastel.com serve. Replace a file only with the vendor's own newer asset; never recolour, redraw
+or crop one. Feature tables have proper headers, a keyboard-focusable horizontal
 scroll region and text labels for all status icons. The wide matrix uses native disclosure
 elements for the detailed caveats and sources, retaining those details in the server HTML.
 

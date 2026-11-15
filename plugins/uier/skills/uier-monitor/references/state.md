@@ -5,7 +5,7 @@
 ```json
 {
   "project": { "id": "uier00000001", "name": "uier.io public feedback", "workspace": { "id": "…", "name": "uier" }, "site": "https://uier.io" },
-  "repo": { "slug": "signalco-io/uier", "root": "<a checkout of the repository>", "base": "main" },
+  "repo": { "provider": "github", "host": "github.com", "url": "https://github.com/signalco-io/uier", "slug": "signalco-io/uier", "root": "<a checkout of the repository>", "base": "main" },
   "me": { "id": "u_…", "name": "…", "also": [{ "id": "u_…", "name": "…" }], "reviewer": null },
   "scope": "mine",
   "max": 6,
@@ -29,6 +29,24 @@
 }
 ```
 
+- `repo.provider`: `github` (also the default for existing states) or `gitlab`. `repo.host` is the
+  authenticated web/API hostname, including any port; `repo.url` is the credential-free web URL.
+  `repo.slug` is the complete namespace/project path, including GitLab subgroups. For example:
+  `{ "provider": "gitlab", "host": "git.podravka.io", "url": "https://git.podravka.io/team/project", "slug": "team/project", "base": "development" }`.
+  The helper calls `glab api --hostname <host>` and URL-encodes the full project path.
+- On GitLab, `pr`, `prs` keys, group PRs and deploy entry PRs contain the MR's project-local `iid`,
+  never its global `id`. Use the actual MR URL for links. `workflow.mode: "pr"` includes MRs.
+- GitLab `workflow.deploy`: `{ "kind": "deployments", "environment": "production", "branch": "development" }`
+  follows environment deployment records; `{ "kind": "pipelines", "branch": "development" }` follows
+  a confirmed deployment pipeline on that branch. `{ "kind": "none" }` explicitly closes at merge.
+  A missing GitLab deploy configuration is an error. See [GitLab operations](gitlab.md).
+- GitLab `workflow.requiredChecks` contains exact required CI job names. An empty array follows
+  the aggregate head pipeline. Missing, manual, skipped or stale checks stay pending. Successful
+  merged-results pipelines with a synthetic SHA require GitLab's `mergeable` decision and a
+  synthetic commit whose parents include the current source head.
+- GitLab `workflow.pipelineRequired`: defaults to requiring pipeline evidence. Explicit `false`
+  allows a missing pipeline only when GitLab reports `mergeable` and no required jobs are named;
+  record it only when the project's settings and repository notes permit that workflow.
 - `harness.pinnedAt`: UTC timestamp of the last successful T3 orchestrator thread pin. Refresh on
   start, resume or tick, or when a wake reports the thread settled; clear on stop. It records the
   last pin, not a live thread-state check.
@@ -55,7 +73,8 @@
   item: `reply` (may use `{sha}`, `{sha7}`, `{commitUrl}`), optional `status: "keep"` (reply only) or
   `verify: { reviewerId, expectedRevision, fixUrl, summary }`. The watcher removes it once it closed
   the comments.
-- `prs.*.autoMerge`: set when auto-merge is on; in T3 the watcher follows the PR from then on.
+- `prs.*.autoMerge`: set when auto-merge is on; in T3 the watcher follows a GitHub PR from then on.
+  GitLab MRs are always polled, and the remote auto-merge flag determines whether a ready MR needs attention.
 - `deploys.pending`: merges waiting for their deploy. An entry without `sha` is a PR waiting to merge.
   Its `groups` decide which groups the watcher closes; an entry without a `pr` (push mode) must list them.
 - `mainFailures`: tests that fail on the base branch too, for the main-fix group.

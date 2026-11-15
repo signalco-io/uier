@@ -41,6 +41,21 @@ The installed Claude Code command is `/uier:uier-monitor <project>`; in Codex as
 uier-monitor for the project. Installing the plugin starts no monitoring; invoking the monitor
 grants the scope described in the skill. Manual skill links remain an option.
 
+### GitHub and GitLab
+
+The monitor supports GitHub and GitLab, including self-managed hosts such as `git.podravka.io`.
+It detects the host from the repository remote and uses an authenticated `gh` or `glab` CLI.
+GitLab merge requests keep their full host and subgroup path; the monitor's existing `pr` state
+fields hold their project-local IIDs. Older states without a provider continue to use GitHub;
+resuming a GitLab monitor records its host before polling.
+
+On GitLab the helper follows merge requests, required pipeline/jobs, merge blockers and deployment
+records itself, including in T3. Deployment evidence comes from the configured environment and
+target branch, or a branch pipeline confirmed to deploy. It checks that the deployed commit contains
+the merge before closing feedback. Missing deployment configuration stays an error. See the
+[GitLab workflow reference](../plugins/uier/skills/uier-monitor/references/gitlab.md) for detection,
+merge commands, logs and retries. Adding support does not start or alter existing monitors.
+
 ### The watcher's access token
 
 The watcher checks uier with its own access token, so waiting costs no model tokens. When the MCP
@@ -172,7 +187,7 @@ A card shows:
   Blocked, with its comments, pull request, agent, time in that state and a link to the session,
   then the queued comments and what needs you (open questions, comments ready to verify, blocked
   groups and failed uier writes). A speech bubble marks links to uier comments and a pull request
-  icon marks links to GitHub. The agent shows its maker's mark (Claude, OpenAI or Cursor), the model's
+  icon marks links to GitHub or GitLab, keeping self-managed hosts and subgroup paths. The agent shows its maker's mark (Claude, OpenAI or Cursor), the model's
   name as uier writes it ("Claude Opus 5.5") and the reasoning level in words ("Extra high").
 
 **Session links.** T3 Code opens `t3-thread://` links only inside its own chat, so the page links a
@@ -261,7 +276,7 @@ another address with `--host` makes the page readable by everyone who can reach 
   from the same cycle and saves the baseline in `watch.json`. The first observation seeds a baseline;
   it cannot recover replies that predate that observation. Reconciliation can also wake for a
   connector reply because list summaries do not identify its author. It also follows merges and deploy
-  runs on GitHub. It exits only when something needs the orchestrator: a person's action wakes it,
+  runs on GitHub or GitLab. It exits only when something needs the orchestrator: a person's action wakes it,
   and the monitor's own uier writes don't. Persistent mode delivers that wake and keeps running.
   Ordinary events collect for ten seconds (`--batch-seconds`, maximum thirty), preserving separate
   replies, transitions and deployed PRs. Reassignment, agent removal, stop-work and auth/lease

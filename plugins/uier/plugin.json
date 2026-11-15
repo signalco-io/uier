@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "uier",
-  "version": "0.3.3",
+  "version": "0.4.1",
   "description": "Connect website feedback to your coding agent, with skills to monitor a uier project and carry fixes through review and deployment.",
   "author": {
     "name": "signalco",
@@ -17,7 +17,7 @@
       "interface": {
         "displayName": "uier",
         "shortDescription": "Website feedback in your agent",
-        "longDescription": "Read website feedback with page, browser, viewport and screenshot context from the uier projects you authorize. Show a read-only thread card with status refreshes in MCP Apps hosts, or a linked text summary in other clients. Reply, assign work and update status within your granted operations. Includes uier-monitor for resolving a project's feedback through code, pull requests and deployment, plus uier-monitor-script to restore its watcher helper. Monitoring runs in a local coding client with a repository, Node.js and GitHub CLI; it does not run in hosted chat. Installing the plugin starts no monitor and changes no feedback. Invoking uier-monitor authorizes its documented workflow for comments in scope. The MCP server does not edit code or deploy; those actions run in your coding client under your repository's rules.",
+        "longDescription": "Read website feedback with page, browser, viewport and screenshot context from the uier projects you authorize. Show a read-only thread card with status refreshes in MCP Apps hosts, or a linked text summary in other clients. Reply, assign work and update status within your granted operations. Includes uier-monitor for resolving a project's feedback through code, pull requests and deployment, plus uier-monitor-script to restore its watcher helper. Monitoring runs in a local coding client with a repository, Node.js and the GitHub or GitLab CLI; it does not run in hosted chat. Installing the plugin starts no monitor and changes no feedback. Invoking uier-monitor authorizes its documented workflow for comments in scope. The MCP server does not edit code or deploy; those actions run in your coding client under your repository's rules.",
         "developerName": "signalco",
         "category": "Developer Tools",
         "capabilities": ["Read", "Write"],
@@ -94,7 +94,7 @@
         }
       },
       "publication": {
-        "release_notes": "Monitoring uses compact feedback state for reconciliation and shares reply cooldowns across helpers. Event polling and missed-event recovery remain in place. This release also retains thread cards when a comment starts waiting on you."
+        "release_notes": "Monitor GitHub and GitLab repositories, including self-managed GitLab hosts, with merge request, pipeline and deployment tracking. Monitoring uses compact feedback state for reconciliation and shares reply cooldowns across helpers. Event polling, missed-event recovery and live thread cards when a comment starts waiting on you remain in place."
       }
     }
   }

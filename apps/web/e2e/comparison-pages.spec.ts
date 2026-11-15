@@ -14,6 +14,12 @@ for (const pair of pairs) {
         expect(response?.status()).toBe(200);
         const main = page.getByRole('main');
         await expect(main.getByRole('heading', { level: 1, name: `uier vs ${pair.name}` })).toBeVisible();
+        // The cover: uier's mark and the alternative's official logo, decorative, each with its name under it
+        const cover = main.getByRole('list', { name: 'Compared tools', exact: true });
+        await expect(cover.getByRole('listitem')).toHaveText(['uier', pair.name]);
+        const logo = cover.locator(`img[src="/compare/${pair.slug}.${pair.slug === 'marker-io' ? 'svg' : 'png'}"][alt=""][aria-hidden="true"]`);
+        await expect(logo).toHaveCount(1);
+        await expect.poll(() => logo.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
         await expect(main.getByRole('region', { name: 'Sources and scope' })).toContainText('Written by uier.');
         const table = main.getByRole('table');
         await expect(table.getByRole('columnheader')).toHaveText(['Workflow or feature', 'uier', pair.name]);

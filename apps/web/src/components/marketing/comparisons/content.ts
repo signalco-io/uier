@@ -47,7 +47,7 @@ export const uier: Product = {
         diagnostics: fact('no', 'Not supported', 'Browser details are captured; console logs and network requests are not.'),
         assets: fact('no', 'No file proofing', 'Images can accompany a thread. There are no PDF, design-file, video or email review canvases.'),
         research: fact('no', 'Not supported', 'No NPS or CSAT surveys, public voting board or product roadmap.'),
-        workflow: fact('limited', 'List and fixed-status board', 'Assignment, priority and bulk triage; no custom statuses. Up to 1,000 recent threads per project and 50 per bulk action.', '/features/feedback-triage'),
+        workflow: fact('yes', 'List and custom-status board', 'Up to 30 statuses per workspace, with project overrides, grouped under Open, In progress, Ready to verify, Done and Archive. Assignment, priority and bulk triage; no due dates. Up to 1,000 recent threads per project and 50 per bulk action.', `${brand.repository}/blob/main/apps/web/docs/project-settings.md#custom-statuses`),
         confirmation: fact('yes', 'Named reviewer per thread', 'Confirm fix or Still needs work. Ordinary Done is separate; this is not release or asset-version approval.', '/features/fix-verification'),
         mcp: fact('yes', 'Read and approved actions', 'Coding tools can work with feedback. An agent cannot confirm a fix.', '/features/ai'),
         checks: fact('limited', 'In-browser page checks', 'Accessibility and SEO checks on reviewed pages; no site-wide scheduled crawler or compliance certification.', '/features/page-checks')
@@ -112,7 +112,7 @@ export const competitors = {
         sources: [
             { label: 'Features and capture', url: bugherdSources.features }, { label: 'Video recording', url: bugherdSources.video },
             { label: 'Kanban workflow', url: bugherdSources.board }, { label: 'Plans, files and integrations', url: bugherdSources.pricing },
-            { label: 'Client access and setup', url: bugherdSources.setup }, { label: 'MCP', url: bugherdSources.mcp }
+            { label: 'Client access and setup', url: bugherdSources.setup }, { label: 'BugHerd MCP', url: bugherdSources.mcp }
         ]
     },
     'marker-io': {
@@ -168,7 +168,7 @@ export const competitors = {
             { label: 'Visual feedback, surveys and voting', url: usersnapSources.features },
             { label: 'Recording support and restrictions', url: usersnapSources.recording },
             { label: 'Console and network recorder', url: usersnapSources.diagnostics },
-            { label: 'Integrations', url: usersnapSources.integrations }, { label: 'MCP', url: usersnapSources.mcp },
+            { label: 'Usersnap integrations', url: usersnapSources.integrations }, { label: 'Usersnap MCP', url: usersnapSources.mcp },
             { label: 'Plans and entitlements', url: usersnapSources.pricing }
         ]
     },
