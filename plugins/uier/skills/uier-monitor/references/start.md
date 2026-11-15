@@ -82,7 +82,8 @@ Detect the harness from your tools:
 | Codex | `spawn_agent` | `spawn_agent`, its own models | foreground loop | the watcher polls PRs |
 | Other | none of these | none: max 1, build each group yourself | foreground loop | the watcher polls PRs |
 
-Record `harness.prWatch: true` only in T3. In T3, call `orchestrator_capabilities` once, plus
+Record `harness.prWatch: true` only in T3 for GitHub repositories; use `false` for GitLab so the
+helper polls every open MR. In T3, call `orchestrator_capabilities` once, plus
 `search: "gpt"`, `search: "claude"` and `search: "fable"` for the full model lists, and record your
 own thread id (`harness.threadId`). Record which Claude instances list a `claude-fable-*` model.
 
@@ -111,6 +112,18 @@ effort from `SKILL.md` (this skill asks for it). Codex: the inherited model, wit
 `spawn_agent` takes one.
 
 ## Repository workflow
+
+First inspect `git remote get-url origin`, accepting HTTPS, `ssh://` and scp-style SSH remotes.
+Record `repo.root`, `repo.provider` (`github` or `gitlab`), `repo.host` (web/API host, including
+a port when needed), `repo.slug` (full namespace/project path, including subgroups, without `.git`)
+and `repo.url` (credential-free canonical web URL). Use repository notes or the authenticated CLI
+to identify an unfamiliar self-managed host; don't guess that every non-GitHub remote is GitLab.
+Confirm an SSH alias's web/API host from the CLI config. Preserve the repository's documented
+target branch, even when it differs from the default branch.
+
+For GitLab, read [GitLab operations](gitlab.md) and follow its workflow detection instead of the
+GitHub commands below. On resume, fill missing provider fields before any host poll; old states
+without `repo.provider` use GitHub for compatibility.
 
 Detect, then record in `workflow` with `detectedAt`:
 

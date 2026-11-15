@@ -17,24 +17,28 @@ const encode = encodeURIComponent;
 export function parsePullRequestLink(value: string): PullRequestLink | undefined {
     try {
         const url = new URL(value);
-        if (url.protocol !== 'https:' || url.port) return;
+        if (url.protocol !== 'https:') return;
         if (url.username || url.password) return;
         const parts = url.pathname.split('/').slice(1).map(decodeURIComponent);
         const host = url.hostname.toLowerCase();
         if (host === 'github.com') {
+            if (url.port) return;
             const [owner, repo, kind, id] = parts;
             if (!owner || !repo || kind !== 'pull' || !id || !number(id)
                 || !/^[A-Za-z0-9][A-Za-z0-9-]{0,99}$/.test(owner) || !/^[A-Za-z0-9_.-]{1,100}$/.test(repo) || !segment(repo)) return;
             return { provider: 'github', repository: `${owner}/${repo}`, number: number(id)!, url: `https://github.com/${owner}/${repo}/pull/${id}` };
         }
-        if (host === 'gitlab.com') {
-            const at = parts.indexOf('-');
+        const at = parts.indexOf('-');
+        // Self-managed GitLab links are recognized by their MR route. This never establishes
+        // server fetch authority: custom origins remain plain links in the state reader.
+        if (host === 'gitlab.com' || (at >= 2 && parts[at + 1] === 'merge_requests')) {
             const repository = parts.slice(0, at);
             const id = parts[at + 2];
             if (at < 2 || parts[at + 1] !== 'merge_requests' || !id || !number(id) || !repository.every(segment)) return;
             return { provider: 'gitlab', repository: repository.join('/'), number: number(id)!,
-                url: `https://gitlab.com/${repository.map(encode).join('/')}/-/merge_requests/${id}` };
+                url: `${url.origin}/${repository.map(encode).join('/')}/-/merge_requests/${id}` };
         }
+        if (url.port) return;
         const legacy = /^([a-z0-9](?:[a-z0-9-]{0,48}[a-z0-9])?)\.visualstudio\.com$/.exec(host);
         const [organization, project, git, repository, kind, id] = host === 'dev.azure.com' ? parts : legacy ? [legacy[1]!, ...parts] : [];
         if (!organization || !/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,48}[A-Za-z0-9])?$/.test(organization)

@@ -5,7 +5,7 @@ description: Recreate monitor.mjs, the watcher and state helper of the uier-moni
 
 # Recreate the uier monitor helper
 
-This skill carries `monitor.mjs` version 1.5.1, sha256 `7399cde8dbfe06f524d137ca1765db5194addac3f1181712399b183a931af3ae`. It needs Node 18 or later
+This skill carries `monitor.mjs` version 1.6.0, sha256 `fe656b472d8b9b2c44287634e6cfc4c49d8d2d7de395eb584fabfebc5c5db6b0`. It needs Node 18 or later
 and has no dependencies. The uier-monitor skill runs it as `ROOT/monitor.mjs`, where `ROOT` is
 `$(git rev-parse --path-format=absolute --git-common-dir)/uier-monitor`.
 
@@ -19,8 +19,8 @@ and has no dependencies. The uier-monitor skill runs it as `ROOT/monitor.mjs`, w
    ```
 
 2. Only when this file isn't on disk, write the code below to `$ROOT/monitor.mjs` exactly as shown.
-3. Check it: `node "$ROOT/monitor.mjs" version` must print version 1.5.1 and sha256
-   `7399cde8dbfe06f524d137ca1765db5194addac3f1181712399b183a931af3ae`. If the hash differs, write the file again; never patch it by hand.
+3. Check it: `node "$ROOT/monitor.mjs" version` must print version 1.6.0 and sha256
+   `fe656b472d8b9b2c44287634e6cfc4c49d8d2d7de395eb584fabfebc5c5db6b0`. If the hash differs, write the file again; never patch it by hand.
 
 Don't edit the code here. Its source is `.claude/skills/uier-monitor/scripts/monitor.mjs` in the uier
 repository, and `build-script-skill.mjs` next to it writes this file.
@@ -45,7 +45,7 @@ import { dirname, join, resolve } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 
-const VERSION = '1.5.1';
+const VERSION = '1.6.0';
 const DEFAULT_ENDPOINT = 'https://uier.io/api/mcp';
 const KEYCHAIN_SERVICE = 'uier-mcp';
 const BOOLEAN_FLAGS = new Set(['replace', 'screenshots', 'help', 'persistent', 'take', 'detach', 'apply']);
@@ -1114,13 +1114,88 @@ async function leaseCall(ctx, name, args, ignore) {
     }
 }
 
-// ---------------------------------------------------------------- GitHub: merges, deploys, PRs
+// ---------------------------------------------------------------- Git hosts: merges, deploys, PRs
 
 function githubJson(args, cwd) {
     const result = spawnSync('gh', args, { cwd, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
     if (result.error?.code === 'ENOENT') throw Object.assign(new Error('The GitHub CLI (gh) is not installed.'), { kind: 'github' });
     if (result.status !== 0) throw Object.assign(new Error(`gh ${args.slice(0, 2).join(' ')}: ${(result.stderr || '').trim().slice(0, 200)}`), { kind: 'github' });
     try { return JSON.parse(result.stdout || 'null'); } catch { return null; }
+}
+
+// Older states have no provider and keep using GitHub. The orchestrator detects the host at start.
+function gitProvider(state) {
+    const provider = state.repo?.provider ?? 'github';
+    if (!['github', 'gitlab'].includes(provider)) throw new Error(`Unsupported git provider: ${provider}`);
+    return provider;
+}
+
+function repoUrl(state) {
+    if (state.repo?.url) return state.repo.url.replace(/\/$/, '');
+    if (!state.repo?.slug) return '';
+    const host = state.repo.host ?? (gitProvider(state) === 'gitlab' ? 'gitlab.com' : 'github.com');
+    return `https://${host}/${state.repo.slug}`;
+}
+
+function gitlabJson(state, endpoint, cwd, paginate = false) {
+    const host = state.repo?.host ?? new URL(repoUrl(state)).host;
+    const args = ['api', '--hostname', host, endpoint, ...(paginate ? ['--paginate', '--output', 'ndjson'] : [])];
+    const result = spawnSync('glab', args, { cwd, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+    if (result.error?.code === 'ENOENT') throw Object.assign(new Error('The GitLab CLI (glab) is not installed.'), { kind: 'gitlab' });
+    if (result.status !== 0) throw Object.assign(new Error(`glab api: ${(result.stderr || '').trim().slice(0, 200)}`), { kind: 'gitlab' });
+    try { return paginate ? result.stdout.trim().split('\n').filter(Boolean).map(line => JSON.parse(line)) : JSON.parse(result.stdout); }
+    catch { throw Object.assign(new Error('glab api returned invalid JSON.'), { kind: 'gitlab' }); }
+}
+
+function gitlabProject(state) {
+    if (!state.repo?.slug) throw new Error('GitLab monitoring needs repo.slug (the full project path).');
+    return `projects/${encodeURIComponent(state.repo.slug)}`;
+}
+
+function gitlabCheckState(status) {
+    if (status === 'success') return 'success';
+    if (['failed', 'canceled'].includes(status)) return 'failure';
+    return 'pending'; // No pipeline, skipped and manual jobs never establish passing checks.
+}
+
+// Normalize MR fields to the shape the watcher already uses for GitHub PRs.
+function pullRequest(state, number, cwd, details = true) {
+    if (gitProvider(state) === 'github') return githubJson(['pr', 'view', String(number), '--repo', state.repo?.slug, '--json',
+        'state,mergeable,mergeStateStatus,headRefOid,statusCheckRollup,reviewDecision,mergeCommit,autoMergeRequest'], cwd);
+    const project = gitlabProject(state);
+    const mr = gitlabJson(state, `${project}/merge_requests/${number}`, cwd);
+    if (!mr) return null;
+    const status = mr.detailed_merge_status ?? mr.merge_status;
+    const head = mr.sha ?? mr.diff_refs?.head_sha;
+    const pipeline = mr.head_pipeline;
+    let checks = gitlabCheckState(pipeline?.status);
+    // A previous source-head pipeline must not mark a newly pushed revision green. For merged
+    // results, verify that the synthetic commit actually has this source head as a parent.
+    let currentPipeline = head && pipeline?.sha && pipeline.sha === head;
+    if (details && mr.state === 'opened' && head && pipeline?.sha && !currentPipeline
+        && pipeline.source === 'merge_request_event' && status === 'mergeable') {
+        const commit = gitlabJson(state, `projects/${encodeURIComponent(pipeline.project_id ?? mr.project_id ?? state.repo.slug)}/repository/commits/${encodeURIComponent(pipeline.sha)}`, cwd);
+        currentPipeline = commit?.parent_ids?.includes(head);
+    }
+    if (!currentPipeline) checks = 'pending';
+    const required = state.workflow?.requiredChecks ?? [];
+    if (!pipeline && !required.length && state.workflow?.pipelineRequired === false && status === 'mergeable') checks = 'success';
+    if (details && mr.state === 'opened' && required.length && pipeline?.id && currentPipeline) {
+        const jobs = gitlabJson(state, `projects/${encodeURIComponent(pipeline.project_id ?? mr.project_id ?? state.repo.slug)}/pipelines/${pipeline.id}/jobs?per_page=100`, cwd, true);
+        const relevant = required.map(name => jobs.find(job => job.name === name));
+        const jobStates = relevant.map(job => gitlabCheckState(job?.status));
+        checks = checks === 'failure' || jobStates.includes('failure') ? 'failure' : checks === 'success' && jobStates.every(value => value === 'success') ? 'success' : 'pending';
+    }
+    // merge_commit_sha is the target commit, squash_commit_sha covers squash/fast-forward,
+    // and an unsquashed fast-forward merge publishes the MR head itself.
+    const mergedSha = mr.merge_commit_sha || mr.squash_commit_sha || (mr.state === 'merged' ? head : null);
+    return { state: mr.state === 'opened' ? 'OPEN' : String(mr.state).toUpperCase(), headRefOid: head, checks,
+        mergeCommit: mergedSha ? { oid: mergedSha } : null,
+        mergeable: mr.has_conflicts || status === 'conflict' ? 'CONFLICTING' : status === 'mergeable' ? 'MERGEABLE' : 'UNKNOWN',
+        mergeStateStatus: status === 'need_rebase' ? 'BEHIND' : status,
+        reviewDecision: status === 'requested_changes' ? 'CHANGES_REQUESTED' : status === 'not_approved' ? 'REVIEW_REQUIRED' : '',
+        autoMergeRequest: mr.auto_merge_enabled || mr.merge_when_pipeline_succeeds ? {} : null,
+        blocked: ['need_rebase', 'not_approved', 'discussions_not_resolved', 'external_status_checks', 'status_checks_must_pass', 'security_policy_violations', 'jira_association_missing', 'draft_status'].includes(status) };
 }
 
 function repoCwd(state) {
@@ -1183,11 +1258,13 @@ function pollDeploys(state, seen, found, updates = []) {
     if (!pending.length) return [];
     const cwd = repoCwd(state);
     const slug = state.repo?.slug;
+    if (gitProvider(state) === 'gitlab' && !state.workflow?.deploy)
+        throw new Error('GitLab monitoring needs workflow.deploy: deployments, pipelines, or explicitly none.');
     const deploy = state.workflow?.deploy ?? { kind: 'none' };
     const branch = deploy.branch ?? state.repo?.base ?? 'main';
     for (const entry of pending) {
         if (entry.sha || !entry.pr) continue;
-        const pr = githubJson(['pr', 'view', String(entry.pr), '--repo', slug, '--json', 'state,mergeCommit'], cwd);
+        const pr = pullRequest(state, entry.pr, cwd, false);
         if (pr?.state === 'MERGED' && pr.mergeCommit?.oid) {
             // Re-derived every cycle until the state has it, so a failed state write is never lost.
             updates.push(recordMerge(entry.pr, pr.mergeCommit.oid, groupsOf(state, entry.pr, entry)));
@@ -1200,7 +1277,22 @@ function pollDeploys(state, seen, found, updates = []) {
     if (deploy.kind === 'none') return waiting.map(entry => ({ entry, run: null }));
     spawnSync('git', ['fetch', '--quiet', 'origin', branch], { cwd });
     let releases;
-    if (deploy.kind === 'actions') {
+    if (gitProvider(state) === 'gitlab') {
+        const project = gitlabProject(state);
+        if (deploy.kind === 'deployments') {
+            const endpoint = `${project}/deployments?environment=${encodeURIComponent(deploy.environment ?? 'production')}&order_by=id&sort=desc&per_page=30`;
+            releases = (gitlabJson(state, endpoint, cwd) ?? []).filter(item => item.ref === branch && !item.tag)
+                .map(item => ({ id: item.id, sha: item.sha, url: item.deployable?.web_url ?? `${repoUrl(state)}/-/environments/${item.environment?.id}`,
+                    attempt: item.updated_at ?? 1, state: item.status === 'success' ? 'success'
+                        : ['failed', 'canceled', 'skipped'].includes(item.status) ? 'failure' : 'running' }));
+        } else if (deploy.kind === 'pipelines') {
+            const endpoint = `${project}/pipelines?ref=${encodeURIComponent(branch)}&order_by=id&sort=desc&per_page=30`;
+            releases = (gitlabJson(state, endpoint, cwd) ?? []).filter(run => run.ref === branch && run.source !== 'merge_request_event')
+                .map(run => ({ id: run.id, sha: run.sha, url: run.web_url, attempt: run.updated_at ?? 1,
+                    state: run.status === 'success' ? 'success'
+                        : ['failed', 'canceled', 'skipped'].includes(run.status) ? 'failure' : 'running' }));
+        } else throw new Error(`Unsupported GitLab deploy kind: ${deploy.kind}`);
+    } else if (deploy.kind === 'actions') {
         releases = (githubJson(['run', 'list', '--repo', slug, '--workflow', deploy.workflow, '--branch', branch, '--limit', '30',
             '--json', 'databaseId,headSha,status,conclusion,event,url,attempt'], cwd) ?? [])
             .filter(run => run.event !== 'pull_request')
@@ -1226,6 +1318,12 @@ function pollDeploys(state, seen, found, updates = []) {
         if (including.some(release => release.state === 'running')) continue;
         const failed = including.find(release => release.state === 'failure');
         if (failed) {
+            // The pipeline list omits retry timestamps on some GitLab versions. Detail identifies
+            // a new failure after retrying the same pipeline ID, even if we missed its running state.
+            if (gitProvider(state) === 'gitlab' && deploy.kind === 'pipelines') {
+                const detail = gitlabJson(state, `${gitlabProject(state)}/pipelines/${failed.id}`, cwd);
+                failed.attempt = detail?.updated_at ?? detail?.finished_at ?? failed.attempt;
+            }
             if (once(seen, `failed:${failed.id}:${failed.attempt}`)) found.push({ type: 'deploy-failed', sha: entry.sha, pr: entry.pr, run: failed.id, url: failed.url });
             continue;
         }
@@ -1292,7 +1390,8 @@ async function closeDeployed(ctx, state, seen, found, updates, { entry, run }, l
     }
     const projectId = state.project.id;
     const sha = entry.sha;
-    const commitUrl = state.repo?.slug ? `https://github.com/${state.repo.slug}/commit/${sha}` : '';
+    const url = repoUrl(state);
+    const commitUrl = url ? `${url}/${gitProvider(state) === 'gitlab' ? '-/commit' : 'commit'}/${sha}` : '';
     const fill = text => text.replaceAll('{sha}', sha).replaceAll('{sha7}', sha.slice(0, 7)).replaceAll('{commitUrl}', commitUrl);
     const progress = (seen.closing ??= {});
     const closed = [];
@@ -1398,30 +1497,30 @@ function checkState(rollup, required) {
 // requested changes, a close, a branch behind a strict base, or passing checks without auto-merge.
 // Merges are recorded quietly.
 function pollPullRequests(state, seen, found, updates = []) {
-    const t3 = state.harness?.prWatch === true;
+    const t3 = state.harness?.prWatch === true && gitProvider(state) === 'github';
     const open = Object.entries(state.prs ?? {}).filter(([, pr]) => (!pr.state || pr.state === 'open') && (!t3 || pr.autoMerge === true));
     if (!open.length) return;
     const cwd = repoCwd(state);
     const required = state.workflow?.requiredChecks ?? [];
     seen.prs ??= {};
     for (const [number, saved] of open) {
-        const pr = githubJson(['pr', 'view', number, '--repo', state.repo?.slug, '--json',
-            'state,mergeable,mergeStateStatus,headRefOid,statusCheckRollup,reviewDecision,mergeCommit,autoMergeRequest'], cwd);
+        const pr = pullRequest(state, number, cwd);
         if (!pr) continue;
         if (pr.state === 'MERGED' && pr.mergeCommit?.oid) {
             updates.push(recordMerge(number, pr.mergeCommit.oid, groupsOf(state, number)));
             if (once(seen, `merged:${number}`)) found.push(mergeEvent(state, number, pr.mergeCommit.oid));
             continue;
         }
-        const checks = checkState(pr.statusCheckRollup ?? [], required);
-        const signature = [pr.state, pr.mergeable, pr.mergeStateStatus ?? '', checks, pr.headRefOid, pr.reviewDecision ?? ''].join('|');
+        const checks = pr.checks ?? checkState(pr.statusCheckRollup ?? [], required);
+        const signature = [pr.state, pr.mergeable, pr.mergeStateStatus ?? '', checks, pr.headRefOid, pr.reviewDecision ?? '',
+            gitProvider(state) === 'gitlab' ? Boolean(pr.autoMergeRequest) : ''].join('|');
         if (seen.prs[number] === signature) continue;
         seen.prs[number] = signature;
-        const autoMerge = Boolean(pr.autoMergeRequest) || saved.autoMerge === true;
+        const autoMerge = Boolean(pr.autoMergeRequest) || (gitProvider(state) === 'github' && saved.autoMerge === true);
         // With a strict up-to-date rule, a PR that fell behind waits until its branch is updated.
         const behind = state.workflow?.strict === true && pr.mergeStateStatus === 'BEHIND';
         if (pr.state !== 'OPEN' || checks === 'failure' || pr.mergeable === 'CONFLICTING' || pr.reviewDecision === 'CHANGES_REQUESTED'
-            || behind || (checks === 'success' && !autoMerge))
+            || pr.blocked || behind || (checks === 'success' && !autoMerge))
             found.push({ type: 'pr', pr: Number(number), state: pr.state.toLowerCase(), checks, mergeable: pr.mergeable,
                 ...(behind ? { behind: true } : {}), head: pr.headRefOid });
     }
@@ -1446,14 +1545,13 @@ function worktreeList(cwd) {
     }))).filter(entry => entry.worktree);
 }
 
-// Whether a commit is published: on a remote branch, or in the head of the group's PR that GitHub
-// reports as merged or closed (GitHub keeps that head after the branch is deleted).
+// Whether a commit is published: on a remote branch, or in the retained head of a merged/closed PR or MR.
 function published(state, cwd, head, prNumber) {
     const remote = spawnSync('git', ['branch', '-r', '--contains', head], { cwd, encoding: 'utf8' });
     if (remote.status === 0 && remote.stdout.trim()) return true;
     if (!prNumber || !state.repo?.slug) return false;
     try {
-        const pr = githubJson(['pr', 'view', String(prNumber), '--repo', state.repo.slug, '--json', 'state,headRefOid'], cwd);
+        const pr = pullRequest(state, prNumber, cwd, false);
         return ['MERGED', 'CLOSED'].includes(pr?.state) && contains(cwd, head, pr.headRefOid);
     } catch { return false; }
 }
