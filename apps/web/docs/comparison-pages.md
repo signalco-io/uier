@@ -19,6 +19,7 @@ is exclusive to uier. Link current pricing matrices instead of copying volatile 
 uier's claims follow the shipped feature pages, `docs/review-workflow.md`, the reproduction
 allowlist and screenshot/recording policies. Short screen recordings have explicit browser,
 permission, size and duration limits; built-in capture has no audio and ends on full-page navigation.
+The ledger marks them available and keeps those limits in the detail text.
 Keep its absent replay, console/network capture,
 file proofing, surveys and custom workflow capabilities visible. Image attachments do not imply
 asset proofing, in-browser checks do not imply scheduled site crawling, and per-thread reviewer

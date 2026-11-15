@@ -19,7 +19,7 @@ for (const pair of pairs) {
         await expect(table.getByRole('columnheader')).toHaveText(['Workflow or feature', 'uier', pair.name]);
         await expect(table.getByRole('row').filter({ hasText: pair.advantage })).toHaveCount(1);
         const recordingCell = table.getByRole('row').filter({ has: page.getByRole('rowheader', { name: 'Screen and audio recording', exact: true }) }).getByRole('cell').first();
-        await expect(recordingCell).toContainText('Short screen recordings');
+        await expect(recordingCell).toContainText('Available: Short screen recordings');
         for (const gap of ['Session replay before a report', 'Console and network capture', 'File and design proofing', 'Surveys and request voting']) {
             const uierCell = table.getByRole('row').filter({ has: page.getByRole('rowheader', { name: gap, exact: true }) }).getByRole('cell').first();
             await expect(uierCell).toContainText('Not supported');
