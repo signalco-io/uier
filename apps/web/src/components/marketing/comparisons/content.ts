@@ -112,7 +112,7 @@ export const competitors = {
         sources: [
             { label: 'Features and capture', url: bugherdSources.features }, { label: 'Video recording', url: bugherdSources.video },
             { label: 'Kanban workflow', url: bugherdSources.board }, { label: 'Plans, files and integrations', url: bugherdSources.pricing },
-            { label: 'Client access and setup', url: bugherdSources.setup }, { label: 'MCP', url: bugherdSources.mcp }
+            { label: 'Client access and setup', url: bugherdSources.setup }, { label: 'BugHerd MCP', url: bugherdSources.mcp }
         ]
     },
     'marker-io': {
@@ -168,7 +168,7 @@ export const competitors = {
             { label: 'Visual feedback, surveys and voting', url: usersnapSources.features },
             { label: 'Recording support and restrictions', url: usersnapSources.recording },
             { label: 'Console and network recorder', url: usersnapSources.diagnostics },
-            { label: 'Integrations', url: usersnapSources.integrations }, { label: 'MCP', url: usersnapSources.mcp },
+            { label: 'Usersnap integrations', url: usersnapSources.integrations }, { label: 'Usersnap MCP', url: usersnapSources.mcp },
             { label: 'Plans and entitlements', url: usersnapSources.pricing }
         ]
     },
