@@ -105,6 +105,22 @@ test('a snapshot carries a fixed set of fields: no secrets, no unknown fields, n
     assert.deepEqual([shown.metrics.closed.length, shown.metrics.closed24h, shown.metrics.done, shown.metrics.cycleMinutes], [2, 1, 2, 60]);
 });
 
+test('GitLab dashboard links keep self-managed hosts and nested project paths', () => {
+    const state = { repo: { provider: 'gitlab', host: 'git.podravka.io', slug: 'team/subgroup/project' },
+        groups: { g4: { state: 'pr', pr: 4 } }, deploys: { pending: [{ pr: 4 }] } };
+    const shown = snapshot(stateDir(state), now);
+    const url = 'https://git.podravka.io/team/subgroup/project/-/merge_requests/4';
+    assert.equal(shown.repo.slug, 'team/subgroup/project');
+    assert.equal(shown.pipeline[0].prUrl, url);
+    assert.equal(shown.deploys[0].prUrl, url);
+    state.repo.url = 'https://gitlab.example.test:8443/team/subgroup/project';
+    assert.equal(snapshot(stateDir(state), now).pipeline[0].prUrl, `${state.repo.url}/-/merge_requests/4`);
+    for (const unsafe of ['javascript:alert(1)', 'https://user:secret@example.test/repo', 'https://example.test/repo?secret=value']) {
+        state.repo.url = unsafe;
+        assert.equal(snapshot(stateDir(state), now).pipeline[0].prUrl, undefined);
+    }
+});
+
 test('status tells a running watcher from a stopped, interrupted, silent or abandoned monitor', () => {
     const fresh = new Date(now - 60_000).toISOString();
     const status = (state, files) => snapshot(stateDir({ updatedAt: fresh, ...state }, files), now).status;

@@ -327,8 +327,17 @@ export function snapshot(dir, now = Date.now()) {
     const groups = Object.entries(state.groups && typeof state.groups === 'object' ? state.groups : {}).filter(([, group]) => group && typeof group === 'object');
     const prs = state.prs && typeof state.prs === 'object' ? state.prs : {};
     const settings = state.watch && typeof state.watch === 'object' ? state.watch : {};
-    const slug = /^[\w.-]+\/[\w.-]+$/.test(state.repo?.slug ?? '') ? state.repo.slug : undefined;
-    const prUrl = number => (slug && Number.isInteger(Number(number)) ? `https://github.com/${slug}/pull/${Number(number)}` : undefined);
+    const gitlab = state.repo?.provider === 'gitlab';
+    const slugPattern = gitlab ? /^[\w.-]+(?:\/[\w.-]+)+$/ : /^[\w.-]+\/[\w.-]+$/;
+    const slug = slugPattern.test(state.repo?.slug ?? '') && state.repo.slug.split('/').every(part => !['.', '..'].includes(part)) ? state.repo.slug : undefined;
+    let webUrl;
+    if (slug) try {
+        const url = new URL(state.repo?.url ?? `https://${state.repo?.host ?? (gitlab ? 'gitlab.com' : 'github.com')}/${slug}`);
+        if (['http:', 'https:'].includes(url.protocol) && !url.username && !url.password && !url.search && !url.hash)
+            webUrl = url.href.replace(/\/$/, '');
+    } catch { /* Invalid repository settings build no links. */ }
+    const prUrl = number => (webUrl && Number.isSafeInteger(Number(number)) && Number(number) > 0
+        ? `${webUrl}/${gitlab ? '-/merge_requests' : 'pull'}/${Number(number)}` : undefined);
 
     // Watcher
     const pid = Number(pidFile?.pid) || null;

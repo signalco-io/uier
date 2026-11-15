@@ -56,7 +56,10 @@ CI, merging and deploys. You build, test and hand over a branch or PR.
      with your changes or touches `package.json` or a lockfile, and then only typecheck and the specs
      for those files. Never run the full suite again after a rebase.
    - Conflicts: resolve them as in Rebase sessions below.
-   - PR mode: push and open a PR against `<base>` with a Conventional Commits title. The body lists
+   - PR mode: push and open a PR against `<base>` with a Conventional Commits title. GitHub uses
+     `gh pr create`; GitLab uses `glab mr create --repo <repo-url> --source-branch <branch> --target-branch <base>`.
+     Use the brief's host and full URL, including self-managed GitLab and subgroup paths. Return
+     the MR's URL and project-local IID wherever the result calls it a PR. The body lists
      `Fixes [uier #N](comment link)` for each item, what changed and how you tested it. Don't turn
      on auto-merge.
    - Push mode: `git push origin HEAD:<base>` (never force).

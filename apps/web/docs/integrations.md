@@ -2,10 +2,13 @@
 
 ## Linked pull request state
 
-`lib/comments/pullRequestLinks.ts` recognizes GitHub.com `/pull/<number>`, GitLab.com (nested groups
-included) `/-/merge_requests/<number>`, and `dev.azure.com` / `<org>.visualstudio.com` PR links in current
-messages and replies. It never infers a repository from a bare `#472`. Self-hosted/other URLs remain
-ordinary message links and never trigger a fetch.
+`lib/comments/pullRequestLinks.ts` recognizes GitHub.com `/pull/<number>`, GitLab
+`/-/merge_requests/<number>` (including nested groups and self-managed HTTPS hosts/ports), and
+`dev.azure.com` / `<org>.visualstudio.com` PR links in current messages and replies. It never infers
+a repository from a bare `#472`. Self-managed GitLab MRs can also be attached through the same manual
+link and MCP operation. They retain their origin and appear without a state: the server never fetches
+their host or sends their repository paths to GitLab.com. The local monitor uses its authenticated
+`glab` instead. Other unsupported URLs remain ordinary message links and never trigger a fetch.
 
 `lib/integrations/pullRequests.ts` is a read path independent of the mirror worker and its sync toggles.
 The app-session-only `GET /api/projects/<project>/comments/<thread>/pull-requests` accepts only
