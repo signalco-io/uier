@@ -196,6 +196,10 @@ export function TriageSelection({ projectId, scope, shown, assignees, barClassNa
                         });
                         update({ id: item.id, patch: { assignees: people, assignee: people[0],
                             priority: item.saved.priority, resolved: item.saved.resolved, inProgress: item.saved.inProgress, revision: item.saved.revision, archivedAt: item.saved.archivedAt } });
+                        // An archived thread stays out of its column until the page's next snapshot shows it archived, rather
+                        // than coming back between the end of this transition and the refresh (uier #444; optimistic-status.md)
+                        if (batch.kind === 'archive' && item.saved.archivedAt)
+                            update({ id: item.id, patch: { archivedAt: item.saved.archivedAt } })({ commentSequence: item.saved.commentSequence });
                     }
                 } });
                 const failed = results.filter(item => item.outcome !== 'success' && item.outcome !== 'noop').map(item => item.id);

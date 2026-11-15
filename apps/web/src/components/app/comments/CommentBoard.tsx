@@ -27,6 +27,7 @@ import { ArchiveAllButton, type ArchiveAllScope } from './ArchiveAllButton';
 import { sortBoardColumn } from './commentOrder';
 import type { useOpenComment } from './CommentInbox';
 import { LayoutMotion, motionSettled } from './LayoutMotion';
+import { useLeavingCards } from './useLeavingCards';
 import { shortcutLetter } from '@uier/toolbar/keyboard';
 import { isShortcutTarget, useShortcutsEnabled } from '../keyboard/keys';
 import { HoldTouchSensor } from './holdTouchSensor';
@@ -166,7 +167,7 @@ function openMoveFromKeyboard(event: KeyboardEvent<HTMLElement>) {
  * screen readers: Tab to it, or press M on the card. A pointer that does not drag opens the thread and
  * its status menu.
  */
-function BoardCard({ project, comment, href, opened, moving, tabbable, onOpen, onMove, position }: {
+function BoardCard({ project, comment, href, opened, moving, leaving = false, tabbable, onOpen, onMove, position }: {
     /** The thread's project; its name shows on the card where the board has several projects' threads (My work) */
     project: BoardProject;
     position?: CommentListPosition;
@@ -174,6 +175,8 @@ function BoardCard({ project, comment, href, opened, moving, tabbable, onOpen, o
     href: string;
     opened: boolean;
     moving: boolean;
+    /** Archived and on its way out (`useLeavingCards`): shown, but out of reach */
+    leaving?: boolean;
     /** The board's one tab stop: its link, Move, avatars and selection box are in the Tab order */
     tabbable: boolean;
     onOpen: (event: MouseEvent<HTMLAnchorElement>) => void;
@@ -184,10 +187,11 @@ function BoardCard({ project, comment, href, opened, moving, tabbable, onOpen, o
     const allowed = allowedStatuses(comment);
     // An archived card stays in Archive until Restore comment (in its thread) returns it to its status
     const canMove = !comment.archivedAt && (statuses.some(option => option !== status && allowed[option]) || (comment.permissions.resolve && (comment.workflow?.statuses.filter(option => option.category === status).length ?? 0) > 1));
-    const { setNodeRef, listeners, isDragging } = useDraggable({ id: comment.id, data: { comment }, disabled: !canMove || moving });
+    const { setNodeRef, listeners, isDragging } = useDraggable({ id: comment.id, data: { comment }, disabled: !canMove || moving || leaving });
     const shortcutId = useId();
     return (
         <li ref={setNodeRef} {...position} {...fromCardSurface(listeners)} data-board-card={comment.id}
+            inert={leaving || undefined} aria-hidden={leaving || undefined} data-motion={leaving ? 'exit' : undefined}
             onKeyDown={canMove ? openMoveFromKeyboard : undefined}
             className={cn('rounded-lg transition-[opacity,scale] duration-150 ease-out motion-reduce:transition-opacity',
                 canMove && 'touch-manipulation select-none [-webkit-touch-callout:none] [&_a]:cursor-grab',
@@ -428,8 +432,20 @@ export function CommentBoard({ projectOf, columns: categoryColumns, workflow, ve
     // The board's one tab stop (a roving tab index, like the list's): the card last focused, else the open one,
     // else the first. The arrow keys move between the cards and the columns.
     const [focusId, setFocusId] = useState<string>();
+    const reducedMotion = useSyncExternalStore(subscribeReducedMotion, () => window.matchMedia(reducedMotionQuery).matches, () => false);
+    // The cards' positions are read in the grid, and copies of cards that leave fade out in it
+    const grid = useRef<HTMLDivElement>(null);
+    // Archived cards leave one after another from the top (uier #444); while Archive is expanded they travel to it instead
+    const { cardsOf, leaving, rising } = useLeavingCards({
+        lanes: columns, allComments, enabled: !reducedMotion && !archiveExpanded, container: grid, focusedId: focusId,
+        onFocus: id => {
+            setFocusId(id);
+            document.getElementById(commentRowId(rowScope + id))?.focus({ preventScroll: true });
+        }
+    });
     // What the keys go through, column by column: the statuses, then Archive while it is expanded
-    const lanes = [...statuses.map(status => (columns[status] ?? [])), ...(archive?.expanded ? archiveDefinitions.map(archiveCards) : [])];
+    // (the cards on screen: not those leaving or held back until they have gone)
+    const lanes = [...statuses.map(status => cardsOf(status).filter(comment => !leaving.has(comment.id))), ...(archive?.expanded ? archiveDefinitions.map(archiveCards) : [])];
     const cards = lanes.flat();
     const listed = (id: string | undefined) => cards.find(comment => comment.id === id);
     const current = listed(focusId) ?? listed(openId);
@@ -445,7 +461,6 @@ export function CommentBoard({ projectOf, columns: categoryColumns, workflow, ve
     // Moved with Move: it travels to its new column (`LayoutMotion`), the focus follows it there and the move is announced
     const focusAfterMove = useRef<{ id: string; status: string }>(undefined);
     const [announcement, setAnnouncement] = useState('');
-    const reducedMotion = useSyncExternalStore(subscribeReducedMotion, () => window.matchMedia(reducedMotionQuery).matches, () => false);
     // The lifted card goes to the body, above the sheet and out of any clipping container
     const client = useSyncExternalStore(subscribeNothing, () => true, () => false);
     // dnd-kit names its live region and drag instructions after this id: a project's board Next keeps hidden after
@@ -458,8 +473,6 @@ export function CommentBoard({ projectOf, columns: categoryColumns, workflow, ve
     );
     // The list's order: a column's sort keeps it for ties, and so does the place a dragged card would land
     const order = new Map(allComments.map((comment, index) => [comment.id, index]));
-    // The cards' positions are read in the grid, and copies of cards that leave fade out in it
-    const grid = useRef<HTMLDivElement>(null);
     // A card whose lifted copy is on screen (dragged, or settling from the drop) is dnd-kit's to place
     const settling = () => new Set([...document.querySelectorAll<HTMLElement>('[data-drag-preview]')].map(preview => preview.dataset.dragPreview ?? ''));
 
@@ -622,7 +635,7 @@ export function CommentBoard({ projectOf, columns: categoryColumns, workflow, ve
                     Archive comes last: a 3rem strip while collapsed, a column like the others when expanded
                     (`--board-columns`, so the statuses stay data-driven).
                     While a card is dragged every column is as tall as the longest, so any part of it takes the card. */}
-                <LayoutMotion container={grid} item="data-board-card" skip={settling}>
+                <LayoutMotion container={grid} item="data-board-card" appends={() => rising} skip={() => new Set([...settling(), ...leaving.keys()])}>
                 <div ref={grid} data-page-width="wide" data-board-scroll=""
                     style={{ '--board-columns': `repeat(${statuses.length + (archiveExpanded ? archiveDefinitions.length : 0)}, minmax(min(18rem, var(--page-wide) - 3rem), 20rem))${archive && !archiveExpanded ? ` repeat(${archiveDefinitions.length}, 3rem)` : ''}` } as CSSProperties}
                     onFocus={event => {
@@ -632,7 +645,8 @@ export function CommentBoard({ projectOf, columns: categoryColumns, workflow, ve
                     className={cn('relative grid grid-cols-(--board-columns) items-start justify-center-safe gap-4 overflow-x-auto overflow-y-clip overscroll-x-contain py-1 page-bleed', drag && 'items-stretch')}>
                     {statuses.map(status => {
                         const state = columnState(status);
-                        const cards = (columns[status] ?? []);
+                        // With the archived cards that are leaving, in their places until they have gone
+                        const cards = cardsOf(status);
                         const placeholder = state === 'over' ? landing(status) : -1;
                         const slot = <li key="placeholder" aria-hidden="true" data-drop-placeholder="" style={{ height: drag?.height }}
                             className="rounded-lg border border-dashed border-foreground/30 bg-background/60" />;
@@ -645,7 +659,7 @@ export function CommentBoard({ projectOf, columns: categoryColumns, workflow, ve
                                         render={(comment, index, position) => <Fragment key={comment.id}>
                                             {index === placeholder && slot}
                                             <BoardCard position={position} project={projectOf(comment)} comment={comment} href={hrefFor(comment.id)} opened={comment.id === openId}
-                                                moving={pending && movingId === comment.id} tabbable={comment.id === tabStop?.id}
+                                                moving={pending && movingId === comment.id} leaving={leaving.has(comment.id)} tabbable={comment.id === tabStop?.id}
                                                 onOpen={event => open(comment.id, event, { replace: false })}
                                                 onMove={(category, id) => move(comment, workflow ? id ?? category : category, 'menu', id)} />
                                         </Fragment>} />
@@ -686,7 +700,9 @@ export function CommentBoard({ projectOf, columns: categoryColumns, workflow, ve
             <Sheet open={Boolean(opened)} onOpenChange={next => { if (!next) closeThread(); }}>
                 {/* `data-shortcuts`: the thread's keys (R, S, A, J, K) work in the sheet, which is a dialog */}
                 <SheetContent ref={sheetRef} data-shortcuts="" side="right" showCloseButton={false} className="gap-0 overflow-x-hidden overflow-y-auto p-0 data-[side=right]:w-full data-[side=right]:sm:max-w-xl"
-                    finalFocus={() => (opened ? document.getElementById(commentRowId(rowScope + opened.id)) : null) ?? true}>
+                    // Back to its card, or (archived, it has left the board) to the board's tab stop
+                    finalFocus={() => (opened ? document.getElementById(commentRowId(rowScope + opened.id)) : null)
+                        ?? (tabStop ? document.getElementById(commentRowId(rowScope + tabStop.id)) : null) ?? true}>
                     <SheetTitle className="sr-only">{opened?.number !== undefined ? t("Comment #{value0}", { value0: opened.number }) : t("Comment")}</SheetTitle>
                     {opened && openedProject && (
                         // `shrink-0`: the card clips (`overflow-hidden`), so as a flex item it would shrink to the sheet's

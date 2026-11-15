@@ -162,6 +162,9 @@ lists the lane's ids on the server (`allIds` in `loadProjectCommentPages`, no ro
 50 at a time through `triageCommentsAction`, the selection bar's bulk action. Loaded cards leave at once; a toast says
 how many were archived and offers Retry when some were not. Archive itself has none. `e2e/archive.spec.ts` covers a
 Done column larger than its first page and an Open column without it.
+The loaded cards leave one after another ([motion](#motion)) and stay out until the refresh shows them archived
+(each archive is confirmed with its saved sequence, [optimistic updates](optimistic-status.md)). Archive all goes with
+the column's cards, so the focus goes to the column's sort beside it once the dialog has closed ([uier #444](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_xVyejEk6kOk5cVNibzHSW)); Cancel returns it to Archive all.
 
 ## Board column sorts
 
@@ -233,6 +236,22 @@ defaults does not initialize Zod. Actions and persistence use that same schema b
 - An item carries `data-motion="enter"` or `"move"` while it moves; a leaving copy has `data-motion="exit"` and
   `data-motion-for`. `e2e/comment-motion.spec.ts` watches for them (never for timing): a status change through the
   thread, a realtime arrival, search, a drop, a priority change, the bulk limit, reduced motion and focus.
+- Archived cards leave the board one after another from the top ([uier #444](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_xVyejEk6kOk5cVNibzHSW)), however many: Archive all, the selection bar's
+  Archive, a thread's Archive or another person's. `comments/useLeavingCards.ts` keeps a card that left its column
+  archived in its place a little longer (`inert`, `aria-hidden`, `data-motion="exit"`, not draggable, out of the keys),
+  and it fades out with the 8 px slide up, each card on screen 40 ms after the one above it, all within 320 ms
+  (`staggerDelays`); off-screen cards just wait. When the last has gone they leave the page together and the cards below
+  slide up (`LayoutMotion` needs no copies of `inert` items, so the bulk limit does not apply). It decides during render
+  (a card that is archived in `allComments` and gone from the columns), so a card never disappears for a frame first.
+  A card that comes back meanwhile (a failed save) stays. While Archive is expanded the cards travel to it instead.
+- A column's next page rises in below the cards that stay (`appends`): cards added after the last card a column keeps
+  (Load more, or a refresh) fade in with an 8 px slide up, one after another from the top, however many, and only those
+  on screen. Cards that come to a column while its archived cards are leaving wait until they have gone, and so do the
+  ones that fill a column archiving emptied (for 5 s). Other updates keep the bulk limit.
+- With reduced motion, in a hidden tab or a board not shown, archived cards leave at once and nothing rises. A focused
+  leaving card hands the focus to the next card in its column (or the one before). The board's sheet, closed after its
+  thread was archived, returns the focus to the board's tab stop. `e2e/comment-motion.spec.ts` archives a full first
+  page (the exits' delays, read with animations slowed through CDP, rise from the top), then sees the next page rise in.
 
 
 ## Multiple assignees

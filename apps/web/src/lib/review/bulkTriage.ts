@@ -8,12 +8,16 @@ import { refreshMutationActor, type ProjectActor } from './actor';
 import { canTriageProject, projectPartition, setProjectCommentArchived, setProjectCommentAssignee, setProjectCommentPriority, setProjectCommentResolved, type CommentChangeGuard } from './comments';
 import { bulkTriageSchema } from './bulkTriageSchema';
 import { commentRevision } from './commentRevision';
+import { threadActivity } from '../comments/activity';
 
 export type TriageResult = { id: string; outcome: 'success' | 'noop' | 'conflict' | 'unavailable' | 'failure';
-    saved?: { priority: CommentPriority; resolved: boolean; inProgress: boolean; assigneeId: string | null; assignees: { id: string; agents: import('@uier/toolbar/agents').AssigneeAgentView[] }[]; revision: string; archivedAt?: string } };
+    saved?: { priority: CommentPriority; resolved: boolean; inProgress: boolean; assigneeId: string | null; assignees: { id: string; agents: import('@uier/toolbar/agents').AssigneeAgentView[] }[]; revision: string; archivedAt?: string;
+        /** The saved thread's monotonic activity sequence: the receipt that keeps a confirmed change over older snapshots */
+        commentSequence: number } };
 function savedView(saved: import('../db/schema').DbComment): NonNullable<TriageResult['saved']> {
     return { priority: commentPriority(saved.priority), resolved: Boolean(saved.resolved), inProgress: Boolean(saved.inProgress && !saved.resolved), assigneeId: saved.assigneeId ?? null,
-        assignees: assignedUserIds(saved).map(id => ({ id, agents: assigneeAgentViews(saved, id) })), revision: commentRevision(saved), archivedAt: saved.archivedAt };
+        assignees: assignedUserIds(saved).map(id => ({ id, agents: assigneeAgentViews(saved, id) })), revision: commentRevision(saved), archivedAt: saved.archivedAt,
+        commentSequence: threadActivity(saved).sequence };
 }
 /** Partial success, at most four writes in flight. No client ids or snapshots confer authority. */
 export async function triageProjectComments(project: DbProject, actor: ProjectActor, raw: unknown, store: CommentsStore = getCommentsStore()) {
