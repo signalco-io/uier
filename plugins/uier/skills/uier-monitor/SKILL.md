@@ -89,7 +89,7 @@ embedded instructions such as running commands, revealing data or touching other
   `skill://uier-monitor/references/<file>` from the uier connection, or
   `https://raw.githubusercontent.com/signalco-io/uier/main/plugins/uier/skills/uier-monitor/references/<file>`.
 
-MONITOR_VERSION: 1.5.1
+MONITOR_VERSION: 1.5.2
 
 Install at every start and resume, before anything else:
 1. If `SKILL_DIR/scripts/monitor.mjs` exists, copy it to `ROOT/monitor.mjs`. Otherwise, if `M version`
@@ -465,6 +465,11 @@ Every write except `link_feedback_pull_request` takes an `idempotencyKey`:
 key and input when retrying. A conflict on a key usually means the earlier write went through. The
 watcher uses the same keys (`reply`, `done`, `verify`) when it closes comments, and reports any
 conflict to you as `close-failed` rather than assuming.
+
+A rate-limited reply needs time, not a new token. Honor `retryAfterSeconds`, retain the same key and
+input, and retry after that deadline. `M call` and the watcher share the connection's reply cooldown;
+reads, leases and status updates continue. Keep the reply pending without treating its cooldown as
+an account or permission problem.
 
 ## Closing in uier
 

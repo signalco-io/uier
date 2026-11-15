@@ -102,6 +102,15 @@ the item's `writePending`, retried on every wake and listed by `monitor.mjs stat
 monitor message starts with a **Needs you:** line that names the fix: reconnect the uier connection
 as the comments' author, or create a token with the missing operation.
 
+Rate limits are different: the helper preserves the server's full `retryAfterSeconds` and defers
+reply retries until that deadline, using the same idempotency key and input. The watcher continues
+reads, lease renewals and status updates during the cooldown. Watchers and `monitor.mjs call`
+using the same endpoint and token share a small deadline file under
+`~/.uier-monitor/cooldowns` (`UIER_MONITOR_HOME` overrides the root). Its filename is a connection
+hash; it stores only the deadline, never a token, endpoint, reply or key. A cooldown needs no account
+or permission change. HTTP 429 responses also return their retry deadline without blocking the
+watcher in a sleep/retry loop.
+
 ### Thread cards in the monitor thread
 
 When a comment starts waiting on you, the monitor shows its [thread card](mcp.md#thread-cards)
@@ -242,7 +251,12 @@ another address with `--host` makes the page readable by everyone who can reach 
   checking for changes inside a scheduled model prompt does not save that prompt's tokens.
 - **Waiting is a script.** `monitor.mjs watch` reads uier's event feed every minute and the open list
   every 15 minutes, because the feed has missed comments before. Reconciliation reads all statuses
-  and compares reply counts for tracked items with decision `asked`/`rejected` or stage `ready`,
+  with `list_feedback`'s compact `view: "state"` and pages of up to 1,000 rows, following every returned
+  cursor. It avoids repeated 25-row reads and display payloads. Older servers that reject this schema
+  use the existing summary pages; the helper probes compact support again after a day. Authentication
+  and network failures never trigger a fallback. Initial setup, cursor recovery and a truncated feed
+  still force reconciliation immediately. Reconciliation compares reply counts for tracked items
+  with decision `asked`/`rejected` or stage `ready`,
   including replies followed by closure. It reports increases as `reply`, deduplicates feed replies
   from the same cycle and saves the baseline in `watch.json`. The first observation seeds a baseline;
   it cannot recover replies that predate that observation. Reconciliation can also wake for a

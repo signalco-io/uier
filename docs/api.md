@@ -25,8 +25,12 @@ comment ids, counts, revisions and actor ids are never sent as events. A notific
 the existing authorized HTTP projection; reconnect also refetches to cover missed changes.
 
 The initial cross-instance source polls compact Cosmos metadata (`id`, visibility and `_etag`)
-every two seconds while sockets are active. Concurrent subscriptions in one instance share the
-partition read. Creation, edits, replies, reactions, assignment, status, screenshots and hard deletion are
+every two seconds, slowing to five seconds after ten seconds without a change visible to the
+socket's viewer. A visible change restores the two-second interval; hidden private changes do
+not affect the viewer's cadence. Every poll rechecks current access before reading or notifying,
+so an idle socket detects revoked access on its next poll (up to five seconds plus read latency).
+Concurrent subscriptions in one instance share the partition read, with a two-second metadata
+cache age limit. Creation, edits, replies, reactions, assignment, status, screenshots and hard deletion are
 detected regardless of which API, MCP or integration process committed them. This is metadata
 polling behind a WebSocket transport, not a durable event log or a delivery guarantee. Per-reviewer
 read cursors live separately and converge through safety reads. There is no additional provider,

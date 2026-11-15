@@ -1,0 +1,108 @@
+{
+  "observedAtUtc": "2026-11-15T11:50:37.213086+00:00",
+  "source": "GitHub Actions REST API, workflows/notifications.yml/runs?event=schedule&per_page=100; all 91 returned runs, no further page",
+  "configuredCronBefore": "*/5 * * * *",
+  "workflowState": "active",
+  "actionsEnabled": true,
+  "repositoryDefaultBranch": "main",
+  "repositoryPublic": true,
+  "scheduledRuns": 91,
+  "firstCreatedAtUtc": "2026-10-25T14:58:55Z",
+  "lastCreatedAtUtc": "2026-11-15T09:58:24Z",
+  "creationGapMinutes": {
+    "min": 124.1,
+    "median": 349.6,
+    "max": 630.7333333333333
+  },
+  "runStartDelaySeconds": {
+    "min": 0.0,
+    "median": 0.0,
+    "max": 0.0
+  },
+  "successfulRunDurationMinutes": {
+    "median": 2.033333333333333,
+    "max": 7.433333333333334
+  },
+  "conclusions": {
+    "cancelled": 1,
+    "failure": 29,
+    "success": 61
+  },
+  "recentJobTimings": [
+    {
+      "runId": 43652947867,
+      "url": "https://github.com/signalco-io/uier/actions/runs/43652947867",
+      "jobs": [
+        {
+          "id": 132625186133,
+          "status": "completed",
+          "conclusion": "success",
+          "created_at": "2026-11-14T23:22:47Z",
+          "started_at": "2026-11-14T23:22:50Z",
+          "completed_at": "2026-11-14T23:23:28Z",
+          "name": "Package worker without runtime credentials"
+        },
+        {
+          "id": 132625363280,
+          "status": "completed",
+          "conclusion": "cancelled",
+          "created_at": "2026-11-14T23:23:28Z",
+          "started_at": "2026-11-14T23:23:33Z",
+          "completed_at": "2026-11-14T23:43:50Z",
+          "name": "Run worker with data-only OIDC identity"
+        }
+      ]
+    },
+    {
+      "runId": 43669698234,
+      "url": "https://github.com/signalco-io/uier/actions/runs/43669698234",
+      "jobs": [
+        {
+          "id": 132676781761,
+          "status": "completed",
+          "conclusion": "success",
+          "created_at": "2026-11-15T02:51:22Z",
+          "started_at": "2026-11-15T02:51:25Z",
+          "completed_at": "2026-11-15T02:52:09Z",
+          "name": "Package worker without runtime credentials"
+        },
+        {
+          "id": 132676967013,
+          "status": "completed",
+          "conclusion": "success",
+          "created_at": "2026-11-15T02:52:09Z",
+          "started_at": "2026-11-15T02:52:14Z",
+          "completed_at": "2026-11-15T02:57:33Z",
+          "name": "Run worker with data-only OIDC identity"
+        }
+      ]
+    },
+    {
+      "runId": 43701787800,
+      "url": "https://github.com/signalco-io/uier/actions/runs/43701787800",
+      "jobs": [
+        {
+          "id": 132774309655,
+          "status": "completed",
+          "conclusion": "success",
+          "created_at": "2026-11-15T09:58:24Z",
+          "started_at": "2026-11-15T09:58:27Z",
+          "completed_at": "2026-11-15T09:59:00Z",
+          "name": "Package worker without runtime credentials"
+        },
+        {
+          "id": 132774446956,
+          "status": "completed",
+          "conclusion": "success",
+          "created_at": "2026-11-15T09:59:00Z",
+          "started_at": "2026-11-15T09:59:05Z",
+          "completed_at": "2026-11-15T10:02:21Z",
+          "name": "Run worker with data-only OIDC identity"
+        }
+      ]
+    }
+  ],
+  "assessment": "Multi-hour gaps appear in retained schedule-triggered run creation records. The workflow is currently active and repository Actions are enabled; these present settings do not prove their state for the entire historical period. The three inspected runs start build jobs within three seconds and delivery jobs within five seconds, so the inspected runner/environment waits and worker durations do not explain those creation gaps. The precise upstream reason is unavailable in the repository API.",
+  "mitigation": "Offset cron to 2-57/5 * * * * to avoid start-of-hour slots. Best effort only; recurrence must be read back after the change reaches main.",
+  "officialReference": "https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule"
+}

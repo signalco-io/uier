@@ -3,7 +3,9 @@ name: "Review notifications"
 
 on:
   schedule:
-    - cron: '*/5 * * * *'
+    # Avoid the start-of-hour load spike. GitHub schedules remain best effort;
+    # see docs/review-notifications.md#schedule-investigation-15-november-2026.
+    - cron: '2-57/5 * * * *'
   workflow_dispatch:
     inputs:
       retry_delivery:

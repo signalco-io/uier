@@ -49,12 +49,51 @@ identity but does not unsubscribe an already verified address; use its email uns
 The digest window starts at the first eligible unread event and lasts five minutes. Activity in
 that window is delivered together, with a direct link to the thread on its original authorized
 page, retaining the shared approved query/hash state. Later activity forms the next digest.
-The scheduled **Review notifications** GitHub Actions workflow runs every five minutes on main;
-GitHub can delay scheduled jobs, so five minutes is a batching window, not a delivery guarantee.
+The scheduled **Review notifications** GitHub Actions workflow requests a run every five minutes
+on main, at UTC minutes 2, 7, …, 57, avoiding the start-of-hour load spike.
+GitHub can delay or drop scheduled events, so five minutes is a batching window, not a delivery guarantee.
 It can also be run manually. The credential-free build job installs dependencies and packages the
 worker and its traced runtime dependencies. A separate `production-worker` job downloads that exact
 run's artifact, signs in with Azure OIDC and loads only `UIER_WORKER_SETTINGS`. It has no checkout,
 Vercel CLI, deployment token, full-environment download, Cosmos account key or screenshot storage key.
+
+### Schedule investigation, 15 November 2026
+
+The [read-only receipt](evidence/worker-schedule-2026-11-15.json) covers all 91 retained
+`schedule` runs between 25 October 14:58:55 and 15 November 09:58:24 UTC. Run creation gaps
+had a median of 349.6 minutes and a maximum of 630.73 minutes. At inspection the workflow was
+active, repository Actions were enabled, and `main` was the default branch. Every recorded run's
+`run_started_at` equalled its `created_at`; the latest three builds started three seconds after
+job creation and their delivery jobs five seconds after creation. Successful runs had a median
+duration of 2.03 minutes and maximum of 7.43 minutes. The most recent worker successfully
+processed 44 notification ledgers and discovered 44 integration source changes, deferring 31.
+
+The multi-hour gaps are in **retained run creation records**. The inspected runner and environment
+waits and worker durations do not explain those gaps. The current active/enabled settings do not
+establish that they were unchanged throughout the historical window.
+There were older worker failures and one recent cancelled delivery job; those need their own
+run-level diagnosis and do not account for the missing schedule-triggered run records.
+GitHub's API does not disclose why individual scheduled events were omitted or delayed.
+[GitHub documents delayed and dropped schedule events under load](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule).
+Do not report a specific provider incident or account throttle without evidence from GitHub.
+
+The cron changes from `*/5 * * * *` to `2-57/5 * * * *` as a limited off-peak mitigation.
+It keeps twelve requested runs per hour and the existing concurrency, credentials and worker
+boundaries. This change is **not evidence that five-minute execution has been restored**.
+After the change reaches `main`, inspect creation times of new `schedule` runs, job start times
+and conclusions separately:
+
+```bash
+gh api 'repos/signalco-io/uier/actions/workflows/notifications.yml'
+gh api 'repos/signalco-io/uier/actions/workflows/notifications.yml/runs?event=schedule&per_page=100' \
+  --jq '.workflow_runs[] | {id, created_at, run_started_at, updated_at, conclusion}'
+```
+
+If multi-hour gaps persist, escalate the receipt to GitHub support. A requirement for dependable
+five-minute processing needs a separately designed scheduler rather than an additional GitHub
+cron watchdog, which shares the same failure mode. No external scheduler, dispatch credential
+or infrastructure change was provisioned in this investigation. `workflow_dispatch` remains
+available for an authorized operator; it processes real pending work unless `verify_only=true`.
 
 `production-worker` allows only `main`, with no reviewers or wait timer. Its distinct OIDC subject
 prevents the worker token from matching the deployment app's `production` subject. The dedicated

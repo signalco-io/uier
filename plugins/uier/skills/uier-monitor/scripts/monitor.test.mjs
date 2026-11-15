@@ -6,7 +6,7 @@ import { execFileSync, spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
@@ -128,7 +128,7 @@ function runtime() {
         static now() { return now; }
     }
     const context = vm.createContext({ process: { argv: [], pid: 42, platform: 'linux', on() {} },
-        Date: Clock, Set, Map, createHash, URL, AbortSignal, join: (...parts) => parts.join('/'),
+        Date: Clock, Set, Map, createHash, URL, AbortSignal, dirname, join: (...parts) => parts.join('/'),
         mkdirSync() {}, rmSync: path => files.delete(path) });
     vm.runInContext(source, context);
     Object.assign(context, {
@@ -143,6 +143,132 @@ function runtime() {
     files.set('/state/state.json', { project: { id: 'project' } });
     return { context, files, output, advance: ms => { now += ms; } };
 }
+
+test('reply quotas defer the same key until the full server cooldown, shared across helper connections', async () => {
+    const { context, files, advance } = runtime();
+    const calls = [];
+    context.rpc = async (_ctx, method, params) => {
+        calls.push({ method, params: structuredClone(params) });
+        return calls.length === 1 ? { isError: true, structuredContent: {
+            error: 'rate_limited', reason: 'too_fast', retryAfterSeconds: 900, message: 'Try again later.'
+        } } : { structuredContent: { ok: true } };
+    };
+    const args = { commentId: 'thread', idempotencyKey: 'same-reply', text: 'One reply.' };
+    const first = { replyCooldownFile: '/cooldowns/connection.json' };
+    await assert.rejects(context.tool(first, 'reply_to_feedback', args), error => error.code === 'rate_limited' && error.retryAfterSeconds === 900);
+    assert.deepEqual(Object.keys(files.get(first.replyCooldownFile)), ['replyRetryAt']);
+    const resumed = { replyCooldownFile: first.replyCooldownFile };
+    advance(899_000);
+    await assert.rejects(context.tool(resumed, 'reply_to_feedback', args), error => error.code === 'rate_limited' && error.retryAfterSeconds === 1);
+    assert.equal(calls.length, 1);
+    // Current reads and status completion do not spend the reply quota.
+    await context.tool(resumed, 'get_feedback', { commentId: 'thread' });
+    await context.tool(resumed, 'set_feedback_status', { commentId: 'thread', status: 'done' });
+    advance(1000);
+    await context.tool(resumed, 'reply_to_feedback', args);
+    assert.equal(calls.length, 4);
+    assert.deepEqual(calls[3].params.arguments, calls[0].params.arguments);
+});
+
+test('one-off call output preserves the reply deadline for the orchestrator', async () => {
+    const { context, output } = runtime();
+    context.rpc = async () => ({ isError: true, structuredContent: {
+        error: 'rate_limited', retryAfterSeconds: 900, message: 'Try again later.'
+    } });
+    await context.call({ _: ['reply_to_feedback', JSON.stringify({ commentId: 'thread', text: 'One reply.', idempotencyKey: 'same-reply' })] });
+    assert.deepEqual(output, [{ ok: false, tool: 'reply_to_feedback', code: 'rate_limited',
+        message: 'Try again later.', retryAfterSeconds: 900 }]);
+    assert.equal(context.process.exitCode, 1);
+});
+
+test('HTTP 429 propagates its complete Retry-After without sleeping or retrying the write', async () => {
+    for (const header of ['1200', 'Tue, 10 Nov 2026 12:20:00 GMT']) {
+        const { context } = runtime();
+        let requests = 0;
+        context.fetch = async () => {
+            requests++;
+            return { status: 429, headers: { get: () => header } };
+        };
+        context.sleep = async () => assert.fail('A long quota wait must not block the watcher.');
+        await assert.rejects(context.tool({ endpoint: 'https://uier.example/api/mcp', token: 'test-token', id: 0 }, 'reply_to_feedback',
+            { idempotencyKey: 'one-reply' }), error => error.code === 'rate_limited' && error.retryAfterSeconds === 1200);
+        assert.equal(requests, 1);
+    }
+});
+
+test('reconciliation follows compact state pages and falls back only for an older schema', async () => {
+    for (const schemaError of [null, { code: 'invalid_arguments' }, { rpcCode: -32602 }]) {
+        const { context, advance } = runtime();
+        const calls = [];
+        context.tool = async (_ctx, name, args) => {
+            calls.push({ name, args: structuredClone(args) });
+            if (schemaError && args.view === 'state') throw Object.assign(new Error('Unsupported arguments'), schemaError);
+            return args.cursor === 0 ? { items: [{ id: 'one', replyCount: 0, resolved: true }], nextCursor: 1 }
+                : { items: [{ id: 'two', replyCount: 0, resolved: true }], nextCursor: null };
+        };
+        const state = { project: { id: 'project' }, items: {} }, seen = {};
+        await context.reconcile({}, state, seen, []);
+        assert.equal(calls[0].args.view, 'state');
+        assert.equal(calls[0].args.limit, 1000);
+        const pages = calls.filter(call => call.args.cursor === 1);
+        assert.equal(pages.length, 1);
+        assert.equal(pages[0].args.limit, schemaError ? 25 : 1000);
+        calls.length = 0;
+        await context.reconcile({}, state, seen, []);
+        assert.equal(calls[0].args.view, schemaError ? undefined : 'state');
+        if (schemaError) {
+            advance(24 * 60 * 60_000);
+            calls.length = 0;
+            await context.reconcile({}, state, seen, []);
+            assert.equal(calls[0].args.view, 'state');
+        }
+    }
+    const { context } = runtime();
+    let calls = 0;
+    context.tool = async () => { calls++; throw Object.assign(new Error('Token refused'), { code: 'forbidden' }); };
+    await assert.rejects(context.reconcile({}, { project: { id: 'project' } }, {}, []), /Token refused/);
+    assert.equal(calls, 1);
+});
+
+test('legacy SDK text-only validation errors fall back from compact reconciliation', async () => {
+    for (const text of [
+        'Input validation error: Invalid arguments for tool list_feedback: Unrecognized key: view',
+        'Invalid arguments for tool list_feedback: limit must be at most 25'
+    ]) {
+        const { context } = runtime();
+        const calls = [];
+        context.rpc = async (_ctx, method, params) => {
+            assert.equal(method, 'tools/call');
+            calls.push(structuredClone(params.arguments));
+            return params.arguments.view === 'state' ? { isError: true, content: [{ type: 'text', text }] }
+                : { structuredContent: { items: [], nextCursor: null } };
+        };
+        const seen = {};
+        await context.reconcile({}, { project: { id: 'project' } }, seen, []);
+        assert.equal(calls.length, 2);
+        assert.equal(calls[0].view, 'state');
+        assert.equal(calls[1].view, undefined);
+        assert.equal(calls[1].limit, 25);
+        assert.ok(seen.stateViewUnsupportedAt);
+    }
+});
+
+test('event cursors avoid reconciliation between safety checks but truncated events force recovery', async () => {
+    const context = vm.createContext({ process: { argv: [] }, Date, Set, Map });
+    vm.runInContext(source, context);
+    let reconciliations = 0, truncated = false;
+    context.tool = async () => ({ cursor: 'next', items: [], hasMore: false, truncated });
+    context.reconcile = async () => { reconciliations++; };
+    const seen = { cursor: 'existing', reconciledAt: new Date().toISOString() };
+    const state = { project: { id: 'project' } };
+    await context.pollUier({}, state, seen, [], 15 * 60_000);
+    assert.equal(reconciliations, 0);
+    assert.equal(seen.cursor, 'next');
+    truncated = true;
+    await context.pollUier({}, state, seen, [], 15 * 60_000);
+    assert.equal(reconciliations, 1);
+    assert.equal(seen.forceReconcile, false);
+});
 
 test('packet downloads original and reply images, maps them to messages and keeps failures visible', async () => {
     for (const screenshots of [false, true]) {
