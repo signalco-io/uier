@@ -1,12 +1,13 @@
 import { brand } from '@uier/brand';
 import type { WorkflowKind } from './WorkflowPicture';
 
-export const checkedOn = '2026-11-11';
-export const checkedOnLabel = '11 November 2026';
+const originalReview = { date: '2026-11-11', label: '11 November 2026' };
+const currentReview = { date: '2026-11-15', label: '15 November 2026' };
 export type Support = 'yes' | 'limited' | 'no' | 'unknown';
 export type Fact = { support: Support; label: string; detail: string; source?: string };
 export const dimensions = [
     { id: 'website', name: 'Comments on a live website' },
+    { id: 'editing', name: 'Demonstrating CSS and text changes' },
     { id: 'context', name: 'Screenshot and browser context' },
     { id: 'recording', name: 'Screen and audio recording' },
     { id: 'replay', name: 'Session replay before a report' },
@@ -21,6 +22,7 @@ export const dimensions = [
 export type Dimension = typeof dimensions[number]['id'];
 export type Product = {
     name: string;
+    reviewed: { date: string; label: string };
     kind: WorkflowKind;
     focus: string;
     bestFor: string;
@@ -37,18 +39,19 @@ const fact = (support: Support, label: string, detail: string, source?: string):
 const unverified = (source: string) => fact('unknown', 'Not verified', 'The sources checked do not establish support or absence.', source);
 
 export const uier: Product = {
-    name: brand.name, kind: 'review', focus: 'Live-page review → a checked fix',
+    name: brand.name, reviewed: currentReview, kind: 'review', focus: 'Live-page review → a checked fix',
     bestFor: 'Review a live site, assign the feedback and ask a named reviewer to check the fix.',
     facts: {
-        website: fact('yes', 'Element, text and area pins', 'Review the actual page with the toolbar.', '/#features'),
-        context: fact('yes', 'Screenshot and device details', 'Page address, browser, OS and viewport accompany feedback.', '/#features'),
+        website: fact('yes', 'Element, text, area and drawing', 'Review the actual page with anchored comments or draw a change on the page.', '/features/pinned-comments'),
+        editing: fact('no', 'No live site editing', 'Comments and drawings explain the change. The toolbar does not edit or publish your site’s CSS or text.', '/features/pinned-comments'),
+        context: fact('limited', 'Screenshot and device details', 'Capture is attempted and can be omitted. Saved images can accompany original messages and replies; device details depend on browser support and are visible to project members.', '/features/screenshots'),
         recording: fact('yes', 'Short screen recordings', 'Attach a recording up to 60 seconds and 25 MiB. Browser capture needs permission and a secure context; upload MP4 or WebM when capture is unavailable. Built-in capture has no audio and ends on full-page navigation.', `${brand.repository}/blob/main/docs/recordings.md`),
         replay: fact('no', 'Not supported', 'No timeline of what happened before a report.'),
         diagnostics: fact('no', 'Not supported', 'Browser details are captured; console logs and network requests are not.'),
         assets: fact('no', 'No file proofing', 'Images can accompany a thread. There are no PDF, design-file, video or email review canvases.'),
         research: fact('no', 'Not supported', 'No NPS or CSAT surveys, public voting board or product roadmap.'),
-        workflow: fact('yes', 'List and custom-status board', 'Up to 30 statuses per workspace, with project overrides, grouped under Open, In progress, Ready to verify, Done and Archive. Assignment, priority and bulk triage; no due dates. Up to 1,000 recent threads per project and 50 per bulk action.', `${brand.repository}/blob/main/apps/web/docs/project-settings.md#custom-statuses`),
-        confirmation: fact('yes', 'Named reviewer per thread', 'Confirm fix or Still needs work. Ordinary Done is separate; this is not release or asset-version approval.', '/features/fix-verification'),
+        workflow: fact('yes', 'Custom statuses and labels', 'Up to 30 workspace statuses, with project overrides, grouped under Open, In progress, Ready to verify, Done and Archive. Search covers the authorized project scope with paged results; bulk actions affect at most 50 shown threads. No due dates.', `${brand.repository}/blob/main/apps/web/docs/project-settings.md#custom-statuses`),
+        confirmation: fact('limited', 'Named reviewer per thread', 'An admin enables fix verification for the project. A member can then request a reviewer’s check. Ordinary Done and admin overrides remain separate; this is not release or asset-version approval.', '/features/fix-verification'),
         mcp: fact('yes', 'Read and approved actions', 'Coding tools can work with feedback. An agent cannot confirm a fix.', '/features/ai'),
         checks: fact('limited', 'In-browser page checks', 'Accessibility and SEO checks on reviewed pages; no site-wide scheduled crawler or compliance certification.', '/features/page-checks')
     },
@@ -60,6 +63,9 @@ export const uier: Product = {
         { label: 'uier review workflow and limits', url: `${brand.repository}/blob/main/docs/review-workflow.md` },
         { label: 'uier capture and device context', url: `${brand.repository}/blob/main/packages/toolbar/src/feedbackContext.ts` },
         { label: 'uier recording scope and limits', url: `${brand.repository}/blob/main/docs/recordings.md` },
+        { label: 'Custom statuses and labels', url: `${brand.repository}/blob/main/apps/web/docs/project-settings.md#custom-statuses` },
+        { label: 'Paged project search and bulk selection', url: `${brand.repository}/blob/main/apps/web/docs/comments-inbox.md#paged-project-comments` },
+        { label: 'Drawings and protected reply images', url: `${brand.repository}/blob/main/docs/feedback-context.md` },
         { label: 'uier features and pricing', url: '/#features' }
     ]
 };
@@ -86,13 +92,29 @@ const pastelSources = {
     files: 'https://help.usepastel.com/en/articles/5395323-review-pdfs-and-image-files-in-pastel',
     approvals: 'https://usepastel.com/blog/approvals'
 };
+const userbackSources = {
+    features: 'https://userback.io/features/', pricing: 'https://userback.io/pricing/',
+    recording: 'https://userback.io/feature/video-feedback/',
+    replay: 'https://support.userback.io/en/articles/17212348-feedback-session-replay-vs-full-session-replay-what-s-the-difference',
+    workflow: 'https://support.userback.io/en/articles/5209239-configure-your-feedback-settings',
+    setup: 'https://userback.io/feature/browser-extension/',
+    integrations: 'https://userback.io/feature/integrations/', mcp: 'https://docs.userback.io/docs/userback-mcp'
+};
+const ruttlSources = {
+    features: 'https://www.ruttl.com/', pricing: 'https://www.ruttl.com/pricing',
+    comments: 'https://www.ruttl.com/features/comment-on-website',
+    webApps: 'https://www.ruttl.com/features/review-web-applications',
+    editing: 'https://www.ruttl.com/blog/marker-io-alternatives-best-web-annotation-bug-reporting-tools',
+    integrations: 'https://www.ruttl.com/features/integrations', mcp: 'https://www.ruttl.com/mcp'
+};
 
 export const competitors = {
     bugherd: {
-        name: 'BugHerd', kind: 'board', focus: 'Visual reports → a custom task board',
+        name: 'BugHerd', reviewed: originalReview, kind: 'board', focus: 'Visual reports → a custom task board',
         bestFor: 'Website and design feedback that needs recorded explanations and a customizable Kanban workflow.',
         facts: {
             website: fact('yes', 'Element-pinned feedback', 'Website comments and suggested text replacements.', bugherdSources.features),
+            editing: unverified(bugherdSources.features),
             context: fact('yes', 'Screenshot and metadata', 'Browser, OS, resolution and element context.', bugherdSources.features),
             recording: fact('yes', 'Video with audio', 'Short screen recordings; the video guide describes a one-minute timer.', bugherdSources.video),
             replay: unverified(bugherdSources.features),
@@ -116,10 +138,11 @@ export const competitors = {
         ]
     },
     'marker-io': {
-        name: 'Marker.io', kind: 'diagnostics', focus: 'Bug report → reproduction evidence',
+        name: 'Marker.io', reviewed: originalReview, kind: 'diagnostics', focus: 'Bug report → reproduction evidence',
         bestFor: 'Developer bug reports that need session replay, console and network evidence, or a wider choice of issue trackers.',
         facts: {
             website: fact('yes', 'Visual website reports', 'Annotated screenshots with an embedded widget or extension.', markerSources.pricing),
+            editing: unverified(markerSources.pricing),
             context: fact('yes', 'Screenshot and metadata', 'Browser, OS, viewport and page URL.', markerSources.pricing),
             recording: fact('unknown', 'Recording not verified', 'The replay guide distinguishes replay from video recording, described as under development.', markerSources.replay),
             replay: fact('limited', 'Selected paid plans', 'Up to 2.5 minutes before submission; canvas, WebGL and Shadow DOM have limitations. Team, Business and eligible Agency plans include replay.', markerSources.replay),
@@ -144,10 +167,11 @@ export const competitors = {
         ]
     },
     usersnap: {
-        name: 'Usersnap', kind: 'discovery', focus: 'Feedback → product discovery',
+        name: 'Usersnap', reviewed: originalReview, kind: 'discovery', focus: 'Feedback → product discovery',
         bestFor: 'A product feedback program combining visual bug reports, video, satisfaction surveys and public request voting.',
         facts: {
             website: fact('yes', 'Annotated website feedback', 'Widget and browser extension capture routes.', usersnapSources.features),
+            editing: unverified(usersnapSources.features),
             context: fact('yes', 'Screenshot and metadata', 'Annotation tools, browser context and attachments.', usersnapSources.features),
             recording: fact('limited', 'Video and optional audio', 'Up to three minutes. Not supported in mobile web browsers or desktop Safari; permission and a secure context are required.', usersnapSources.recording),
             replay: unverified(usersnapSources.features),
@@ -173,10 +197,11 @@ export const competitors = {
         ]
     },
     pastel: {
-        name: 'Pastel', kind: 'proofing', focus: 'Website or asset → version approval',
+        name: 'Pastel', reviewed: originalReview, kind: 'proofing', focus: 'Website or asset → version approval',
         bestFor: 'Reviewing websites, PDFs, images, videos and marketing emails, with approval of an entire asset version.',
         facts: {
             website: fact('yes', 'Live website canvas', 'A proxy overlays comments on the live site. Website changes appear in the canvas.', pastelSources.website),
+            editing: unverified(pastelSources.faq),
             context: fact('yes', 'Screenshot and device details', 'Website comments retain browser and viewport context.', pastelSources.faq),
             recording: fact('unknown', 'Recording not verified', 'Uploaded-video proofing is supported, but it is a different capability from recording a bug reproduction.', pastelSources.faq),
             replay: unverified(pastelSources.faq),
@@ -198,6 +223,71 @@ export const competitors = {
             { label: 'PDF and image review', url: pastelSources.files }, { label: 'Version approvals', url: pastelSources.approvals },
             { label: 'Plans and integrations', url: pastelSources.pricing }
         ]
+    },
+    userback: {
+        name: 'Userback', reviewed: currentReview, kind: 'diagnostics', focus: 'In-app feedback → evidence and triage',
+        bestFor: 'Product teams combining visual bug reports with replay, diagnostics, surveys and an agent-assisted feedback inbox.',
+        facts: {
+            website: fact('yes', 'Widget and extension reports', 'Collect screenshot annotations from a site widget or browser extension.', userbackSources.features),
+            editing: unverified(userbackSources.features),
+            context: fact('yes', 'Visual and technical context', 'Screenshots and browser context accompany reports. Technical diagnostics have separate plan and capture requirements.', userbackSources.features),
+            recording: fact('yes', 'Video feedback', 'Users can record a bug explanation. Video recording is separate from a reconstructed session replay.', userbackSources.recording),
+            replay: fact('limited', 'Feedback and full-session replay', 'Feedback replay needs the installed widget and replay enabled. Full-session recording is a separate offering; iframes, audio, video and canvas are not replayed.', userbackSources.replay),
+            diagnostics: fact('limited', 'Console and network evidence', 'Business lists developer tools and feedback replay. The replay view includes console logs and network requests.', userbackSources.pricing),
+            assets: unverified(userbackSources.features),
+            research: fact('limited', 'Surveys and feature portal', 'Surveys, voting and product-feedback collection are listed on Business and above.', userbackSources.pricing),
+            workflow: fact('yes', 'Custom feedback workflows', 'Configure statuses, automation and privacy per site. Userback distinguishes site settings from feedback collection settings.', userbackSources.workflow),
+            confirmation: unverified(userbackSources.features),
+            mcp: fact('limited', 'OAuth and feedback tools', 'Read feedback and logs, comment, assign and update workflow through approved tool calls. OAuth follows existing workspace permissions; plan availability is covered below.', userbackSources.mcp),
+            checks: unverified(userbackSources.features)
+        },
+        setup: 'Install a widget for in-app collection and feedback replay, or use the browser extension for visual reports. Replay requires site code and its own settings; an extension report alone does not establish replay coverage.',
+        pricing: 'Free and paid tiers bundle sites and team seats. Free feedback remains available for seven days. MCP is listed from Team; diagnostics, feedback replay, surveys and project-management integrations from Business. Extra seats and full-session replay have separate terms.',
+        pricingUrl: userbackSources.pricing,
+        integrations: 'Project-management and customer-support integrations have different entitlements. The pricing page names two-way sync for Jira and ClickUp; do not assume every destination or attachment syncs both ways.',
+        integrationUrl: userbackSources.integrations,
+        sources: [
+            { label: 'Visual collection and product feedback', url: userbackSources.features },
+            { label: 'Video feedback', url: userbackSources.recording },
+            { label: 'Replay setup, privacy and limitations', url: userbackSources.replay },
+            { label: 'Workflow, automation and privacy', url: userbackSources.workflow },
+            { label: 'Browser extension', url: userbackSources.setup },
+            { label: 'Integrations', url: userbackSources.integrations },
+            { label: 'MCP permissions and available tools', url: userbackSources.mcp },
+            { label: 'Current plans and entitlements', url: userbackSources.pricing }
+        ]
+    },
+    ruttl: {
+        name: 'ruttl', reviewed: currentReview, kind: 'board', focus: 'Visual change → an assigned task',
+        bestFor: 'Agency reviews that demonstrate CSS or copy changes, collect guest comments and include PDF or image feedback.',
+        facts: {
+            website: fact('yes', 'Pixel-pinned live-page comments', 'Create a website project from its URL and share a guest-commenting link without reviewer sign-up.', ruttlSources.comments),
+            editing: fact('yes', 'Live CSS and text demonstrations', 'Show a proposed visual or copy change on the reviewed page, then hand the change to a developer. This does not establish automatic publication to the site’s source.', ruttlSources.editing),
+            context: fact('limited', 'Page comments and device previews', 'Responsive previews are documented. Browser/OS metadata capture is not established by the sources checked.', ruttlSources.comments),
+            recording: fact('limited', 'Video comments', 'The product page lists recordings as visual comments. Browser, audio and recording-length limits were not established by the sources checked.', ruttlSources.features),
+            replay: unverified(ruttlSources.features),
+            diagnostics: unverified(ruttlSources.features),
+            assets: fact('yes', 'Image and PDF review', 'Position feedback on images and PDFs, assign tasks and tag collaborators. Format and storage entitlements depend on the plan.', ruttlSources.features),
+            research: unverified(ruttlSources.features),
+            workflow: fact('yes', 'Custom Kanban lists', 'Assign work, set priorities and deadlines, and organize comments in custom lists.', ruttlSources.comments),
+            confirmation: unverified(ruttlSources.comments),
+            mcp: fact('yes', 'Agent access to feedback', 'The MCP page documents reading and resolving feedback, with one-click Claude/Cursor setup and tokens for other clients. Resolution is not proof of human approval.', ruttlSources.mcp),
+            checks: fact('unknown', 'Checks announced', 'Accessibility and SEO entries on the product page are marked coming soon. Current availability is not verified.', ruttlSources.features)
+        },
+        setup: 'Use a URL-based website project and a shareable guest link. Web-application review separately documents a script before the closing body tag. Test login-protected pages and the chosen mode; neither route guarantees every authentication or iframe setup works.',
+        pricing: 'Free and paid tiers; the page labels billing per month per user. Cards and the detailed table differ on some free user/guest allowances, so confirm the applicable limits before choosing. Projects, pages, storage and integration access vary by plan.',
+        pricingUrl: ruttlSources.pricing,
+        integrations: 'The catalog includes Jira, Trello, Asana, Slack, ClickUp and Zapier. Verify the destination, plan and actual sync behavior; a catalog listing does not establish two-way thread or attachment synchronization.',
+        integrationUrl: ruttlSources.integrations,
+        sources: [
+            { label: 'Live comments, guests and task organization', url: ruttlSources.comments },
+            { label: 'Web-application script setup', url: ruttlSources.webApps },
+            { label: 'CSS and text demonstrations', url: ruttlSources.editing },
+            { label: 'Images, PDFs, video and announced checks', url: ruttlSources.features },
+            { label: 'Integration catalog', url: ruttlSources.integrations },
+            { label: 'MCP setup and feedback actions', url: ruttlSources.mcp },
+            { label: 'Current pricing and allowance caveats', url: ruttlSources.pricing }
+        ]
     }
 } satisfies Record<string, Product>;
 
@@ -209,7 +299,7 @@ export function isCompetitorSlug(value: string): value is CompetitorSlug { retur
 export function comparisonMetadata(slug: string) {
     if (slug === 'website-feedback-tools') return {
         title: 'Website feedback tools compared',
-        description: 'Compare uier, BugHerd, Marker.io, Usersnap and Pastel by actual workflow, capture, proofing, integrations and limitations.'
+        description: 'Compare uier, BugHerd, Marker.io, Usersnap, Pastel, Userback and ruttl by workflow, capture, editing, proofing, integrations and limitations.'
     };
     if (!isCompetitorSlug(slug)) return undefined;
     const product = competitors[slug];
@@ -221,5 +311,5 @@ export function comparisonMetadata(slug: string) {
 
 export const hubMetadata = {
     title: 'Website feedback comparisons and alternatives',
-    description: 'Find a website feedback tool for client review, bug reporting or asset approval. Visual comparisons of uier, BugHerd, Marker.io, Usersnap and Pastel.'
+    description: 'Find a website feedback tool for client review, bug reporting or asset approval. Compare uier with BugHerd, Marker.io, Usersnap, Pastel, Userback and ruttl.'
 };

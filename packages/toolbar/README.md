@@ -84,8 +84,19 @@ scripts reuse the actual toolbar host under a window symbol; a page's own `id="u
 does not prevent mounting.
 
 The toolbar and inline thread shadow roots adopt one shared constructed stylesheet. They need no
-`style-src 'unsafe-inline'` or style nonce. Keep the install guide's other CSP sources: uier's
-origin for scripts/API/frames, `data:` images, and optional Google Fonts stylesheet/font origins.
+`style-src 'unsafe-inline'` or style nonce. Copy the complete CSP source list from the project's
+installation guide: uier's origin for scripts, API, frames, styles and Geist fonts; its WebSocket
+origin for live updates; `data:` images; and the media/`blob:` and configured upload origins when
+needed. Geist comes from uier, never Google Fonts, and falls back to a system font if blocked.
+Merge these sources into the host's existing directives rather than replacing its policy.
+
+Public setup guides cover [HTML](https://uier.io/guides/html),
+[React](https://uier.io/guides/react), [Next.js](https://uier.io/guides/nextjs),
+[WordPress](https://uier.io/guides/wordpress), [Webflow](https://uier.io/guides/webflow) and
+[Shopify](https://uier.io/guides/shopify). Their examples use the app's maintained snippet and
+CSP generators. Removing an installation means removing its script from the source, publishing
+the change and loading a fresh document; it does not unload a script already running in a tab
+or delete the project's feedback.
 
 ### React
 

@@ -1,10 +1,11 @@
 import { brand } from '@uier/brand';
 import { PageHeader, SectionHeading } from '@/src/components/marketing/ContentPage';
 import { GuideTeaser } from '@/src/components/marketing/guides/GuideLayout';
-import { ClientReviewThumbnail, ExtensionThumbnail, NextJsThumbnail } from '@/src/components/marketing/guides/GuideSpecimens';
+import { ClientReviewThumbnail, ExtensionThumbnail, NextJsThumbnail, ProjectCodeSpecimen } from '@/src/components/marketing/guides/GuideSpecimens';
 import { publicPageMetadata } from '@/src/lib/metadata';
 import { guides } from '@/src/lib/guides';
 import { BugReportSpecimen, ReviewChecklistSpecimen } from '@/src/components/marketing/guides/PracticalReviewSpecimens';
+import { AgentSpecimen } from '@/src/components/marketing/AiSpecimens';
 
 export const metadata = publicPageMetadata(guides.index.path, guides.index);
 
@@ -40,11 +41,25 @@ export default function GuidesPage() {
                     picture={<ExtensionThumbnail />} />
             </div>
         </section>
+        <section id="install-the-script" aria-labelledby="install-the-script-title" className="flex flex-col gap-8 pt-16 md:pt-24">
+            <SectionHeading id="install-the-script-title" title="Install on your platform" lead="Use your site’s placement steps, then check the published installation." />
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                {[guides.html, guides.react, guides.wordpress, guides.webflow, guides.shopify].map(guide => (
+                    <GuideTeaser key={guide.path} href={guide.path} title={guide.title} description={guide.description} label="Script installation" picture={<ProjectCodeSpecimen />} />
+                ))}
+            </div>
+        </section>
         <section id="run-a-focused-review" aria-labelledby="run-a-focused-review-title" className="flex flex-col gap-8 pt-16 md:pt-24">
             <SectionHeading id="run-a-focused-review-title" title="Run a focused review" lead="Agree what to check, then make each finding reproducible." />
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <GuideTeaser href={guides.reviewChecklist.path} title={guides.reviewChecklist.title} description={guides.reviewChecklist.description} label="Review checklist" picture={<ReviewChecklistSpecimen />} />
                 <GuideTeaser href={guides.bugReport.path} title={guides.bugReport.title} description={guides.bugReport.description} label="Report template" picture={<BugReportSpecimen />} />
+            </div>
+        </section>
+        <section id="connect-a-coding-tool" aria-labelledby="connect-a-coding-tool-title" className="flex flex-col gap-8 pt-16 md:pt-24">
+            <SectionHeading id="connect-a-coding-tool-title" title="Connect a coding tool" lead="Choose a connection and its access before sharing feedback with an agent." />
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <GuideTeaser wide href={guides.mcp.path} title={guides.mcp.title} description={guides.mcp.description} label="MCP setup" picture={<AgentSpecimen />} />
             </div>
         </section>
     </main>;

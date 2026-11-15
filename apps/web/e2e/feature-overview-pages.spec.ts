@@ -45,7 +45,7 @@ const pages = [
     {
         path: '/features/board', title: 'Feedback statuses and board', footer: 'Statuses and board', cover: 'board',
         h1: 'Follow every thread from open to done',
-        sections: ['Four statuses', 'How it works', 'The board', 'Find what to work on', 'Try it', 'Questions'],
+        sections: ['The built-in statuses', 'How it works', 'The board', 'Find what to work on', 'Try it', 'Questions'],
         still: 'The board’s four columns, from Open to Done, with a thread waiting for its reviewer in Ready to verify.'
     }
 ];
@@ -110,11 +110,23 @@ for (const feature of pages) {
     test(`${feature.path} is accessible`, ({ page }) => assertAccessibility(page, feature.path));
 }
 
+test('the board explains custom names and the project verification opt-in', async ({ page }) => {
+    await page.goto('/features/board');
+    const statuses = page.getByRole('region', { name: 'The built-in statuses', exact: true });
+    await expect(statuses).toContainText('Ready to verify is hidden while fix verification is off, which is the default');
+    await expect(statuses).toContainText('Admins can define workspace statuses and override them for a project');
+    const custom = page.getByRole('region', { name: 'Questions', exact: true }).locator('details').filter({ hasText: 'Can the team use its own status names?' });
+    await custom.locator('summary').focus();
+    await page.keyboard.press('Enter');
+    await expect(custom).toContainText('column per available status');
+    await expect(custom).toContainText('Guests keep the ordinary category actions');
+});
+
 test('a feature cover plays its captions without moving the page under it', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/features/board');
     await page.locator('[data-feature-cover="board"]').scrollIntoViewIfNeeded();
-    const heading = page.getByRole('heading', { name: 'Four statuses' });
+    const heading = page.getByRole('heading', { name: 'The built-in statuses' });
     const top = () => heading.evaluate(element => element.getBoundingClientRect().top + window.scrollY);
     const caption = page.locator('[data-feature-cover-caption] p:not(.invisible)');
     const start = await top();

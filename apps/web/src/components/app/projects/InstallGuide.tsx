@@ -157,7 +157,7 @@ export async function PlatformSteps({ baseUrl, publicId }: { baseUrl: string; pu
 /** What the script does, said once wherever it is offered */
 export async function ScriptDescription() {
     const { t } = await getAppI18n();
-    return <>{t("Paste it before the closing")}{' '}<code className="font-mono">&lt;/body&gt;</code>{' '}{t("tag on every page you want to review. It loads the toolbar only when a page is opened with a review link, so visitors never see it.")}</>;
+    return <>{t("Paste it before the closing")}{' '}<code className="font-mono">&lt;/body&gt;</code>{' '}{t("tag on every page you want to review. The toolbar opens through a review link, or automatically for signed-in project members when background sign-in is available.")}</>;
 }
 
 /**

@@ -20,7 +20,7 @@ test('guides link the shipped workflow and show the same Next.js snippet as inst
 });
 
 test('each guide links back to the guides and outlines its sections', async ({ page }) => {
-    for (const guide of [guides.clientReviews, guides.nextJs, guides.browserExtension, guides.reviewChecklist, guides.bugReport]) {
+    for (const guide of Object.values(guides).filter(guide => guide.path !== guides.index.path)) {
         await page.goto(guide.path);
         await expect(page.getByRole('main').getByRole('link', { name: 'Guides', exact: true })).toHaveAttribute('href', guides.index.path);
         const hrefs = await page.getByRole('navigation', { name: 'In this guide' }).getByRole('link')

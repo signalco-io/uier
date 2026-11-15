@@ -1,5 +1,10 @@
 # Footer
 
+The Resources column also links the client-feedback, bug-reporting and manual UAT acquisition
+pages, plus the MCP setup guide. Installation guides are discoverable through the Guides hub;
+pairwise comparisons through Compare. Keep these destinations in KnownPages and in the shared
+footer/SEO/social-card checks.
+
 Every public page gets `SiteFooter` from the marketing layout; pages do not render their own.
 Contact and social destinations come from `brand.contact` / `brand.social` in `@uier/brand`
 (uier.io contact addresses), routes from `src/knownPages.ts`. The footer links

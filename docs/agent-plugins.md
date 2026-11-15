@@ -1,5 +1,8 @@
 # Coding agent plugins
 
+For the setup journey, client choices and a first authorized read, start with the
+[public MCP guide](https://uier.io/guides/mcp). This reference owns plugin packaging and maintenance.
+
 The repository publishes one **uier** plugin through its Claude Code and Codex marketplaces.
 It bundles the remote MCP connector at `https://uier.io/api/mcp`, `uier-monitor` and
 `uier-monitor-script`. The catalogs become available from `signalco-io/uier` when this change

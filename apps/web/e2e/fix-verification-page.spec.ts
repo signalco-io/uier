@@ -3,7 +3,7 @@ import { brand } from '@uier/brand';
 import { assertAccessibility } from './accessibility';
 
 // /features/fix-verification: the reviewer's confirmation stays apart from Done, a connected
-// service's closure and MCP status, in the shipped thread labels (#333)
+// service's closure and MCP status, after the project opts in to optional thread checks.
 
 const path = '/features/fix-verification';
 
@@ -14,6 +14,10 @@ test('fix verification page explains who can confirm a fix', async ({ page }) =>
     await expect(page.getByRole('heading', { level: 1, name: 'Ask the reviewer to confirm the fix' })).toBeVisible();
     for (const name of ['How it works', 'Who can decide', 'Done is not the same as confirmed', 'Fix links', 'Where it helps', 'Try it', 'Questions'])
         await expect(page.getByRole('region', { name, exact: true }), name).toBeVisible();
+    const how = page.getByRole('region', { name: 'How it works', exact: true });
+    await expect(how).toContainText('off by default');
+    await expect(how).toContainText('Project settings → Review');
+    await expect(how).toContainText('Enable fix verification');
 
     const actions = page.getByRole('table', { name: 'Fix verification actions, who can take them and what happens' });
     const row = (action: string) => actions.getByRole('row').filter({ has: page.getByRole('rowheader', { name: action, exact: true }) });
@@ -39,6 +43,14 @@ test('fix verification page explains who can confirm a fix', async ({ page }) =>
     await expect(done.getByRole('link', { name: 'bulk triage' })).toHaveAttribute('href', '/features/feedback-triage');
 
     const questions = page.getByRole('region', { name: 'Questions', exact: true });
+    const optional = questions.locator('details').filter({ hasText: 'Does every thread need verification?' });
+    await optional.locator('summary').click();
+    await expect(optional).toContainText('Even after a project enables it, verification is optional for each thread');
+    await expect(optional).toContainText('Custom status names do not make ordinary completion');
+    const disabled = questions.locator('details').filter({ hasText: 'What happens if the project turns verification off?' });
+    await disabled.locator('summary').click();
+    await expect(disabled).toContainText('Requests and earlier decisions stay saved');
+    await expect(disabled).toContainText('Open or In progress');
     const tracker = questions.locator('details').filter({ hasText: 'Does closing the issue in GitHub or Linear confirm the fix?' });
     await tracker.locator('summary').click();
     await expect(tracker.getByRole('link', { name: 'connected service' })).toHaveAttribute('href', '/integrations');

@@ -6,7 +6,7 @@ import { pageCardImage } from '@/src/lib/social/SocialCard';
 const card: PageCard = {
     section: 'Features',
     title: 'Fix verification for website feedback',
-    description: `Ask the person who reported a problem to confirm the fix. ${brand.name} records who confirmed it and when, apart from marking it done.`,
+    description: `Enable optional fix checks for a project, then ask a reviewer to confirm an individual fix. ${brand.name} records who decided and when.`,
     path: '/features/fix-verification'
 };
 

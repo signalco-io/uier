@@ -5,13 +5,16 @@ maintainer. Contributors update this inventory and the relevant area note in the
 The maintainer reviews product and competitor claims; changed legal wording additionally needs the
 owner review required by [#289](https://github.com/signalco-io/uier/issues/289).
 
-Inventory and source paths checked: **12 November 2026**. This is an editorial inventory review,
-not renewed hosted product/provider acceptance or a competitor research date. Vendor claims retain
-the actual `checkedOn` in the comparison ledger (11 November 2026). Legal corrections in this batch
-are proposed wording until owner review, merge and deployment. P1/P2 express delivery order, not
-measured search volume. “Published” means the route already exists; it does not waive a correction.
+Inventory and source paths checked: **15 November 2026** against main `26b46774` and this
+implementation. Production at the audit served `d8071a14`; its manifest contained 37 static pages
+and its sitemap 38 URLs including status. Newly implemented rows below retain a production-publication
+gate until the merged revision and live output are verified. Source presence does not establish
+hosted platform/client acceptance or Google indexing. Existing vendor claims keep their 11 November
+review; Userback/ruttl and current uier claims have their actual 15 November review in the ledger.
+Legal corrections from owner-approved PR #664 are complete; any later legal wording change needs
+its own owner review. P1/P2 express delivery order, not measured search volume.
 
-## Published routes
+## Canonical routes and implementation gates
 
 Paths integrate with [KnownPages/KnownPageLinks](../apps/web/src/knownPages.ts). Guide metadata is in
 the [guide catalog](../apps/web/src/lib/guides.ts); pairwise claims and dates are in the
@@ -27,6 +30,12 @@ above and the inventory review date above; the last column records additional cl
 | `/guides/website-review-checklist` | Scope and perform a human website review | P2 | `ReviewChecklist`; guide catalog, reviewResources.ts and current checks workflow | No certification or security-audit claim |
 | `/guides/website-bug-report-template` | Write a reproducible report and hand it off | P2 | `BugReportTemplate`; reviewResources.ts and Copy issue contract | No invented diagnostics; checked example/privacy scope |
 | `/guides/nextjs` | Install in a Next.js App Router site | P1 | `NextJsGuide`; shared `nextJsSnippet`, [onboarding](../apps/web/docs/onboarding.md) | #294 remaining platform/removal receipts |
+| `/guides/wordpress` | WordPress front-end installation and removal | P1 | `WordPressGuide`; guide catalog, shared embed/CSP and platform data | Pending production publication; hosted WordPress acceptance pending |
+| `/guides/html` | Shared HTML-template installation and removal | P2 | `HtmlGuide`; guide catalog, shared embed/CSP and platform data | Pending production publication; local lifecycle validation |
+| `/guides/react` | One installation through a React HTML entry | P2 | `ReactGuide`; guide catalog, shared embed/CSP and SPA contract | Pending production publication; no public npm package claim |
+| `/guides/webflow` | Webflow Footer code, plans, roles and publication | P2 | `WebflowGuide`; shared platform data and official source review | Pending production publication; hosted acceptance pending |
+| `/guides/shopify` | Online Store theme-layout installation | P2 | `ShopifyGuide`; shared platform data and official source review | Pending production publication; hosted acceptance pending; no checkout/editor promise |
+| `/guides/mcp` | Connect an offered coding client and read one thread | P1 | `McpGuide`; shared client/plugin commands and MCP reference | Pending production publication; client OAuth/host qualification remains separate |
 | `/guides/browser-extension` | Set up a supported released extension | P1 | Guide catalog; [extension release record](browser-extension.md) | New browser claims need their own acceptance |
 | `/browser-extension` | Evaluate reviewing without a script embed | P1 | `BrowserExtension`; release source and extension record | Preserve per-browser store/hosted gates |
 | `/compare` | Choose which feedback workflow to evaluate | P1 | `Compare`; comparison ledger and [comparison note](../apps/web/docs/comparison-pages.md) | None; no links to unpublished tools |
@@ -35,7 +44,17 @@ above and the inventory review date above; the last column records additional cl
 | `/compare/marker-io` | Evaluate capture and developer handoff differences | P1 | `KnownPageLinks.comparison('marker-io')`; comparison ledger | Dated first-party source review |
 | `/compare/usersnap` | Distinguish page review from broader product feedback | P2 | `KnownPageLinks.comparison('usersnap')`; comparison ledger | Dated first-party source review |
 | `/compare/pastel` | Distinguish live-page review from asset proofing | P2 | `KnownPageLinks.comparison('pastel')`; comparison ledger | Dated first-party source review |
-| `/features/ai` | Evaluate feedback access for coding agents | P1 | `Ai`; [MCP reference](mcp.md), current qualified client setup | #299 site-hosted reference/crosslinks |
+| `/compare/userback` | Product-team diagnostics, feedback and agent workflow fit | P2 | `KnownPageLinks.comparison('userback')`; sourced ledger dated 15 November | Pending production publication; tier-specific entitlements |
+| `/compare/ruttl` | Agency visual-editing demonstrations versus anchored discussion | P2 | `KnownPageLinks.comparison('ruttl')`; sourced ledger dated 15 November | Pending production publication; contested free allowances omitted |
+| `/use-cases/client-feedback` | Evaluate a client website review round | P1 | `ClientFeedback`; use-case catalog, current review brief/access rules | Pending production publication; fictional scenario |
+| `/use-cases/bug-reporting` | Prepare reproducible visual bug handoff | P1 | `BugReporting`; use-case catalog, current capture/integration contracts | Pending production publication; explicit recording differs from replay |
+| `/use-cases/user-acceptance-testing` | Plan a manual acceptance round | P2 | `UserAcceptanceTesting`; use-case catalog, project opt-in and verification rules | Pending production publication; no automated testing or release approval |
+| `/features/pinned-comments` | Understand live-page annotation and anchor recovery | P1 | `PinnedComments`; feature-page and toolbar anchor/drawing notes | Delivered in #766; canonical annotation page, no duplicate route |
+| `/features/screenshots` | Understand chosen capture, device context and recording limits | P1 | `Screenshots`; screenshot/recording/device contracts | Delivered in #766; preserve saved-image redaction and video limits |
+| `/features/threads` | Discuss a finding and share selected attachments | P1 | `Threads`; comment/reply and notification contracts | Delivered in #766; actual visibility and message limits |
+| `/features/inbox` | Find page feedback, drafts and unread work | P1 | `Inbox`; toolbar inbox and environment contracts | Delivered in #766; preserve authorized paged scope |
+| `/features/board` | Move feedback through the project’s statuses | P1 | `Board`; status categories, settings and board rules | Delivered in #766; project opt-in applies to verification |
+| `/features/ai` | Evaluate feedback access for coding agents | P1 | `Ai`; [MCP reference](mcp.md), current qualified client setup | Maintain /guides/mcp setup links and actual client qualification |
 | `/features/feedback-triage` | Search, prioritize and act on selected feedback | P1 | `FeedbackTriage`; [triage note](../apps/web/docs/triage.md) | Preserve current bounds and permissions |
 | `/features/fix-verification` | Ask a reviewer to check one thread's fix | P1 | `FixVerification`; [verification note](../apps/web/docs/fix-verification.md) | Preserve optional confirmation versus ordinary Done |
 | `/features/page-checks` | Understand in-browser accessibility/SEO checks | P1 | `PageChecks`; [checks note](../apps/web/docs/page-checks.md) | No certification or scheduled-crawler claim |
@@ -45,35 +64,29 @@ above and the inventory review date above; the last column records additional cl
 | `/integrations/notion` | Set up the Notion page handoff | P1 | `KnownPageLinks.integration('notion')`; catalog and activation/publication records | Submission is not approval |
 | `/integrations/slack` | Configure bounded notifications and optional replies | P1 | `KnownPageLinks.integration('slack')`; catalog and activation/publication records | Optional reply acceptance and Marketplace gates |
 | `/integrations/azure-devops` | Understand the Azure Boards handoff and setup | P1 | `KnownPageLinks.integration('azure-devops')`; catalog and dated Entra record | Delegated hosted acceptance remains separate |
-| `/security` | Inspect actual controls and report a vulnerability | P1 | `Security`; [security note](../apps/web/docs/security-and-open-source-pages.md), [SECURITY.md](../SECURITY.md) | #290 corrections, current evidence for stronger claims |
+| `/security` | Inspect actual controls and report a vulnerability | P1 | `Security`; [security note](../apps/web/docs/security-and-open-source-pages.md), [SECURITY.md](../SECURITY.md) | Corrections delivered in #664; current evidence for stronger claims |
 | `/open-source` | Understand licenses and contribute | P1 | `OpenSource`; package manifests, LICENSE and CONTRIBUTING | License changes need source reconciliation |
 | `/brand` | Use the product's actual design system | P2 | `Brand`; [BRAND.md](../packages/brand/BRAND.md) and tokens | Brand changes must update both references |
 | `/status` | Check current service health | P1 | `Status`; [status note](../apps/web/docs/status-page.md) | Dynamic health; no uptime guarantee |
-| `/legal/terms-of-service` | Understand service/use responsibilities | P1 | `LegalTermsOfService`; [legal note](../apps/web/docs/legal-documents.md), product access/retention code | #289, owner review of changed wording |
-| `/legal/privacy-policy` | Understand collection, sharing and retention | P1 | `LegalPrivacyPolicy`; legal note and source-backed feature disclosures | #289, owner review of changed wording |
-| `/legal/cookie-policy` | Understand cookies and browser storage | P1 | `LegalCookiePolicy`; cookie names and toolbar storage/session code | #289, owner review of changed wording |
+| `/legal/terms-of-service` | Understand service/use responsibilities | P1 | `LegalTermsOfService`; [legal note](../apps/web/docs/legal-documents.md), product access/retention code | #664 owner-reviewed corrections delivered; owner review for later changes |
+| `/legal/privacy-policy` | Understand collection, sharing and retention | P1 | `LegalPrivacyPolicy`; legal note and source-backed feature disclosures | #664 owner-reviewed corrections delivered; owner review for later changes |
+| `/legal/cookie-policy` | Understand cookies and browser storage | P1 | `LegalCookiePolicy`; cookie names and toolbar storage/session code | #664 owner-reviewed corrections delivered; owner review for later changes |
 | `/legal/acceptable-use-policy` | Understand acceptable service use | P1 | `LegalAcceptableUsePolicy`; legal document and product scope | Owner review for changed legal wording |
 | `/legal/sla` | Understand the absence of service commitments | P1 | `LegalSla`; legal note and verified backup scope | No invented uptime/recovery guarantees |
 
-## Planned content, excluded from discovery until published
+## Canonical choices and pending acceptance
 
-These are issue-owned intentions, not live links or reserved routes. A new route enters KnownPages,
-the appropriate catalog, sitemap and navigation only when its useful content and release gates are
-ready. Unknown/unpublished slugs must return a real 404. Do not create `/docs` aliases for shipped
-`/guides` pages or a second `/features/mcp` overview.
+All remaining acquisition/setup routes from #294/#298/#299/#301–#305 are implemented in this
+batch; their production-publication gates above remain open until deployment is verified. User-approved
+local checks do not substitute for hosted WordPress, Webflow or Shopify acceptance. The relevant
+installation guide note records those boundaries. Measurement and its unavailable-data record live in
+[the dated baseline](search-baseline-2026-11-15.md); #311 still owns the actual 28-day comparison.
 
-| Intended path | Distinct intent | Priority | Owner issue and source | Publication gate |
-| --- | --- | --- | --- | --- |
-| `/guides/wordpress` | WordPress placement and installation | P1 | #294; shared snippets, current WordPress docs | Representative installation/removal evidence |
-| `/guides/mcp` | Complete MCP setup/reference | P1 | #299; maintained MCP reference and qualified clients | Tested setup blocks and privacy/permission limits |
-| `/use-cases/client-feedback` | Evaluate collecting client feedback | P1 | #298; client guide and current review workflow | Distinct scenario/limits, not a duplicate guide |
-| `/use-cases/bug-reporting` | Evaluate reproducible visual bug handoff | P1 | #298; feedback context and integration contracts | Honest capture/diagnostics limits |
-| `/compare/userback` | Evaluate Userback's distinct workflow | P2 | #301; existing comparison structure | Current first-party feature/pricing/MCP evidence |
-| `/compare/ruttl` | Evaluate ruttl's distinct workflow | P2 | #302; existing comparison structure | Current first-party feature/pricing/agent evidence |
-| `/use-cases/website-annotation` | Evaluate live-page annotation | P2 | #303; anchor/capture contracts | No general file proofing or live-editing claim |
-| `/use-cases/user-acceptance-testing` | Plan manual acceptance review | P2 | #303; optional verification workflow | No automated-testing or mandatory approval promise |
-| `/guides/html`, `/guides/react` | Stack-specific installation | P2 | #304; maintained app snippets | Representative lifecycle/removal evidence |
-| `/guides/webflow`, `/guides/shopify` | Platform-specific installation | P2 | #305; app snippets and current platform docs | Actual plan/surface/placement constraints and acceptance |
+Preserve `/features/pinned-comments` as the annotation canonical and
+`/use-cases/user-acceptance-testing` as the single manual UAT route. Do not add the obsolete planned
+`/features/website-annotation`, `/use-cases/website-annotation` or `/use-cases/website-uat` alternatives.
+Use `/guides/mcp`, with no duplicate `/features/mcp` overview or `/docs` hub. Unknown alternatives
+remain real 404s. Only meaningful canonical content enters discovery; account/project/review URLs do not.
 
 ## Registration and maintenance procedure
 
@@ -88,8 +101,8 @@ ready. Unknown/unpublished slugs must return a real 404. Do not create `/docs` a
 4. After merge, verify the deployed revision, live page, links, metadata, sitemap and image before
    marking publication done. Product/provider acceptance receipts remain independent from HTTP checks.
 5. Recheck factual claims on a relevant product/provider release and competitor claims/pricing at
-   least quarterly. The current comparison review of 11 November 2026 is due by **11 February 2027**,
-   sooner if a source or product changes. Update `checkedOn` only after a real source review; never
+   least quarterly. The existing vendors’ 11 November review is due by **11 February 2027**; the new vendors’
+   15 November review is due by **15 February 2027**, sooner if a source or product changes. Update `checkedOn` only after a real source review; never
    use a build time as a content date. Record the review and resulting edits in the PR/issue.
 
 The maintainer owns the manual review handoff tracked by #311. No recurring automation is created.

@@ -139,6 +139,23 @@ export default function PinnedCommentsPage() {
             </PageSection>
 
             <PageSection
+                id="review-workflows"
+                title="Put the annotation to work"
+                lead="A pin says where. The review gives the thread its next step.">
+                <Panel>
+                    <Tile title="A client review">
+                        <p>Agree the brief, invite the reviewers and keep each discussion with the site. The <InlineLink href={KnownPages.ClientFeedback}>client-feedback workflow</InlineLink> shows a review round from the first comment to handoff.</p>
+                    </Tile>
+                    <Tile title="A reproducible bug">
+                        <p>Add expected and actual behavior, steps and the evidence you choose to send. <InlineLink href={KnownPages.BugReporting}>Website bug reporting</InlineLink> shows a worked example.</p>
+                    </Tile>
+                    <Tile title="A manual acceptance round">
+                        <p>Check agreed journeys in the right environment and record the findings and gaps. The <InlineLink href={KnownPages.UserAcceptanceTesting}>manual acceptance-review workflow</InlineLink> keeps individual fix checks separate from the release decision.</p>
+                    </Tile>
+                </Panel>
+            </PageSection>
+
+            <PageSection
                 id="try-it"
                 title="Try it"
                 lead="The toolbar at the bottom of this window works on this page, without an account.">

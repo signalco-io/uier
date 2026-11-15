@@ -5,7 +5,9 @@ import { competitors, type CompetitorSlug } from './content';
 /**
  * Each alternative's official mark (`public/compare`), unchanged copies of the files the vendor
  * publishes: Marker.io's colour symbol from marker.io/brand, and the square site icons that
- * bugherd.com, usersnap.com and usepastel.com serve. Third-party marks in their own colours: never
+ * bugherd.com, usersnap.com and usepastel.com serve. Userback and ruttl use the unmodified site icons
+ * linked by their own homepages: https://userback.io/favicon.png and
+ * https://www.ruttl.com/icon-color.png (retrieved 15 November 2026). Third-party marks in their own colours: never
  * recoloured, redrawn or used as uier's. `size` evens out their padding (Marker.io's symbol sits
  * in a padded square) without changing the files.
  */
@@ -13,7 +15,9 @@ const logos: Record<CompetitorSlug, { src: string; size: string }> = {
     bugherd: { src: '/compare/bugherd.png', size: 'size-11 sm:size-16' },
     'marker-io': { src: '/compare/marker-io.svg', size: 'size-14 sm:size-20' },
     usersnap: { src: '/compare/usersnap.png', size: 'size-11 sm:size-16' },
-    pastel: { src: '/compare/pastel.png', size: 'size-11 sm:size-16' }
+    pastel: { src: '/compare/pastel.png', size: 'size-11 sm:size-16' },
+    userback: { src: '/compare/userback.png', size: 'size-9 sm:size-12' },
+    ruttl: { src: '/compare/ruttl.png', size: 'size-11 sm:size-16' }
 };
 
 /** A dot grid that fades out towards the edges, as on the browser extension page's cover */
