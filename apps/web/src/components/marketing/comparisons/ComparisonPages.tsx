@@ -16,7 +16,7 @@ const choiceTitles: Record<CompetitorSlug, string> = {
 
 function SupportIcon({ support }: { support: Support }) {
     const Icon = statusIcons[support];
-    return <Icon size={16} strokeWidth={1.75} aria-hidden="true" className="mt-0.5 shrink-0" />;
+    return <Icon size={16} strokeWidth={1.75} aria-hidden="true" className={`mt-0.5 shrink-0${support === 'yes' ? ' text-[hsl(var(--brand-success))]' : ''}`} />;
 }
 
 function FactCell({ fact, product, dimension, compact }: { fact: Fact; product: string; dimension: string; compact?: boolean }) {
