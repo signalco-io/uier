@@ -399,7 +399,12 @@ client that lost its server, so the card clears for both and its copy names both
 for the thread again. Refresh is otherwise disabled only while nothing has loaded; a running read
 ignores more clicks, so focus stays on it through each check. Only the notice line and status
 changes are live regions; the last-checked time stays out of them, so a check that changes nothing
-announces nothing. The status dot follows BRAND.md (Open an ink ring). No writes, screenshots,
+announces nothing. An up-to-date card draws one footer line, the last-checked time: its notice
+("Updates every 30 seconds") stays in the live region for screen readers and as the time's tooltip.
+Warnings are drawn above the time. The status dot follows BRAND.md (Open an ink ring). The card
+draws its own edge (a 1 px border and 12 px radius on the card surface, the latest message on the
+muted surface) over a transparent page, so the resource declares `_meta.ui.prefersBorder: false`:
+a host that also framed it would double the border. No writes, screenshots,
 event subscriptions or read-cursor updates belong to this card. The tool is for a requested
 thread display, not for every monitor poll. Tests: `e2e/mcpApp.spec.ts` (a host in a page, the
 built card in its iframe). See [the client contract](../../../docs/mcp.md#thread-cards).
