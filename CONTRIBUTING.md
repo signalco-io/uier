@@ -28,7 +28,9 @@ separate infrastructure setup, credentials and CI/CD.
   the shadcn/ui components in `apps/web/src/components/ui`, built on Base UI. Do not build parallel
   buttons, inputs or menus. See [the web guide](apps/web/AGENTS.md#styling-rules) for styling and component details.
 - **Dependencies.** Use exact versions and the pinned pnpm version. Renovate keeps dependencies
-  current; pnpm and Renovate wait a day after an npm release.
+  current; pnpm and Renovate wait a day after an npm release. Non-major updates automerge after
+  the required CI checks pass; major upgrades need a maintainer to review and merge. See the
+  [dependency update policy](docs/operations.md#required-github-configuration).
 - **Secrets.** Keep credentials out of Git. Local variables belong in `apps/web/.env.local`;
   deployment variables are managed by Pulumi.
 - **Infrastructure.** CI applies changes. Do not run `pulumi up` locally or remove resource

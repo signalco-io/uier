@@ -353,10 +353,11 @@ gh api -X PUT repos/signalco-io/uier/actions/permissions/workflow \
 
 Dependencies are kept current by [Renovate](https://github.com/apps/renovate) (installed for the
 `signalco-io` organization; see [`renovate.json`](../renovate.json)). It waits until an npm release is one day
-old - the same `minimumReleaseAge` pnpm enforces on install - and automerges selected minor/patch updates.
-Only development dependencies matching `@types/*`, `@playwright/test` and `@axe-core/playwright` can
-automerge, after at least **three days**, for minor, patch, pin or digest updates. Runtime packages,
-build/deployment tools, Pulumi providers and all GitHub Actions updates wait for a maintainer to merge.
+old - the same `minimumReleaseAge` pnpm enforces on install. Minor, patch, pin, pin-digest, digest and
+lockfile-maintenance updates automerge after the required **`CI OK`** check passes. This applies to
+runtime packages, development dependencies, build/deployment tools, Pulumi providers and GitHub
+Actions. Major upgrades require a maintainer to review and merge; other update types keep automerge
+disabled by default. Renovate uses GitHub's native auto-merge, which enforces the `main` ruleset.
 Every external workflow action is pinned to a full commit SHA with a version comment; Renovate's
 `helpers:pinGitHubActionDigests` keeps those references updated through pull requests.
 
