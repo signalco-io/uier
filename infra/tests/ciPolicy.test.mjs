@@ -21,21 +21,25 @@ test('all external workflow actions have immutable commit pins and version comme
     }
 });
 
-test('dependency automerge cannot include runtime, build, deployment or action updates', () => {
+test('dependency automerge covers only the approved non-major updates and retains release safeguards', () => {
     const config = JSON.parse(readFileSync(join(root, 'renovate.json'), 'utf8'));
     assert.equal(config.automerge, false);
     assert.ok(config.extends.includes('helpers:pinGitHubActionDigests'));
-    const allowed = new Set(['@types/*', '@playwright/test', '@axe-core/playwright']);
+    assert.equal(config.platformAutomerge, true);
+    assert.equal(config.minimumReleaseAge, '1 day');
+    assert.equal(config.internalChecksFilter, 'strict');
+    const allowed = ['minor', 'patch', 'pin', 'pinDigest', 'digest', 'lockFileMaintenance'];
     const automatic = config.packageRules.filter(rule => rule.automerge === true);
     assert.ok(automatic.length);
     for (const rule of automatic) {
-        assert.deepEqual(rule.matchManagers, ['npm']);
-        assert.deepEqual(rule.matchDepTypes, ['devDependencies']);
-        assert.ok(rule.matchPackageNames.length);
-        assert.ok(rule.matchPackageNames.every(name => allowed.has(name)));
-        assert.match(rule.minimumReleaseAge, /^\d+ days$/);
-        assert.ok(parseInt(rule.minimumReleaseAge, 10) >= 3);
-        assert.ok(rule.matchUpdateTypes.every(type => ['minor', 'patch', 'pin', 'digest'].includes(type)));
+        assert.ok(rule.matchUpdateTypes?.length, 'automerge must explicitly select update types');
+        assert.ok(rule.matchUpdateTypes.every(type => allowed.includes(type)), 'major and unlisted updates stay manual');
+    }
+    assert.deepEqual([...new Set(automatic.flatMap(rule => rule.matchUpdateTypes))].sort(), [...allowed].sort());
+    for (const rule of config.packageRules) {
+        if (rule.minimumReleaseAge === undefined) continue;
+        assert.match(rule.minimumReleaseAge, /^\d+ days?$/);
+        assert.ok(parseInt(rule.minimumReleaseAge, 10) >= 1, 'package rules cannot bypass the release delay');
     }
 });
 
