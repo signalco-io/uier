@@ -1,4 +1,4 @@
-import { test, expect, chromium, type BrowserContext } from '@playwright/test';
+import { test, expect, chromium, type BrowserContext, type Page } from '@playwright/test';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { resolve } from 'node:path';
@@ -32,6 +32,19 @@ async function launchContext() {
     const launched = await chromium.launchPersistentContext(profile, { channel: 'chromium', headless: true, viewport: { width: 1280, height: 800 }, baseURL: apiBase, ignoreDefaultArgs: ['--disable-back-forward-cache'], args: [...(proxy ? [`--host-resolver-rules=MAP uier.io 127.0.0.1:${proxy.port}, MAP * ~NOTFOUND, EXCLUDE localhost, EXCLUDE 127.0.0.1`, `--ignore-certificate-errors-spki-list=${proxy.spki}`] : []), '--enable-unsafe-extension-debugging', `--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`] });
     launched.setDefaultTimeout(10_000);
     return launched;
+}
+async function backToCachedDocument(page: Page) {
+    // BFCache emits no new load event. Trigger Back outside the outgoing document so
+    // its execution context can disappear before the protocol response arrives.
+    const session = await page.context().newCDPSession(page);
+    try {
+        const { entries, currentIndex } = await session.send('Page.getNavigationHistory');
+        const previous = entries[currentIndex - 1];
+        expect(previous).toBeDefined();
+        await session.send('Page.navigateToHistoryEntry', { entryId: previous!.id });
+    } finally {
+        await session.detach();
+    }
 }
 test.beforeAll(async () => {
     await new Promise<void>(done => server.listen(0, '127.0.0.1', done));
@@ -475,14 +488,13 @@ test('packaged isolated runtime uses real sign-in, helper and worker under stric
     // A same-origin cache restore is remounted only through the live worker binding.
     await reviewed.goto(`${origin}/next`);
     await expect(reviewed.locator('#uier-toolbar')).toHaveCount(1);
-    await reviewed.evaluate(() => history.back());
+    await backToCachedDocument(reviewed);
     await expect(reviewed).toHaveURL(`${origin}/`);
     expect(await reviewed.evaluate(() => performance.timeOrigin)).toBe(reviewedDocument);
     await expect(reviewed.locator('#uier-toolbar')).toHaveCount(1);
     // A second origin ends activation even when Back restores the previous document from BFCache.
     await reviewed.goto(origin.replace('127.0.0.1', 'localhost'));
-    // A restored document emits pageshow, not another load event for Playwright to await.
-    await reviewed.evaluate(() => history.back());
+    await backToCachedDocument(reviewed);
     await expect(reviewed).toHaveURL(`${origin}/`);
     expect(await reviewed.evaluate(() => performance.timeOrigin)).toBe(reviewedDocument);
     await expect(reviewed.locator('#uier-toolbar')).toHaveCount(0);

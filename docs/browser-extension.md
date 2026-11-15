@@ -305,6 +305,9 @@ can appear before the worker finishes saving, including a committed-but-lost wri
 The strict-CSP posting/reload check waits for the toolbar's `Comment posted` success announcement
 before reloading. Visible text alone can be the optimistic thread while screenshot/device capture
 is still pending; reloading then interrupts the send and correctly leaves a recoverable draft.
+BFCache checks trigger Back through Chromium's history protocol, outside the outgoing document's
+execution context. They still assert the restored document's original time origin and the toolbar's
+live binding state; a cache restore emits no new load event to await.
 The closed typed worker envelope and shared route contract reject arbitrary URLs/operations,
 credential/header injection and malformed payloads. API tests retain current membership, origin,
 privacy, comments-off, handoff/PKCE and idempotency coverage. App setup has desktop/mobile keyboard
