@@ -37,7 +37,7 @@ function FeatureMatrix({ products, compact = false }: { products: Product[]; com
         </ul>
         <p id="matrix-help" className="text-sm text-muted-foreground">{compact ? 'Scroll across for every tool. Open Details for caveats and the source behind each entry.' : 'Scroll across on a narrow screen. Each entry includes its scope and, where applicable, a source.'} Not verified means unknown, not unsupported.</p>
         <div role="region" aria-label="Feature comparison table" aria-describedby="matrix-help" tabIndex={0} className="overflow-x-auto rounded-2xl border focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring">
-            <table className={`w-full border-collapse text-left ${compact ? 'min-w-[1120px]' : 'min-w-[600px]'}`}>
+            <table className={`w-full table-fixed border-collapse text-left ${compact ? 'min-w-[1120px]' : 'min-w-[600px]'}`}>
                 <caption className="sr-only">Website feedback capabilities compared: {products.map(product => product.name).join(', ')}</caption>
                 <thead className="bg-muted/50"><tr>
                     <th scope="col" className="w-44 p-4 text-sm font-medium">Workflow or feature</th>
