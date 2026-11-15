@@ -1,0 +1,20 @@
+@import 'tailwindcss' source(none);
+@import '@uier/brand/tokens.css';
+@config '../../tailwind.config.js';
+@source './thread.tsx';
+@source '../components/ui/button.tsx';
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme inline {
+    --font-sans: Geist, system-ui, sans-serif;
+}
+@theme static {
+    --radius-sm: calc(var(--radius) - 4px);
+    --radius-md: calc(var(--radius) - 2px);
+    --radius-lg: var(--radius);
+}
+
+html { color-scheme: light; }
+html.dark { color-scheme: dark; }
+body { margin: 0; background: hsl(var(--background)); color: hsl(var(--foreground)); font-family: Geist, system-ui, sans-serif; }
+svg.lucide { stroke-width: 1.75; }

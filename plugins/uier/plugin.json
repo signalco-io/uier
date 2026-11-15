@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "uier",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Connect website feedback to your coding agent, with skills to monitor a uier project and carry fixes through review and deployment.",
   "author": {
     "name": "signalco",
@@ -17,7 +17,7 @@
       "interface": {
         "displayName": "uier",
         "shortDescription": "Website feedback in your agent",
-        "longDescription": "Read website feedback with page, browser, viewport and screenshot context from the uier projects you authorize. Reply, assign work and update status within your granted operations. Includes uier-monitor for resolving a project's feedback through code, pull requests and deployment, plus uier-monitor-script to restore its watcher helper. Monitoring runs in a local coding client with a repository, Node.js and GitHub CLI; it does not run in hosted chat. Installing the plugin starts no monitor and changes no feedback. Invoking uier-monitor authorizes its documented workflow for comments in scope. The MCP server does not edit code or deploy; those actions run in your coding client under your repository's rules.",
+        "longDescription": "Read website feedback with page, browser, viewport and screenshot context from the uier projects you authorize. Show a read-only thread card with status refreshes in MCP Apps hosts, or a linked text summary in other clients. Reply, assign work and update status within your granted operations. Includes uier-monitor for resolving a project's feedback through code, pull requests and deployment, plus uier-monitor-script to restore its watcher helper. Monitoring runs in a local coding client with a repository, Node.js and GitHub CLI; it does not run in hosted chat. Installing the plugin starts no monitor and changes no feedback. Invoking uier-monitor authorizes its documented workflow for comments in scope. The MCP server does not edit code or deploy; those actions run in your coding client under your repository's rules.",
         "developerName": "signalco",
         "category": "Developer Tools",
         "capabilities": ["Read", "Write"],
@@ -27,7 +27,7 @@
         "termsOfServiceURL": "https://uier.io/legal/terms-of-service",
         "defaultPrompt": [
           "List the uier projects I can access.",
-          "Read a uier feedback thread and summarize its page context.",
+          "Show a read-only card for a uier feedback thread.",
           "Use uier-monitor to show the saved status for my project."
         ],
         "composerIcon": "./assets/icon.png",
@@ -37,6 +37,12 @@
         "commerce": false,
         "test_cases": {
           "positive": [
+            {
+              "description": "Show one read-only thread card with a text fallback.",
+              "prompt": "Show a read-only card for Header overlaps navigation in the uier plugin review project. Do not change anything or start monitoring.",
+              "tools_triggered": "list_projects, list_feedback, show_feedback",
+              "expected_behavior": "Uses the authorized project and comment identifiers. An MCP Apps host renders the card and can refresh through get_feedback. Other clients summarize the returned Markdown with the uier comment link. Does not reply, assign, change status, mark activity read or start monitoring. Does not claim disconnected snapshots are live."
+            },
             {
               "description": "Discover only projects authorized during connection.",
               "prompt": "List the uier projects I can access, including their workspaces.",
@@ -88,7 +94,7 @@
         }
       },
       "publication": {
-        "release_notes": "Reduce monitoring overhead with persistent event-triggered T3 wakes, compact state snapshots and deltas, and batching for nearby events and related small fixes. Existing provider routing and delivery checks remain in place."
+        "release_notes": "Add a read-only MCP App thread card with status refreshes while visible and connected, a manual Refresh control and a linked text/data fallback for other clients. Showing a card starts no monitor and changes no feedback."
       }
     }
   }

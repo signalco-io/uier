@@ -383,6 +383,19 @@ GitLab link to their own issue) and the copy/download `SKILL.md` in Coding agent
 Triage changes nothing, fix proposes local code work only, and report-back waits for human approval
 before every write. The skill also requires approval for assignments and stable retry keys.
 
+**Read-only thread card.** `show_feedback` uses the same authorized handler and packet as
+`get_feedback`; only the display tool has `_meta.ui.resourceUri` pointing at
+`ui://uier/thread-v1.html`. Keep the normal text/structured result usable without MCP Apps.
+The `text/html;profile=mcp-app` resource is a bundled static shell, with no embedded feedback,
+credentials, external scripts or images. Its CSP declares no external connection/resource
+domains. The host supplies data through the MCP Apps bridge, and refreshes call `get_feedback`
+through that same authenticated host every 30 seconds while visible, or on **Refresh**.
+Do not add an alternate browser API, cookie authentication or tokens to the card. Each read must
+retain the ordinary live scope, project and visibility checks. A failed refresh is visibly stale;
+denied or missing feedback removes the displayed content. No writes, screenshots, event
+subscriptions or read-cursor updates belong to this card. The tool is for a requested thread
+display, not for every monitor poll. See [the client contract](../../../docs/mcp.md#thread-cards).
+
 `list_feedback` shares path, source, assignment and activity projection with the app through
 `app/projectCommentRouting.ts`. Canonicalize its optional path with `pagePath`; pass path and
 `environmentFilter` into `listProjectComments` before the 1000-thread storage limit. Validate

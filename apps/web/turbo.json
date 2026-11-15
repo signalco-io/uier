@@ -25,7 +25,8 @@
                 "!.next/notification-entry/**",
                 "public/sitemap*.xml",
                 "public/robots.txt",
-                "public/toolbar-fonts/**"
+                "public/toolbar-fonts/**",
+                "dist/mcp/**"
             ],
             "env": ["SITE_URL", "UIER_DEPLOYMENT_ENV", "VERCEL_ENV", "VERCEL", "UIER_INSTANT_TEST"]
         },
