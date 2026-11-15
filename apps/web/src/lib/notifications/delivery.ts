@@ -255,12 +255,21 @@ export async function processNotificationDelivery(candidate: NotificationDeliver
     }
 }
 
-export async function runNotificationWorker(baseUrl: string, transport = deliverNotificationEmail, store = getAppStore()) {
+export async function runNotificationWorker(baseUrl: string, transport = deliverNotificationEmail, store = getAppStore(),
+    options: { deadline?: number; now?: () => number } = {}) {
+    const now = options.now ?? Date.now;
+    const hasTime = () => now() < (options.deadline ?? Infinity);
+    // Discovery must leave an existing due queue a turn, even under a sustained source backlog.
+    const remaining = Math.max(0, (options.deadline ?? Infinity) - now());
+    const discoveryDeadline = (options.deadline ?? Infinity) - Math.min(60_000, remaining / 3);
+    const canDiscover = () => now() < discoveryDeadline;
     // Adopt expiry for old completed ledgers in bounded batches. Preserve a replay floor before
     // making any pre-checkpoint ledger eligible to expire; an etag race retries on the next run.
     for (const status of ['accepted', 'suppressed']) {
+        if (!canDiscover()) break;
         for (const old of await store.query<NotificationDelivery>({ type: 'notification-delivery',
             where: { active: false, status }, missingTtl: true, limit: 100 })) {
+            if (!canDiscover()) break;
             if (old.attempt || old.processedThrough < old.requestedThrough) continue;
             const comments = getCommentsStore();
             const thread = await comments.get(`project:${old.projectId}`, old.threadId);
@@ -274,22 +283,26 @@ export async function runNotificationWorker(baseUrl: string, transport = deliver
             }, store);
         }
     }
-    for (const comment of await getCommentsStore().listNotificationPending()) {
+    for (const comment of canDiscover() ? await getCommentsStore().listNotificationPending() : []) {
+        if (!canDiscover()) break;
         if (!comment.projectId) continue;
         const project = await findProject(comment.projectId);
         if (project) await discoverThreadNotifications(project, comment);
     }
-    const deliveries = await store.query<NotificationDelivery>({ type: 'notification-delivery', where: { active: true }, dueBefore: iso() });
-    let failed = 0;
-    for (const delivery of deliveries)
-        if (await processNotificationDelivery(delivery, baseUrl, transport, Date.now(), store) === 'failed') failed++;
+    const deliveries = hasTime() ? await store.query<NotificationDelivery>({ type: 'notification-delivery', where: { active: true }, dueBefore: iso(now()) }) : [];
+    let failed = 0, checked = 0;
+    for (const delivery of deliveries) {
+        if (!hasTime()) break;
+        checked++;
+        if (await processNotificationDelivery(delivery, baseUrl, transport, now(), store) === 'failed') failed++;
+    }
     // Ledgers that wait for an operator: an exact count, and a bounded list of ids to retry or reconcile.
     const blocked = await Promise.all((['failed', 'ambiguous'] as const).map(async status => {
         const where = { active: false, status };
         const count = await store.count<NotificationDelivery>({ type: 'notification-delivery', where });
         return { count, ledgers: count ? await store.query<NotificationDelivery>({ type: 'notification-delivery', where, limit: REVIEW_LIST_LIMIT }) : [] };
     }));
-    return { checked: deliveries.length, failed, blocked: blocked.reduce((total, { count }) => total + count, 0),
+    return { checked, failed, blocked: blocked.reduce((total, { count }) => total + count, 0),
         review: blocked.flatMap(({ ledgers }) => ledgers).slice(0, REVIEW_LIST_LIMIT)
             .map(ledger => ({ id: ledger.id, status: ledger.status, lastCode: failureCode(ledger.lastCode) })) };
 }

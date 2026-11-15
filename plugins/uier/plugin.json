@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "uier",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "Connect website feedback to your coding agent, with skills to monitor a uier project and carry fixes through review and deployment.",
   "author": {
     "name": "signalco",
@@ -94,7 +94,7 @@
         }
       },
       "publication": {
-        "release_notes": "uier-monitor shows a comment's live thread card in its monitor thread when the comment starts waiting on you, such as a question to answer or a pull request to approve. Routine progress shows no cards, and a card never approves a change."
+        "release_notes": "Monitoring uses compact feedback state for reconciliation and shares reply cooldowns across helpers. Event polling and missed-event recovery remain in place. This release also retains thread cards when a comment starts waiting on you."
       }
     }
   }

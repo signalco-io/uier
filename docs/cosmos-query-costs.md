@@ -306,7 +306,8 @@ Monitor replies preserve server `retryAfterSeconds` from both tool errors and HT
 A timestamp-only cooldown shared by helpers using the same connection prevents repeated
 attempts while cursor reads and agent lease renewal continue. Existing idempotency keys survive
 the cooldown. The [worker schedule investigation](review-notifications.md#schedule-investigation-15-november-2026)
-records the separate run-creation gaps and limited off-peak cron mitigation.
+records the separate run-creation gaps and migration to a private Vercel Schedule with a shared
+lease. GitHub retains manual recovery and privileged preview maintenance rather than a cron.
 
 Keep diagnostic sampling off by default. A bounded investigation using the existing
 `UIER_COSMOS_DIAGNOSTICS_SAMPLE_RATE` can compare `comments.realtime`, interactive and scheduled

@@ -1,0 +1,148 @@
+{
+  "version": 1,
+  "observedAtUtc": "2026-11-15T12:16:49.392744+00:00",
+  "operation": "Read-only readiness inspection; no schedules, functions, deployments, Azure roles or credentials were created, changed or invoked.",
+  "team": {
+    "slug": "signalco",
+    "plan": "pro",
+    "id": "team_Ade0MlfC3211ml3wYJZ4c9hn"
+  },
+  "project": {
+    "name": "uier",
+    "id": "prj_0uRTXTGHFdN9SlHnFfNiahIgX3mc",
+    "environment": "production",
+    "namespace": "default"
+  },
+  "cli": {
+    "version": "65.14.0",
+    "matchesPinnedCiVersion": true,
+    "workingDirectory": "/tmp/uier-schedules-readiness",
+    "localMetadata": {
+      "path": ".vercel/project.json",
+      "contents": {
+        "orgId": "team_Ade0MlfC3211ml3wYJZ4c9hn",
+        "projectId": "prj_0uRTXTGHFdN9SlHnFfNiahIgX3mc",
+        "projectName": "uier"
+      }
+    },
+    "command": "pnpm dlx vercel@65.14.0 schedules list --cwd /tmp/uier-schedules-readiness --environment production --json",
+    "authentication": "Uses the existing Vercel CLI login; no token was passed in arguments or copied into the receipt."
+  },
+  "response": {
+    "status": "ok",
+    "scheduleCount": 0,
+    "cursor": null,
+    "pagination": {
+      "next": null
+    },
+    "message": "Found 0 schedules in namespace default."
+  },
+  "availability": {
+    "schedulesApiAccessible": true,
+    "candidateScheduleName": "review-notifications",
+    "candidateNameCollision": false,
+    "qualification": "An empty successful list establishes API access and no current name collision, not successful deployment or execution of the proposed schedule."
+  },
+  "sdk": {
+    "package": "@vercel/schedules",
+    "version": "0.0.3",
+    "releasedAtUtc": "2026-11-04T21:19:57.776Z",
+    "enginesNode": ">=20.0.0",
+    "node26Compatible": true,
+    "source": "npm package metadata and installed package.json; dependency is older than the repository minimum release age."
+  },
+  "supportedConfiguration": {
+    "target": "private function",
+    "buildOutputConfiguration": ".vercel/output/config.json schedules object",
+    "functionConfiguration": "Target .vc-config.json experimentalTriggers: [{ type: schedule/v1beta }]",
+    "publicUrl": false,
+    "cronSecretRequired": false,
+    "qualification": "Private invocation is the documented function-target boundary. handleSchedule validates schedule metadata, not authorization by itself. The proposed function must have only the schedule trigger and no public routes/rewrites. This receipt does not claim live artifact or invocation validation.",
+    "nodeFetchHandler": "Node.js runtime supports export default { fetch(request) { return Response; } }; the standalone scheduled entry uses this documented adapter shape."
+  },
+  "credentialBoundary": {
+    "productionCosmos": "Retain the current uier production managed identity with Data Contributor on comments and app only. No preview-container scope or worker-app Vercel federation is added.",
+    "productionBlob": "Use the existing production screenshot Blob connection and configured screenshots container; no key was read or rotated for this inspection.",
+    "previewMaintenance": "The planned cutover retains the separate GitHub worker identity for manually invoked privileged preview/legacy maintenance. It does not add that identity to the Vercel production project.",
+    "oidcContext": "The native function must preserve per-request Vercel OIDC context; no request token may be stored in a global mutable environment variable.",
+    "runtimeGuard": "The project does not expose Vercel system environment variables. UIER_DEPLOYMENT_ENV and known production container names are the explicit configuration guard; reject non-production VERCEL_ENV when present, without requiring it to exist. Azure still validates the production-only federated OIDC subject."
+  },
+  "verificationAfterDeployment": {
+    "listCommand": "pnpm dlx vercel@65.14.0 schedules list --cwd /tmp/uier-schedules-readiness --environment production --json",
+    "steps": [
+      "Confirm review-notifications has the intended private target and five-minute expression.",
+      "Inspect schedule execution history and function logs for successful production runs; distinguish expected overlap skips from failed work.",
+      "Compare scheduled time, execution time and completion state across consecutive occurrences before claiming restored cadence."
+    ],
+    "liveInvocationPerformed": false,
+    "inspectCommand": "pnpm dlx vercel@65.14.0 schedules inspect review-notifications --cwd /tmp/uier-schedules-readiness --environment production --namespace default --json"
+  },
+  "references": [
+    "https://vercel.com/docs/schedules/configuration#build-output-api",
+    "https://vercel.com/docs/schedules/handle-runs#function-targets",
+    "https://vercel.com/docs/schedules/limits",
+    "https://vercel.com/docs/functions/runtimes/node-js"
+  ],
+  "isolatedWorkerVerification": {
+    "observedAtUtc": "2026-11-15T12:21:07.005062+00:00",
+    "command": "node .github/scripts/package_schedules.mjs --verify",
+    "status": "passed",
+    "tracedDependencyPaths": 2371,
+    "checks": [
+      "Load the traced worker closure from an isolated directory without production environment variables.",
+      "Confirm the bundled entry exports default.fetch.",
+      "Send a synthetic POST without schedule metadata and require HTTP 400 before any worker execution."
+    ],
+    "qualification": "This is local dependency/runtime-adapter validation, not a live Vercel invocation or proof of private access controls."
+  },
+  "prebuiltCliDryRun": {
+    "observedAtUtc": "2026-11-15T12:24:43.550955+00:00",
+    "cliVersion": "65.14.0",
+    "command": "pnpm dlx vercel@65.14.0 deploy --dry --prebuilt --prod --cwd /tmp/uier-schedules-readiness --json",
+    "status": "passed",
+    "fixture": "A credential-free three-file Build Output API artifact: config.json with the native review-notifications schedule; private worker .vc-config.json with schedule/v1beta trigger; trivial default.fetch Node handler. The existing linked project requires an empty apps/web directory to validate rootDirectory.",
+    "files": [
+      {
+        "path": ".vercel/output/config.json",
+        "size": 142,
+        "sha": "04339859a67f37269e76e5e8a2bde51c7b8d9886"
+      },
+      {
+        "path": ".vercel/output/functions/_uier/worker.func/.vc-config.json",
+        "size": 130,
+        "sha": "baff8e83581d5bc3bcd43e79ec2c46399a7b6fb0"
+      },
+      {
+        "path": ".vercel/output/functions/_uier/worker.func/index.mjs",
+        "size": 76,
+        "sha": "ebf01699c6d3205c6fdeec6707c604453fb3169c"
+      }
+    ],
+    "shaCheck": "Every CLI-reported SHA-1 equals the independently computed digest of the unmodified local file. The CLI retains the native schedules and private trigger configuration as prebuilt deployment inputs.",
+    "qualification": "The CLI documents --dry as no upload/deployment creation. This establishes artifact input preservation only, not remote schema acceptance or a live scheduler execution."
+  },
+  "localProductionArtifact": {
+    "observedAtUtc": "2026-11-15T12:35:43.539684+00:00",
+    "cliVersion": "65.14.0",
+    "build": "vercel build --prod using public checked-in project settings, without environment download",
+    "schedule": {
+      "schedule": "*/5 * * * *",
+      "timezone": "UTC",
+      "jitter": 1,
+      "function": "_uier/worker"
+    },
+    "privateFunction": {
+      "runtime": "nodejs26.x",
+      "maxDuration": 800,
+      "experimentalTriggers": [
+        {
+          "type": "schedule/v1beta"
+        }
+      ],
+      "packagedDependencyPaths": 2371
+    },
+    "allDependencySourcesPresent": true,
+    "functionEnvironmentInArtifact": false,
+    "qualification": "Actual local production Build Output API artifact passed native and common packaging. This does not prove remote deployment acceptance or a successful scheduled invocation."
+  }
+}

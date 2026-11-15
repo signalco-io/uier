@@ -83,8 +83,10 @@ jobs:
           cp .github/vercel-project.json .vercel/project.json
           if [ "$PRODUCTION" = "true" ]; then
             "$HOME/.vercel-cli/bin/vercel" build --prod
+            node .github/scripts/package_schedules.mjs --production
           else
             "$HOME/.vercel-cli/bin/vercel" build
+            node .github/scripts/package_schedules.mjs --preview
           fi
           node .github/scripts/package_prebuilt.mjs
           tar -cf - .vercel/output | gzip -1 > prebuilt.tar.gz

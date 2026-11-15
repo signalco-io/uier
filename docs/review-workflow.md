@@ -417,8 +417,9 @@ Owners and admins receive new feedback. Members automatically follow threads the
 unfollow any visible thread, and can mute project emails from the toolbar or the project's settings in the app. Guests can
 optionally choose **Email me replies** after commenting and verify an address; neither email nor
 an account is required to post. Related unread activity is batched for five minutes, with current
-access, mute, unsubscribe and shared read-cursor checks before sending. A scheduled GitHub workflow
-uses the existing production Cosmos/ACS configuration; no detached serverless work is used.
+access, mute, unsubscribe and shared read-cursor checks before sending. A private Vercel Schedule
+worker uses the existing production Cosmos/ACS configuration and durable delivery ledgers;
+request handlers do not detach email work after responding.
 Digests say who acted, what happened and which thread/page changed, with recipient-specific mention
 and assignment wording. Comment text is excluded by default. Workspace admins can enable **Include
 comment excerpts** in project settings for every recipient, verified guests included; commenters

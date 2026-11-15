@@ -49,13 +49,36 @@ identity but does not unsubscribe an already verified address; use its email uns
 The digest window starts at the first eligible unread event and lasts five minutes. Activity in
 that window is delivered together, with a direct link to the thread on its original authorized
 page, retaining the shared approved query/hash state. Later activity forms the next digest.
-The scheduled **Review notifications** GitHub Actions workflow requests a run every five minutes
-on main, at UTC minutes 2, 7, …, 57, avoiding the start-of-hour load spike.
-GitHub can delay or drop scheduled events, so five minutes is a batching window, not a delivery guarantee.
-It can also be run manually. The credential-free build job installs dependencies and packages the
-worker and its traced runtime dependencies. A separate `production-worker` job downloads that exact
-run's artifact, signs in with Azure OIDC and loads only `UIER_WORKER_SETTINGS`. It has no checkout,
-Vercel CLI, deployment token, full-environment download, Cosmos account key or screenshot storage key.
+The production `review-notifications` Vercel Schedule requests a private worker invocation every
+five minutes (`*/5 * * * *`, UTC, one-minute jitter). Schedules is currently a Vercel beta;
+five minutes remains a batching window rather than a delivery guarantee. The private function
+has only the `schedule/v1beta` trigger and no public URL. It needs no public cron route,
+`CRON_SECRET`, GitHub Actions token or new deployment credential.
+
+The credential-free build packages the function and static schedule in the Build Output API
+artifact, before the existing archive validation and deployment. This repository deploys prebuilt
+output; adding a schedule only to `apps/web/vercel.json` would not install it. Preview build
+artifacts omit both the function and schedule. The existing production Vercel Cosmos identity
+still accesses only `comments` and `app`; it gains no preview or resource-management rights.
+Production Blob operations use the app's existing server-side configuration. Production cleanup,
+project deletion/transfer recovery, notifications, integration sync and MCP event delivery all run
+through the private worker. This function inherits the project's production app environment,
+including its existing integration and Blob credentials; it does not retain the old GitHub
+worker's smaller allowlisted environment. Keeping that environment isolated as well would require
+a separate Vercel project. No existing credential was copied to a new project or exposed to previews.
+
+A durable Cosmos lease replaces GitHub's workflow concurrency lock. Native and manual runs share
+it; a busy run defers to the next schedule. The function has an 800-second platform limit and the
+runner stops starting phases at its 720-second deadline. The lease can be taken over only after
+900 seconds, beyond the native function and manual job hard limits. An owner token and etag protect
+release, so an old run cannot release a newer run's lease. Per-ledger leases, idempotency keys and
+fresh recipient/provider authorization checks still protect individual operations.
+
+The GitHub **Review notifications** workflow is manual-only for recovery and preview/legacy
+maintenance. Preview Cosmos TTL remains seven days, but preview Blob orphan cleanup now requires
+an operator to run this workflow; it is no longer automatic. Moving that maintenance into the
+production function would require preview rights there, so the migration deliberately keeps it
+under the separate privileged worker identity. See [manual maintenance and recovery](#manual-maintenance-and-recovery).
 
 ### Schedule investigation, 15 November 2026
 
@@ -77,11 +100,9 @@ GitHub's API does not disclose why individual scheduled events were omitted or d
 [GitHub documents delayed and dropped schedule events under load](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule).
 Do not report a specific provider incident or account throttle without evidence from GitHub.
 
-The cron changes from `*/5 * * * *` to `2-57/5 * * * *` as a limited off-peak mitigation.
-It keeps twelve requested runs per hour and the existing concurrency, credentials and worker
-boundaries. This change is **not evidence that five-minute execution has been restored**.
-After the change reaches `main`, inspect creation times of new `schedule` runs, job start times
-and conclusions separately:
+An initial off-peak cron adjustment was considered as a limited mitigation. Before merge, the
+owner chose to migrate production scheduling to Vercel instead. The GitHub schedule is removed;
+the historical creation gaps can still be inspected separately from job start times:
 
 ```bash
 gh api 'repos/signalco-io/uier/actions/workflows/notifications.yml'
@@ -89,11 +110,22 @@ gh api 'repos/signalco-io/uier/actions/workflows/notifications.yml/runs?event=sc
   --jq '.workflow_runs[] | {id, created_at, run_started_at, updated_at, conclusion}'
 ```
 
-If multi-hour gaps persist, escalate the receipt to GitHub support. A requirement for dependable
-five-minute processing needs a separately designed scheduler rather than an additional GitHub
-cron watchdog, which shares the same failure mode. No external scheduler, dispatch credential
-or infrastructure change was provisioned in this investigation. `workflow_dispatch` remains
-available for an authorized operator; it processes real pending work unless `verify_only=true`.
+The receipt can support a GitHub support escalation, but it is not evidence of a specific
+provider incident or account throttle. No GitHub dispatch credential or Azure permission change
+is needed for the Vercel migration. After deployment, verify the production schedule target,
+cadence and recent execution records in Vercel, and check private-function logs for successful
+data access and completed phases. A configured schedule or successful deployment alone does
+not prove that a scheduled invocation ran.
+
+### Manual maintenance and recovery
+
+`workflow_dispatch` remains available for an authorized operator. It processes real pending
+production work and privileged preview maintenance unless `verify_only=true`; use
+`integrations_only=true` for email-free recovery. The credential-free build job packages the
+worker and traced dependencies, then a separate `production-worker` job downloads that exact
+artifact, signs in with Azure OIDC and loads only `UIER_WORKER_SETTINGS`. The delivery job has a
+13-minute hard timeout so it cannot outlive the 15-minute shared lease. It has no checkout,
+Vercel CLI, deployment token, full-environment download, Cosmos account key or screenshot storage key.
 
 `production-worker` allows only `main`, with no reviewers or wait timer. Its distinct OIDC subject
 prevents the worker token from matching the deployment app's `production` subject. The dedicated

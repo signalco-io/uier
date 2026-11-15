@@ -147,11 +147,13 @@ jobs:
         if: matrix.suite == 'checks'
         run: |
           python3 .github/scripts/test_prebuilt.py
-          node --test .github/scripts/package_prebuilt.test.mjs .github/scripts/search-index.test.mjs .github/scripts/deployment-current.test.mjs .github/scripts/turbo-cache.test.mjs
+          node --test .github/scripts/package_prebuilt.test.mjs .github/scripts/package_schedules.test.mjs .github/scripts/search-index.test.mjs .github/scripts/deployment-current.test.mjs .github/scripts/turbo-cache.test.mjs
 
       - name: Package the standalone worker
         if: matrix.suite == 'checks'
-        run: node apps/web/scripts/build-notifications.mjs
+        run: |
+          node apps/web/scripts/build-notifications.mjs
+          node .github/scripts/package_schedules.mjs --verify
 
       # Tests run headless, so only the headless shell is needed (not full Chromium). No --with-deps:
       # the runner image ships Google Chrome, so its system libraries are already installed, and the
