@@ -25,3 +25,10 @@ Turning it off leaves stored requests and history intact. Pending threads displa
 While off, Ready and custom Ready statuses are hidden from project workflow editors, board columns, menus and filters. Workspace definitions retain all five categories for projects that opt in. Authorized workflow discovery omits Ready definitions. All request/confirm/reject writes recheck the current project setting inside each conditional attempt and refuse with instructions to mark the comment done instead. Cancellation remains available to legacy authorized callers; the disabled UI offers ordinary completion. Queued request emails are suppressed while off. Existing confirmations remain historical records.
 
 Per-status unread counts use the same mode projection: dormant requests contribute to Open or In progress dots rather than Ready. The search-row status menus retain this filtering.
+
+The public `/features/fix-verification` page and its social card state the project opt-in before
+the optional per-thread workflow. Its FAQ covers disabling without losing history and keeps custom
+status names separate from confirmation semantics. `/features/board` illustrates built-in names on
+an enabled project and states that Ready is hidden when off. Keep those claims and the linked
+use-case pages synchronized with this setting; `fix-verification-page.spec.ts` and
+`feature-overview-pages.spec.ts` cover the public explanation.

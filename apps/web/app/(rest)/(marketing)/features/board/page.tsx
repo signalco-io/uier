@@ -14,23 +14,25 @@ import { KnownPages } from '../../../../../src/knownPages';
 // (apps/web/docs/comments-inbox.md), the filters (comment-filters.md), My work (app-shell.md) and the
 // status sync of connected services (docs/review-workflow.md). Change this page with them. Done is
 // not a reviewer's confirmation: that is fix verification, linked rather than described here.
+// The picture uses built-in statuses on an enabled project. Custom names/categories and the
+// verification opt-in follow apps/web/docs/project-settings.md and fix-verification.md.
 
 const title = 'Feedback statuses and board';
-const description = 'Follow each thread from Open through In progress and Ready to verify to Done, in a list or on a board, on the page and in the app.';
+const description = 'Follow feedback in a list or board with the project’s status names. Optional fix checks appear when the project enables them.';
 
 export const metadata = publicPageMetadata(KnownPages.Board, { title, description });
 
 const statuses: { stage: Stage; name: string; text: ReactNode }[] = [
     { stage: 'open', name: 'Open', text: 'New feedback, and threads opened again.' },
     { stage: 'in-progress', name: 'In progress', text: 'Someone is working on it.' },
-    { stage: 'ready', name: 'Ready to verify', text: <>A fix waits for the reviewer to confirm it. <InlineLink href={KnownPages.FixVerification}>Fix verification</InlineLink> explains how.</> },
+    { stage: 'ready', name: 'Ready to verify', text: <>On a project with fix verification enabled, a fix waits for its reviewer. <InlineLink href={KnownPages.FixVerification}>Fix verification</InlineLink> explains how.</> },
     { stage: 'done', name: 'Done', text: 'Fixed or settled. Its pin leaves the page, and the thread stays under Done.' }
 ];
 
 const steps = [
     {
         title: 'Change it where you are',
-        text: 'Every thread has a status menu: in its thread on the page, in the toolbar’s inbox and in the app. A change shows in all of them, for everyone.'
+        text: 'Every thread has a status menu: in its thread on the page, in the toolbar’s inbox and in the app. A change shows in the views where you can read the thread.'
     },
     {
         title: 'Work through a list',
@@ -44,13 +46,13 @@ const steps = [
 
 const board = [
     'While a card is dragged, the columns it can go to are dashed. Escape puts it back.',
-    'Dropping a card on Ready to verify asks for the fix check first: a short summary, an optional link and the reviewer.',
+    'When the project enables fix verification, dropping a card on Ready to verify asks for the check first: a short summary, an optional link and the reviewer.',
     'When anyone changes a thread’s status, its card travels to its new column instead of jumping there.',
     'Archive, beside Done, keeps finished threads out of the way without deleting them. Archive all moves a whole Done column there.'
 ];
 
 const filters = [
-    { title: 'Active, Done and All', text: 'Active is everything not done. Its menu narrows it to Open, In progress or Ready to verify.' },
+    { title: 'Active, Done and All', text: 'Active is everything not done. Its menu narrows the available categories; Ready to verify appears only when the project enables verification.' },
     { title: 'Filters', text: 'Priority, environment and page, who it is assigned to or opened by, and only unread.' },
     { title: 'Search', text: 'Search a project’s feedback by its words, including older threads.' },
     { title: 'My work', text: 'Open threads assigned to you, threads that mention you and other unread threads, across your projects, as a list or a board.' }
@@ -69,7 +71,11 @@ const questions: Question[] = [
     },
     {
         question: 'Does Done mean the fix was checked?',
-        answer: <>No. Done is ordinary completion. To have the reviewer confirm a fix first, set the thread to Ready to verify; <InlineLink href={KnownPages.FixVerification}>Fix verification</InlineLink> explains who decides.</>
+        answer: <>No. Done is ordinary completion. An admin can first enable fix verification for the project, which is off by default. A member can then request an individual check; <InlineLink href={KnownPages.FixVerification}>fix verification</InlineLink> explains who decides.</>
+    },
+    {
+        question: 'Can the team use its own status names?',
+        answer: <>Yes. Admins can define workspace statuses and a project can override them, within the Open, In progress, Ready to verify, Done and Archive categories. The board has a column per available status. Guests keep the ordinary category actions without receiving the workspace&rsquo;s custom workflow definitions.</>
     },
     {
         question: 'Can I change many threads at once?',
@@ -94,7 +100,7 @@ export default function BoardPage() {
         <main className="flex flex-col pb-16">
             <PageHeader
                 title="Follow every thread from open to done"
-                lead="Each thread has a status: Open, In progress, Ready to verify or Done. Change it on the page or in the app, and see where all of a project’s feedback stands in a list or on a board.">
+                lead="Use the project’s statuses to see where each thread stands. Change them on the page or in the app, and work through the feedback in a list or on a board.">
                 <div className="flex flex-wrap items-center gap-2.5">
                     <Button variant="solid" size="lg" href={KnownPages.App}>Get started</Button>
                     <Button variant="outlined" size="lg" href="#how-it-works">How it works</Button>
@@ -104,8 +110,8 @@ export default function BoardPage() {
 
             <PageSection
                 id="statuses"
-                title="Four statuses"
-                lead="Each has its colour, on the pin, in the inbox and in the app.">
+                title="The built-in statuses"
+                lead="The example uses the default names, with fix verification enabled. Custom names keep their category’s meaning and colour.">
                 <Panel as="ul" className="md:grid-cols-2">
                     {statuses.map(status => (
                         <li key={status.stage} className="flex flex-col gap-2 p-6">
@@ -117,6 +123,9 @@ export default function BoardPage() {
                         </li>
                     ))}
                 </Panel>
+                <p className="max-w-[720px] text-sm leading-relaxed text-muted-foreground">
+                    Admins can define workspace statuses and override them for a project. Ready to verify is hidden while fix verification is off, which is the default. Archive keeps finished threads out of the active view without deleting them.
+                </p>
             </PageSection>
 
             <PageSection

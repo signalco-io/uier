@@ -5,7 +5,7 @@ import { pageCardImage } from '@/src/lib/social/SocialCard';
 const card: PageCard = {
     section: 'Features',
     title: 'Feedback statuses and board',
-    description: 'Follow each thread from Open through In progress and Ready to verify to Done, in a list or on a board, on the page and in the app.',
+    description: 'Follow feedback in a list or board with the project’s status names. Optional fix checks appear when the project enables them.',
     path: '/features/board'
 };
 

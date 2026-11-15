@@ -8,7 +8,8 @@ import { inferAgentKind } from '@uier/toolbar/agents';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/src/components/ui/tabs';
 import { cn } from 'cn';
 import { buttonVariants } from '@/src/components/ui/button';
-import { mcpClientConfigurations } from '@/src/lib/mcp/clients';
+import { mcpClientConfigurations, mcpPluginCommands } from '@/src/lib/mcp/clients';
+import { KnownPages } from '@/src/knownPages';
 import type { ConnectedAppView } from '@/src/lib/mcp/oauth/connectedApps';
 import { feedbackSkill } from '@/src/lib/mcp/workflows';
 import { AgentMark } from '../comments/AgentAvatar';
@@ -55,19 +56,19 @@ function PluginSetup() {
                     </TabsList>
                     <TabsContent value="claude-plugin" className="flex flex-col gap-3">
                         <p className="m-0">{t("Run these commands in a Claude Code session:")}</p>
-                        <CopyBlock value={'/plugin marketplace add signalco-io/uier\n/plugin install uier@uier'} label={t("Copy Claude Code plugin commands")} />
+                        <CopyBlock value={mcpPluginCommands.claudeCode} label={t("Copy Claude Code plugin commands")} />
                         <p className="m-0 text-muted-foreground">{t("Run")}{' '}<code>/mcp</code> {t("and authenticate the plugin’s uier connection. Then use")}{' '}<code>/uier:uier-monitor &lt;project&gt;</code> {t("when you want it to monitor a project.")}</p>
                         <a className={cn(link, 'self-start')} href="https://code.claude.com/docs/en/plugins/publish#publish-through-your-own-marketplace" target="_blank" rel="noreferrer">{t("Claude Code plugin documentation")}</a>
                     </TabsContent>
                     <TabsContent value="codex-plugin" className="flex flex-col gap-3">
                         <p className="m-0">{t("Run these commands in your terminal:")}</p>
-                        <CopyBlock value={"codex plugin marketplace add signalco-io/uier\ncodex plugin add uier@uier"} label={t("Copy Codex plugin commands")} />
+                        <CopyBlock value={mcpPluginCommands.codex} label={t("Copy Codex plugin commands")} />
                         <p className="m-0 text-muted-foreground">{t("Start a new session and follow the plugin’s sign-in flow. Ask Codex to use uier-monitor for your project. If your client cannot complete plugin sign-in, use the access-token setup under Connect a coding tool below.")}</p>
                         <a className={cn(link, 'self-start')} href="https://learn.chatgpt.com/docs/developer-commands#codex-plugin" target="_blank" rel="noreferrer">{t("Codex plugin documentation")}</a>
                     </TabsContent>
                 </Tabs>
                 <p className="m-0 text-muted-foreground">{t("The plugin connects to")}{' '}<code>https://uier.io/api/mcp</code>{t(". Installing it starts no monitor. Invoking uier-monitor approves its workflow for comments in scope, including fixes, merges and replies. Keep one uier connection enabled if you already added it manually.")}</p>
-                <a className={cn(link, 'self-start')} href="https://github.com/signalco-io/uier/blob/main/docs/agent-plugins.md" target="_blank" rel="noreferrer">{t("Plugin setup and permissions")}</a>
+                <a className={cn(link, 'self-start')} href={KnownPages.McpGuide}>{t("Plugin setup and permissions")}</a>
             </div>
         </Section>
     );

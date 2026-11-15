@@ -7,6 +7,12 @@ export type McpClientSetup =
     | { id: string; name: string; docs: string; auth: 'oauth'; command: string }
     | { id: string; name: string; docs: string; auth: 'token'; location: string; configuration: string };
 
+/** Shared by Account and the public setup guide; installing a plugin starts no monitor. */
+export const mcpPluginCommands = {
+    claudeCode: '/plugin marketplace add signalco-io/uier\n/plugin install uier@uier',
+    codex: 'codex plugin marketplace add signalco-io/uier\ncodex plugin add uier@uier'
+} as const;
+
 export function mcpClientConfigurations(endpoint: string): McpClientSetup[] {
     const remote = (authorization: string) => ({ url: endpoint, headers: { Authorization: authorization } });
     return [

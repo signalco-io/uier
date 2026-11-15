@@ -731,7 +731,7 @@ const messages: Record<keyof typeof en, string> = {
     "someone": "netko",
     "staging.example.com (optional)": "staging.example.com (nije obavezno)",
     "tag in index.html. If yours has one, add these sources to its matching directives.": "oznaku u index.html. Ako ga vaš ima, dodajte ove izvore odgovarajućim direktivama.",
-    "tag on every page you want to review. It loads the toolbar only when a page is opened with a review link, so visitors never see it.": "oznaku na svakoj stranici koju želite pregledati. Učitava alatnu traku samo kada se otvori stranica s vezom za pregled, tako da je posjetitelji nikada ne vide.",
+    "tag on every page you want to review. The toolbar opens through a review link, or automatically for signed-in project members when background sign-in is available.": "oznaku na svakoj stranici koju želite pregledati. Alatna traka otvara se putem veze za pregled ili automatski za prijavljene članove projekta kada je dostupna prijava u pozadini.",
     "tag, add these sources to its matching directives.": "oznaku, dodajte ove izvore njegovim odgovarajućim direktivama.",
     "that does not limit scripts, so most need nothing. If layout/theme.liquid has a CSP": "to ne ograničava skripte, tako da većina ne treba ništa. Ako layout/theme.liquid ima CSP",
     "the {name} team": "tim {name}",

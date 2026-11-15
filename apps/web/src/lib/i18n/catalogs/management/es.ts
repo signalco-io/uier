@@ -731,7 +731,7 @@ const messages: Record<keyof typeof en, string> = {
     "someone": "alguien",
     "staging.example.com (optional)": "staging.example.com (opcional)",
     "tag in index.html. If yours has one, add these sources to its matching directives.": "etiqueta en index.html. Si el suyo tiene uno, añade estas fuentes a sus directivas coincidentes.",
-    "tag on every page you want to review. It loads the toolbar only when a page is opened with a review link, so visitors never see it.": "etiqueta en cada página que quieras revisar. Carga la barra de herramientas sólo cuando se abre una página con un enlace de revisión, por lo que los visitantes nunca la ven.",
+    "tag on every page you want to review. The toolbar opens through a review link, or automatically for signed-in project members when background sign-in is available.": "etiqueta en cada página que quieras revisar. La barra de herramientas se abre con un enlace de revisión o automáticamente para los miembros del proyecto que han iniciado sesión cuando el acceso en segundo plano está disponible.",
     "tag, add these sources to its matching directives.": "etiqueta, añade estas fuentes a sus directivas correspondientes.",
     "that does not limit scripts, so most need nothing. If layout/theme.liquid has a CSP": "eso no limita los scripts, por lo que la mayoría no necesita nada. Si diseño/theme.liquid tiene un CSP",
     "the {name} team": "el equipo {name}",

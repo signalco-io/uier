@@ -8,6 +8,8 @@ revision `2026-07-28` and the earlier revisions that begin with `initialize` ([p
 by polling. For
 the shared feedback packet, see [Feedback context](feedback-context.md).
 The public overview of what an agent can do is [uier.io/features/ai](https://uier.io/features/ai).
+The [site-hosted setup guide](https://uier.io/guides/mcp) walks through the offered client
+configurations, a first read and common connection problems. This reference retains the full contract.
 
 A coding tool connects in one of two ways:
 

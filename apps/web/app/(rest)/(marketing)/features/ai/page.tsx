@@ -6,6 +6,7 @@ import { FaqPanel, type Question } from '../../../../../src/components/marketing
 import { RewriteSpecimen } from '../../../../../src/components/marketing/AiSpecimens';
 import { AgentCover } from '../../../../../src/components/marketing/covers/AgentCover';
 import { KnownPages } from '../../../../../src/knownPages';
+import { mcpPluginCommands } from '@/src/lib/mcp/clients';
 
 // What uier does with AI today: the MCP connector for coding tools (docs/mcp.md; src/lib/mcp:
 // server.ts for the tools, workflows.ts for the prompts and the skill, clients.ts for the clients
@@ -156,13 +157,14 @@ export default function AiPage() {
                     <div className="md:col-span-2">
                         <Tile title={`The ${brand.name} plugin`} label="Claude Code and Codex">
                             <p>Or install the plugin from the repository&rsquo;s marketplace. It adds the same connection and the <code className={code}>uier-monitor</code> skill. Installing it starts nothing and changes no feedback; the <InlineLink href={pluginGuide}>plugin guide</InlineLink> says what the skill does when you run it.</p>
-                            <pre className="whitespace-pre-wrap rounded-xl border bg-muted/50 px-4 py-3 font-mono text-xs text-foreground [overflow-wrap:anywhere]"><code>{'/plugin marketplace add signalco-io/uier\n/plugin install uier@uier'}</code></pre>
+                            <pre className="whitespace-pre-wrap rounded-xl border bg-muted/50 px-4 py-3 font-mono text-xs text-foreground [overflow-wrap:anywhere]"><code>{mcpPluginCommands.claudeCode}</code></pre>
                         </Tile>
                     </div>
                 </Panel>
                 <p className="max-w-[720px] text-sm text-muted-foreground">
                     An access token also works where no browser can sign in, such as SSH sessions, containers and CI. It lasts 30 days and reaches up to 20 projects in one workspace. Other tools are added to Account once their connection has been checked.
                 </p>
+                <InlineLink href={KnownPages.McpGuide}>Follow the MCP setup guide</InlineLink>
             </PageSection>
 
             <PageSection

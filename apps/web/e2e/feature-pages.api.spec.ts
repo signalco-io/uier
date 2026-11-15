@@ -79,7 +79,7 @@ const overviewPages = [
     { path: '/features/screenshots', title: 'Screenshots and browser context', description: /attempts a screenshot of the spot/ },
     { path: '/features/threads', title: 'Threads, mentions and assignees', description: /mention teammates, assign the people who fix it/ },
     { path: '/features/inbox', title: 'Website feedback inbox', description: /pick a page or an environment/ },
-    { path: '/features/board', title: 'Feedback statuses and board', description: /from Open through In progress and Ready to verify to Done/ }
+    { path: '/features/board', title: 'Feedback statuses and board', description: /project’s status names.*when the project enables them/ }
 ];
 
 for (const feature of overviewPages) {

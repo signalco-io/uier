@@ -4,7 +4,7 @@ import { KnownPageLinks, KnownPages } from '@/src/knownPages';
 import { InlineLink, PageHeader, PageSection, Panel, Tile } from '../ContentPage';
 import { ComparisonCover } from './ComparisonCover';
 import { WorkflowPicture } from './WorkflowPicture';
-import { checkedOn, checkedOnLabel, competitors, competitorSlugs, dimensions, uier, type CompetitorSlug, type Fact, type Product, type Support } from './content';
+import { competitors, competitorSlugs, dimensions, uier, type CompetitorSlug, type Fact, type Product, type Support } from './content';
 
 const statusIcons = { yes: Check, limited: Info, no: CircleMinus, unknown: CircleHelp };
 const statusLabels: Record<Support, string> = { yes: 'Available', limited: 'Has limits', no: 'Not supported', unknown: 'Not verified' };
@@ -12,7 +12,9 @@ const choiceTitles: Record<CompetitorSlug, string> = {
     bugherd: 'Choose BugHerd for custom task workflows',
     'marker-io': 'Choose Marker.io for bug reproduction',
     usersnap: 'Choose Usersnap for product research',
-    pastel: 'Choose Pastel for asset approval'
+    pastel: 'Choose Pastel for asset approval',
+    userback: 'Choose Userback for product-feedback evidence',
+    ruttl: 'Choose ruttl to demonstrate visual changes'
 };
 
 function SupportIcon({ support }: { support: Support }) {
@@ -37,8 +39,9 @@ function FeatureMatrix({ products, compact = false }: { products: Product[]; com
             {(Object.keys(statusLabels) as Support[]).map(support => <li key={support} className="flex items-start gap-1.5"><SupportIcon support={support} />{statusLabels[support]}</li>)}
         </ul>
         <p id="matrix-help" className="text-sm text-muted-foreground">{compact ? 'Scroll across for every tool. Open Details for caveats and the source behind each entry.' : 'Scroll across on a narrow screen. Each entry includes its scope and, where applicable, a source.'} Not verified means unknown, not unsupported.</p>
-        <div role="region" aria-label="Feature comparison table" aria-describedby="matrix-help" tabIndex={0} className="overflow-x-auto rounded-2xl border focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring">
-            <table className={`w-full table-fixed border-collapse text-left ${compact ? 'min-w-[1120px]' : 'min-w-[600px]'}`}>
+        {/* Keep the absolutely positioned screen-reader labels inside this scroll surface. */}
+        <div role="region" aria-label="Feature comparison table" aria-describedby="matrix-help" tabIndex={0} className="relative min-w-0 max-w-full overflow-x-auto rounded-2xl border focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring">
+            <table className={`w-full table-fixed border-collapse text-left ${compact ? 'min-w-[1440px]' : 'min-w-[600px]'}`}>
                 <caption className="sr-only">Website feedback capabilities compared: {products.map(product => product.name).join(', ')}</caption>
                 <thead className="bg-muted/50"><tr>
                     <th scope="col" className="w-44 p-4 text-sm font-medium">Workflow or feature</th>
@@ -54,7 +57,7 @@ function FeatureMatrix({ products, compact = false }: { products: Product[]; com
 }
 
 function MethodNote() {
-    return <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">Written by uier. Vendor documentation checked <time dateTime={checkedOn}>{checkedOnLabel}</time>. This is a comparison of documented capabilities, not a hands-on benchmark. Features and plan entitlements can change; the source links let you check them.</p>;
+    return <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">Written by uier. Each source list records its own review date. This is a comparison of documented capabilities, not a hands-on benchmark. Features and plan entitlements can change; the source links let you check them. MCP access is available in several tools and does not automatically fix code.</p>;
 }
 
 function ProductChoice({ product, title }: { product: Product; title: string }) {
@@ -83,6 +86,7 @@ function Sources({ products }: { products: Product[] }) {
     return <Panel className={products.length === 2 ? 'md:grid-cols-2' : 'md:grid-cols-2 lg:grid-cols-3'}>
         {products.map(product => <div key={product.name} className="p-6">
             <h3 className="text-base font-semibold">{product.name}</h3>
+            <p className="mt-2 text-xs text-muted-foreground">Sources checked <time dateTime={product.reviewed.date}>{product.reviewed.label}</time>.</p>
             <ul className="mt-3 flex flex-col gap-3 text-sm">{product.sources.map(source => <li key={source.url}><InlineLink href={source.url}>{source.label}</InlineLink></li>)}</ul>
         </div>)}
     </Panel>;
@@ -94,14 +98,14 @@ function RelatedComparisons({ except }: { except?: CompetitorSlug }) {
             <h3 className="text-base font-semibold"><InlineLink href={KnownPageLinks.comparison(slug)}>uier vs {competitors[slug].name}</InlineLink></h3>
             <p className="text-sm leading-relaxed text-muted-foreground">{competitors[slug].bestFor}</p>
         </div>)}
-        {except && <div className="flex flex-col gap-2 p-6"><h3 className="text-base font-semibold"><InlineLink href={KnownPageLinks.comparison('website-feedback-tools')}>Compare all five tools</InlineLink></h3><p className="text-sm leading-relaxed text-muted-foreground">See capture, proofing, workflow and research capabilities in one matrix.</p></div>}
+        {except && <div className="flex flex-col gap-2 p-6"><h3 className="text-base font-semibold"><InlineLink href={KnownPageLinks.comparison('website-feedback-tools')}>Compare all seven tools</InlineLink></h3><p className="text-sm leading-relaxed text-muted-foreground">See capture, editing, proofing, workflow and research capabilities in one matrix.</p></div>}
     </Panel>;
 }
 
 const tradeoffs: Record<CompetitorSlug, { keep: string; lose: string; test: string }> = {
     bugherd: {
         keep: 'Use BugHerd if your team depends on audio explanations, Figma or file review, due dates or custom Kanban columns.',
-        lose: 'In uier, you would use live-page comments, short screen recordings and custom statuses grouped under five fixed stages. File proofing and due dates do not carry over.',
+        lose: 'In uier, you would use live-page comments, short screen recordings and custom statuses grouped under five fixed stages. File proofing and due dates do not carry over; custom statuses do not add release-wide approval.',
         test: 'Try one client review from first comment to reviewer confirmation. Check that uier’s five integrations cover the destinations you need; it does not provide BugHerd’s full integration catalog.'
     },
     'marker-io': {
@@ -118,12 +122,38 @@ const tradeoffs: Record<CompetitorSlug, { keep: string; lose: string; test: stri
         keep: 'Use Pastel if a review spans PDFs, images, videos and emails, or if approval must apply to an entire asset version.',
         lose: 'uier has no multi-format review canvas or asset-version approvals. A named reviewer can confirm one thread’s fix, which does not sign off the page, asset or release.',
         test: 'Try the same live website through your preferred uier installation route. Test authenticated pages. Keep asset proofing in a tool that supports those formats.'
+    },
+    userback: {
+        keep: 'Keep Userback when your product-feedback program relies on session replay, console/network evidence, surveys, a feature portal or its specific integration automations.',
+        lose: 'uier supports anchored review, drawings, saved message images, short recordings, custom statuses and agent access. It does not replace replay, developer diagnostics, surveys or a public request board.',
+        test: 'Report a product bug in both tools. Compare the evidence a developer receives, check your plan’s feedback availability and test the destination. Use the same login and browser rather than assuming every capture path is equivalent.'
+    },
+    ruttl: {
+        keep: 'Keep ruttl when reviewers need to demonstrate CSS or copy changes, comment on PDFs/images, set task deadlines or use its client-review and integration workflow.',
+        lose: 'uier lets a reviewer explain a change with anchored text, drawings and media. It does not edit or publish site code, proof a PDF or approve an entire asset version. Custom thread statuses do not create a release sign-off.',
+        test: 'Review one real client page and a login-protected page with the intended installation. Check guest access and any required PDF review. Confirm the current user, guest, storage and integration allowances with ruttl before choosing a plan.'
+    }
+};
+
+const examples: Partial<Record<CompetitorSlug, { title: string; situation: string; alternative: string; review: string }>> = {
+    userback: {
+        title: 'A checkout report needs reproduction evidence',
+        situation: 'On a fictional restaurant’s ordering app, a customer reports that changing the collection time clears the basket. A screenshot alone does not show the sequence.',
+        alternative: 'With the appropriate Userback plan and widget settings, inspect the feedback replay and diagnostics, assign the item and use an MCP client to inspect context or propose a workflow update.',
+        review: 'In uier, pin a report to the collection-time field, write the steps and expected result, and attach a short recording. Discuss it in the thread, assign the fix and request human verification if the project has enabled it. Keep a separate diagnostic tool if logs or replay are required.'
+    },
+    ruttl: {
+        title: 'A client wants to show a layout change',
+        situation: 'For a fictional restaurant’s launch, the client wants a shorter booking heading and more space above the menu. The team also needs feedback on a separate PDF menu.',
+        alternative: 'ruttl can demonstrate a CSS/text change on the page and collect PDF comments in its corresponding review surface. An assigned task then gives the developer the proposed change to implement.',
+        review: 'In uier, select the heading’s words and draw the intended spacing on the live page. Discuss and assign each thread, then ask a reviewer to check the shipped fix when verification is enabled. Keep PDF proofing in a tool that supports it.'
     }
 };
 
 export function PairComparisonPage({ slug }: { slug: CompetitorSlug }) {
     const competitor = competitors[slug];
     const tradeoff = tradeoffs[slug];
+    const example = examples[slug];
     return <main className="flex min-w-0 flex-col pb-16">
         <div className="grid grid-cols-1 items-end gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,440px)] lg:gap-16">
             <PageHeader title={`uier vs ${competitor.name}`} lead={`An honest look at uier as a ${competitor.name} alternative: what overlaps, where the workflows differ and what you would give up.`}>
@@ -143,6 +173,11 @@ export function PairComparisonPage({ slug }: { slug: CompetitorSlug }) {
             <FeatureMatrix products={[uier, competitor]} />
         </PageSection>
 
+        {example && <PageSection id="example" title={example.title} lead={example.situation}>
+            <Panel><Tile title={`In ${competitor.name}`}><p>{example.alternative}</p></Tile><Tile title="In uier"><p>{example.review}</p></Tile></Panel>
+            <p className="text-sm leading-relaxed text-muted-foreground">A fictional example, not a customer result. See <InlineLink href={KnownPages.ClientFeedback}>client website feedback</InlineLink>, <InlineLink href={KnownPages.BugReporting}>website bug reporting</InlineLink> and <InlineLink href={KnownPages.UserAcceptanceTesting}>manual acceptance review</InlineLink>.</p>
+        </PageSection>}
+
         <PageSection id="tradeoffs" title="What changes if you switch" lead="Check the workflows you rely on before switching.">
             <Panel><Tile title={`Reasons to keep ${competitor.name}`}><p>{tradeoff.keep}</p></Tile><Tile title="What uier does not replace"><p>{tradeoff.lose}</p></Tile><Tile title="What to try before deciding"><p>{tradeoff.test}</p></Tile></Panel>
             <p className="text-sm leading-relaxed text-muted-foreground">There is no built-in importer for {competitor.name}. Keep access to existing feedback and attachments; this comparison does not promise a migration of history.</p>
@@ -159,7 +194,7 @@ export function PairComparisonPage({ slug }: { slug: CompetitorSlug }) {
 
         <PageSection id="next" title="Try the review workflow" lead="If live-page review is the part you need, try it with one page and one reviewer.">
             <div className="flex flex-wrap gap-2.5"><Button variant="solid" href={KnownPages.App}>Create a project</Button><Button variant="outlined" href={KnownPages.ClientReviewGuide}>Client review guide</Button></div>
-            <p className="text-sm leading-relaxed text-muted-foreground">See <InlineLink href={KnownPages.FixVerification}>fix verification</InlineLink>, <InlineLink href={KnownPages.PageChecks}>page checks and their limits</InlineLink> or <InlineLink href={KnownPages.Ai}>the MCP workflow</InlineLink>.</p>
+            <p className="text-sm leading-relaxed text-muted-foreground">See <InlineLink href={KnownPages.FixVerification}>fix verification</InlineLink>, <InlineLink href={KnownPages.PageChecks}>page checks and their limits</InlineLink>, <InlineLink href={KnownPages.Ai}>the coding-agent workflow</InlineLink> or the <InlineLink href={KnownPages.McpGuide}>MCP setup guide</InlineLink>.</p>
         </PageSection>
 
         <PageSection id="related" title="Other alternatives" lead={<InlineLink href={KnownPages.Compare}>Back to the comparison guide</InlineLink>} wide><RelatedComparisons except={slug} /></PageSection>
@@ -169,7 +204,7 @@ export function PairComparisonPage({ slug }: { slug: CompetitorSlug }) {
 export function AllToolsPage() {
     const products: Product[] = [uier, ...competitorSlugs.map(slug => competitors[slug])];
     return <main className="flex min-w-0 flex-col pb-16">
-        <PageHeader title="Website feedback tools compared" lead="Five tools for overlapping jobs: live-page review, bug reproduction, product research and asset approval. Choose the workflow first.">
+        <PageHeader title="Website feedback tools compared" lead="Seven tools for overlapping jobs: live-page review, bug reproduction, visual changes, product research and asset approval. Choose the workflow first.">
             <div className="flex flex-wrap gap-2.5"><Button variant="solid" size="lg" href="#features">Open the feature matrix</Button><Button variant="outlined" size="lg" href={KnownPages.Compare}>Comparison guide</Button></div>
         </PageHeader>
 
@@ -180,7 +215,7 @@ export function AllToolsPage() {
         <PageSection id="features" title="Compare the actual capabilities" lead="No overall winner. Unsupported and unverified capabilities stay visible alongside supported ones." wide><FeatureMatrix products={products} compact /></PageSection>
 
         <PageSection id="gaps" title="When uier will not cover the job" lead="Use another tool, or keep it alongside uier, when these are requirements.">
-            <Panel><Tile title="Reproduce a sequence"><p>uier supports short screen recordings with explicit permission. Built-in capture has no audio and ends on full-page navigation. Session replay, console logs and network capture are unavailable. Marker.io documents replay and diagnostics; BugHerd and Usersnap document recording. Their capture modes are different.</p></Tile><Tile title="Approve assets"><p>uier does not proof PDFs, design files, video or email. Pastel supports multi-format canvases and version approvals. BugHerd also lists file and Figma review.</p></Tile><Tile title="Run product research"><p>uier has no satisfaction surveys, public voting or roadmap. Usersnap combines these with visual feedback.</p></Tile><Tile title="Customize every stage"><p>uier supports up to 30 custom statuses, grouped under Open, In progress, Ready to verify, Done and Archive. There are no due dates or release-wide sign-offs. BugHerd supports customizable board columns with due dates.</p></Tile></Panel>
+            <Panel><Tile title="Reproduce a sequence"><p>uier supports short screen recordings with explicit permission. Built-in capture has no audio and ends on full-page navigation. Session replay, console logs and network capture are unavailable. Marker.io and Userback document replay and diagnostics; BugHerd and Usersnap document recording. Their capture modes are different.</p></Tile><Tile title="Approve assets"><p>uier does not proof PDFs, design files, video or email. Pastel supports multi-format canvases and version approvals. BugHerd lists file and Figma review; ruttl lists image and PDF review.</p></Tile><Tile title="Run product research"><p>uier has no satisfaction surveys, public voting or roadmap. Usersnap and Userback document product-research capabilities alongside visual feedback.</p></Tile><Tile title="Customize the status names"><p>uier supports up to 30 custom statuses, grouped under Open, In progress, Ready to verify, Done and Archive. There are no due dates or release-wide sign-offs. BugHerd supports customizable board columns with due dates.</p></Tile><Tile title="Demonstrate a live edit"><p>uier supports drawings to explain a change. It does not edit site CSS/text. ruttl documents live CSS and text demonstrations.</p></Tile></Panel>
         </PageSection>
 
         <PageSection id="setup" title="The practical differences" lead="Plan limits, reviewer access and integration behavior can change the decision." wide><Panel className="md:grid-cols-2">{products.map(product => <ProductPracticalities key={product.name} product={product} />)}</Panel></PageSection>
@@ -193,14 +228,14 @@ export function AllToolsPage() {
 
 export function ComparisonHub() {
     return <main className="flex min-w-0 flex-col pb-16">
-        <PageHeader title="Find the right website feedback tool" lead="Compare uier with BugHerd, Marker.io, Usersnap and Pastel by the work you need to finish, including where another tool fits better.">
-            <div className="flex flex-wrap gap-2.5"><Button variant="solid" size="lg" href={KnownPageLinks.comparison('website-feedback-tools')}>Compare all five tools</Button><Button variant="outlined" size="lg" href="#alternatives">Explore alternatives</Button></div>
+        <PageHeader title="Find the right website feedback tool" lead="Compare uier with BugHerd, Marker.io, Usersnap, Pastel, Userback and ruttl by the work you need to finish, including where another tool fits better.">
+            <div className="flex flex-wrap gap-2.5"><Button variant="solid" size="lg" href={KnownPageLinks.comparison('website-feedback-tools')}>Compare all seven tools</Button><Button variant="outlined" size="lg" href="#alternatives">Explore alternatives</Button></div>
         </PageHeader>
 
         <PageSection id="start" title="Start with the job" lead="A screenshot, a replay and an approval answer different questions." wide>
             <Panel className="md:grid-cols-3">
-                <div><WorkflowPicture kind="review" /><div className="flex flex-col gap-3 p-6"><h3 className="text-xl font-semibold tracking-tight">Review a live website</h3><p className="text-sm leading-relaxed text-muted-foreground">Point at copy or layout, discuss the change and check the fix. Compare uier’s review workflow with BugHerd and Pastel.</p><InlineLink href={KnownPageLinks.comparison('bugherd')}>Compare website review <ArrowRight size={14} strokeWidth={1.75} aria-hidden="true" className="inline" /></InlineLink></div></div>
-                <div><WorkflowPicture kind="diagnostics" /><div className="flex flex-col gap-3 p-6"><h3 className="text-xl font-semibold tracking-tight">Reproduce a bug</h3><p className="text-sm leading-relaxed text-muted-foreground">Capture what happened, not only how the page looked. Marker.io and Usersnap offer capture capabilities uier does not.</p><InlineLink href={KnownPageLinks.comparison('marker-io')}>Compare bug evidence <ArrowRight size={14} strokeWidth={1.75} aria-hidden="true" className="inline" /></InlineLink></div></div>
+                <div><WorkflowPicture kind="review" /><div className="flex flex-col gap-3 p-6"><h3 className="text-xl font-semibold tracking-tight">Review a live website</h3><p className="text-sm leading-relaxed text-muted-foreground">Point at copy or layout, discuss the change and check the fix. Compare uier’s review workflow with BugHerd, Pastel and ruttl.</p><InlineLink href={KnownPageLinks.comparison('bugherd')}>Compare website review <ArrowRight size={14} strokeWidth={1.75} aria-hidden="true" className="inline" /></InlineLink></div></div>
+                <div><WorkflowPicture kind="diagnostics" /><div className="flex flex-col gap-3 p-6"><h3 className="text-xl font-semibold tracking-tight">Reproduce a bug</h3><p className="text-sm leading-relaxed text-muted-foreground">Capture what happened, not only how the page looked. Marker.io, Usersnap and Userback offer capture capabilities uier does not.</p><InlineLink href={KnownPageLinks.comparison('marker-io')}>Compare bug evidence <ArrowRight size={14} strokeWidth={1.75} aria-hidden="true" className="inline" /></InlineLink></div></div>
                 <div><WorkflowPicture kind="proofing" /><div className="flex flex-col gap-3 p-6"><h3 className="text-xl font-semibold tracking-tight">Approve more than a page</h3><p className="text-sm leading-relaxed text-muted-foreground">Review a PDF, image, email or video and approve a version. Pastel supports a broader set of assets than uier.</p><InlineLink href={KnownPageLinks.comparison('pastel')}>Compare asset review <ArrowRight size={14} strokeWidth={1.75} aria-hidden="true" className="inline" /></InlineLink></div></div>
             </Panel>
         </PageSection>
@@ -208,7 +243,7 @@ export function ComparisonHub() {
         <PageSection id="alternatives" title="Compare one alternative" lead="Read the overlap, the missing capabilities and the practical differences side by side." wide><RelatedComparisons /></PageSection>
 
         <PageSection id="limits" title="Where uier fits" lead="Live-page comments, assignment and human fix verification.">
-            <Panel><Tile title="See the review workflow"><p>Start with the <InlineLink href={KnownPages.ClientReviewGuide}>client review guide</InlineLink>, <InlineLink href={KnownPages.FeedbackTriage}>feedback triage</InlineLink> and <InlineLink href={KnownPages.FixVerification}>fix verification</InlineLink>.</p></Tile><Tile title="Check the boundaries"><p>Screen recordings are limited to 60 seconds and 25 MiB. Session replay, file proofing and satisfaction surveys are unavailable. Check <InlineLink href={KnownPageLinks.comparison('website-feedback-tools')}>the full feature matrix</InlineLink> before replacing a tool you rely on.</p></Tile><Tile title="Check installation and handoff"><p>See the <InlineLink href={KnownPages.BrowserExtension}>desktop extension</InlineLink>, <InlineLink href={KnownPages.Integrations}>integrations</InlineLink>, <InlineLink href={KnownPages.Ai}>coding-agent workflow</InlineLink> and <InlineLink href={KnownPages.PageChecks}>page-check limits</InlineLink>.</p></Tile></Panel>
+            <Panel><Tile title="See the review workflow"><p>Start with the <InlineLink href={KnownPages.ClientReviewGuide}>client review guide</InlineLink>, <InlineLink href={KnownPages.FeedbackTriage}>feedback triage</InlineLink> and <InlineLink href={KnownPages.FixVerification}>fix verification</InlineLink>.</p></Tile><Tile title="Check the boundaries"><p>Screen recordings are limited to 60 seconds and 25 MiB. Session replay, console/network capture, file proofing, satisfaction surveys and live site editing are unavailable. Check <InlineLink href={KnownPageLinks.comparison('website-feedback-tools')}>the full feature matrix</InlineLink> before replacing a tool you rely on.</p></Tile><Tile title="Check installation and handoff"><p>See the <InlineLink href={KnownPages.BrowserExtension}>desktop extension</InlineLink>, <InlineLink href={KnownPages.Integrations}>integrations</InlineLink>, <InlineLink href={KnownPages.McpGuide}>MCP setup guide</InlineLink> and <InlineLink href={KnownPages.PageChecks}>page-check limits</InlineLink>.</p></Tile></Panel>
             <Button variant="solid" href={KnownPages.App} className="self-start">Try uier on a page</Button>
         </PageSection>
     </main>;

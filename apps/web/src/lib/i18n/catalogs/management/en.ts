@@ -730,7 +730,7 @@ const messages = {
     "someone": "someone",
     "staging.example.com (optional)": "staging.example.com (optional)",
     "tag in index.html. If yours has one, add these sources to its matching directives.": "tag in index.html. If yours has one, add these sources to its matching directives.",
-    "tag on every page you want to review. It loads the toolbar only when a page is opened with a review link, so visitors never see it.": "tag on every page you want to review. It loads the toolbar only when a page is opened with a review link, so visitors never see it.",
+    "tag on every page you want to review. The toolbar opens through a review link, or automatically for signed-in project members when background sign-in is available.": "tag on every page you want to review. The toolbar opens through a review link, or automatically for signed-in project members when background sign-in is available.",
     "tag, add these sources to its matching directives.": "tag, add these sources to its matching directives.",
     "that does not limit scripts, so most need nothing. If layout/theme.liquid has a CSP": "that does not limit scripts, so most need nothing. If layout/theme.liquid has a CSP",
     "the {name} team": "the {name} team",

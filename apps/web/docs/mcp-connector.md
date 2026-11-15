@@ -1,5 +1,12 @@
 # Authenticated MCP connector
 
+The public setup guide is `/guides/mcp`, distinct from the `/features/ai` overview. It renders
+`mcpClientConfigurations` and `mcpPluginCommands` from `clients.ts`, also used by Account → Coding
+agents; examples contain environment references only. Keep its authentication/qualification,
+first-read, image permission, thread-card and revocation guidance with [docs/mcp.md](../../../docs/mcp.md)
+and the plugin reference. `e2e/mcp-guide.spec.ts` checks configuration parity, internal links and
+desktop/mobile accessibility. A public guide adds no client OAuth qualification or monitoring grant.
+
 `/api/mcp` is stateless, on the official MCP SDK v2 (`@modelcontextprotocol/server`; tests use
 `@modelcontextprotocol/client` and the schemas of `@modelcontextprotocol/core`), and serves
 two protocol generations (see Protocol revisions and transport below). `src/lib/mcp/` owns

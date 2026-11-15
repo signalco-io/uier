@@ -37,6 +37,10 @@ export async function SiteFooter() {
                     header: 'Resources',
                     ctas: [
                         { label: 'Guides', href: KnownPages.Guides },
+                        { label: 'Client feedback', href: KnownPages.ClientFeedback },
+                        { label: 'Bug reporting', href: KnownPages.BugReporting },
+                        { label: 'Manual acceptance testing', href: KnownPages.UserAcceptanceTesting },
+                        { label: 'MCP setup', href: KnownPages.McpGuide },
                         { label: 'Website review checklist', href: KnownPages.ReviewChecklist },
                         { label: 'Bug-report template', href: KnownPages.BugReportTemplate },
                         { label: 'Compare website feedback tools', href: KnownPages.Compare },

@@ -9,6 +9,10 @@ uses the same `nextJsSnippet` generator as a project's installation guide.
 
 ## Search consoles
 
+The [15 November baseline](search-baseline-2026-11-15.md) records current publication evidence,
+unavailable authenticated search metrics, the manual 28-day comparison and attribution limits.
+It preserves the owner and review procedure in the public inventory; measurement remains #311.
+
 Google Search Console's domain property uses the existing Cloudflare verification TXT record.
 The homepage's `msvalidate.01` meta tag is the manual Bing Webmaster Tools proof for the uier
 account. Preserve these proofs after verification. Both services should receive

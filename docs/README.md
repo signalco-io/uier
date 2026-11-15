@@ -11,6 +11,7 @@ Start with the [project README](../README.md) to run uier locally or find the ma
 - Feature notes for [apps/web](../apps/web/docs/README.md) and [packages/toolbar](../packages/toolbar/docs/README.md): one file per area, read the one for the area you change.
 - [Brand guide](../packages/brand/BRAND.md) and [live brand page](https://uier.io/brand): voice, tokens, logo and components.
 - [Public page inventory](public-page-inventory.md): canonical route intent, sources, publication gates, editorial ownership and review procedure.
+- [Search rollout baseline](search-baseline-2026-11-15.md): available publication evidence, missing search data, manual 28-day review and activation/attribution limits.
 - [GitHub presence](github-presence.md): repository details, social preview assets and the signalco company profile.
 
 ## Product and APIs

@@ -102,7 +102,7 @@ export default function ClientReviewGuide() {
 
             <GuideStep {...sections.verify} lead="Marking work done and confirming the result are separate steps.">
                 <StepText>
-                    After the change is deployed, ask the person who reported it to verify the fix. They can confirm the fix or say it still needs work.
+                    After the change is deployed, ask the person who reported it to check the result. To record a fix check in uier, an admin first enables fix verification in Project settings → Review; it is off by default. A member can then request an optional check on that thread from an eligible reviewer, who can confirm the fix or say it still needs work.
                     Read the <InlineLink href={KnownPages.FixVerification}>fix verification guide</InlineLink> for the available states.
                 </StepText>
                 <FixVerificationSpecimen />
@@ -121,7 +121,7 @@ export default function ClientReviewGuide() {
         <PageSection {...sections.rounds} lead="These are agreed team practices, not a mandatory approval workflow enforced by uier.">
             <Panel className="lg:grid-cols-3">
                 <Tile title="First round"><p>Check the agreed content and journeys. Keep one problem per thread, ask for missing context and assign the next action.</p></Tile>
-                <Tile title="Fix-check round"><p>Review the deployed changes in the original environment. Request a named reviewer&rsquo;s verification where needed; ordinary Done remains available.</p></Tile>
+                <Tile title="Fix-check round"><p>Review the deployed changes in the original environment. Where the project has enabled verification, request a named reviewer&rsquo;s check where needed; ordinary Done remains available.</p></Tile>
                 <Tile title="Handoff"><p>List unresolved threads, their owners, priority and the next decision. Record areas not checked. Agree the site-level acceptance separately; confirming one fix does not approve the whole release.</p></Tile>
             </Panel>
         </PageSection>
@@ -138,6 +138,9 @@ export default function ClientReviewGuide() {
                 ))}
             </ul>
             <StepText>Check the <InlineLink href={KnownPages.Integrations}>integration’s</InlineLink> setup steps and permissions before connecting it.</StepText>
+            <StepText muted>
+                Choose the <InlineLink href={KnownPages.ClientFeedback}>client-feedback workflow</InlineLink> for a review round, the <InlineLink href={KnownPages.BugReporting}>bug-reporting example</InlineLink> for a reproducible finding, or the <InlineLink href={KnownPages.UserAcceptanceTesting}>manual acceptance-review workflow</InlineLink> for agreed journeys and a wider handoff.
+            </StepText>
             <InlineLink href={KnownPages.Guides}>All guides</InlineLink>
         </PageSection>
     </main>;

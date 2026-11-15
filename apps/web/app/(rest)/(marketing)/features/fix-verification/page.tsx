@@ -11,11 +11,12 @@ import { KnownPages } from '../../../../../src/knownPages';
 // are the shipped ones: the thread's controls (VerificationControl in the app, CommentVerification and
 // verification.ts in the toolbar), changeFixVerification and verificationPermissions in
 // src/lib/review. Change this page with them. Ordinary Done, bulk Done, a connected service closing its
-// issue and MCP status are never reviewer confirmation; say so wherever they come up.
+// issue and MCP status are never reviewer confirmation; say so wherever they come up. Project
+// opt-in and disabled-project behavior follow apps/web/docs/fix-verification.md, "Project opt-in".
 
 export const metadata = publicPageMetadata(KnownPages.FixVerification, {
     title: 'Fix verification for website feedback',
-    description: `Ask the person who reported a problem to confirm the fix. ${brand.name} records who confirmed it and when, apart from marking it done.`
+    description: `Enable optional fix checks for a project, then ask a reviewer to confirm an individual fix. ${brand.name} records who decided and when.`
 });
 
 const steps = [
@@ -70,13 +71,22 @@ const useCases = [
 const tryIt = [
     'Sign in and create a project for your site.',
     'Add the script tag, or open a review link, and leave feedback.',
+    'As an admin, turn on Enable fix verification in Project settings → Review and save.',
     'When a fix is ready, set the thread to Ready to verify and request verification.'
 ];
 
 const questions: Question[] = [
     {
+        question: 'How do I enable fix verification?',
+        answer: <>It is off by default for every project. A workspace admin turns on Enable fix verification in Project settings → Review and saves the change. Members can then request checks on individual threads.</>
+    },
+    {
         question: 'Does every thread need verification?',
-        answer: <>No. It is optional for each thread. There is no project-wide approval step and no custom workflow: Done and Reopen work as before, and a thread waiting for its reviewer can still be marked Done without verification.</>
+        answer: <>No. Even after a project enables it, verification is optional for each thread. Done and Reopen remain available, and a thread waiting for its reviewer can still be marked Done without verification. Custom status names do not make ordinary completion a reviewer&rsquo;s confirmation.</>
+    },
+    {
+        question: 'What happens if the project turns verification off?',
+        answer: <>Requests and earlier decisions stay saved. Pending checks show as Open or In progress, and the thread can still be marked done without confirmation. Turning verification back on resumes a still-pending check; an ordinary status change can end it in the meantime.</>
     },
     {
         question: 'Can the person who fixed it confirm it?',
@@ -119,7 +129,10 @@ export default function FixVerificationPage() {
             <PageSection
                 id="how-it-works"
                 title="How it works"
-                lead="Three steps on a thread you already have. Replies, priority and search keep working throughout.">
+                lead="Once the project enables fix verification, three steps on a thread you already have.">
+                <p className="max-w-[720px] text-sm leading-relaxed text-muted-foreground">
+                    Fix verification is off by default. A workspace admin turns on <strong className="font-medium text-foreground">Enable fix verification</strong> in Project settings → Review and saves. The example below shows an enabled project; replies, priority and search keep working throughout.
+                </p>
                 <FixVerificationSpecimen />
                 <Panel as="ol">
                     {steps.map((step, index) => (

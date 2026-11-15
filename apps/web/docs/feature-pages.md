@@ -41,9 +41,11 @@ threads, who edits and deletes, and the 50-message thread limit.
 environments), search, Assigned to me, the unread line, the status tabs, drafts, paging, environments and the app's
 comments and My work. Keep it with the toolbar's inbox note and `docs/review-workflow.md` ("Feedback environments").
 
-`/features/board` (`BoardCover`) states the four statuses, who may change them (members and the comment's author,
+`/features/board` (`BoardCover`) illustrates the built-in working statuses on a project with verification enabled,
+states workspace/project custom status names within the fixed categories, who may change them (members and the comment's author,
 `canResolveComment`), the list, the board's drag, touch and keyboard moves, Ready to verify asking for the request,
-Archive, the filters and My work. It links to fix verification and triage instead of describing them.
+Archive, the filters and My work. Ready is hidden when project verification is off, which is the default.
+It links to fix verification and triage instead of describing them.
 
 `/features/feedback-triage` states paged project feedback (including search over older authorized threads)
 and the `MAX_TRIAGE_THREADS` action bound (50), the batch outcomes and the permissions; change the page with them.
@@ -57,6 +59,10 @@ Its final section links to `/compare` for teams deciding how to handle website r
 `/features/fix-verification` keeps a reviewer's confirmation apart from ordinary and bulk Done (it
 links to the triage page for the latter), a connected service's closure and MCP status; change it
 with the verification controls and `src/lib/review/fixVerification.ts`.
+It states that a workspace admin first enables verification in Project settings → Review (off by default),
+then members request optional checks on individual threads. Turning the setting off preserves history
+and makes pending checks display as Open or In progress; it does not create a confirmation. Custom
+status names never change these rules. The specimen illustrates a project with verification enabled.
 Its "Where it helps" cards each carry an outlined `@signalco/ui-icons` icon through `Tile`'s `icon`
 (20 px, 1.75 stroke); other feature pages have no use-case section.
 `e2e/fix-verification-page.spec.ts` covers its copy, links, responsive layout and accessibility.
