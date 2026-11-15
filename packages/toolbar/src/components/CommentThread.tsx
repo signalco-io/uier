@@ -113,15 +113,20 @@ function ThreadContents({ commentItem, reading, onPage, allMessages }: { comment
                             threadItem={item} />
                     </div>
                 ))}
+                {/* Lines on both sides mark the hidden messages between the first and last (uier #443) */}
                 {!expanded && restComments.length > 0 && (
-                    <Button
-                        variant="plain"
-                        size="xs"
-                        className="ml-6 self-start text-muted-foreground"
-                        data-uier-thread-control=""
-                        onClick={() => { showAllUsedRef.current = true; setExpanded(true); }}>
-                        {t.thread.showAll(messagesCount)}
-                    </Button>
+                    <div className="flex items-center gap-2" data-uier-thread-collapsed="">
+                        <span aria-hidden="true" className="h-px flex-1 bg-border" />
+                        <Button
+                            variant="plain"
+                            size="xs"
+                            className="shrink-0 text-muted-foreground"
+                            data-uier-thread-control=""
+                            onClick={() => { showAllUsedRef.current = true; setExpanded(true); }}>
+                            {t.thread.showAll(messagesCount)}
+                        </Button>
+                        <span aria-hidden="true" className="h-px flex-1 bg-border" />
+                    </div>
                 )}
                 {threadLastItem && (
                     <CommentThreadItem
