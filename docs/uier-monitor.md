@@ -16,8 +16,20 @@ Add `status` to see where things stand, or `stop` to stop watching. Running it a
 the saved state. In Codex, ask it to use the uier-monitor skill for the project. Other options
 (`max=`, `scope=`, `also=`, provider instances) are listed in the skill.
 
-In T3, the orchestrator pins its own thread on first start and every active resume or tick,
-and unsettles it on resume. Ordinary wakes only repeat those actions when the harness reports
+To watch several projects, separate them with commas:
+
+```text
+/uier-monitor uier.io public feedback, uier.io user feedback
+```
+
+In T3, the thread you type it in starts one monitor thread per project, in the T3 project whose
+checkout holds that project's code. The monitor registry under `~/.uier-monitor/monitors` knows
+where each project was monitored before; for a new one the skill asks. A project whose monitor still
+runs keeps its thread, and a stopped one resumes in its old thread when that still exists. Elsewhere
+the skill lists one start command per project instead.
+
+In T3, every monitor thread is named `🛎 Monitor: <project name>`. The orchestrator names and pins
+its own thread on first start and every active resume or tick, and unsettles it on resume. Ordinary wakes only repeat those actions when the harness reports
 the thread settled. `stop` unpins it; a stopped monitor's automated ticks leave it alone.
 T3 has no settle-behaviour setting yet; [issue #709](https://github.com/signalco-io/uier/issues/709)
 tracks switching to "never" when it becomes available.

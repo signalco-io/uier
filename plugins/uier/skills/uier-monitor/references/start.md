@@ -1,7 +1,8 @@
 # Starting the uier monitor
 
 Read this on a first start, when `state.json` lacks something below, or when `SKILL.md` sends you
-here (re-arming the watcher, re-detecting the workflow, replacing the token, fallback mode).
+here (several projects, re-arming the watcher, re-detecting the workflow, replacing the token,
+fallback mode).
 
 ## First start
 
@@ -13,10 +14,13 @@ here (re-arming the watcher, re-detecting the workflow, replacing the token, fal
    `actingAs` (`userId`, `name`). Add accounts from `also=`, earlier state or the person's memory notes
    that they confirmed as theirs. Record the connection's `actingAs` as `harness.mcpActingAs` on every
    start and resume: the person can reconnect it as another of their accounts between sessions.
+   When the monitor registry (Several projects, step 2) holds this project with a state folder in
+   another repository, don't start a second monitor here: launch or resume it there (Several
+   projects), unless the person asked to move it to this repository.
 3. **Helper and state.** Install the helper and the fix-session rules (`SKILL.md`, Files and the
    helper), then `mkdir -p STATE/briefs STATE/logs`.
 4. **Harness.** Detect it and pick models (below and `SKILL.md`, Models). Record `harness`.
-   In T3, pin this orchestrator thread as described below.
+   In T3, pin and name this orchestrator thread as described below.
 5. **Repository.** Read the repository notes if they exist (`docs/uier-monitor.md` or
    `.uier/monitor.md`; they override what you detect), then detect the workflow (below). Record
    `repo` and `workflow`.
@@ -27,6 +31,45 @@ here (re-arming the watcher, re-detecting the workflow, replacing the token, fal
 8. **Start work.** Fill the free session slots (`SKILL.md`, Sessions).
 9. **Arm and report.** Start the watcher (Waiting, below) and end the turn with a short table:
    comment, decision, session, state.
+
+## Several projects
+
+When the person names several projects, or one whose monitor runs in another repository, this thread
+only launches monitors: no helper install, state, pin or watcher here. Each project gets its own
+thread, titled `🛎 Monitor: <project name>`, in the T3 project that holds its code. Outside T3, list
+one start command per project with the checkout to run it in, and start nothing.
+
+1. **Projects.** `list_projects` once (follow `nextCursor`) and match each name as in First start,
+   step 2. Ask once about every name that stays ambiguous or unknown, and carry on with the rest.
+2. **Repository.** Every monitor registers in `~/.uier-monitor/monitors/*.json`
+   (`UIER_MONITOR_HOME` moves the folder) with its `stateDir`, `project.id` and `repo`; read them in
+   one command and ignore entries whose `stateDir` is gone. A registered project's T3 project is the
+   `t3_project_list` entry whose `workspaceRoot` starts its `stateDir`, else the one whose
+   `repositoryIdentity.displayName` equals `repo`. For the rest, ask the person once, for all of
+   them, which T3 project holds the code (offer this thread's project first).
+3. **Running already?** For a registered project, read `stopped` and `harness.threadId` from
+   `<stateDir>/state.json`, and the watcher from the second line of
+   `node <stateDir>/../monitor.mjs status --state <stateDir>` (`watcher running` or `watcher stopped`).
+   When `t3_thread_read` finds that thread and it isn't `archived`, rename it if its `title` differs
+   (`t3_thread_update` with its `threadId`), then:
+   - not stopped and the watcher runs: leave it;
+   - otherwise: resume it there with `t3_thread_send` (`mode: "queue"`) and "Resume the uier monitor
+     for project <id> with the uier-monitor skill", plus `: <options>` when the person gave any.
+
+   Without such a thread, launch a new one (step 4); it takes the saved state over.
+4. **Launch.** One `t3_thread_launch` per project, all in one batch: `projectId` the T3 project,
+   `title` `🛎 Monitor: <project name>` (one line, at most 60 characters), `message` "Start the uier
+   monitor for project <id> with the uier-monitor skill" plus `: <options>`, and `clientRequestId`
+   `um-launch-<projectId>-<UTC time of this request>`, the same on a retry. Omit the model, modes and
+   workspace strategy: the thread inherits this one's and runs in the project's checkout.
+5. **Report.** One table: project, T3 project, thread link, and started, resumed, already running or
+   waiting on the person. Nothing else happens in this thread.
+
+With several projects, `status` prints each registered project's `status` (steps 1 and 2 only) and
+launches nothing. `stop` sends each monitor's thread "Stop the uier monitor for project <id> with the
+uier-monitor skill: stop" (`t3_thread_send`, `mode: "queue"`). When that thread is gone or archived,
+stop it from here with that repository's helper: `stop`, then
+`patch '{"stopped":true,"watch":{"stopped":true}}'`, each with `--state <stateDir>`.
 
 ## Harness
 
@@ -44,7 +87,8 @@ Record `harness.prWatch: true` only in T3. In T3, call `orchestrator_capabilitie
 own thread id (`harness.threadId`). Record which Claude instances list a `claude-fable-*` model.
 
 On first start, call `t3_thread_organize` with `action: "pin"` and no `threadId` (this thread),
-then `M patch` `harness.pinnedAt` to the successful pin's UTC timestamp. Repeat the pin on every
+then `M patch` `harness.pinnedAt` to the successful pin's UTC timestamp. Name the thread too
+(`SKILL.md`, T3 thread) and record `harness.title`. Repeat the pin on every
 active resume or tick, and also call `action: "unsettle"` without `threadId` on those resumes.
 A missing timestamp means the pin has not been recorded; record it only after success. On ordinary
 wakes, make no extra thread lookup or organize call unless the harness reports this thread settled;
