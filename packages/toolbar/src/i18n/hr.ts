@@ -213,6 +213,7 @@ export const hr: Messages = {
         restored: "Komentar je vraćen.",
         archivedLabel: "Arhivirano",
         markUnread: 'Označi kao nepročitano',
+        openInApp: 'Otvori u aplikaciji',
         writtenBy: (details: string) => `Napisao je ${details}`,
         via: 'putem',
         viaAgent: (details: string) => `putem ${details}`,

@@ -213,6 +213,7 @@ export const es: Messages = {
         restored: "Comentario restaurado.",
         archivedLabel: "Archivado",
         markUnread: 'Marcar como no leído',
+        openInApp: 'Abrir en la app',
         writtenBy: (details: string) => `Escrito por ${details}`,
         via: 'vía',
         viaAgent: (details: string) => `vía ${details}`,

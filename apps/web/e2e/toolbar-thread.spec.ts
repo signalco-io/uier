@@ -57,6 +57,10 @@ test('a new thread shows its comment and reply box; triage and email controls ar
     const options = await threadOptions(page, thread);
     for (const name of ['Unassigned. Change assignee', 'Priority: Normal. Change priority', 'Request verification', 'Unfollow thread', 'Mute project emails'])
         await expect(options.getByRole('button', { name, exact: true })).toBeVisible();
+    // The thread in the app, for members (uier #445), in a new tab like Options → View project
+    const openInApp = options.getByRole('link', { name: 'Open in app', exact: true });
+    await expect(openInApp).toHaveAttribute('href', /\/app\/projects\/[^/?]+\?comment=comment_/);
+    await expect(openInApp).toHaveAttribute('target', '_blank');
     await animationsFinished(options);
     await expectNoAxeViolations(page);
     await page.keyboard.press('Escape');

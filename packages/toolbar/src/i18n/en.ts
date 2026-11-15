@@ -219,6 +219,7 @@ export const en = {
         restored: "Comment restored.",
         archivedLabel: "Archived",
         markUnread: 'Mark as unread',
+        openInApp: 'Open in app',
         writtenBy: (details: string) => `Written by ${details}`,
         via: 'via',
         viaAgent: (details: string) => `via ${details}`,

@@ -213,6 +213,7 @@ export const it: Messages = {
         restored: "Commento ripristinato.",
         archivedLabel: "Archiviato",
         markUnread: 'Segna come non letto',
+        openInApp: 'Apri nell’app',
         writtenBy: (details: string) => `Scritto da ${details}`,
         via: 'tramite',
         viaAgent: (details: string) => `tramite ${details}`,
