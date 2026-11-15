@@ -5,14 +5,19 @@ maintainer. Contributors update this inventory and the relevant area note in the
 The maintainer reviews product and competitor claims; changed legal wording additionally needs the
 owner review required by [#289](https://github.com/signalco-io/uier/issues/289).
 
-Inventory and source paths checked: **15 November 2026** against main `26b46774` and this
-implementation. Production at the audit served `d8071a14`; its manifest contained 37 static pages
-and its sitemap 38 URLs including status. Newly implemented rows below retain a production-publication
-gate until the merged revision and live output are verified. Source presence does not establish
-hosted platform/client acceptance or Google indexing. Existing vendor claims keep their 11 November
-review; Userback/ruttl and current uier claims have their actual 15 November review in the ledger.
-Legal corrections from owner-approved PR #664 are complete; any later legal wording change needs
-its own owner review. P1/P2 express delivery order, not measured search volume.
+Inventory and production publication verified: **15 November 2026**. [PR #794](https://github.com/signalco-io/uier/pull/794)
+merged as `d3046ee6`; the live manifest identifies `2a487d8af28ffd236fd052ee3fe68d0e155b20e3`, which
+contains that merge. [Production Deploy run 43717317549](https://github.com/signalco-io/uier/actions/runs/43717317549)
+succeeded. Vercel deployment `dpl_GW6XLikJTxcX6vp53m49ADHL9tLw` is READY for the production project
+and owns the `uier.io` alias.
+
+Live crawler checks passed for all **49 public pages and 49 advertised 1200 × 630 social images**,
+including all 11 new routes. Canonicals, titles/descriptions, substantive new-page HTML, sitemap and
+manifest membership, 57 internal-link targets, both new official-logo assets and seven real unknown-route
+404s passed. The manifest contains 48 static pages; the sitemap additionally contains `/status`.
+These checks do not establish hosted platform/client acceptance, authenticated product behavior or
+Google indexing. Existing vendors keep their 11 November source review; Userback/ruttl and current
+uier claims keep their actual 15 November review. P1/P2 express delivery order, not measured volume.
 
 ## Canonical routes and implementation gates
 
@@ -30,12 +35,12 @@ above and the inventory review date above; the last column records additional cl
 | `/guides/website-review-checklist` | Scope and perform a human website review | P2 | `ReviewChecklist`; guide catalog, reviewResources.ts and current checks workflow | No certification or security-audit claim |
 | `/guides/website-bug-report-template` | Write a reproducible report and hand it off | P2 | `BugReportTemplate`; reviewResources.ts and Copy issue contract | No invented diagnostics; checked example/privacy scope |
 | `/guides/nextjs` | Install in a Next.js App Router site | P1 | `NextJsGuide`; shared `nextJsSnippet`, [onboarding](../apps/web/docs/onboarding.md) | #294 remaining platform/removal receipts |
-| `/guides/wordpress` | WordPress front-end installation and removal | P1 | `WordPressGuide`; guide catalog, shared embed/CSP and platform data | Pending production publication; hosted WordPress acceptance pending |
-| `/guides/html` | Shared HTML-template installation and removal | P2 | `HtmlGuide`; guide catalog, shared embed/CSP and platform data | Pending production publication; local lifecycle validation |
-| `/guides/react` | One installation through a React HTML entry | P2 | `ReactGuide`; guide catalog, shared embed/CSP and SPA contract | Pending production publication; no public npm package claim |
-| `/guides/webflow` | Webflow Footer code, plans, roles and publication | P2 | `WebflowGuide`; shared platform data and official source review | Pending production publication; hosted acceptance pending |
-| `/guides/shopify` | Online Store theme-layout installation | P2 | `ShopifyGuide`; shared platform data and official source review | Pending production publication; hosted acceptance pending; no checkout/editor promise |
-| `/guides/mcp` | Connect an offered coding client and read one thread | P1 | `McpGuide`; shared client/plugin commands and MCP reference | Pending production publication; client OAuth/host qualification remains separate |
+| `/guides/wordpress` | WordPress front-end installation and removal | P1 | `WordPressGuide`; guide catalog, shared embed/CSP and platform data | Published; actual WordPress/Next.js platform receipts remain #294 |
+| `/guides/html` | Shared HTML-template installation and removal | P2 | `HtmlGuide`; guide catalog, shared embed/CSP and platform data | Local HTML installation, saved-feedback, navigation and removal verified |
+| `/guides/react` | One installation through a React HTML entry | P2 | `ReactGuide`; guide catalog, shared embed/CSP and SPA contract | Local React lifecycle verified; no public npm package claim |
+| `/guides/webflow` | Webflow Footer code, plans, roles and publication | P2 | `WebflowGuide`; shared platform data and official source review | Hosted acceptance remains #305; local checks approved |
+| `/guides/shopify` | Online Store theme-layout installation | P2 | `ShopifyGuide`; shared platform data and official source review | Hosted acceptance remains #305; no checkout/editor promise |
+| `/guides/mcp` | Connect an offered coding client and read one thread | P1 | `McpGuide`; shared client/plugin commands and MCP reference | Client OAuth/host qualification remains separate |
 | `/guides/browser-extension` | Set up a supported released extension | P1 | Guide catalog; [extension release record](browser-extension.md) | New browser claims need their own acceptance |
 | `/browser-extension` | Evaluate reviewing without a script embed | P1 | `BrowserExtension`; release source and extension record | Preserve per-browser store/hosted gates |
 | `/compare` | Choose which feedback workflow to evaluate | P1 | `Compare`; comparison ledger and [comparison note](../apps/web/docs/comparison-pages.md) | None; no links to unpublished tools |
@@ -44,11 +49,11 @@ above and the inventory review date above; the last column records additional cl
 | `/compare/marker-io` | Evaluate capture and developer handoff differences | P1 | `KnownPageLinks.comparison('marker-io')`; comparison ledger | Dated first-party source review |
 | `/compare/usersnap` | Distinguish page review from broader product feedback | P2 | `KnownPageLinks.comparison('usersnap')`; comparison ledger | Dated first-party source review |
 | `/compare/pastel` | Distinguish live-page review from asset proofing | P2 | `KnownPageLinks.comparison('pastel')`; comparison ledger | Dated first-party source review |
-| `/compare/userback` | Product-team diagnostics, feedback and agent workflow fit | P2 | `KnownPageLinks.comparison('userback')`; sourced ledger dated 15 November | Pending production publication; tier-specific entitlements |
-| `/compare/ruttl` | Agency visual-editing demonstrations versus anchored discussion | P2 | `KnownPageLinks.comparison('ruttl')`; sourced ledger dated 15 November | Pending production publication; contested free allowances omitted |
-| `/use-cases/client-feedback` | Evaluate a client website review round | P1 | `ClientFeedback`; use-case catalog, current review brief/access rules | Pending production publication; fictional scenario |
-| `/use-cases/bug-reporting` | Prepare reproducible visual bug handoff | P1 | `BugReporting`; use-case catalog, current capture/integration contracts | Pending production publication; explicit recording differs from replay |
-| `/use-cases/user-acceptance-testing` | Plan a manual acceptance round | P2 | `UserAcceptanceTesting`; use-case catalog, project opt-in and verification rules | Pending production publication; no automated testing or release approval |
+| `/compare/userback` | Product-team diagnostics, feedback and agent workflow fit | P2 | `KnownPageLinks.comparison('userback')`; sourced ledger dated 15 November | Maintain tier-specific entitlements and dated source reviews |
+| `/compare/ruttl` | Agency visual-editing demonstrations versus anchored discussion | P2 | `KnownPageLinks.comparison('ruttl')`; sourced ledger dated 15 November | Contested free allowances remain omitted; dated source reviews |
+| `/use-cases/client-feedback` | Evaluate a client website review round | P1 | `ClientFeedback`; use-case catalog, current review brief/access rules | Fictional scenario; preserve current access rules |
+| `/use-cases/bug-reporting` | Prepare reproducible visual bug handoff | P1 | `BugReporting`; use-case catalog, current capture/integration contracts | Explicit recording differs from automatic replay |
+| `/use-cases/user-acceptance-testing` | Plan a manual acceptance round | P2 | `UserAcceptanceTesting`; use-case catalog, project opt-in and verification rules | No automated testing or release approval |
 | `/features/pinned-comments` | Understand live-page annotation and anchor recovery | P1 | `PinnedComments`; feature-page and toolbar anchor/drawing notes | Delivered in #766; canonical annotation page, no duplicate route |
 | `/features/screenshots` | Understand chosen capture, device context and recording limits | P1 | `Screenshots`; screenshot/recording/device contracts | Delivered in #766; preserve saved-image redaction and video limits |
 | `/features/threads` | Discuss a finding and share selected attachments | P1 | `Threads`; comment/reply and notification contracts | Delivered in #766; actual visibility and message limits |
@@ -76,9 +81,10 @@ above and the inventory review date above; the last column records additional cl
 
 ## Canonical choices and pending acceptance
 
-All remaining acquisition/setup routes from #294/#298/#299/#301–#305 are implemented in this
-batch; their production-publication gates above remain open until deployment is verified. User-approved
-local checks do not substitute for hosted WordPress, Webflow or Shopify acceptance. The relevant
+All acquisition/setup routes from #294/#298/#299/#301–#305 are now published and verified.
+Remaining gates are actual WordPress/Next.js receipts in #294, Webflow/Shopify receipts in #305
+and authorized Search Console/full-window measurement in #311. User-approved local checks do not
+substitute for hosted WordPress, Webflow or Shopify acceptance. The relevant
 installation guide note records those boundaries. Measurement and its unavailable-data record live in
 [the dated baseline](search-baseline-2026-11-15.md); #311 still owns the actual 28-day comparison.
 

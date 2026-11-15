@@ -5,11 +5,16 @@ This records available evidence and a manual measurement procedure. It adds no t
 
 ## Evidence available today
 
-The production `https://uier.io/search-index.json` returned 200 and identified
-`d8071a1433d59da9ff786e4b3a1dc8e4e1813fbe`, with 37 static canonical pages. The canonical sitemap
-index and `sitemap-0.xml` returned 200; the latter contained 38 public URLs, including `/status`.
-Source was reviewed at `26b46774696c811d9dcbc7fd99478cb78fa3440a`, a dependency-only successor.
-These HTTP checks establish publication/discovery output, not Google indexing or search performance.
+The initial audit identified `d8071a1433d59da9ff786e4b3a1dc8e4e1813fbe`, with 37 static pages
+and 38 sitemap URLs. Source was reviewed at `26b46774` before implementation.
+
+The new batch is now published. [PR #794](https://github.com/signalco-io/uier/pull/794) merged as
+`d3046ee6`; [production Deploy run 43717317549](https://github.com/signalco-io/uier/actions/runs/43717317549)
+succeeded. Live verification on **15 November 2026** identified
+`2a487d8af28ffd236fd052ee3fe68d0e155b20e3`, a descendant containing that merge. The manifest has
+48 static pages; the sitemap has 49 public URLs including `/status`. All 49 pages, their canonicals,
+advertised social images and 57 internal-link targets passed HTTP checks. These establish
+publication/discovery output, not Google indexing or search performance.
 
 The [2 November setup record](development.md#search-indexing) documents verified Search Console
 ownership, successful sitemap submission and homepage indexing at that time. There is no current
@@ -19,13 +24,14 @@ CTR are **unavailable**, not zero. Account access itself has not been disproved.
 
 | Page group | Published URLs in this snapshot | Indexed URLs | Non-brand impressions / clicks / CTR |
 | --- | --- | --- | --- |
-| Comparisons, including the hub and matrix | 6 | Unavailable | Unavailable |
-| Use cases | 0 | Unavailable | Unavailable |
+| Comparisons, including the hub and matrix | 8 | Unavailable | Unavailable |
+| Use cases | 3 | Unavailable | Unavailable |
 | Integrations, including the hub | 6 | Unavailable | Unavailable |
-| Guides, including the hub | 6 | Unavailable | Unavailable |
+| Guides, including the hub | 12 | Unavailable | Unavailable |
 
-New pages in the implementation PR are not included in these production counts. Record their actual
-deployment date and revision after publication; a source commit does not start their observation window.
+These counts include the 11 newly published routes. Their actual publication date is now recorded;
+a source commit alone did not start their observation window. Hosted WordPress/Webflow/Shopify
+acceptance remains pending, separately from these public-page checks.
 
 ## Capture the current report
 
@@ -66,9 +72,9 @@ keep pages with distinct useful intent. Low-volume or unavailable data does not 
 
 | Required review entry | Current result |
 | --- | --- |
-| Actual publication date/revision of the new batch | Pending deployment |
+| Actual publication date/revision of the new batch | 15 November 2026; `2a487d8a`, containing merge `d3046ee6` |
 | Baseline complete dates, property and filters | Pending authorized report |
-| First and preceding complete 28-day windows | Pending publication/data/window |
+| First and preceding complete 28-day windows | Pending full window and authorized report |
 | Page/query overlap and editorial actions | Pending actual comparison |
 
 This is a manual owner handoff. It creates no recurring automation and does not delay accurate publication.
