@@ -190,8 +190,11 @@ test('Archive all in a board column archives every thread in it, the ones not lo
     await done.getByRole('button', { name: 'Archive all in Done', exact: true }).click();
     dialog = page.getByRole('alertdialog');
     await dialog.getByRole('button', { name: 'Archive all', exact: true }).click();
+    // The column empties and Archive all goes with its cards: the focus is on the column's sort beside it (uier #444)
+    await expect(done.getByRole('button', { name: /^Sort Done: / })).toBeFocused();
     await expect(page.getByText('29 threads archived.', { exact: true })).toBeVisible();
     await expect(done.getByRole('button', { name: /^Archive all/ })).toHaveCount(0);
+    await expect(done.getByRole('button', { name: /^Sort Done: / })).toBeFocused();
     await expect(column('Archived').getByRole('button', { name: 'Archive 29', exact: true })).toBeVisible();
     await page.reload();
     await expect(done.getByRole('heading')).toHaveText('Done0');

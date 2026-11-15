@@ -30,10 +30,14 @@ thread cannot show the previous thread's data.
 
 Adopted operations: manual/automatic/bulk read, workflow status and cancel verification,
 assignment, priority, labels, and the open thread's archive/restore choices.
+Bulk Archive (the selection bar) and Archive all now confirm each thread's archive with the
+`commentSequence` the bulk result returns (`savedView` in `bulkTriage.ts`), so archived cards no
+longer come back between the end of the batch's transition and the refresh ([uier #444](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_xVyejEk6kOk5cVNibzHSW)). Bulk
+priority, status and assignment keep their transition-only behavior.
 Remaining migrations need separate receipt contracts: mark unread (cursor reversals), follow/unfollow,
 replies (including stable saved message IDs,
-images and recordings), message edits/deletion, reactions, agent assignment, thread titles, bulk triage
-and Archive all. Their existing optimistic behavior stays in place; replies retain the earlier local
+images and recordings), message edits/deletion, reactions, agent assignment, thread titles and bulk
+priority, status and assignment. Their existing optimistic behavior stays in place; replies retain the earlier local
 protection. Board sort/group/archive-column preferences and other app settings are outside this
 comment-update channel.
 

@@ -13,9 +13,26 @@ const slidePx = 8;
  * a long gap, a filter that swaps the list) snap into place: that many moving at once is noise, not news.
  */
 export const motionLimit = 8;
+/**
+ * Items that go or come one after another (archived cards leaving, a next page's cards arriving, uier #444) start
+ * this far apart, from the top, and all of them within `staggerSpreadMs`, so a long column stays short.
+ */
+const staggerMs = 40;
+const staggerSpreadMs = 320;
+/** The delay of each of `count` items that go or come one after another, the first at once */
+export function staggerDelays(count: number) {
+    const step = count > 1 ? Math.min(staggerMs, staggerSpreadMs / (count - 1)) : 0;
+    return Array.from({ length: count }, (_, index) => Math.round(index * step));
+}
+/** Whether a box (in the viewport) is on screen; one that is not needs no motion */
+export function onScreen(rect: { top: number; bottom: number; left: number; right: number }) {
+    return rect.bottom > 0 && rect.top < window.innerHeight && rect.right > 0 && rect.left < window.innerWidth;
+}
 /** Every animation this file starts carries this id, so other code can wait for it (`motionSettled`) */
 const motionId = 'layout-motion';
 const reducedMotionQuery = '(prefers-reduced-motion: reduce)';
+/** The board's archived cards leave with the same motion (`useLeavingCards`) */
+export { enterMs, slidePx, easing as motionEasing, reducedMotionQuery };
 const focusables = 'a[href], button, input, select, textarea, [tabindex], [role="checkbox"]';
 
 /** A box relative to the container's padding box, where its absolutely positioned children sit */
@@ -73,6 +90,12 @@ export class LayoutMotion extends Component<{
     item: `data-${string}`;
     /** The ids of items someone else places at the moment, e.g. a dragged card; read once per update */
     skip?: () => ReadonlySet<string>;
+    /**
+     * Items added after the last item a list or column keeps (its next page) rise into place one after another from
+     * the top, however many there are, instead of snapping in (uier #444), and so do the ids this returns (read once
+     * per update): the board's cards that fill a column its archived cards emptied. The board's columns.
+     */
+    appends?: () => ReadonlySet<string>;
     children: ReactNode;
 }> {
     private running = new Map<HTMLElement, Running>();
@@ -138,14 +161,18 @@ export class LayoutMotion extends Component<{
         });
         const ids = new Set(now.map(item => item.id));
         const entering = now.filter(item => !before.has(item.id) && !skip(item.id));
+        const appended = this.props.appends ? this.appended(now, before, entering, this.props.appends()) : new Set<string>();
         // An item that was folding away by itself (inert, like a list row that Done takes out) needs no copy
         const leaving = [...before].filter(([id, placed]) => !ids.has(id) && !placed.inert && placed.box.height > 0 && placed.opacity > 0);
         const regrouped = now.filter(item => before.has(item.id) && before.get(item.id)!.group !== item.group && !skip(item.id));
-        if (entering.length + leaving.length + regrouped.length > motionLimit) {
+        if (entering.length - appended.size + leaving.length + regrouped.length > motionLimit) {
             this.stopAll();
             return;
         }
 
+        // Appended items on screen rise in from the top one after another; the ones below the fold need none
+        const rising = now.filter(item => appended.has(item.id) && onScreen(item.element.getBoundingClientRect()));
+        const delays = new Map(staggerDelays(rising.length).map((delay, index) => [rising[index]!.id, delay]));
         for (const { id, element, group, groupBox, box } of now) {
             const running = this.running.get(element);
             if (skip(id)) {
@@ -153,6 +180,14 @@ export class LayoutMotion extends Component<{
                 continue;
             }
             const first = before.get(id);
+            if (appended.has(id)) {
+                const delay = delays.get(id);
+                if (delay !== undefined) this.animate(element, group, within(box, groupBox), 'enter', [
+                    { opacity: 0, transform: `translateY(${slidePx}px)` },
+                    { opacity: 1, transform: 'none' }
+                ], enterMs, false, delay);
+                continue;
+            }
             if (!first) {
                 // Back before its copy finished leaving
                 this.copies.get(id)?.remove();
@@ -197,9 +232,21 @@ export class LayoutMotion extends Component<{
         return element.getAttribute(this.props.item) ?? '';
     }
 
-    private animate(element: HTMLElement, group: Element | null, place: Box, kind: 'enter' | 'move', keyframes: Keyframe[], duration: number, above = false) {
+    /**
+     * The entering items after the last item each list or column keeps, in lists that keep at least one: a next page,
+     * not a list that is new or swapped. In the page's order, which is the order on screen.
+     */
+    private appended(now: { id: string; group: Element | null }[], before: Map<string, Placed>, entering: { id: string }[], rising: ReadonlySet<string>) {
+        const lastKept = new Map<Element, number>();
+        now.forEach((item, index) => { if (item.group && before.has(item.id)) lastKept.set(item.group, index); });
+        const ids = new Set(entering.map(item => item.id));
+        return new Set(now.filter((item, index) => ids.has(item.id) && (rising.has(item.id) || (item.group && index > (lastKept.get(item.group) ?? Infinity)))).map(item => item.id));
+    }
+
+    private animate(element: HTMLElement, group: Element | null, place: Box, kind: 'enter' | 'move', keyframes: Keyframe[], duration: number, above = false, delay = 0) {
         this.running.get(element)?.animation.cancel();
-        const animation = element.animate(keyframes, { duration, easing });
+        // A delayed entrance holds its first frame (hidden) until it starts
+        const animation = element.animate(keyframes, { duration, easing, delay, fill: delay ? 'backwards' : 'auto' });
         animation.id = motionId;
         // Marks the motion while it plays (and for tests, which watch for it)
         element.dataset.motion = kind;

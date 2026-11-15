@@ -1,5 +1,5 @@
 import { expect, test, type APIRequestContext, type Locator, type Page, type WebSocketRoute } from '@playwright/test';
-import { commentRows, createProject, openBoardMove, selectThread, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { commentRows, createProject, openBoardMove, selectionBar, selectShownResults, selectThread, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 import { startReviewedSite } from './support/reviewedSite';
 
@@ -63,8 +63,12 @@ async function project(page: Page, request: APIRequestContext, texts: string[]) 
     await signIn(page, uniqueEmail('motion'));
     const project = await createProject(page, { urls: [site.origin()] });
     await setProjectAccess(page, project, 'Anyone with the link');
-    const headers = await verifiedReviewHeaders(request, project, site.origin());
+    let headers = await verifiedReviewHeaders(request, project, site.origin());
+    let posted = 0;
     const post = async (text: string) => {
+        // A visitor may post only so often: a new one every ten comments
+        if (posted && posted % 10 === 0) headers = await verifiedReviewHeaders(request, project, site.origin());
+        posted++;
         const response = await request.post(`/api/review/${project}/comments`, { headers, data: {
             path: `/${project}/pricing`, text, authorName: 'Reviewer', position: { type: 'page' }, kind: 'feedback'
         } });
@@ -216,6 +220,55 @@ test('list rows arrive, leave and slide to a new priority; many changes at once 
     await watch.settled();
 });
 
+test('archived cards leave one after another from the top, and the next page rises in below', async ({ page, request }) => {
+    test.setTimeout(120_000);
+    // More than a column's first page (25), so the next one comes in once the archived cards have gone
+    const { project: id, comments } = await project(page, request, Array.from({ length: 36 }, (_, index) => `Paged motion thread ${index}`));
+    const watch = await watchMotion(page);
+    const { column } = columns(page);
+    await page.goto(`/app/projects/${id}?view=board`);
+    const open = column('Open');
+    await expect(open.locator('[data-comment-window]')).toHaveAttribute('data-loaded-count', '25');
+    // Newest first: the 25 newest are loaded, the 11 oldest are the next page
+    const archived = comments.slice(11).reverse(), next = comments.slice(0, 11);
+
+    // Slowed down, so the delays can be read while the cards leave (never timed)
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('Animation.enable');
+    await selectShownResults(page);
+    await watch.forget();
+    await cdp.send('Animation.setPlaybackRate', { playbackRate: 0.05 });
+    await selectionBar(page).getByRole('button', { name: 'Archive selected', exact: true }).click();
+    // Every archived card the column shows (it shows those near the screen) is leaving, out of reach, in its place
+    const leaving = open.locator('[data-board-card][data-motion="exit"][inert][aria-hidden="true"]');
+    await expect(leaving.first()).toBeAttached();
+    await expect(open.locator('[data-board-card]:not([data-motion="exit"])')).toHaveCount(0);
+    // More than `motionLimit` (8), which would snap any other change into place
+    expect(await leaving.count()).toBeGreaterThan(8);
+    // …those on screen one after another from the top
+    const delays = await leaving.evaluateAll(cards => cards.flatMap(card => {
+        const rect = card.getBoundingClientRect();
+        const exit = card.getAnimations().find(animation => animation.effect?.getTiming().fill === 'forwards');
+        return rect.bottom > 0 && rect.top < window.innerHeight && exit ? [{ top: rect.top, delay: Number(exit.effect!.getTiming().delay) }] : [];
+    }).sort((a, b) => a.top - b.top).map(card => card.delay));
+    expect(delays.length).toBeGreaterThan(1);
+    expect(delays[0]).toBe(0);
+    expect(delays).toEqual([...delays].sort((a, b) => a - b));
+    expect(delays.at(-1)!).toBeGreaterThan(0);
+    expect(delays.at(-1)!).toBeLessThanOrEqual(320);
+    await cdp.send('Animation.setPlaybackRate', { playbackRate: 1 });
+
+    // Gone, and the next page rises in where they were (more than snap in at once)
+    await expect(open.locator('[data-comment-window]')).toHaveAttribute('data-loaded-count', '11');
+    await expect(open.getByRole('listitem').first()).toContainText('Paged motion thread 10');
+    const motions = await watch.motions();
+    expect(motions).toEqual(expect.arrayContaining(archived.slice(0, 5).map(comment => `exit:${comment.id}`)));
+    expect(motions.filter(motion => motion.startsWith('enter:')).length).toBeGreaterThan(0);
+    expect(motions.filter(motion => motion.startsWith('enter:')).every(motion => next.some(comment => motion === `enter:${comment.id}`))).toBe(true);
+    await watch.settled();
+    await expect(column('Archived').getByRole('button', { name: 'Archive 25', exact: true })).toBeVisible();
+});
+
 test('with reduced motion cards and rows go straight to their places', async ({ page, request }) => {
     const { project: id, comments } = await project(page, request, ['Calm motion thread', 'Still motion thread']);
     await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -230,10 +283,16 @@ test('with reduced motion cards and rows go straight to their places', async ({ 
     await expect(column('Done').getByRole('button', { name: `Move comment #${comments[0]!.number}`, exact: true })).toBeFocused();
     await page.getByRole('searchbox', { name: 'Search feedback' }).fill('Calm');
     await expect(column('Open').getByRole('listitem')).toHaveCount(0);
+    // Archived cards leave at once
+    await page.getByRole('searchbox', { name: 'Search feedback' }).fill('');
+    await expect(column('Open').getByRole('listitem')).toHaveCount(1);
+    await selectThread(page, comments[1]!.number);
+    await selectionBar(page).getByRole('button', { name: 'Archive selected', exact: true }).click();
+    await expect(column('Open').getByRole('listitem')).toHaveCount(0);
 
     await page.getByRole('button', { name: 'List', exact: true }).click();
     await page.getByRole('searchbox', { name: 'Search feedback' }).fill('');
     await page.getByRole('group', { name: 'Status', exact: true }).getByRole('button', { name: /^All/ }).click();
-    await expect(commentRows(page)).toHaveCount(2);
+    await expect(commentRows(page)).toHaveCount(1);
     expect(await watch.motions()).toEqual([]);
 });
