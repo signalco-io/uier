@@ -181,6 +181,10 @@ compact assignment groups they are small badges on their person's avatar edge. P
 their person. A generic agent is Lucide's bot.
 The browser extension page's cover shows the official Chrome, Microsoft Edge and Firefox logos in their
 own colours on bordered tiles, each with its name written under it.
+Each comparison page's cover (`/compare/bugherd`, `/compare/marker-io`, `/compare/usersnap`,
+`/compare/pastel`) shows uier's mark beside that tool's official logo the same way: BugHerd's,
+Usersnap's and Pastel's site icons and Marker.io's symbol, in their own colours on bordered tiles,
+each with its name written under it.
 They are third-party marks: never recoloured, redrawn or used as uier's.
 
 ## Typography
