@@ -28,7 +28,7 @@ const nextConfig: NextConfig = {
     reactCompiler: true,
     // The MCP endpoint serves the plugin's skills from their files (src/lib/mcp/skills.ts): they are read at
     // run time, so the deployment has to carry them.
-    outputFileTracingIncludes: { '/api/mcp': ['../../plugins/uier/skills/**/*'] },
+    outputFileTracingIncludes: { '/api/mcp': ['../../plugins/uier/skills/**/*', './dist/mcp/thread.html'] },
     // @uier/brand ships TypeScript sources (tokens, Mark, Logo); Next compiles them like app code.
     transpilePackages: ['@uier/brand', '@uier/comments-query'],
     images: {

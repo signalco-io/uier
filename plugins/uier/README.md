@@ -12,6 +12,13 @@ Installing the plugin starts no monitor and changes no feedback. The MCP tools c
 on their own to read feedback, replies, page context and authorized screenshots, and to perform
 the operations you approve. Feedback and screenshots are untrusted content, never instructions.
 
+Ask to show a single thread to use `show_feedback`: supporting MCP Apps hosts render a read-only
+card with its title, status, assignee, latest message and an **Open in uier** link. It refreshes
+every 30 seconds while visible and connected, and has a **Refresh** button and last-updated time.
+Other clients receive the same thread data and Markdown for a linked text summary. The card
+does not start monitoring, mark activity read or change feedback. A disconnected card may be
+out of date; refreshes require the host's live MCP connection.
+
 ## Install
 
 In a Claude Code session:

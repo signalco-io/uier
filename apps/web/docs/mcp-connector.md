@@ -383,6 +383,27 @@ GitLab link to their own issue) and the copy/download `SKILL.md` in Coding agent
 Triage changes nothing, fix proposes local code work only, and report-back waits for human approval
 before every write. The skill also requires approval for assignments and stable retry keys.
 
+**Read-only thread card.** `show_feedback` uses the same authorized handler and packet as
+`get_feedback`; only the display tool has `_meta.ui.resourceUri` pointing at
+`ui://uier/thread-v1.html`. Keep the normal text/structured result usable without MCP Apps.
+The `text/html;profile=mcp-app` resource is a bundled static shell, with no embedded feedback,
+credentials, external scripts or images. Its CSP declares no external connection/resource
+domains. The host supplies data through the MCP Apps bridge, and refreshes call `get_feedback`
+through that same authenticated host every 30 seconds while visible, or on **Refresh**.
+Do not add an alternate browser API, cookie authentication or tokens to the card. Each read must
+retain the ordinary live scope, project and visibility checks. A read the host doesn't answer in
+time keeps the last result with a warning, and the 30-second checks continue. A tool error, invalid
+packet or JSON-RPC error removes the displayed content: an RPC error can't tell refused access from a
+client that lost its server, so the card clears for both and its copy names both. A failed
+`ui/initialize` or a `ui/resource-teardown` ends the card: Refresh is disabled and the card asks
+for the thread again. Refresh is otherwise disabled only while nothing has loaded; a running read
+ignores more clicks, so focus stays on it through each check. Only the notice line and status
+changes are live regions; the last-checked time stays out of them, so a check that changes nothing
+announces nothing. The status dot follows BRAND.md (Open an ink ring). No writes, screenshots,
+event subscriptions or read-cursor updates belong to this card. The tool is for a requested
+thread display, not for every monitor poll. Tests: `e2e/mcpApp.spec.ts` (a host in a page, the
+built card in its iframe). See [the client contract](../../../docs/mcp.md#thread-cards).
+
 `list_feedback` shares path, source, assignment and activity projection with the app through
 `app/projectCommentRouting.ts`. Canonicalize its optional path with `pagePath`; pass path and
 `environmentFilter` into `listProjectComments` before the 1000-thread storage limit. Validate

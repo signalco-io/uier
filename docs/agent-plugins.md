@@ -8,6 +8,12 @@ reaches `main`; a repository marketplace is separate from a public directory lis
 A client that supports the MCP Skills extension does not need the plugin for the skills: the
 connector serves the same files over the connection ([Skills over the connection](mcp.md#prompts-and-agent-skill)).
 
+The connection also exposes `show_feedback` for a requested single-thread display. MCP Apps
+hosts can render its [read-only thread card](mcp.md#thread-cards); clients without UI support
+receive the same authorized thread packet and Markdown. No additional plugin, permission or
+monitor is needed for the card. After an update, reconnect or start a fresh client session if
+its cached tool list does not yet include `show_feedback`.
+
 ## Install in Claude Code
 
 In a Claude Code session:
