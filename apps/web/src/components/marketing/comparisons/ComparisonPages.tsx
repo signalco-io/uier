@@ -73,7 +73,7 @@ function ProductPracticalities({ product }: { product: Product }) {
         <h3 className="text-xl font-semibold tracking-tight">{product.name}</h3>
         <dl className="flex flex-col gap-5 text-sm leading-relaxed">
             <div><dt className="font-medium">Setup and reviewers</dt><dd className="mt-1 text-muted-foreground">{product.setup}</dd></div>
-            <div><dt className="font-medium">Integrations</dt><dd className="mt-1 text-muted-foreground">{product.integrations} <InlineLink href={product.integrationUrl}>Integration details</InlineLink></dd></div>
+            <div><dt className="font-medium">Integrations</dt><dd className="mt-1 text-muted-foreground">{product.integrations} <InlineLink href={product.integrationUrl}>{product.name} integrations</InlineLink></dd></div>
             <div><dt className="font-medium">Pricing model</dt><dd className="mt-1 text-muted-foreground">{product.pricing} <InlineLink href={product.pricingUrl}>Current pricing</InlineLink></dd></div>
         </dl>
     </div>;
