@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "uier",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Connect website feedback to your coding agent, with skills to monitor a uier project and carry fixes through review and deployment.",
   "author": {
     "name": "signalco",
@@ -94,7 +94,7 @@
         }
       },
       "publication": {
-        "release_notes": "Add a read-only MCP App thread card with status refreshes while visible and connected, a manual Refresh control and a linked text/data fallback for other clients. Showing a card starts no monitor and changes no feedback."
+        "release_notes": "In T3 Code, uier-monitor names each monitor thread after its project and starts one monitor thread per project when you name several. Each thread opens in the repository that holds that project's code, and a monitor that is already running keeps its thread."
       }
     }
   }
