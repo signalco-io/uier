@@ -361,6 +361,10 @@ disabled by default. Renovate uses GitHub's native auto-merge, which enforces th
 Every external workflow action is pinned to a full commit SHA with a version comment; Renovate's
 `helpers:pinGitHubActionDigests` keeps those references updated through pull requests.
 
+`infra/tests/ciPolicy.test.mjs` guards the non-major automerge types, manual default, action digest
+pins and release delay. Run `pnpm -C infra test` for Renovate policy changes: the PR infrastructure
+path filter currently excludes `renovate.json`, so those changes alone do not run this check in CI.
+
 A ruleset on `main` requires a pull request with a passing **`CI OK`** check and blocks force pushes and deletions; "Allow auto-merge" is enabled on the repository.
 
 ## Security disclosure discovery
