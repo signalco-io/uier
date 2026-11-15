@@ -580,7 +580,9 @@ Its response is the same authorized packet as `get_feedback`, in both `structure
 JSON text, including `markdown` and `context.links.comment` for clients without an embedded UI.
 Clients can summarize that Markdown and cite the comment link. Neither reading nor refreshing
 acknowledges unread activity or changes feedback. Keep `get_feedback` and `get_feedback_batch`
-for background reads; a monitor should not produce a new card on every tick.
+for background reads; a monitor should not produce a new card on every tick. The
+[uier monitor](uier-monitor.md#thread-cards-in-the-monitor-thread) shows a card once when a comment
+starts waiting on the person, such as a question to answer or a pull request to approve.
 
 The tool declares `_meta.ui.resourceUri: "ui://uier/thread-v1.html"`. The corresponding MCP
 resource is a self-contained HTML shell with MIME type `text/html;profile=mcp-app`; it contains

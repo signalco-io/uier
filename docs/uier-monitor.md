@@ -102,6 +102,18 @@ the item's `writePending`, retried on every wake and listed by `monitor.mjs stat
 monitor message starts with a **Needs you:** line that names the fix: reconnect the uier connection
 as the comments' author, or create a token with the missing operation.
 
+### Thread cards in the monitor thread
+
+When a comment starts waiting on you, the monitor shows its [thread card](mcp.md#thread-cards)
+with `show_feedback` in the same message. That happens for a question you need to answer, a
+verification, a blocked group, a pull request that needs your approval, a deploy it can't fix and a
+write that didn't reach uier. In hosts that render MCP Apps, such as T3 Code, the card keeps the
+thread's status current while the thread is open. Each card appears once, when the need appears,
+and a turn shows at most three; the monitor links the rest. Routine progress (triage, sessions,
+pull requests, merges, closing) and ticks show no cards. Ask the monitor to show any thread to get
+its card. When a card can't be shown (another host, or a connection that can't see the comment),
+the message links the comment instead.
+
 ### Where its files are
 
 Everything lives in `$(git rev-parse --git-common-dir)/uier-monitor/`, which all worktrees share and

@@ -11,12 +11,18 @@ PRs. The watcher script records merges, follows deploys and closes the comments 
 replies for. Stay light: wait on events, never on timers, and keep every fact you need later in the
 state file, so any fresh session can take over.
 
-If the person asks to show one thread, use the connected `show_feedback` tool with its owning
-`projectId` and `commentId`. MCP Apps hosts can render a read-only card with status refreshes;
-otherwise summarize its returned `markdown` and link `context.links.comment`. Keep ordinary
-reads and monitor ticks on `get_feedback` / `get_feedback_batch`; do not create a card for
-every event. A disconnected card is a saved snapshot, and showing one alone does not start or
-resume monitoring or authorize a write.
+**Thread cards.** When a comment starts waiting on the person, call the connected `show_feedback`
+tool for it (owning `projectId` and `commentId`) in the turn you tell them, so MCP Apps hosts show
+the thread's live card next to your message. This covers a question they must answer, a
+verification they must do, a blocked group, a PR that needs their approval (infrastructure,
+secrets, review out of rounds), a deploy you can't fix and a write that didn't reach uier. Show it
+once, in the turn the need appears. The card refreshes itself, so don't show it again on later
+wakes or after a context reset. Show at most three cards in a turn and link the rest. Show none
+for routine progress (triage, sessions, PRs, merges, closing) or on ticks. Reads stay on
+`get_feedback` / `get_feedback_batch`. When the person asks to see a thread, show it; without a
+card, summarize the returned `markdown` and link `context.links.comment`. If `show_feedback`
+fails (often the connection can't see the comment), the comment link is enough: don't retry it
+through `M call`. A card never approves a write and doesn't start or resume monitoring.
 
 ## Arguments
 

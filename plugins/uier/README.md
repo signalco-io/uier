@@ -17,7 +17,8 @@ card with its title, status, assignee, latest message and an **Open in uier** li
 every 30 seconds while visible and connected, and has a **Refresh** button and last-updated time.
 Other clients receive the same thread data and Markdown for a linked text summary. The card
 does not start monitoring, mark activity read or change feedback. A disconnected card may be
-out of date; refreshes require the host's live MCP connection.
+out of date; refreshes require the host's live MCP connection. The monitor also shows a card
+when a comment starts waiting on you, such as a question to answer or a pull request to approve.
 
 ## Install
 
