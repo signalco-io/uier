@@ -2,6 +2,7 @@ import { ArrowRight, Check, CircleHelp, CircleMinus, Info } from 'lucide-react';
 import { Button } from '@signalco/ui-primitives/Button';
 import { KnownPageLinks, KnownPages } from '@/src/knownPages';
 import { InlineLink, PageHeader, PageSection, Panel, Tile } from '../ContentPage';
+import { ComparisonCover } from './ComparisonCover';
 import { WorkflowPicture } from './WorkflowPicture';
 import { checkedOn, checkedOnLabel, competitors, competitorSlugs, dimensions, uier, type CompetitorSlug, type Fact, type Product, type Support } from './content';
 
@@ -124,9 +125,12 @@ export function PairComparisonPage({ slug }: { slug: CompetitorSlug }) {
     const competitor = competitors[slug];
     const tradeoff = tradeoffs[slug];
     return <main className="flex min-w-0 flex-col pb-16">
-        <PageHeader title={`uier vs ${competitor.name}`} lead={`An honest look at uier as a ${competitor.name} alternative: what overlaps, where the workflows differ and what you would give up.`}>
-            <div className="flex flex-wrap gap-2.5"><Button variant="solid" size="lg" href="#choose">Which fits your work?</Button><Button variant="outlined" size="lg" href="#features">Compare features</Button></div>
-        </PageHeader>
+        <div className="grid grid-cols-1 items-end gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,440px)] lg:gap-16">
+            <PageHeader title={`uier vs ${competitor.name}`} lead={`An honest look at uier as a ${competitor.name} alternative: what overlaps, where the workflows differ and what you would give up.`}>
+                <div className="flex flex-wrap gap-2.5"><Button variant="solid" size="lg" href="#choose">Which fits your work?</Button><Button variant="outlined" size="lg" href="#features">Compare features</Button></div>
+            </PageHeader>
+            <ComparisonCover slug={slug} />
+        </div>
 
         <PageSection id="choose" title="Choose by the work you need to finish" lead="Both tools collect visual feedback. The difference is what you need around that feedback." wide>
             <Panel className="md:grid-cols-2"><ProductChoice product={uier} title="Choose uier for live-page review" /><ProductChoice product={competitor} title={choiceTitles[slug]} /></Panel>
