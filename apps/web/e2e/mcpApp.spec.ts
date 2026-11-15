@@ -13,6 +13,8 @@ const fixture = (stage = 'open') => ({
 });
 
 type Host = { result: unknown; calls: { method: string; params: unknown }[]; silent: boolean; rpcError: boolean };
+// An up-to-date card shows only its check time; this notice is spoken, not drawn.
+const current = 'Updates every 30 seconds';
 const stale = 'Could not check for updates. Showing the last result.';
 const unavailable = 'This thread is unavailable. Access may have changed, or your client disconnected.';
 
@@ -51,7 +53,7 @@ async function mount(page: Page, { theme = 'light', initError = false }: { theme
     const frame = page.frameLocator('iframe');
     if (initError) return frame;
     await expect(frame.getByRole('heading', { name: 'Make the navigation easier to read' })).toBeVisible();
-    await expect(frame.getByText('Updates every 30 seconds')).toBeVisible();
+    await expect(notice(frame)).toHaveText(current);
     return frame;
 }
 
@@ -65,6 +67,7 @@ async function setHost(page: Page, options: Partial<Pick<Host, 'silent' | 'rpcEr
 
 const hostCalls = (page: Page) => page.evaluate(() => (window as unknown as { host: Host }).host.calls);
 const statusBadge = (frame: FrameLocator) => frame.locator('[data-status-dot]').locator('..');
+const notice = (frame: FrameLocator) => frame.locator('footer [role="status"] p').first();
 const announcement = (frame: FrameLocator) => frame.locator('[data-status-announcement]');
 const teardown = (page: Page) => page.evaluate(() => document.querySelector('iframe')!.contentWindow!.postMessage({ jsonrpc: '2.0', id: 111, method: 'ui/resource-teardown', params: {} }, '*'));
 
@@ -115,6 +118,28 @@ test('thread card draws Open as an ink ring and announces status changes, not ch
     await expect(announcement(frame)).toHaveAttribute('role', 'status');
     await expect(announcement(frame)).toHaveAttribute('aria-live', 'polite');
     await expect(dot).toHaveAttribute('data-status-dot', 'in-progress');
+});
+
+test('thread card has its own border and one status line while up to date', async ({ page }) => {
+    await page.clock.install();
+    const frame = await mount(page);
+    // BRAND.md: a resting card has a 1 px border and a 12 px radius. The host is asked for no frame of its own.
+    const card = frame.getByRole('article', { name: 'uier thread' });
+    expect(await card.evaluate(element => { const style = getComputedStyle(element); return [parseFloat(style.borderTopWidth) > 0, style.borderTopStyle, style.borderTopLeftRadius]; }))
+        .toEqual([true, 'solid', '12px']);
+    expect(await frame.locator('body').evaluate(body => getComputedStyle(body).backgroundColor)).toBe('rgba(0, 0, 0, 0)');
+    // Only the check time is drawn; the notice stays for screen readers.
+    const checked = frame.getByText(/^Last checked/);
+    await expect(checked).toBeVisible();
+    expect((await notice(frame).boundingBox())!.height).toBeLessThanOrEqual(1);
+    const line = (await checked.boundingBox())!.height;
+    // A warning is drawn above the time, so the footer grows to two lines.
+    await setHost(page, { silent: true });
+    await frame.getByRole('button', { name: 'Refresh', exact: true }).click();
+    await page.clock.runFor(15_001);
+    await expect(frame.getByText(stale)).toBeVisible();
+    expect((await notice(frame).boundingBox())!.height).toBeGreaterThanOrEqual(line);
+    await expect(checked).toBeVisible();
 });
 
 test('thread card shows archive neutrally and stops updates on host teardown', async ({ page }) => {
@@ -175,7 +200,7 @@ test('thread card keeps Refresh focused and labelled while checking, and recover
     await expect(refresh).toBeFocused();
     await setHost(page, { silent: false });
     await page.clock.runFor(15_000);
-    await expect(frame.getByText('Updates every 30 seconds')).toBeVisible();
+    await expect(notice(frame)).toHaveText(current);
     await expect(refresh).toBeFocused();
 });
 
@@ -189,7 +214,7 @@ test('thread card shows stale state after timeout, recovers, and clears denied t
     await expect(frame.getByRole('heading')).toHaveText('Make the navigation easier to read');
     await setHost(page, { silent: false });
     await frame.getByRole('button', { name: 'Refresh', exact: true }).click();
-    await expect(frame.getByText('Updates every 30 seconds')).toBeVisible();
+    await expect(notice(frame)).toHaveText(current);
     await setResult(page, { isError: true, structuredContent: { error: 'not_found', message: 'Thread not found.' }, content: [] });
     await frame.getByRole('button', { name: 'Refresh', exact: true }).click();
     await expect(frame.getByText(unavailable)).toBeVisible();

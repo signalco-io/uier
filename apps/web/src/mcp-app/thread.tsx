@@ -193,8 +193,11 @@ function ThreadCard() {
         : view.state === 'stale' ? 'Could not check for updates. Showing the last result.'
         : view.state === 'fresh' ? 'Updates every 30 seconds'
         : view.state === 'snapshot' ? 'Checking current status…' : 'Loading thread…';
-    return <main className="mx-auto max-w-2xl p-4 text-sm">
-        <article className="space-y-4" aria-label="uier thread">
+    // A card that is up to date shows one line, the check time. Its notice is still spoken once.
+    const steady = view.connection === 'connected' && view.state === 'fresh';
+    return <main className="max-w-3xl text-sm">
+        {/* The card draws its own edge (BRAND.md: a resting surface has a border), so the resource asks the host for none. */}
+        <article className="space-y-4 rounded-xl border border-border bg-card p-4 text-card-foreground" aria-label="uier thread">
             <header className="flex items-center justify-between gap-3">
                 <Logo size={20} />
                 {context && <span className="text-muted-foreground">{context.identity.number ? `uier #${context.identity.number}` : 'Thread'}</span>}
@@ -214,7 +217,7 @@ function ThreadCard() {
                     </div>
                 </div>
                 <p className="truncate text-xs text-muted-foreground" title={context.source.path}>{context.source.path}{context.source.environment ? ` · ${context.source.environment}` : ''}</p>
-                <section className="space-y-2 rounded-xl border border-border p-3" aria-label="Latest message">
+                <section className="space-y-2 rounded-lg bg-muted p-3" aria-label="Latest message">
                     <div className="flex flex-wrap justify-between gap-2 text-xs text-muted-foreground">
                         <span>{latest?.authorName ?? 'Latest message'}</span>
                         <span>{context.discussion.length} {context.discussion.length === 1 ? 'reply' : 'replies'}</span>
@@ -223,13 +226,13 @@ function ThreadCard() {
                 </section>
             </>}
             <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-3">
-                <div className="space-y-1 text-xs text-muted-foreground">
+                <div className="text-xs text-muted-foreground">
                     {/* Only messages that change what the card can do are live; the time changes every check. */}
-                    <div className="space-y-1" role="status" aria-live="polite">
-                        <p className={warning ? 'text-foreground' : undefined}>{notice}</p>
-                        {linkError && <p>Could not open the link. Use the thread link in the conversation.</p>}
+                    <div role="status" aria-live="polite">
+                        <p className={warning ? 'text-foreground' : steady ? 'sr-only' : undefined}>{notice}</p>
+                        {linkError && <p className={steady ? undefined : 'mt-1'}>Could not open the link. Use the thread link in the conversation.</p>}
                     </div>
-                    {view.checkedAt && <p>Last checked <time dateTime={new Date(view.checkedAt).toISOString()}>{new Date(view.checkedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</time></p>}
+                    {view.checkedAt && <p className={steady && !linkError ? undefined : 'mt-1'} title={steady ? notice : undefined}>Last checked <time dateTime={new Date(view.checkedAt).toISOString()}>{new Date(view.checkedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</time></p>}
                 </div>
                 <p className="sr-only" role="status" aria-live="polite" data-status-announcement="">{view.announcement}</p>
                 <div className="flex items-center gap-2">

@@ -589,7 +589,8 @@ resource is a self-contained HTML shell with MIME type `text/html;profile=mcp-ap
 no thread data, account credentials or external assets. The host renders it in a sandbox and
 delivers the tool result through the MCP Apps bridge. The card shows the title, effective status,
 assignee, latest message and an **Open in uier** link. It does not fetch screenshots or expose
-reply, assignment or status controls.
+reply, assignment or status controls. The card draws its own border, so the resource declares
+`_meta.ui.prefersBorder: false` and a host should not add a frame around it.
 
 While visible and connected, the card calls `get_feedback` through the host every 30 seconds;
 **Refresh** requests an immediate read. Every read rechecks the connection's current scope,

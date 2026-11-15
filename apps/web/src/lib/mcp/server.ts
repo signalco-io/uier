@@ -285,7 +285,7 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
     }, async () => {
         try {
             return { contents: [{ uri: THREAD_CARD_URI, mimeType: THREAD_CARD_MIME, text: await threadCardHtml(),
-                _meta: { ui: { prefersBorder: true, csp: { connectDomains: [], resourceDomains: [], frameDomains: [] } } } }] };
+                _meta: { ui: { prefersBorder: false, csp: { connectDomains: [], resourceDomains: [], frameDomains: [] } } } }] };
         } catch (error) {
             noteMcpError(error);
             throw new ProtocolError(ProtocolErrorCode.InternalError, 'The thread card is unavailable. Read this thread with get_feedback.');

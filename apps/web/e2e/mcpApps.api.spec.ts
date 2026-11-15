@@ -61,7 +61,7 @@ for (const modern of [false, true]) {
             expect((await client.listResources()).resources).toContainEqual(expect.objectContaining({ uri: THREAD_CARD_URI, mimeType: THREAD_CARD_MIME }));
             const resource = (await client.readResource({ uri: THREAD_CARD_URI })).contents[0]!;
             expect(resource).toMatchObject({ uri: THREAD_CARD_URI, mimeType: THREAD_CARD_MIME,
-                _meta: { ui: { prefersBorder: true, csp: { connectDomains: [], resourceDomains: [], frameDomains: [] } } } });
+                _meta: { ui: { prefersBorder: false, csp: { connectDomains: [], resourceDomains: [], frameDomains: [] } } } });
             expect('text' in resource && resource.text).toMatch(/<!doctype html>/i);
             const html = 'text' in resource ? resource.text : '';
             for (const secret of [token, f.comment.id, f.project.id, f.user.email, f.comment.thread.items[0]!.text])
