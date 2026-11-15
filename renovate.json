@@ -36,37 +36,15 @@
             ]
         },
         {
-            "description": "Only type declarations and browser-test tools may automerge; wait at least three days",
+            "description": "Automerge non-major updates after the required CI checks pass",
             "automerge": true,
             "matchUpdateTypes": [
                 "minor",
                 "patch",
                 "pin",
-                "digest"
-            ],
-            "matchManagers": [
-                "npm"
-            ],
-            "matchPackageNames": [
-                "@types/*",
-                "@playwright/test",
-                "@axe-core/playwright"
-            ],
-            "matchDepTypes": [
-                "devDependencies"
-            ],
-            "minimumReleaseAge": "3 days"
-        },
-        {
-            "description": "Maintainers merge every GitHub Actions update, including digest updates",
-            "automerge": false,
-            "matchManagers": [
-                "github-actions"
-            ],
-            "matchUpdateTypes": [
-                "minor",
-                "patch",
-                "digest"
+                "pinDigest",
+                "digest",
+                "lockFileMaintenance"
             ]
         },
         {
