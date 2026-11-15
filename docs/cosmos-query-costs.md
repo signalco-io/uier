@@ -314,12 +314,14 @@ Keep diagnostic sampling off by default. A bounded investigation using the exist
 work before asserting production savings; an environment/configuration deployment is separate
 from these source changes.
 
-Local validation passed `pnpm typecheck`, `pnpm build` and the required `pnpm test`
-(1,219 passed, one gated test skipped). The final affected MCP/telemetry/realtime API run
-passed 48 tests, realtime Desktop Chrome passed eight, and the plugin/helper/dashboard checks
-passed 55. Workflow lint, generated skill consistency and changed documentation file links passed.
-No production environment was changed or live monitor restarted; hosted savings and the cron
-mitigation's actual cadence remain unverified until the changes are deployed and read back.
+Local validation after integrating the Vercel migration passed `pnpm typecheck`, `pnpm build`
+and the required `pnpm test` (1,227 passed, one gated test skipped). The affected worker,
+notifications and Azure credential API run passed 56 tests, and combined deployment/plugin/helper
+script checks passed 83. Workflow lint and generated skill consistency passed. The actual native
+production artifact was built and packaged with the pinned Vercel CLI; see the
+[readiness receipt](evidence/vercel-scheduler-readiness-2026-11-15.json).
+No live monitor was restarted. Hosted savings and actual Vercel schedule execution remain
+unverified until the changes are deployed and read back.
 
 ## Diagnostics and store contract
 

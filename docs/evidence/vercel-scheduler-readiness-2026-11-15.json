@@ -15,7 +15,6 @@
   },
   "cli": {
     "version": "65.14.0",
-    "matchesPinnedCiVersion": true,
     "workingDirectory": "/tmp/uier-schedules-readiness",
     "localMetadata": {
       "path": ".vercel/project.json",
@@ -26,7 +25,8 @@
       }
     },
     "command": "pnpm dlx vercel@65.14.0 schedules list --cwd /tmp/uier-schedules-readiness --environment production --json",
-    "authentication": "Uses the existing Vercel CLI login; no token was passed in arguments or copied into the receipt."
+    "authentication": "Uses the existing Vercel CLI login; no token was passed in arguments or copied into the receipt.",
+    "matchesPinnedCiVersionAtInspection": true
   },
   "response": {
     "status": "ok",
@@ -68,14 +68,14 @@
     "runtimeGuard": "The project does not expose Vercel system environment variables. UIER_DEPLOYMENT_ENV and known production container names are the explicit configuration guard; reject non-production VERCEL_ENV when present, without requiring it to exist. Azure still validates the production-only federated OIDC subject."
   },
   "verificationAfterDeployment": {
-    "listCommand": "pnpm dlx vercel@65.14.0 schedules list --cwd /tmp/uier-schedules-readiness --environment production --json",
+    "listCommand": "pnpm dlx vercel@65.16.0 schedules list --cwd /tmp/uier-schedules-readiness --environment production --json",
     "steps": [
       "Confirm review-notifications has the intended private target and five-minute expression.",
       "Inspect schedule execution history and function logs for successful production runs; distinguish expected overlap skips from failed work.",
       "Compare scheduled time, execution time and completion state across consecutive occurrences before claiming restored cadence."
     ],
     "liveInvocationPerformed": false,
-    "inspectCommand": "pnpm dlx vercel@65.14.0 schedules inspect review-notifications --cwd /tmp/uier-schedules-readiness --environment production --namespace default --json"
+    "inspectCommand": "pnpm dlx vercel@65.16.0 schedules inspect review-notifications --cwd /tmp/uier-schedules-readiness --environment production --namespace default --json"
   },
   "references": [
     "https://vercel.com/docs/schedules/configuration#build-output-api",
@@ -122,8 +122,8 @@
     "qualification": "The CLI documents --dry as no upload/deployment creation. This establishes artifact input preservation only, not remote schema acceptance or a live scheduler execution."
   },
   "localProductionArtifact": {
-    "observedAtUtc": "2026-11-15T12:35:43.539684+00:00",
-    "cliVersion": "65.14.0",
+    "observedAtUtc": "2026-11-15T12:41:52.620144+00:00",
+    "cliVersion": "65.16.0",
     "build": "vercel build --prod using public checked-in project settings, without environment download",
     "schedule": {
       "schedule": "*/5 * * * *",
@@ -143,6 +143,18 @@
     },
     "allDependencySourcesPresent": true,
     "functionEnvironmentInArtifact": false,
-    "qualification": "Actual local production Build Output API artifact passed native and common packaging. This does not prove remote deployment acceptance or a successful scheduled invocation."
+    "qualification": "Actual local production Build Output API artifact passed native and common packaging. This does not prove remote deployment acceptance or a successful scheduled invocation.",
+    "matchesCurrentPinnedCiVersion": true
+  },
+  "localValidation": {
+    "typecheck": "passed",
+    "productionBuild": "passed",
+    "affectedWorkerApiTestsPassed": 56,
+    "requiredTestsPassed": 1227,
+    "requiredTestsSkipped": 1,
+    "scriptTestsPassed": 83,
+    "workflowLint": "passed",
+    "nativeDependencyIsolation": "passed",
+    "qualification": "Local checks and artifact validation do not establish a live scheduled invocation."
   }
 }
