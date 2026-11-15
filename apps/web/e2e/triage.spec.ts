@@ -426,6 +426,8 @@ test('member toolbar thread and inbox priorities persist and guests can only rea
         await toolbar(tab).getByRole('button', { name: /^Inbox(?:,|$)/ }).click();
         await expect(tab.getByRole('complementary', { name: 'Comments', exact: true })).toContainText('Priority: High');
         await expect(tab.getByRole('button', { name: /Change priority/ })).toHaveCount(0);
+        // Guests cannot open the project in the app (uier #445)
+        await expect(tab.getByRole('link', { name: 'Open in app' })).toHaveCount(0);
     } finally { await guest.close(); }
     expect(comments).toHaveLength(1);
 });

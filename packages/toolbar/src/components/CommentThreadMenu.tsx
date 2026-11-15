@@ -6,7 +6,7 @@ import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { Button } from '@signalco/ui-primitives/Button';
 import { Stack } from '@signalco/ui-primitives/Stack';
 import { cx } from '@signalco/ui-primitives/cx';
-import { ArrowDownToLine, ArrowUp, Check, Mail, MoreHorizontal, Mute, Pin, PinOff, Undo, User, Verified, Volume2 } from '@signalco/ui-icons';
+import { ArrowDownToLine, ArrowUp, Check, ExternalLink, Mail, MoreHorizontal, Mute, Pin, PinOff, Undo, User, Verified, Volume2 } from '@signalco/ui-icons';
 import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
 import { floatingShadowClassName } from './@types/Comments';
 import { useIconTooltip } from './IconTooltip';
@@ -26,13 +26,17 @@ export type ThreadMenuActions = {
     mute?: { muted: boolean; pending: boolean; onToggle: () => void };
     archive?: { archived: boolean; pending: boolean; onToggle: () => void };
     markUnread?: { pending: boolean; onMarkUnread: () => void };
+    /** The thread in the signed-in uier app (`/app/projects/<code>?comment=<id>`), opened in a new tab; members only */
+    openInApp?: { href: string };
 };
 
-function MenuButton({ icon, buttonRef, onClick, disabled, label, children }: { icon?: ReactNode; buttonRef?: Ref<HTMLButtonElement>; onClick: () => void; disabled?: boolean; label?: string; children: ReactNode }) {
+function MenuButton({ icon, buttonRef, onClick, disabled, label, href, children }: { icon?: ReactNode; buttonRef?: Ref<HTMLButtonElement>; onClick: () => void; disabled?: boolean; label?: string; href?: string; children: ReactNode }) {
     return (
         <Button ref={buttonRef} variant="plain" size="sm" fullWidth className="justify-start"
             startDecorator={icon && <span className="flex size-4 shrink-0 items-center justify-center" aria-hidden="true">{icon}</span>}
-            aria-label={label} disabled={disabled} onClick={onClick}>
+            aria-label={label} disabled={disabled} onClick={onClick}
+            // A link opens in a new tab, like Options → View project
+            {...href ? { href, target: '_blank', rel: 'noopener noreferrer' } : {}}>
             {children}
         </Button>
     );
@@ -53,8 +57,8 @@ export function CommentThreadMenu({ className, actions, triggerRef }: { classNam
     const [choosingPriority, setChoosingPriority] = useState(false);
     const firstRef = useRef<HTMLButtonElement>(null);
     const { triggerProps, tooltip } = useIconTooltip(t.thread.options);
-    const { assign, priority, verify, follow, mute, markUnread, archive } = actions;
-    if (!assign && !priority && !verify && !follow && !mute && !markUnread && !archive) return null;
+    const { assign, priority, verify, follow, mute, markUnread, archive, openInApp } = actions;
+    if (!assign && !priority && !verify && !follow && !mute && !markUnread && !archive && !openInApp) return null;
     const run = (action: () => void) => { setOpen(false); setChoosingPriority(false); action(); };
     const current = commentPriority(priority?.value);
 
@@ -139,6 +143,11 @@ export function CommentThreadMenu({ className, actions, triggerRef }: { classNam
                 {markUnread && (
                     <MenuButton buttonRef={takeFirst()} icon={<Mail size={16} />} disabled={markUnread.pending} onClick={() => run(markUnread.onMarkUnread)}>
                         {t.thread.markUnread}
+                    </MenuButton>
+                )}
+                {openInApp && (
+                    <MenuButton buttonRef={takeFirst()} icon={<ExternalLink size={16} />} href={openInApp.href} onClick={() => run(() => undefined)}>
+                        {t.thread.openInApp}
                     </MenuButton>
                 )}
             </Stack>

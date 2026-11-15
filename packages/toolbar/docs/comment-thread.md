@@ -49,6 +49,9 @@ Checked in `apps/web/e2e/toolbar-thread.spec.ts`.
 - Then **Thread options** (`CommentThreadMenu.tsx`), with the triage and email controls each person may use:
   assign (the people open under the line), priority, Request verification ([fix verification](fix-verification.md)),
   Follow / Unfollow thread, Mute project emails and, once read, Mark as unread. No menu when there is none.
+  Members (the project's viewer is a member, `useProjectViewer`) also get Open in app, last: a link to the thread in the
+  app's inbox (`/app/projects/<code>?comment=<id>`, as in [the app's inbox](../../../apps/web/docs/comments-inbox.md)) in
+  a new tab ([uier #445](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_z-D8sz84XrnMwNuGLXLMF)).
   Each item has a 16 px icon, like the toolbar's other menus. Opened from the inbox, the menu renders in the ink
   scope, so it stays dark like the inbox; a thread on the page opens it in the toolbar root, in the thread's theme.
 

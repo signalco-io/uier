@@ -212,6 +212,7 @@ export const de: Messages = {
         restored: "Kommentar wiederhergestellt.",
         archivedLabel: "Archiviert",
         markUnread: 'Als ungelesen markieren',
+        openInApp: 'In der App öffnen',
         writtenBy: (details: string) => `Geschrieben von ${details}`,
         via: 'über',
         viaAgent: (details: string) => `über ${details}`,

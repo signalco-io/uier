@@ -14,6 +14,8 @@ import { Button } from '@signalco/ui-primitives/Button';
 import { newLocalId, useComments, useReadComment, useUnreadComment } from '../hooks/useComments';
 import { commentPriority, type CommentPriority as CommentPriorityValue } from '../triage';
 import { commentLink } from '../review';
+import { toolbarConfig } from '../config';
+import { useProjectViewer } from '../project/ProjectGate';
 import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
 import { CommentsErrorMessage } from './CommentsErrorMessage';
 import { useAnnounce } from './Announcer';
@@ -217,6 +219,7 @@ export function CommentThreadHeader({ comment, onMarkedUnread, onRequestVerifica
     optionsRef?: RefObject<HTMLButtonElement | null>;
 }) {
     const { review } = useContext(CommentsBootstrapperContext);
+    const { isMember } = useProjectViewer();
     const t = useMessages();
     const { resolve, progress, archive, prioritize, verification: verificationMutation } = useComments();
     const read = useReadComment();
@@ -323,6 +326,11 @@ export function CommentThreadHeader({ comment, onMarkedUnread, onRequestVerifica
         optionsRef?.current?.focus();
     };
 
+    // The thread in the uier app, the inbox's own link (`?comment=<id>`): only members can open the project there
+    const appLink = isMember && toolbarConfig.project
+        ? `${toolbarConfig.apiUrl}/app/projects/${encodeURIComponent(toolbarConfig.project)}?comment=${encodeURIComponent(comment.id)}`
+        : undefined;
+
     const handleCopyLink = async () => {
         const link = commentLink(comment, review);
         if (!link) return;
@@ -370,7 +378,8 @@ export function CommentThreadHeader({ comment, onMarkedUnread, onRequestVerifica
                             archive: canResolve ? { archived: Boolean(comment.archivedAt), pending: archive.isPending, onToggle: () => handleArchive(!comment.archivedAt) } : undefined,
                             follow: notifications.follow,
                             mute: notifications.mute,
-                            markUnread: canMarkUnread ? { pending: unreadMutation.isPending, onMarkUnread: handleMarkUnread } : undefined
+                            markUnread: canMarkUnread ? { pending: unreadMutation.isPending, onMarkUnread: handleMarkUnread } : undefined,
+                            openInApp: appLink ? { href: appLink } : undefined
                         }} />
                     </Row>
                 )}
