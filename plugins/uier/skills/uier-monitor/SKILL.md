@@ -1,6 +1,6 @@
 ---
 name: uier-monitor
-description: Monitor a uier project and resolve its feedback end to end. Triages each new comment (accept, reject with a reply, or ask a question), assigns it, runs up to 6 fix sessions at once with small fixes grouped, opens PRs or pushes the way the repository expects, merges or turns on auto-merge, waits for the deploy, then replies in uier and marks the comment done or asks for verification. Use when someone names a uier project to monitor, resume, check or stop, for example "/uier-monitor uier.io public feedback".
+description: Monitor a uier project and resolve its feedback end to end. Triages each new comment (accept, reject with a reply, or ask a question), assigns it, runs up to 6 fix sessions at once with small fixes grouped, opens PRs or pushes the way the repository expects, merges or turns on auto-merge, waits for the deploy, then replies in uier and marks the comment done or asks for verification. Use when someone names one or more uier projects to monitor, resume, check or stop, for example "/uier-monitor uier.io public feedback" or "/uier-monitor uier.io public feedback, uier.io user feedback".
 ---
 
 # uier monitor
@@ -20,7 +20,9 @@ resume monitoring or authorize a write.
 
 ## Arguments
 
-The first argument is the uier project's name or id. Optional words after it:
+The first argument is the uier project's name or id. Separate several projects with commas
+(`/uier-monitor uier.io public feedback, uier.io user feedback`); when the whole text names one
+project, it is one. Optional words after the last project apply to each of them:
 
 | Word | Effect |
 | --- | --- |
@@ -33,6 +35,12 @@ The first argument is the uier project's name or id. Optional words after it:
 | `also=u_…,u_…` | Other uier accounts the person confirmed as theirs |
 | `reviewer=u_…` | Account asked to verify the person's own comments (uier won't let them verify a check their own account requested) |
 | `claude=<instance>`, `openai=<instance>` | T3 provider instances for Claude and OpenAI sessions |
+
+**Several projects**, or one whose monitor already runs in another repository: this thread only
+launches. Each project gets its own monitor thread, `🛎 Monitor: <project name>`, in the T3 project
+that holds its code (`references/start.md`, Several projects, which also covers `status` and `stop`
+for several). Outside T3, list one start command per project with the checkout to run it in, and
+start nothing.
 
 Starting again with the same project resumes. Nothing is lost between sessions.
 Only a person's explicit start or resume clears the stopped flags. An automated tick for a stopped
@@ -110,12 +118,18 @@ names your harness shows, for example `select:` + the uier tools (`list_projects
 `get_feedback_batch`, `assign_feedback`, `set_feedback_status`, `reply_to_feedback`,
 `request_feedback_verification`, `link_feedback_pull_request`, `set_feedback_agent`,
 `clear_feedback_agent`) and in T3 `delegate_task`, `task_status`, `t3_thread_send`,
-`t3_thread_organize` (pin, unsettle and unpin this thread), `link_pull_request`, `watch_pull_request`, `unwatch_pull_request`.
+`t3_thread_organize` (pin, unsettle and unpin this thread), `t3_thread_update` (name it),
+`link_pull_request`, `watch_pull_request`, `unwatch_pull_request`. Launching several projects needs
+`t3_project_list`, `t3_thread_read`, `t3_thread_launch` and `t3_thread_send` instead.
 
 **T3 thread.** On first start and every active resume or tick, pin your own orchestrator thread
 with `t3_thread_organize`, `action: "pin"`, omitting `threadId`. After success, record the UTC
 timestamp as `harness.pinnedAt` with `M patch`. On resume or tick also call it with
-`action: "unsettle"` (omit `threadId`). Do this after checking stopped flags; an automated tick
+`action: "unsettle"` (omit `threadId`). Name the thread `🛎 Monitor: <project.name>` (one line, at
+most 60 characters) with `t3_thread_update`, `action: "rename"`, omitting `threadId`: on first start
+and a person's resume, and on a tick only when `harness.title` differs. Record `harness.title` after
+success. When `harness.threadId` is another thread, this one takes over: unpin that thread
+(`threadId` set) and record this thread's id. Do this after checking stopped flags; an automated tick
 for a stopped monitor must leave it unpinned. `status` and `dashboard` do not change thread state.
 
 **First start** (no `STATE/state.json`): follow `references/start.md`.

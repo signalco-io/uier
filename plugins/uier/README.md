@@ -47,7 +47,9 @@ coding tool. This does not establish hosted ChatGPT or Claude connector acceptan
 
 For monitoring, use `/uier:uier-monitor <project name or id>` in Claude Code, or ask Codex to use
 the uier-monitor skill for that project. Ask for `status` to inspect saved work, or `stop` to stop
-the watcher. The script skill is a helper, not a second monitor to start.
+the watcher. Separate several projects with commas; in T3 Code each one gets its own monitor
+thread, named `🛎 Monitor: <project name>`. The script skill is a helper, not a second monitor to
+start.
 
 To see what every monitor on your machine is doing, ask for the dashboard, or run
 `node <skill folder>/scripts/dashboard.mjs --open`. It serves a read-only page on
