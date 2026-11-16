@@ -1,6 +1,23 @@
 import type en from './en';
 
 const messages: Record<keyof typeof en, string> = {
+    "Priority: {priority}": "Prioritet: {priority}",
+    "Environment: {environment}": "Okruženje: {environment}",
+    "Suggested rewrite: {text}": "Predložena preformulacija: {text}",
+    "This message was deleted.": "Ova je poruka obrisana.",
+    "Feedback is unavailable.": "Povratna informacija nije dostupna.",
+    "Open the feedback in uier.": "Otvorite povratnu informaciju u uieru.",
+    "Open the project in uier to view this feedback.": "Otvorite projekt u uieru da biste vidjeli ovu povratnu informaciju.",
+    "Open in uier": "Otvorite u uieru",
+    "Open in uier: {url}": "Otvorite u uieru: {url}",
+    "View in uier": "Pogledajte u uieru",
+    "{author} via uier:": "{author} putem uiera:",
+    "Status: {status}.": "Status: {status}.",
+    "1 new reply in uier.": "1 novi odgovor u uieru.",
+    "{count} new replies in uier.": "Novi odgovori u uieru: {count}.",
+    "uier is connected to this channel.": "uier je povezan s ovim kanalom.",
+    "Slack user {id}": "Korisnik Slacka {id}",
+    "Slack app": "Aplikacija Slack",
     " (off)": " (isključeno)",
     " / {value1}": " / {value1}",
     " Always included.": " Uvijek uključeno.",

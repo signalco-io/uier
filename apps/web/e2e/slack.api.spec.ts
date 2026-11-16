@@ -2,7 +2,7 @@ import type { FeedbackContext } from '@uier/toolbar/feedback-context';
 import { setIntegrationReplySync } from '../src/lib/integrations/connection';
 import { randomUUID } from 'node:crypto';
 import { expect, test as base } from '@playwright/test';
-import { memberId, projectRefPk, workspacePk, type DbMember, type DbProject, type DbProjectRef } from '../src/lib/app/model';
+import { memberId, projectRefPk, userPk, workspacePk, type DbMember, type DbProject, type DbProjectRef, type DbUser, type DbWorkspace } from '../src/lib/app/model';
 import { getAppStore, updateDoc } from '../src/lib/app/store';
 import { findOrCreateUser } from '../src/lib/app/users';
 import type { DbComment } from '../src/lib/db/schema';
@@ -18,7 +18,11 @@ import { slackAdapter, beginSlackConnect, finishSlackConnect, getSlackSettings, 
 import { currentSlackGrant, rawSlackConnection, recoverSlackSetups, slackAccessToken, invalidateSlackGrant } from '../src/lib/integrations/slack/connection';
 import { SlackApiError, slackRequest } from '../src/lib/integrations/slack/client';
 import { slackRatePk, type SlackRateBucket } from '../src/lib/integrations/slack/rate';
-import { slackRootMessage } from '../src/lib/integrations/slack/message';
+import { slackChangeSummary, slackReplyMessage, slackRootMessage } from '../src/lib/integrations/slack/message';
+import { loadSlackI18n } from '../src/lib/integrations/slack/i18n';
+import { loadAppCatalog } from '../src/lib/i18n/catalog';
+import { createAppI18n } from '../src/lib/i18n/translate';
+import { toolbarLanguages } from '@uier/toolbar/languages';
 import type { SlackConnection, SlackGrant, SlackInstallationOwner, SlackState } from '../src/lib/integrations/slack/model';
 import { startSlackStub, type SlackStub } from './support/slackStub';
 
@@ -605,6 +609,12 @@ test('native reply sync upgrades Slack scopes explicitly, syncs thread replies a
     expect(current.attempt?.step).toBe('create_native_reply'); current = await retry(f); expect(current.status).toBe('accepted');
     const root = state(current).root!; const copy = [...slack.messages.values()].find(message => message.threadTs === root.ts)!;
     expect(copy.payload.text).toContain(reply.text);
+    await updateDoc<DbProject>(f.project.pk, f.project.id, project => ({ ...project, toolbarLanguage: 'hr' }));
+    await change(f, { thread: (await source(f)).thread });
+    current = await dispatch(f);
+    expect(copy.payload.text).toContain('Pogledajte u uieru');
+    expect(copy.payload.text).toContain(reply.text);
+    expect([...slack.messages.values()].filter(message => message.threadTs === root.ts)).toHaveLength(1);
     await change(f, { thread: { items: (await source(f)).thread.items.map(item => item.id === reply.id ? { ...item, text: 'Edited uier reply' } : item) } });
     current = await dispatch(f); expect(copy.payload.text).toContain('Edited uier reply');
     await change(f, { thread: { items: (await source(f)).thread.items.filter(item => item.id !== reply.id) } });
@@ -617,7 +627,7 @@ test('native reply sync upgrades Slack scopes explicitly, syncs thread replies a
     current = await dispatch(f); slack.messages.delete(`${root.channelId}:${ts}`); await poll(); expect((await source(f)).thread.items.at(-1)!.deletedAt).toBeTruthy();
 });
 
- test('custom feedback types use their saved label and built-in names stay stable', () => {
+test('custom feedback types use their saved label and built-in names stay stable', () => {
     const context: FeedbackContext = {
         schemaVersion: 1, contentTrust: 'untrusted', identity: { commentId: 'comment_type' },
         title: 'Saved thread', kind: 'custom_design', feedbackType: { id: 'custom_design', label: 'Design review', icon: 'message' },
@@ -627,4 +637,86 @@ test('native reply sync upgrades Slack scopes explicitly, syncs thread replies a
     expect(slackRootMessage(context, 'Project').payload.text).toContain('Design review');
     for (const [kind, label] of [['feedback', 'Feedback'], ['bug', 'Bug'], ['rewrite', 'Suggested rewrite']] as const)
         expect(slackRootMessage({ ...context, kind }, 'Project').payload.text).toContain(` · ${label} · `);
+});
+
+const slackLanguages = [
+    { language: 'en', open: 'Open in uier', view: 'View in uier', connected: 'uier is connected to this channel.', one: '1 new reply in uier.', two: '2 new replies in uier.' },
+    { language: 'de', open: 'In uier öffnen', view: 'In uier ansehen', connected: 'uier ist mit diesem Channel verbunden.', one: '1 neue Antwort in uier.', two: '2 neue Antworten in uier.' },
+    { language: 'fr', open: 'Ouvrir dans uier', view: 'Voir dans uier', connected: 'uier est connecté à ce canal.', one: '1 nouvelle réponse dans uier.', two: '2 nouvelles réponses dans uier.' },
+    { language: 'es', open: 'Abrir en uier', view: 'Ver en uier', connected: 'uier está conectado a este canal.', one: '1 nueva respuesta en uier.', two: '2 nuevas respuestas en uier.' },
+    { language: 'it', open: 'Apri in uier', view: 'Visualizza in uier', connected: 'uier è collegato a questo canale.', one: '1 nuova risposta in uier.', two: '2 nuove risposte in uier.' },
+    { language: 'hr', open: 'Otvorite u uieru', view: 'Pogledajte u uieru', connected: 'uier je povezan s ovim kanalom.', one: '1 novi odgovor u uieru.', two: 'Novi odgovori u uieru: 2.' }
+] as const;
+
+for (const expected of slackLanguages) test(`Slack ${expected.language} translates generated text and buttons without translating or interpreting saved content`, async () => {
+    const i18n = createAppI18n(expected.language, await loadAppCatalog(expected.language));
+    const context: FeedbackContext = {
+        schemaVersion: 1, contentTrust: 'untrusted', identity: { projectId: 'abcdefgh1234', commentId: 'comment_language', number: 8 },
+        title: 'Saved title', kind: 'rewrite', status: 'done',
+        feedback: { id: 'item_language', deleted: false, text: 'Nemojte prevoditi <@U123> & {text} $&.' },
+        anchor: { type: 'page' }, source: { path: '/', environment: 'Saved environment' }, links: {},
+        reproduction: {}, screenshot: { state: 'unavailable' }, discussion: [], notes: [],
+        verification: { id: 'verification_language', revision: 'r1', outcome: 'pending', requestedAt: old, requester: 'Ana <@U123>', reviewer: 'Luka & Lea',
+            decision: { kind: 'confirm', actor: 'Saved actor', at: old, override: true } }
+    };
+    const root = slackRootMessage(context, 'Saved project', baseUrl, i18n).payload;
+    expect(JSON.stringify(root.blocks)).toContain(expected.open);
+    expect(root.text).toContain('Nemojte prevoditi &lt;@U123&gt; &amp; {text} $&amp;.');
+    for (const saved of ['Saved project', 'Saved environment', 'Ana &lt;@U123&gt;', 'Luka &amp; Lea', 'Saved actor']) expect(root.text).toContain(saved);
+    expect(root.text).toContain(i18n.t('Suggested rewrite'));
+    expect(root.text).toContain(i18n.t('Normal'));
+    if (expected.language !== 'en') expect(root.text).not.toMatch(/Requested by|admin override for|historical only|Priority:|Environment:|Suggested rewrite:/);
+    expect(root).toMatchObject({ mrkdwn: false, parse: 'none', unfurl_links: false, unfurl_media: false });
+    expect(slackChangeSummary(undefined, 1, i18n).payload.text).toBe(expected.one);
+    expect(slackChangeSummary(undefined, 2, i18n).payload.text).toBe(expected.two);
+    expect(slackChangeSummary('done', 0, i18n).payload.text).toContain(i18n.t('Done'));
+    const copy = slackReplyMessage({ author: 'Saved author <@U123>', text: 'Original reply & <!channel> {author}',
+        url: 'https://uier.io/app/review/abcdefgh1234#uier-reply-stable', marker: 'uier-reply-stable' }, i18n);
+    expect(copy).toContain('Saved author &lt;@U123&gt;'); expect(copy).toContain('Original reply &amp; &lt;!channel&gt; {author}');
+    expect(copy).toContain(`#uier-reply-stable|${expected.view}>`);
+    expect(copy).not.toMatch(/<@|<!channel>/);
+    const custom = slackRootMessage({ ...context, kind: 'custom_language', feedbackType: { id: 'custom_language', label: 'Open', icon: 'message' } }, 'Saved project', baseUrl, i18n);
+    expect(custom.payload.text).toContain(' · Open · ');
+    for (const feedback of [null, { id: 'deleted', deleted: true }, { id: 'empty', deleted: false, text: '' }]) {
+        const fallback = slackRootMessage({ ...context, kind: 'feedback', identity: { commentId: 'no_project' }, feedback }, '', baseUrl, i18n).payload.text;
+        if (expected.language !== 'en') expect(fallback).not.toMatch(/This message was deleted|Feedback is unavailable|Open the feedback|Open the project/);
+    }
+    const bounded = slackRootMessage({ ...context, feedback: { ...context.feedback!, text: '<@U123> <!channel> &\u202e'.repeat(500) } }, 'Saved project', baseUrl, i18n).payload;
+    expect(JSON.stringify(bounded).length).toBeLessThanOrEqual(2500);
+    expect(bounded.text).not.toMatch(/<@|<!channel>|\u202e/);
+});
+
+test('Slack language follows the project, then workspace, then English independently of account preferences', async ({ slack }) => {
+    const f = await fixture();
+    expect(slackLanguages.map(value => value.language)).toEqual(toolbarLanguages);
+    await updateDoc<DbUser>(userPk(f.owner.id), f.owner.id, user => ({ ...user, appLanguage: 'it', toolbarLanguage: 'de' }));
+    expect((await loadSlackI18n(f.project)).language).toBe('en');
+    await f.store.create<DbWorkspace>({ type: 'workspace', id: f.project.workspaceId, pk: f.project.pk, name: 'Slack languages', createdBy: f.owner.id, createdAt: old });
+    await updateDoc<DbWorkspace>(f.project.pk, f.project.workspaceId, workspace => ({ ...workspace, toolbarLanguage: 'fr' }));
+    expect((await loadSlackI18n(f.project)).language).toBe('fr');
+    expect((await loadSlackI18n({ ...f.project, toolbarLanguage: 'es' })).language).toBe('es');
+    expect((await loadSlackI18n({ ...f.project, toolbarLanguage: 'en' })).language).toBe('en');
+    expect((await loadSlackI18n({ ...f.project, toolbarLanguage: 'unsupported' as never })).language).toBe('fr');
+    await updateDoc<DbWorkspace>(f.project.pk, f.project.workspaceId, workspace => ({ ...workspace, toolbarLanguage: 'unsupported' as never }));
+    expect((await loadSlackI18n(f.project)).language).toBe('en');
+    expect(slack.calls).toHaveLength(0);
+});
+
+test('Slack delivers roots, summaries and connection tests in all six project languages and updates the same root', async ({ slack }) => {
+    test.setTimeout(90_000);
+    const f = await fixture(); await connect(f, slack, true); await newThread(f); let row = await dispatch(f);
+    const root = state(row).root!;
+    for (const [index, expected] of slackLanguages.entries()) {
+        await updateDoc<DbProject>(f.project.pk, f.project.id, project => ({ ...project, toolbarLanguage: expected.language }));
+        const current = await source(f);
+        await change(f, { resolved: index % 2 === 0, thread: { items: [...current.thread.items, { id: `language_${expected.language}`, text: 'Saved reply', authorId: `user:${f.owner.id}`, createdAt: new Date().toISOString() }] } });
+        row = await dispatch(f); expect(row.status).toBe('accepted');
+        expect(state(row).root!.ts).toBe(root.ts);
+        expect(JSON.stringify(slack.messages.get(`${root.channelId}:${root.ts}`)!.payload.blocks)).toContain(expected.open);
+        const summary = state(row).notifications!.at(-1)!;
+        expect(slack.messages.get(`${summary.channelId}:${summary.ts}`)!.payload.text).toContain(expected.one);
+        await sendSlackTestNotification(await fresh(f), f.owner.id);
+        expect([...slack.messages.values()].at(-1)!.payload.text).toBe(expected.connected);
+    }
+    expect([...slack.messages.values()].filter(message => message.ts === root.ts)).toHaveLength(1);
 });

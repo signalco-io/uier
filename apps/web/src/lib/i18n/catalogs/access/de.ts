@@ -1,6 +1,23 @@
 import type en from './en';
 
 const messages: Record<keyof typeof en, string> = {
+    "Priority: {priority}": "Priorität: {priority}",
+    "Environment: {environment}": "Umgebung: {environment}",
+    "Suggested rewrite: {text}": "Vorgeschlagene Umformulierung: {text}",
+    "This message was deleted.": "Diese Nachricht wurde gelöscht.",
+    "Feedback is unavailable.": "Das Feedback ist nicht verfügbar.",
+    "Open the feedback in uier.": "Öffnen Sie das Feedback in uier.",
+    "Open the project in uier to view this feedback.": "Öffnen Sie das Projekt in uier, um dieses Feedback anzusehen.",
+    "Open in uier": "In uier öffnen",
+    "Open in uier: {url}": "In uier öffnen: {url}",
+    "View in uier": "In uier ansehen",
+    "{author} via uier:": "{author} über uier:",
+    "Status: {status}.": "Status: {status}.",
+    "1 new reply in uier.": "1 neue Antwort in uier.",
+    "{count} new replies in uier.": "{count} neue Antworten in uier.",
+    "uier is connected to this channel.": "uier ist mit diesem Channel verbunden.",
+    "Slack user {id}": "Slack-Nutzer {id}",
+    "Slack app": "Slack-App",
     " (off)": " (aus)",
     " / {value1}": " / {value1}",
     " Always included.": " Immer enthalten.",

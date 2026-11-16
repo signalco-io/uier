@@ -3,6 +3,9 @@
 The app supports the same languages as the toolbar: English (`en`), German (`de`), French (`fr`),
 Spanish (`es`), Italian (`it`) and Croatian (`hr`). The public marketing site and outgoing emails retain
 English. Names, comments, project content, copied machine-readable context and code snippets remain as written.
+Slack notifications and buttons use all six languages through the same catalogs. Shared channel output
+follows the project's review language, then the workspace default, then English; it does not follow
+an individual account or browser. See [integrations](integrations.md#synchronization).
 
 ## Language choice
 
@@ -40,6 +43,8 @@ field through the user document's etag. Inputs stay disabled while saving; a fai
   its translated label from the app caller, keeping the public brand page independent of app locale code.
 - Shared history, anchor and access-reason formatters accept an optional translator. Their default English
   preserves existing API/export contracts. The app render and revision endpoint pass the same translator.
+- `src/lib/comments/verificationText.ts` formats localized verification details for both the app and Slack,
+  preserving named reviewers, decision history, admin overrides and UTC timestamps.
 - Server actions keep their existing result contracts. At presentation, catalog text and known dynamic
   service-error templates are translated. Interpolated email addresses, domains and names stay unchanged.
 

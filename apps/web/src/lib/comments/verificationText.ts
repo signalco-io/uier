@@ -1,6 +1,6 @@
 import type { VerificationDetails } from '@uier/toolbar/verification';
-import type { AppLanguage } from '@/src/lib/i18n/languages';
-import type { AppTranslator } from '@/src/lib/i18n/types';
+import type { AppLanguage } from '../i18n/languages';
+import type { AppTranslator } from '../i18n/types';
 
 /** Verification facts stay unchanged; only the surrounding wording and date presentation are localized. */
 export function verificationText(v: VerificationDetails, t: AppTranslator, language: AppLanguage) {

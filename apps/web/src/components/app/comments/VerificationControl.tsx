@@ -5,7 +5,7 @@ import { useAppI18n } from '@/src/lib/i18n/client';
 import { useEffect, useId, useRef, useState, useTransition, type RefObject } from 'react';
 import type { ProjectCommentView } from '@/src/lib/app/projectComments';
 import { displayedVerification, readyForReview } from '@uier/toolbar/verification';
-import { verificationText } from './verificationText';
+import { verificationText } from '@/src/lib/comments/verificationText';
 import { Button } from '@/src/components/ui/button';
 import { Input } from '@/src/components/ui/input';
 import { Textarea } from '@/src/components/ui/textarea';
