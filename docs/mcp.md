@@ -599,7 +599,10 @@ The tool declares `_meta.ui.resourceUri: "ui://uier/thread-v1.html"`. The corres
 resource is a self-contained HTML shell with MIME type `text/html;profile=mcp-app`; it contains
 no thread data, account credentials or external assets. The host renders it in a sandbox and
 delivers the tool result through the MCP Apps bridge. The card shows the title, effective status,
-assignee, latest message and an **Open in uier** link. It does not fetch screenshots or expose
+assignees, latest message and an **Open in uier** link. Avatars and the latest message look as they do in
+the app's thread: initials (the card loads no images, so profile pictures don't show), the AI agent's mark
+beside its name, and the message's Markdown, with **Show more** when it is longer than five lines. Its links
+open through the host's `ui/open-link`. It does not fetch screenshots or expose
 reply, assignment or status controls. The card draws its own border, so the resource declares
 `_meta.ui.prefersBorder: false` and a host should not add a frame around it.
 

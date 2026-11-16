@@ -2,9 +2,14 @@
 @import '@uier/brand/tokens.css';
 @config '../../tailwind.config.js';
 @source './thread.tsx';
+@source '../components/ui/avatar.tsx';
 @source '../components/ui/badge.tsx';
 @source '../components/ui/button.tsx';
 @source '../components/ui/spinner.tsx';
+@source '../components/app/comments/AgentAvatar.tsx';
+@source '../components/app/comments/ColorText.tsx';
+@source '../components/app/comments/MessageAvatar.tsx';
+@source '../components/app/comments/MessageMarkdown.tsx';
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme inline {

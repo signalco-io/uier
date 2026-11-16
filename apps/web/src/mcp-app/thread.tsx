@@ -1,8 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type FocusEvent, type MouseEvent } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Logo } from '@uier/brand/Logo';
+import { isAgentKind, type MessageAgentView } from '@uier/toolbar/agents';
 import type { FeedbackContext } from '@uier/toolbar/feedback-context';
 import { ArrowUpRight, RefreshCw, User } from 'lucide-react';
+import { AgentMark, AssigneeAvatars, assignedLabel, type Assignee } from '../components/app/comments/AgentAvatar';
+import { MessageAvatar } from '../components/app/comments/MessageAvatar';
+import { MessageMarkdown } from '../components/app/comments/MessageMarkdown';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Spinner } from '../components/ui/spinner';
@@ -52,17 +56,83 @@ function threadStatus(context: FeedbackContext, workflow: unknown): Status {
     return { stage, label: typeof status?.label === 'string' && status.label ? status.label : stageLabels[stage] };
 }
 
-function safeLink(value: unknown) {
+function safeLink(value: unknown, protocols: readonly string[] = ['https:', 'http:']) {
     if (typeof value !== 'string') return;
     try {
         const url = new URL(value);
-        if ((url.protocol === 'https:' || url.protocol === 'http:') && !url.username && !url.password) return url.href;
+        if (protocols.includes(url.protocol) && !url.username && !url.password) return url.href;
     } catch { /* Unavailable link. */ }
+}
+
+/** The packet's AI agent with a mark to draw: a kind this card doesn't know (a newer server's) gets the generic one */
+function agentView(value: unknown): MessageAgentView | undefined {
+    const agent = object(value);
+    if (typeof agent?.label !== 'string' || !agent.label) return;
+    return { kind: isAgentKind(agent.kind) ? agent.kind : 'agent', label: agent.label };
+}
+
+/** The assignees as the app's avatars take them, each with the AI agents working under them */
+function assigneeViews(context: FeedbackContext): Assignee[] {
+    const people: unknown[] = Array.isArray(context.assignees) ? context.assignees : context.assignee ? [context.assignee] : [];
+    return people.flatMap((value, index) => {
+        const person = object(value);
+        if (typeof person?.name !== 'string') return [];
+        const agents = Array.isArray(person.agents) ? person.agents : person.agent ? [person.agent] : [];
+        return [{ id: String(index), name: person.name, agents: agents.map(agentView).filter(agent => agent !== undefined) }];
+    });
+}
+
+/** Lines of the latest message shown before Show more (`MessageMarkdown` draws 24 px lines, `max-h-30`) */
+const PREVIEW_LINES = 5;
+
+/**
+ * The latest message's text as the app shows it, Markdown included (`MessageMarkdown`). A long one shows its
+ * first lines, faded, with Show more; focus moving into the hidden part shows the rest. The card is sandboxed,
+ * so its links open through the host (`onOpenLink`), never by navigating the frame.
+ */
+function MessageBody({ text, edited, onOpenLink }: { text: string; edited: boolean; onOpenLink: (href: string | null) => void }) {
+    const id = useId();
+    const clip = useRef<HTMLDivElement>(null);
+    const [long, setLong] = useState(false);
+    const [expanded, setExpanded] = useState(false);
+    useLayoutEffect(() => {
+        const content = clip.current?.firstElementChild;
+        if (!(content instanceof HTMLElement)) return;
+        const measure = () => setLong(content.offsetHeight > parseFloat(getComputedStyle(content).lineHeight) * PREVIEW_LINES + 1);
+        measure();
+        const observer = new ResizeObserver(measure);
+        observer.observe(content);
+        return () => observer.disconnect();
+    }, []);
+    const clipped = long && !expanded;
+    const follow = (event: MouseEvent<HTMLDivElement>) => {
+        if (event.type === 'auxclick' && event.button !== 1) return;
+        const link = event.target instanceof Element ? event.target.closest('a[href]') : null;
+        if (!link || !event.currentTarget.contains(link)) return;
+        event.preventDefault();
+        onOpenLink(link.getAttribute('href'));
+    };
+    // A link reached with Tab in the fade (its last line) or below it would be faded or hidden: show the whole message.
+    const reveal = (event: FocusEvent<HTMLDivElement>) => {
+        const box = event.currentTarget;
+        const fade = parseFloat(getComputedStyle(box.firstElementChild ?? box).lineHeight) || 0;
+        if (clipped && event.target.getBoundingClientRect().bottom - box.getBoundingClientRect().top + box.scrollTop > box.clientHeight - fade) setExpanded(true);
+    };
+    return <div className="flex flex-col items-start gap-1">
+        <div ref={clip} id={id} onClick={follow} onAuxClick={follow} onFocus={reveal} data-message-preview={clipped ? 'clipped' : long ? 'expanded' : 'full'}
+            className={clipped ? 'max-h-30 w-full overflow-hidden [mask-image:linear-gradient(to_bottom,black_calc(100%-1.5rem),transparent)]' : 'w-full'}>
+            <MessageMarkdown text={text} suffix={edited && <span className="font-normal text-muted-foreground"> (edited)</span>} />
+        </div>
+        {long && <Button variant="link" size="xs" className="px-0" aria-expanded={expanded} aria-controls={id} onClick={() => setExpanded(value => !value)}>
+            {expanded ? 'Show less' : 'Show more'}
+        </Button>}
+    </div>;
 }
 
 function ThreadCard() {
     const [view, setView] = useState<View>({ state: 'loading', connection: 'connecting', busy: false, announcement: '' });
-    const [linkError, setLinkError] = useState(false);
+    // Which link the host would not open: the thread's (Open in uier) or one in the message.
+    const [linkError, setLinkError] = useState<'thread' | 'message'>();
     const refreshRef = useRef<() => void>(() => {});
     const bridgeRef = useRef<AppBridge | null>(null);
     useEffect(() => {
@@ -181,8 +251,18 @@ function ThreadCard() {
 
     const { context, status } = view;
     const latest = context?.discussion.slice().reverse().find(item => !item.deleted) ?? (context?.feedback?.deleted ? undefined : context?.feedback);
-    const assignees = context?.assignees ?? (context?.assignee ? [context.assignee] : []);
+    const assignees = context ? assigneeViews(context) : [];
     const link = safeLink(context?.links.comment);
+    const openLink = (url: string | undefined, source: 'thread' | 'message') => {
+        setLinkError(undefined);
+        if (!url) return setLinkError(source);
+        void bridgeRef.current?.request('ui/open-link', { url }).catch(() => setLinkError(source));
+    };
+    // "Ana via Claude": the name ends with the agent that wrote it, which is drawn with its mark as in the app.
+    const agent = agentView(latest?.agent);
+    const authorName = typeof latest?.authorName === 'string' ? latest.authorName : '';
+    const via = agent ? ` via ${agent.label}` : '';
+    const person = via && authorName.endsWith(via) ? authorName.slice(0, -via.length) : authorName;
     // Disabled only when a read can't happen. A refresh already in progress ignores more clicks, so the
     // button keeps focus through every 30-second check.
     const canRefresh = view.connection === 'connected' && view.state !== 'loading';
@@ -211,18 +291,31 @@ function ThreadCard() {
                             <span className="sr-only">Status: </span><span className="truncate">{status.label}</span>
                         </Badge>
                         <span className="inline-flex min-w-0 items-center gap-1.5 text-muted-foreground">
-                            <User aria-hidden="true" className="size-4 shrink-0" />
-                            <span className="break-words">{assignees.length ? <><span className="sr-only">Assigned to </span>{assignees.map(person => person.name).join(', ')}</> : 'Unassigned'}</span>
+                            {/* The app's avatars (initials: the card loads no images). Screen readers hear the app's words for them,
+                                agents included ("Assigned to Ana, with Claude"), instead of the names alone. */}
+                            {assignees.length ? <AssigneeAvatars assignees={assignees} decorative /> : <User aria-hidden="true" className="size-4 shrink-0" />}
+                            <span className="break-words">{assignees.length ? <><span className="sr-only">{assignedLabel(assignees)}</span><span aria-hidden="true">{assignees.map(person => person.name).join(', ')}</span></> : 'Unassigned'}</span>
                         </span>
                     </div>
                 </div>
                 <p className="truncate text-xs text-muted-foreground" title={context.source.path}>{context.source.path}{context.source.environment ? ` · ${context.source.environment}` : ''}</p>
-                <section className="space-y-2 rounded-lg bg-muted p-3" aria-label="Latest message">
-                    <div className="flex flex-wrap justify-between gap-2 text-xs text-muted-foreground">
-                        <span>{latest?.authorName ?? 'Latest message'}</span>
-                        <span>{context.discussion.length} {context.discussion.length === 1 ? 'reply' : 'replies'}</span>
+                {/* Laid out like a message in the app's thread (`Message`): the avatar makes the column. */}
+                <section className={`grid gap-x-2.5 gap-y-1 rounded-lg bg-muted p-3 ${person ? 'grid-cols-[auto_minmax(0,1fr)]' : 'grid-cols-1'}`} aria-label="Latest message">
+                    {person && <MessageAvatar name={person} className="self-center" />}
+                    <div className="flex min-h-7 min-w-0 items-center justify-between gap-2">
+                        <div className="flex min-w-0 items-center gap-1.5">
+                            <span className={person ? 'truncate font-medium' : 'truncate text-xs text-muted-foreground'}>{person || 'Latest message'}</span>
+                            {agent && <span data-message-agent={agent.kind} className="inline-flex shrink-0 items-center gap-1 text-muted-foreground">
+                                via<AgentMark kind={agent.kind} className="size-3.5 text-foreground" /><span className="text-foreground">{agent.label}</span>
+                            </span>}
+                        </div>
+                        <span className="shrink-0 text-xs text-muted-foreground">{context.discussion.length} {context.discussion.length === 1 ? 'reply' : 'replies'}</span>
                     </div>
-                    <p className="line-clamp-5 whitespace-pre-wrap break-words">{latest?.text || (latest?.screenshot ? 'Image attached. Open the thread to view it.' : 'Message unavailable.')}</p>
+                    <div className={person ? 'col-start-2 min-w-0' : 'min-w-0'}>
+                        {typeof latest?.text === 'string' && latest.text
+                            ? <MessageBody key={latest.id} text={latest.text} edited={Boolean(latest.editedAt)} onOpenLink={href => openLink(safeLink(href, ['https:', 'http:', 'mailto:']), 'message')} />
+                            : <p className="break-words">{latest?.screenshot ? 'Image attached. Open the thread to view it.' : 'Message unavailable.'}</p>}
+                    </div>
                 </section>
             </>}
             <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-3">
@@ -230,7 +323,7 @@ function ThreadCard() {
                     {/* Only messages that change what the card can do are live; the time changes every check. */}
                     <div role="status" aria-live="polite">
                         <p className={warning ? 'text-foreground' : steady ? 'sr-only' : undefined}>{notice}</p>
-                        {linkError && <p className={steady ? undefined : 'mt-1'}>Could not open the link. Use the thread link in the conversation.</p>}
+                        {linkError && <p className={steady ? undefined : 'mt-1'}>{linkError === 'thread' ? 'Could not open the link. Use the thread link in the conversation.' : 'Could not open the link. Follow it from the thread in uier.'}</p>}
                     </div>
                     {view.checkedAt && <p className={steady && !linkError ? undefined : 'mt-1'} title={steady ? notice : undefined}>Last checked <time dateTime={new Date(view.checkedAt).toISOString()}>{new Date(view.checkedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</time></p>}
                 </div>
@@ -239,10 +332,7 @@ function ThreadCard() {
                     <Button variant="outline" size="sm" disabled={!canRefresh} aria-busy={view.busy} onClick={() => refreshRef.current()}>
                         {view.busy ? <Spinner className="motion-reduce:animate-none" /> : <RefreshCw aria-hidden="true" />}Refresh
                     </Button>
-                    {link && <Button size="sm" onClick={() => {
-                        setLinkError(false);
-                        void bridgeRef.current?.request('ui/open-link', { url: link }).catch(() => setLinkError(true));
-                    }}>Open in uier<ArrowUpRight aria-hidden="true" /></Button>}
+                    {link && <Button size="sm" onClick={() => openLink(link, 'thread')}>Open in uier<ArrowUpRight aria-hidden="true" /></Button>}
                 </div>
             </footer>
         </article>

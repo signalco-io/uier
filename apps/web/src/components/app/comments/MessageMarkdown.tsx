@@ -3,6 +3,7 @@ import { parseMarkdown, type MarkdownBlock, type MarkdownInline, type MarkdownMe
 import { ColorText } from './ColorText';
 
 // The toolbar's `MessageMarkdown` (packages/toolbar/src/components) renders the same tree: change both together.
+// The MCP thread card (src/mcp-app) renders this one too, listed with `@source` in its `thread.css`.
 // Colour values in text and code spans get a swatch (`ColorText`); fenced code stays as written.
 // Code has a hairline border as well as the muted surface: in dark mode a popover is the muted colour.
 
