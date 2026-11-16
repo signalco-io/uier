@@ -4,7 +4,7 @@ import { useContext } from 'react';
 import { defaultStatusWorkflow, orderedStatuses, statusForComment, workflowStatusLabel, type StatusWorkflow, type WorkflowStatus } from '../../../lib/app/statusWorkflow';
 import { useAppI18n } from '@/src/lib/i18n/client';
 
-import { Fragment, useEffect, useEffectEvent, useId, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type KeyboardEvent, type MouseEvent, type ReactNode, type SyntheticEvent } from 'react';
+import { Fragment, useEffect, useEffectEvent, useId, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type KeyboardEvent, type MouseEvent, type ReactNode, type RefObject, type SyntheticEvent } from 'react';
 import { createPortal } from 'react-dom';
 import {
     DndContext, DragOverlay, MouseSensor, defaultDropAnimationSideEffects, pointerWithin, useDraggable, useDroppable, useSensor, useSensors,
@@ -35,6 +35,7 @@ import { longPressDelay, pressTolerance } from './TriageSelection';
 import { VirtualCommentList, revealVirtualComment, type CommentPageControl, type CommentListPosition } from './VirtualCommentList';
 import { Spinner } from '@/src/components/ui/spinner';
 import { PagedCommentCard } from './PagedCommentCard';
+import { useCollapsedColumns } from './boardCollapse';
 
 /** The board's columns: every status, in order (`commentStatuses`); drag and drop and Move follow this list */
 const statuses = commentStatuses;
@@ -106,8 +107,67 @@ function subscribeReducedMotion(onChange: () => void) {
     return () => query.removeEventListener('change', onChange);
 }
 const subscribeNothing = () => () => {};
-/** BRAND.md, "Motion": the Archive strip changes size like an item changes place */
-const archiveMorphMs = 200;
+/** BRAND.md, "Motion": a collapsed strip (Archive's, or a column's) changes size like an item changes place */
+const columnMorphMs = 200;
+/** An expanded column's track: 18rem to 20rem, on a phone at most the page's width less 3rem (uier #305) */
+const columnTrack = 'minmax(min(18rem, var(--page-wide) - 3rem), 20rem)';
+/** A collapsed column's track: Archive's strip, or a status column folded to its dot, name and count (uier #464) */
+const stripTrack = '3rem';
+
+/**
+ * A column that folds to a strip and back (Archive's, uier #243, and the status columns, uier #464). The toggle is
+ * another button in each state, so the focus goes to the new one. The strip widens into the column (or the column
+ * narrows into the strip) instead of jumping: the grid's tracks, in pixels, and the column's height move in 200 ms,
+ * the new content fades in as it gets room, and the background and opacity follow by transition (uier #369). Before
+ * LayoutMotion measures, so the cards beside it ride along with their columns. Nothing moves with reduced motion.
+ */
+function useColumnFold(expanded: boolean, onExpandedChange: (expanded: boolean) => void) {
+    const toggle = useRef<HTMLButtonElement>(null);
+    const toggled = useRef(false);
+    useEffect(() => {
+        if (!toggled.current) return;
+        toggled.current = false;
+        toggle.current?.focus({ preventScroll: true });
+    }, [expanded]);
+    // The board's tracks and the column's height before a toggle, which it morphs from
+    const section = useRef<HTMLElement | null>(null);
+    const morphFrom = useRef<{ columns: string; height: number } | null>(null);
+    const change = () => {
+        toggled.current = true;
+        const grid = section.current?.parentElement;
+        morphFrom.current = section.current && grid && !window.matchMedia(reducedMotionQuery).matches
+            ? { columns: getComputedStyle(grid).gridTemplateColumns, height: section.current.offsetHeight } : null;
+        onExpandedChange(!expanded);
+    };
+    useLayoutEffect(() => {
+        const from = morphFrom.current;
+        morphFrom.current = null;
+        const element = section.current;
+        const grid = element?.parentElement;
+        if (!from || !element || !grid) return;
+        const options = { duration: columnMorphMs, easing: 'ease-out' };
+        grid.animate({ gridTemplateColumns: [from.columns, getComputedStyle(grid).gridTemplateColumns] }, options);
+        element.animate({ height: [`${from.height}px`, `${element.offsetHeight}px`], overflow: ['clip', 'clip'] }, options);
+        for (const child of Array.from(element.children)) child.animate({ opacity: [0, 1] }, { duration: columnMorphMs, easing: 'ease-in' });
+    }, [expanded]);
+    return { toggle, section, change };
+}
+
+/** Collapse in an expanded column's header: takes no more height than the column's name; 44 px to tap on a touch screen */
+function CollapseColumnButton({ label, toggle, onClick, className }: { label: string; toggle: RefObject<HTMLButtonElement | null>; onClick: () => void; className?: string }) {
+    const { t } = useAppI18n();
+    return (
+        <Tooltip>
+            <TooltipTrigger render={(
+                <Button ref={toggle} variant="ghost" size="icon-xs" aria-label={t("Collapse {name}", { name: label })} aria-expanded="true" onClick={onClick}
+                    className={cn('relative -my-1 -mr-1.5 text-muted-foreground hover:text-foreground after:absolute after:-inset-2.5 pointer-fine:after:hidden', className)} />
+            )}>
+                <FoldHorizontalIcon />
+            </TooltipTrigger>
+            <TooltipContent side="bottom">{t("Collapse {name}", { name: label })}</TooltipContent>
+        </Tooltip>
+    );
+}
 
 /**
  * A press that lifted a card can still end in a click on its link (a short long-press on a touch
@@ -228,9 +288,12 @@ type ColumnState = 'idle' | 'home' | 'target' | 'over' | 'refused';
 /**
  * A column and its drop target. While a card is dragged, the columns it can move to are dashed, the
  * one under it is highlighted, and the others are dimmed and refuse it. Its header ends with the column's
- * sort for the people who may change it (`onSort`).
+ * sort for the people who may change it (`onSort`), then Collapse (`onCollapsedChange`, uier #464).
+ * Collapsed, it is a strip as narrow as Archive's with its dot, name and count running down it, one button
+ * that expands it again; it still takes a dragged card (the whole strip is the target), which then waits
+ * there, counted, until the column is expanded.
  */
-function BoardColumn({ loading, status, definition, columnIds, count, state, sort, onSort, archiveAll, children }: {
+function BoardColumn({ loading, status, definition, columnIds, count, state, sort, onSort, archiveAll, collapsed = false, onCollapsedChange, children }: {
     status: CommentStatus;
     definition: WorkflowStatus;
     columnIds: string[];
@@ -241,31 +304,59 @@ function BoardColumn({ loading, status, definition, columnIds, count, state, sor
     onSort?: (status: BoardColumnKey, sort: BoardSort) => void;
     /** Archive all (uier #357), for the people who may triage */
     archiveAll?: ArchiveAllScope;
+    /** Folded to a strip, this viewer's choice (`useCollapsedColumns`) */
+    collapsed?: boolean;
+    /** Collapses or expands the column; missing where columns don't fold */
+    onCollapsedChange?: (collapsed: boolean) => void;
     children: ReactNode;
 }) {
     // A placeholder changes a column's height, and on narrow screens moves the columns below it
     const { t } = useAppI18n();
     const { setNodeRef } = useDroppable({ id: definition.id, resizeObserverConfig: { updateMeasurementsFor: columnIds } });
+    const { toggle, section, change } = useColumnFold(!collapsed, expanded => onCollapsedChange?.(!expanded));
+    const label = workflowStatusLabel(definition, t);
     // Archive all only where finished threads wait (Done-category columns, uier #370)
     const archivable = Boolean(archiveAll) && status === 'done' && count > 0;
     return (
-        <section ref={setNodeRef} aria-label={t("{status} comments", { status: workflowStatusLabel(definition, t) })} data-drop={state === 'idle' ? undefined : state}
-            className={cn('flex min-h-24 flex-col gap-2 rounded-2xl border bg-muted/50 p-2 transition-[background-color,border-color,box-shadow,opacity] duration-150 ease-out',
+        <section ref={node => { setNodeRef(node); section.current = node; }} aria-label={t("{status} comments", { status: label })} data-drop={state === 'idle' ? undefined : state}
+            data-board-column={definition.id} data-collapsed={collapsed ? '' : undefined}
+            className={cn('flex flex-col rounded-2xl border bg-muted/50 transition-[background-color,border-color,box-shadow,opacity] duration-150 ease-out motion-reduce:transition-none',
                 'data-[drop=over]:border-dashed data-[drop=target]:border-dashed data-[drop=target]:border-foreground/30',
-                'data-[drop=over]:border-foreground/30 data-[drop=over]:bg-muted data-[drop=over]:ring-2 data-[drop=over]:ring-ring data-[drop=refused]:opacity-50')}>
-            <div className="flex items-center gap-2 px-2 pt-1">
-                <h3 className="m-0 flex min-w-0 items-center gap-2 text-sm font-medium">
-                    {/* A column with cards glows around its dot, so the columns that need attention stand out (uier #356) */}
-                    <GlowingStateDot status={status} glow={count > 0} />
-                    <span className="truncate" title={definition.description || definition.label}>{workflowStatusLabel(definition, t)}</span>
-                    <span className="font-normal tabular-nums text-muted-foreground">{count}</span>
+                'data-[drop=over]:border-foreground/30 data-[drop=over]:bg-muted data-[drop=over]:ring-2 data-[drop=over]:ring-ring data-[drop=refused]:opacity-50',
+                collapsed ? 'min-w-0' : 'min-h-24 gap-2 p-2')}>
+            {collapsed ? (
+                // The whole strip expands it, a heading like the expanded column's name. The dot, the name and the count
+                // run down it as one turned group, on a phone too, so the strip stays narrow; only as tall as its content
+                // at rest, as tall as the longest column while a card is dragged (the grid stretches it)
+                <h3 className="m-0 flex flex-1 flex-col text-sm font-medium">
+                    <Button ref={toggle} variant="ghost" aria-expanded="false" onClick={change} data-column-toggle={definition.id}
+                        className="h-auto min-h-11 w-full flex-1 items-start justify-center rounded-2xl px-0 py-3 font-medium">
+                        <span className="flex items-center gap-2 [writing-mode:vertical-rl]">
+                            <GlowingStateDot status={status} glow={count > 0} />
+                            <span title={definition.description || definition.label}>{label}</span>{' '}
+                            <span className="font-normal tabular-nums text-muted-foreground">{count}</span>
+                            <ColumnProgress loading={loading} />
+                        </span>
+                    </Button>
                 </h3>
-                <ColumnProgress loading={loading} />
-                {/* Archive all, left of the sort, while a Done column has cards (uier #357, #370) */}
-                {archivable && archiveAll && <ArchiveAllButton scope={archiveAll} lane={definition.id} label={workflowStatusLabel(definition, t)} count={count} />}
-                {onSort && <BoardSortMenu label={workflowStatusLabel(definition, t)} status={status} sort={sort} onChange={next => onSort(status, next)} className="ml-0" />}
-            </div>
-            {children}
+            ) : (
+                <>
+                    <div className="flex items-center gap-2 px-2 pt-1">
+                        <h3 className="m-0 flex min-w-0 items-center gap-2 text-sm font-medium">
+                            {/* A column with cards glows around its dot, so the columns that need attention stand out (uier #356) */}
+                            <GlowingStateDot status={status} glow={count > 0} />
+                            <span className="truncate" title={definition.description || definition.label}>{label}</span>
+                            <span className="font-normal tabular-nums text-muted-foreground">{count}</span>
+                        </h3>
+                        <ColumnProgress loading={loading} />
+                        {/* Archive all, left of the sort, while a Done column has cards (uier #357, #370) */}
+                        {archivable && archiveAll && <ArchiveAllButton scope={archiveAll} lane={definition.id} label={label} count={count} />}
+                        {onSort && <BoardSortMenu label={label} status={status} sort={sort} onChange={next => onSort(status, next)} className={cn('ml-0', onCollapsedChange && 'mr-0')} />}
+                        {onCollapsedChange && <CollapseColumnButton label={label} toggle={toggle} onClick={change} />}
+                    </div>
+                    {children}
+                </>
+            )}
         </section>
     );
 }
@@ -289,38 +380,7 @@ function ArchiveColumn({ loading, label = 'Archive', count, sort, onSort, expand
     children: ReactNode;
 }) {
     const { t } = useAppI18n();
-    // The toggle is another button in each state: the focus goes to the new one
-    const toggle = useRef<HTMLButtonElement>(null);
-    const toggled = useRef(false);
-    useEffect(() => {
-        if (!toggled.current) return;
-        toggled.current = false;
-        toggle.current?.focus({ preventScroll: true });
-    }, [expanded]);
-    // The board's tracks and the column's height before a toggle, which it morphs from (uier #369)
-    const section = useRef<HTMLElement>(null);
-    const morphFrom = useRef<{ columns: string; height: number } | null>(null);
-    const change = () => {
-        toggled.current = true;
-        const grid = section.current?.parentElement;
-        morphFrom.current = section.current && grid && !window.matchMedia(reducedMotionQuery).matches
-            ? { columns: getComputedStyle(grid).gridTemplateColumns, height: section.current.offsetHeight } : null;
-        onExpandedChange(!expanded);
-    };
-    // The strip widens into the column (or the column narrows into the strip) instead of jumping: the grid's tracks, in
-    // pixels, and the column's height move in 200 ms, the new content fades in as it gets room, and the background and
-    // opacity follow by transition. Before LayoutMotion measures, so the cards beside it ride along with their columns.
-    useLayoutEffect(() => {
-        const from = morphFrom.current;
-        morphFrom.current = null;
-        const element = section.current;
-        const grid = element?.parentElement;
-        if (!from || !element || !grid) return;
-        const options = { duration: archiveMorphMs, easing: 'ease-out' };
-        grid.animate({ gridTemplateColumns: [from.columns, getComputedStyle(grid).gridTemplateColumns] }, options);
-        element.animate({ height: [`${from.height}px`, `${element.offsetHeight}px`], overflow: ['clip', 'clip'] }, options);
-        for (const child of Array.from(element.children)) child.animate({ opacity: [0, 1] }, { duration: archiveMorphMs, easing: 'ease-in' });
-    }, [expanded]);
+    const { toggle, section, change } = useColumnFold(expanded, onExpandedChange);
     return (
         <section ref={section} aria-label={label === t('Archive') ? t('Archived comments') : t('{status} comments', { status: label })} data-board-archive={expanded ? 'expanded' : 'collapsed'} data-drop={dimmed ? 'refused' : undefined}
             className={cn('flex flex-col rounded-2xl border transition-[background-color,border-color,opacity] duration-200 ease-out motion-reduce:transition-none data-[drop=refused]:opacity-50',
@@ -337,16 +397,7 @@ function ArchiveColumn({ loading, label = 'Archive', count, sort, onSort, expand
                         </h3>
                         <ColumnProgress loading={loading} />
                         {onSort && <BoardSortMenu label={label} status="archive" sort={sort} onChange={next => onSort('archive', next)} className="ml-0 mr-0" />}
-                        <Tooltip>
-                            <TooltipTrigger render={(
-                                // Takes no more height than the column's name; 44 px to tap on a touch screen
-                                <Button ref={toggle} variant="ghost" size="icon-xs" aria-label={t("Collapse {name}", { name: label })} aria-expanded="true" onClick={change}
-                                    className={cn('relative -my-1 -mr-1.5 text-muted-foreground hover:text-foreground after:absolute after:-inset-2.5 pointer-fine:after:hidden', !onSort && 'ml-auto')} />
-                            )}>
-                                <FoldHorizontalIcon />
-                            </TooltipTrigger>
-                            <TooltipContent side="bottom">{t("Collapse {name}", { name: label })}</TooltipContent>
-                        </Tooltip>
+                        <CollapseColumnButton label={label} toggle={toggle} onClick={change} className={cn(!onSort && 'ml-auto')} />
                     </div>
                     {children}
                 </>
@@ -387,9 +438,10 @@ export type BoardProject = { id: string; name?: string; url?: string; assignees:
  * which dnd-kit settles from where it was dropped. Each column is in the project's sort for it (`sorts`, already
  * applied to `columns`): drops, Move and the keys follow it, and the people who may change it (`onSort`) choose
  * it from the column's header. Archive is the last column (`archive`), collapsed unless the project expands it; My work,
- * which leaves archived threads out, has none.
+ * which leaves archived threads out, has none. Each status column can be collapsed to a strip by the person reading the
+ * board (`collapseScope`, remembered in this browser, uier #464); its cards are then out of the keys' lanes.
  */
-export function CommentBoard({ projectOf, columns: categoryColumns, workflow, verificationEnabled, sorts, onSort, archiveAll, archive, allComments, userId, openComment, paging, detailRevision }: {
+export function CommentBoard({ projectOf, columns: categoryColumns, workflow, verificationEnabled, sorts, onSort, archiveAll, archive, collapseScope, allComments, userId, openComment, paging, detailRevision }: {
     workflow?: StatusWorkflow;
     verificationEnabled?: boolean;
     /** Each thread's project (`BoardProject`) */
@@ -405,6 +457,8 @@ export function CommentBoard({ projectOf, columns: categoryColumns, workflow, ve
     archiveAll?: ArchiveAllScope;
     /** The archived threads, in Archive's sort, and whether their column is expanded; missing for no Archive column */
     archive?: { comments: ProjectCommentView[]; expanded: boolean; onExpandedChange: (expanded: boolean) => void };
+    /** Where this viewer's collapsed columns are remembered (a project's id, `my-work`); missing for columns that don't fold */
+    collapseScope?: string;
     /** Every thread the board's sheet can open, archived ones too */
     allComments: ProjectCommentView[];
     userId: string;
@@ -429,6 +483,9 @@ export function CommentBoard({ projectOf, columns: categoryColumns, workflow, ve
     const { change, pending } = useStatusChanger(comment => projectOf(comment).id);
     const openedProject = opened && projectOf(opened);
     const archiveExpanded = Boolean(archive?.expanded);
+    // The columns this viewer folded to a strip (uier #464); a stored id no longer on the board is ignored
+    const { collapsed: collapsedIds, setCollapsed, enabled: collapsible } = useCollapsedColumns(collapseScope);
+    const collapsed = (status: string) => collapsedIds.has(status);
     // The board's one tab stop (a roving tab index, like the list's): the card last focused, else the open one,
     // else the first. The arrow keys move between the cards and the columns.
     const [focusId, setFocusId] = useState<string>();
@@ -443,9 +500,9 @@ export function CommentBoard({ projectOf, columns: categoryColumns, workflow, ve
             document.getElementById(commentRowId(rowScope + id))?.focus({ preventScroll: true });
         }
     });
-    // What the keys go through, column by column: the statuses, then Archive while it is expanded
-    // (the cards on screen: not those leaving or held back until they have gone)
-    const lanes = [...statuses.map(status => cardsOf(status).filter(comment => !leaving.has(comment.id))), ...(archive?.expanded ? archiveDefinitions.map(archiveCards) : [])];
+    // What the keys go through, column by column: the expanded statuses, then Archive while it is expanded
+    // (the cards on screen: not those leaving or held back until they have gone, nor those in a collapsed column)
+    const lanes = [...statuses.filter(status => !collapsed(status)).map(status => cardsOf(status).filter(comment => !leaving.has(comment.id))), ...(archive?.expanded ? archiveDefinitions.map(archiveCards) : [])];
     const cards = lanes.flat();
     const listed = (id: string | undefined) => cards.find(comment => comment.id === id);
     const current = listed(focusId) ?? listed(openId);
@@ -497,8 +554,16 @@ export function CommentBoard({ projectOf, columns: categoryColumns, workflow, ve
         if (!target || !(columns[target.status] ?? []).some(comment => comment.id === target.id)) return;
         focusAfterMove.current = undefined;
         requestAnimationFrame(() => {
+            if (document.activeElement && document.activeElement !== document.body) return;
+            // Into a collapsed column the card is out of sight: the focus goes to the strip, which holds it now
+            const strip = collapsed(target.status) ? grid.current?.querySelector<HTMLElement>(`[data-column-toggle="${CSS.escape(target.status)}"]`) : null;
+            if (strip) {
+                strip.focus({ preventScroll: true });
+                strip.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: reducedMotion ? 'auto' : 'smooth' });
+                return;
+            }
             const button = grid.current?.querySelector<HTMLElement>(`[data-move="${CSS.escape(target.id)}"]`);
-            if (!button || (document.activeElement && document.activeElement !== document.body)) return;
+            if (!button) return;
             button.focus({ preventScroll: true });
             // Into view where it lands, once it has travelled there
             const card = button.closest('li');
@@ -632,12 +697,12 @@ export function CommentBoard({ projectOf, columns: categoryColumns, workflow, ve
                     the panel's edges; room for a column's drop ring above and below (`py-1`); not up and down
                     (`overflow-y-clip`), the page does that: a column is as tall as its cards and never scrolls on its own,
                     so the whole board scrolls with the page (`pageScroll`, uier #400).
-                    Archive comes last: a 3rem strip while collapsed, a column like the others when expanded
-                    (`--board-columns`, so the statuses stay data-driven).
+                    Archive comes last: a 3rem strip while collapsed, a column like the others when expanded; a status column
+                    the viewer collapsed is a 3rem strip too (`--board-columns`, built from the statuses so they stay data-driven).
                     While a card is dragged every column is as tall as the longest, so any part of it takes the card. */}
                 <LayoutMotion container={grid} item="data-board-card" appends={() => rising} skip={() => new Set([...settling(), ...leaving.keys()])}>
                 <div ref={grid} data-page-width="wide" data-board-scroll=""
-                    style={{ '--board-columns': `repeat(${statuses.length + (archiveExpanded ? archiveDefinitions.length : 0)}, minmax(min(18rem, var(--page-wide) - 3rem), 20rem))${archive && !archiveExpanded ? ` repeat(${archiveDefinitions.length}, 3rem)` : ''}` } as CSSProperties}
+                    style={{ '--board-columns': [...statuses.map(status => collapsed(status) ? stripTrack : columnTrack), ...(archive ? archiveDefinitions.map(() => archiveExpanded ? columnTrack : stripTrack) : [])].join(' ') } as CSSProperties}
                     onFocus={event => {
                         const id = event.target.closest<HTMLElement>('[data-board-card]')?.dataset.boardCard;
                         if (id && id !== focusId) setFocusId(id);
@@ -651,8 +716,9 @@ export function CommentBoard({ projectOf, columns: categoryColumns, workflow, ve
                         const slot = <li key="placeholder" aria-hidden="true" data-drop-placeholder="" style={{ height: drag?.height }}
                             className="rounded-lg border border-dashed border-foreground/30 bg-background/60" />;
                         return (
-                            <BoardColumn loading={paging?.[status]?.loading} key={status} status={categoryOf(status)} definition={definition(status)} columnIds={statuses} count={paging?.[status]?.total ?? cards.length} state={state} sort={sorts[categoryOf(status)]} onSort={onSort} archiveAll={archiveAll}>
-                                {cards.length || placeholder >= 0 ? (
+                            <BoardColumn loading={paging?.[status]?.loading} key={status} status={categoryOf(status)} definition={definition(status)} columnIds={statuses} count={paging?.[status]?.total ?? cards.length} state={state} sort={sorts[categoryOf(status)]} onSort={onSort} archiveAll={archiveAll}
+                                collapsed={collapsed(status)} onCollapsedChange={collapsible ? next => setCollapsed(status, next) : undefined}>
+                                {collapsed(status) ? null : cards.length || placeholder >= 0 ? (
                                     <VirtualCommentList pageScroll items={cards} control={paging?.[status]} focusedId={focusId ?? tabStop?.id}
                                         label={t("{value0} comments list", { value0: workflowStatusLabel(definition(status), t) })}
                                         footer={placeholder === cards.length ? slot : undefined}

@@ -867,6 +867,60 @@ test('board cards move when held and moved on a touch screen; a long press held 
     await expect(page.getByRole('article')).toHaveAccessibleName('Comment by Reviewer');
 });
 
+test('a column collapses to a strip with its dot, name and count, still takes cards and stays collapsed for this viewer (uier #464)', async ({ page, request }, testInfo) => {
+    const mobile = testInfo.project.name.startsWith('Mobile');
+    // Desktop: every column on screen, so the drop points measured before a drag stay put
+    if (!mobile) await page.setViewportSize({ width: 1674, height: 900 });
+    const { comments, column, card } = await board(page, request);
+    const inProgress = column('In progress');
+    const collapse = inProgress.getByRole('button', { name: 'Collapse In progress', exact: true });
+    await expect(collapse).toHaveAttribute('aria-expanded', 'true');
+    await collapse.click();
+    // One heading button that expands it again, with the focus on it; the column is a narrow strip
+    const strip = (count: number) => inProgress.getByRole('heading', { name: `In progress ${count}`, exact: true }).getByRole('button');
+    await expect(strip(0)).toHaveAttribute('aria-expanded', 'false');
+    await expect(strip(0)).toBeFocused();
+    await expect(inProgress.locator('[data-status-dot="in-progress"]')).toBeVisible();
+    await expect.poll(async () => Math.round((await inProgress.boundingBox())!.width)).toBe(48);
+    // The next column moves up beside it
+    await expect.poll(async () => Math.round((await column('Ready to verify').boundingBox())!.x - (await inProgress.boundingBox())!.x)).toBe(48 + 16);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(page.viewportSize()!.width);
+    await expectNoAxeViolations(page);
+
+    // A card dropped on the strip goes there, counted
+    if (mobile) await dragWithTouch(page, card('Open', 'First board thread'), inProgress);
+    else {
+        await dragWithMouse(page, card('Open', 'First board thread'), inProgress, { drop: false });
+        await expect(inProgress).toHaveAttribute('data-drop', 'over');
+        await page.mouse.up();
+    }
+    await expect(strip(1)).toBeVisible();
+    await expect(column('Open').getByRole('listitem')).toHaveCount(1);
+    await expect(inProgress.getByRole('listitem')).toHaveCount(0);
+
+    // Remembered in this browser
+    await page.reload();
+    await expect(strip(1)).toBeVisible();
+    await expect(column('Open').getByRole('listitem')).toHaveCount(1);
+
+    // Move from the keyboard still offers it, and the focus goes to the strip that now holds the card
+    if (!mobile) {
+        const menu = await openBoardMove(page, comments[1]!.number, column('Open'));
+        await menu.getByRole('menuitem', { name: 'In progress', exact: true }).click();
+        await expect(strip(2)).toBeFocused();
+        await expect(page.getByRole('status').filter({ hasText: `Comment #${comments[1]!.number} moved to In progress.` })).toBeAttached();
+        // Expanded from the keyboard, the focus on its Collapse
+        await page.keyboard.press('Enter');
+        await expect(collapse).toBeFocused();
+        await expect(inProgress.getByRole('listitem')).toHaveCount(2);
+    } else {
+        await strip(1).tap();
+        await expect(inProgress.getByRole('listitem')).toHaveCount(1);
+    }
+    await page.reload();
+    await expect(collapse).toBeVisible();
+});
+
 test('a dropped card shows in its new column at once and goes back when saving fails', async ({ page, request }, testInfo) => {
     test.skip(testInfo.project.name.startsWith('Mobile'), 'The mouse; touch screens use the same move');
     const { project, column, card } = await board(page, request);
