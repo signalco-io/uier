@@ -1,7 +1,7 @@
 # The open thread
 
 - `ThreadActivity` adds a compact, initially closed Activity section as the open thread's card footer in the app
-  (the kit's `CardFooter` under a divider: the muted band down to the card's edge, after Reply and the Open in ... links).
+  (the kit's `CardFooter` under a divider: the muted band down to the card's edge, after Reply).
   The toolbar's `CommentActivity` fits the same section into pin popovers and inbox threads.
   Each shows authorized entries oldest first, with relative times and a bounded scrolling list.
   It adds no reads or acknowledgements. See [thread history](read-state-and-activity.md#thread-history)
@@ -28,7 +28,7 @@
   Thread title field in place (Enter or leaving it saves, Escape cancels and gives focus back; an empty title
   brings the AI title back), and a thread without a title shows a quiet Add a title. Otherwise, without a title
   there is no heading, as the first message shows in full below. Then the details, from the most abstract to the most
-  detailed: Page, On, Assignees, Priority, Labels, then Pull requests. Every value still unset or at its default (Unassigned,
+  detailed: Page, On, Assignees, Priority, Labels, Pull requests, then Integrations. Every value still unset or at its default (Unassigned,
   the default Normal priority, Link a pull request) has one "not set" look (`unsetValue.ts`, `data-unset`): muted text
   with its icon in the same colour, ink on hover for a control; set values are ink. `e2e/thread-details.spec.ts` checks it. On (what it was left on, with the selector or
   the selected text; `SelectorCode` shows a selector longer than 28 characters as its start and end,
@@ -39,7 +39,7 @@
   four, each with its flag, the current one checked) and Assignee (a 20px avatar, or a person icon while unassigned,
   and the name, together one menu button for those who can assign, with a chevron only while unassigned; then the AI agent working with the assignee, `AgentControl`: "with",
   the agent's logo, Claude, its model by name and reasoning level ("Opus 5.5 · xhigh"), or Add agent for the assignee; an attached agent's button has no chevron; clicking it shows the agent's details as on the
-assignee card, with Open in T3 Code or another desktop session link, at the top of the assignee's menu or in a hover/click popover for others), the verification, every message, Reply (its icon in line with the message text) and the quiet Open in ....
+assignee card, with Open in T3 Code or another desktop session link, at the top of the assignee's menu or in a hover/click popover for others), the verification, every message and Reply (its icon in line with the message text).
   A message an AI agent wrote for its author through MCP reads "You via", the agent's logo and "Claude" after the
   author (`MessageAgent`, a ghost button whose hover or click popover says "Claude wrote this for you.", the model,
   reasoning level and connection; [AI agents](assignee-agents.md)). The first message's time is followed by
@@ -52,8 +52,8 @@ assignee card, with Open in T3 Code or another desktop session link, at the top 
   summary), `comments/CommentCardShell.tsx` stands in its place, shaped like `CommentCard` so nothing moves when the
   detail arrives (uier #385). What the summary holds is drawn as the card draws it: the status, `#number`, unread dot
   and Private badge with Copy and More actions, the title, every detail label with Page, Assignees, Priority, Labels and
-  Pull requests (`readStates={false}`: no pull request read of its own), On's label, the first message (its first 500
-  characters), Reply, Open in ... and the Activity footer. What only the detail has pulses in its place, sized from the
+  Pull requests (`readStates={false}`: no pull request read of its own), Integrations, On's label, the first message (its first 500
+  characters), Reply and the Activity footer. What only the detail has pulses in its place, sized from the
   summary's `outline` (`CommentOutline`, encoded by `src/lib/app/commentOutline.ts`: counts, line lengths with runs of
   equal lines as one token, and image sizes, never text; the whole thread's replies in 96 characters, a reply that does
   not fit as its totals and the replies past that as one count and line total, so an outline stays under 200 bytes and
@@ -68,6 +68,11 @@ assignee card, with Open in T3 Code or another desktop session link, at the top 
   comments works at once. A failed load says "This thread could not be loaded." with Try again in the messages' place.
   `e2e/thread-loading-shell.spec.ts` holds the detail of a thread with selected text, a reply of several lines and
   paragraphs, a reply of a hundred one-character lines and eleven replies, and checks the shell and that the loaded thread keeps its layout.
+- Integrations (`comments/ThreadIntegrationLinks.tsx`) is the details row right below Pull requests when the thread
+  was sent to a connected service (`integrationLinks`, [integrations](integrations.md)): one "Open in Slack" external
+  link per service, each led by the provider's own mark at 14 px without a tile (Slack and Azure DevOps in their colours,
+  GitHub, Linear and Notion in ink and paper; Lucide's link icon for any other), styled like the pull request links
+  (uier #456). Without links the row is absent.
 - Pull requests (`comments/ThreadPullRequests.tsx`) add a Pull requests row to the details when a current
   message, reply or manual attachment contains a GitHub.com PR, GitLab.com merge request or Azure DevOps Services PR URL.
   Project triagers also see the URL entry field when there are no links.

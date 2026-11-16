@@ -17,9 +17,9 @@ import { CopyMenu, useCopyIssue } from './CopyIssue';
 import { MessageAgent } from './MessageAgent';
 import { ReactionPicker } from './MessageReactions';
 import { PriorityControl } from './PriorityControl';
-import { integrationLabels } from './commentLabels';
 import { ThreadLabelsControl } from './ThreadLabelsControl';
 import { ThreadPullRequests } from './ThreadPullRequests';
+import { ThreadIntegrationLinks } from './ThreadIntegrationLinks';
 import { ThreadTitle } from './ThreadTitle';
 import { allowedStatuses } from './useStatusChange';
 import { VerificationControl } from './VerificationControl';
@@ -111,7 +111,7 @@ function ReplySkeleton({ reply, actions }: { reply: OutlineMessage; actions: boo
  * The open thread while its canonical detail loads (uier #385), shaped like `CommentCard`. What the list's summary
  * holds is drawn as the card draws it: the status, number, unread dot and Private badge with Copy and More actions, the
  * title, every detail label with Page, On's label, Assignees, Priority, Labels and Pull requests, the first message's
- * author, time and first 500 characters, Reply, Open in ... and Activity. What only the detail has pulses in its place,
+ * author, time and first 500 characters, the Integrations links, Reply and Activity. What only the detail has pulses in its place,
  * sized from the summary's `outline` (counts and lengths, never the text): the selector or selected text, the device,
  * the rest of the first message, the screenshot, the reactions and every reply with its text, image and reactions.
  * Text placeholders are filler words as long as each loaded line, so they wrap about where it does: a line can still
@@ -212,6 +212,7 @@ export function CommentCardShell({ projectId, comment, reviewLink, assignees, us
                             <ThreadLabelsControl projectId={projectId} commentId={comment.id} labels={comment.labels ?? []} available={comment.availableLabels ?? comment.labels ?? []} canEdit={permissions.triage} />
                         </dd>
                         <ThreadPullRequests projectId={projectId} comment={comment} readStates={false} />
+                        <ThreadIntegrationLinks links={comment.integrationLinks} />
                     </dl>
                     <VerificationControl projectId={projectId} userId={userId} comment={comment} formOpen={false} onFormOpenChange={() => {}} />
                 </div>
@@ -249,22 +250,11 @@ export function CommentCardShell({ projectId, comment, reviewLink, assignees, us
                     </ol>
                 )}
 
-                {(permissions.reply || Boolean(comment.integrationLinks?.length)) && (
+                {permissions.reply && (
                     <div inert className="contents">
-                        {permissions.reply && (
-                            <Button variant="ghost" size="sm" className="ml-7 self-start text-muted-foreground pointer-coarse:min-h-11">
-                                <ReplyIcon data-icon="inline-start" />{t("Reply")}
-                            </Button>
-                        )}
-                        {comment.integrationLinks?.length ? (
-                            <div className="-ml-2 flex flex-wrap items-center gap-x-1 gap-y-1">
-                                {comment.integrationLinks.map(link => (
-                                    <span key={link.provider} className="inline-flex min-h-6 items-center px-2 text-xs text-muted-foreground underline underline-offset-2 pointer-coarse:min-h-11">
-                                        {t("Open in ")}{integrationLabels[link.provider] ?? link.provider}
-                                    </span>
-                                ))}
-                            </div>
-                        ) : null}
+                        <Button variant="ghost" size="sm" className="ml-7 self-start text-muted-foreground pointer-coarse:min-h-11">
+                            <ReplyIcon data-icon="inline-start" />{t("Reply")}
+                        </Button>
                     </div>
                 )}
             </div>
