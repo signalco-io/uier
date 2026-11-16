@@ -2,12 +2,9 @@
 
 import { useAppI18n } from '@/src/lib/i18n/client';
 
-import { useActionState, useId, useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
+import { useActionState, useId, useState } from 'react';
 import { ArrowUpRight, RefreshCw } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/src/components/ui/alert';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
-    AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/src/components/ui/alert-dialog';
 import { Badge } from '@/src/components/ui/badge';
 import { cn } from 'cn';
 import { Button, buttonVariants } from '@/src/components/ui/button';
@@ -15,10 +12,12 @@ import { Checkbox } from '@/src/components/ui/checkbox';
 import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel } from '@/src/components/ui/field';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select';
 import { Spinner } from '@/src/components/ui/spinner';
-import type { ActionState } from '@/src/lib/app/actionResult';
 import type { getGitHubSettings } from '@/src/lib/integrations/github';
 import { DateTime } from '../comments/DateTime';
 import { FormMessage } from '../FormMessage';
+import { BackfillDetail, ConnectionControls, ConnectionNote } from '../integrations/ConnectionControls';
+import { DestinationPanel } from '../integrations/DestinationForm';
+import { IntegrationDetail, IntegrationDetails } from '../integrations/IntegrationDetails';
 import { IntegrationTitle } from '../integrations/IntegrationLogo';
 import { gitHubStatus } from '../integrations/projectIntegrations';
 import { Section } from '../PageHeader';
@@ -33,12 +32,17 @@ const outcomes: Record<string, string> = {
     pending: 'An organization owner needs to approve the uier installation in GitHub. Once it is approved, connect GitHub again and choose a repository.'
 };
 
+/**
+ * GitHub for a project, in the order of Slack's card: the status badge, the repository, the Sync switch, then
+ * the rare actions under More options. GitHub asks for an authorization before a repository can be chosen,
+ * so Change repository goes there and comes back with the repository picker.
+ */
 export function GitHubSection({ projectId, settings, outcome }: { projectId: string; settings: Settings; outcome?: string }) {
     const { t } = useAppI18n();
     const connection = settings.connection;
-    const publicConfirmationRequired = connection?.statusCode === 'public_confirmation_required';
     const notice = outcome && Object.hasOwn(outcomes, outcome) ? outcomes[outcome] : undefined;
     const status = gitHubStatus(settings, outcome);
+    const connectHref = `/app/github/connect?project=${encodeURIComponent(projectId)}`;
     return <Section id="github" title={<IntegrationTitle provider="github" name="GitHub" />} description={t("Create one GitHub issue for each shared feedback thread. uier keeps the issue and its discussion up to date.")}
         actions={<Badge variant="secondary">{t(status)}</Badge>}>
         <div className="flex flex-col gap-5">
@@ -46,41 +50,75 @@ export function GitHubSection({ projectId, settings, outcome }: { projectId: str
                 <AlertTitle>{t("Waiting for GitHub approval")}</AlertTitle>
                 <AlertDescription>{notice}</AlertDescription>
             </Alert> : <p role="status" className="m-0 text-sm text-muted-foreground">{notice}</p>)}
-            {!settings.configured ? <p className="m-0 text-sm text-muted-foreground">{t("GitHub is unavailable on this deployment. A site administrator needs to configure it.")}</p>
-                : <>
-                    {settings.setup ? <GitHubRepositoryPicker key={settings.setup.receipt} projectId={projectId} settings={settings} />
-                        : <a href={`/app/github/connect?project=${encodeURIComponent(projectId)}`} className={cn(buttonVariants({ variant: connection ? "outline" : "default" }), 'w-fit')}>
-                            <ArrowUpRight data-icon="inline-start" />{connection ? t("Reconnect GitHub") : t("Connect GitHub")}
-                        </a>}
-                    {!settings.setup && settings.installations.length > 0 && <div className="flex flex-col gap-2">
-                        <p className="m-0 text-sm text-muted-foreground">{t("Or use an installation already connected to this workspace. GitHub verifies your account before you choose a repository.")}</p>
-                        {settings.installations.map(installation => <a key={installation.id} href={`/app/github/connect?project=${encodeURIComponent(projectId)}&installation=${encodeURIComponent(installation.id)}`} className={cn(buttonVariants({ variant: 'outline' }), 'w-fit')}>
-                            {t("Use")}{' '}{installation.accountName} {t("installation")}{' '}</a>)}
-                    </div>}
-                    {connection && <>
-                        <p className="m-0 text-sm">{t("Repository:")}{' '}{connection.repositoryName} ({publicConfirmationRequired ? t("public access needs confirmation") : connection.repositoryVisibility}).</p>
-                        {publicConfirmationRequired && <Alert>
-                            <AlertTitle>{t("Confirm public repository access")}</AlertTitle>
-                            <AlertDescription>{t("This repository changed from private to public. Sync is paused. Existing copies may be public. Reconnect GitHub and confirm the public repository before copying more feedback.")}</AlertDescription>
-                        </Alert>}
-                        {connection.repositoryVisibility === 'public' && <Alert>
-                            <AlertTitle>{t("Public repository")}</AlertTitle>
-                            <AlertDescription>{t("Anyone can read the feedback copied to this repository. Private uier threads are excluded.")}</AlertDescription>
-                        </Alert>}
-                        {connection.status !== 'connected' && !publicConfirmationRequired && <p className="m-0 text-sm text-muted-foreground">{t("GitHub access needs attention. Check the app’s installation and repository access in GitHub, then reconnect.")}</p>}
-                    </>}
-                    <p className="m-0 text-sm text-muted-foreground">{t("The GitHub App’s installation controls repository access. Turning sync on copies new shared feedback; existing threads need a separate backfill. Private threads and the public showcase are excluded.")}</p>
-                    <p className="m-0 text-sm text-muted-foreground">{t("Screenshots stay as protected uier links. GitHub copies, edit histories, notifications and independently written comments follow GitHub’s access and retention settings.")}</p>
-                </>}
-            {connection?.lastSyncedAt && <p className="m-0 text-sm text-muted-foreground">{t("Last synced")}{' '}<DateTime value={connection.lastSyncedAt} />.</p>}
-            {connection && connection.needsReviewCount > 0 && <Alert>
-                <AlertTitle>{t("Some threads need review")}</AlertTitle>
-                <AlertDescription>{connection.needsReviewCount}{connection.needsReviewCountCapped ? '+' : ''} {t("threads could not be confirmed in GitHub. Check their existing GitHub copies before retrying. uier retains uncertain issue identities to avoid duplicates.")}</AlertDescription>
-            </Alert>}
-            {connection?.backfill && <p role="status" className="m-0 text-sm text-muted-foreground">{t("Backfill:")}{' '}{connection.backfill.queued} {t("selected threads queued for delivery.")}{' '}{connection.backfill.done && <>{t("Queueing is complete.")}{' '}{t("Delivery continues in the background.")}</>}</p>}
-            {connection && <GitHubManagement projectId={projectId} settings={settings} />}
+            {!settings.configured && <p className="m-0 text-sm text-muted-foreground">{t("GitHub is unavailable on this deployment. A site administrator needs to configure it.")}</p>}
+            {connection ? <GitHubConnection projectId={projectId} settings={settings} connectHref={connectHref} />
+                : settings.configured && (settings.setup ? <DestinationPanel><GitHubRepositoryPicker key={settings.setup.receipt} projectId={projectId} settings={settings} /></DestinationPanel>
+                    : <>
+                        <a href={connectHref} className={cn(buttonVariants(), 'w-fit')}>{t("Connect GitHub")}<ArrowUpRight data-icon="inline-end" /></a>
+                        <GitHubInstallations projectId={projectId} settings={settings} />
+                    </>)}
         </div>
     </Section>;
+}
+
+/** The installations other projects of the workspace already use: a shorter way to the repository picker */
+function GitHubInstallations({ projectId, settings }: { projectId: string; settings: Settings }) {
+    const { t } = useAppI18n();
+    if (!settings.installations.length) return null;
+    return <div className="flex flex-col gap-2">
+        <p className="m-0 text-sm text-muted-foreground">{t("Or use an installation already connected to this workspace. GitHub verifies your account before you choose a repository.")}</p>
+        {settings.installations.map(installation => <a key={installation.id} href={`/app/github/connect?project=${encodeURIComponent(projectId)}&installation=${encodeURIComponent(installation.id)}`} className={cn(buttonVariants({ variant: 'outline' }), 'w-fit')}>
+            {t("Use")}{' '}{installation.accountName} {t("installation")}{' '}</a>)}
+    </div>;
+}
+
+function GitHubConnection({ projectId, settings, connectHref }: { projectId: string; settings: Settings; connectHref: string }) {
+    const { t } = useAppI18n();
+    const connection = settings.connection!;
+    const publicConfirmationRequired = connection.statusCode === 'public_confirmation_required';
+    const healthy = connection.status === 'connected';
+    const canSync = settings.configured && healthy;
+    // A new authorization is how the repository changes and how lost access comes back; one that is open shows its picker
+    const canAuthorize = settings.configured && !settings.setup;
+    return <>
+        {publicConfirmationRequired && <Alert>
+            <AlertTitle>{t("Confirm public repository access")}</AlertTitle>
+            <AlertDescription>{t("This repository changed from private to public. Sync is paused. Existing copies may be public. Reconnect GitHub and confirm the public repository before copying more feedback.")}</AlertDescription>
+        </Alert>}
+        {connection.repositoryVisibility === 'public' && <Alert>
+            <AlertTitle>{t("Public repository")}</AlertTitle>
+            <AlertDescription>{t("Anyone can read the feedback copied to this repository. Private uier threads are excluded.")}</AlertDescription>
+        </Alert>}
+        {connection.needsReviewCount > 0 && <Alert>
+            <AlertTitle>{t("Some threads need review")}</AlertTitle>
+            <AlertDescription>{connection.needsReviewCount}{connection.needsReviewCountCapped ? '+' : ''} {t("threads could not be confirmed in GitHub. Check their existing GitHub copies before retrying. uier retains uncertain issue identities to avoid duplicates.")}</AlertDescription>
+        </Alert>}
+        {!healthy && !publicConfirmationRequired && <p className="m-0 text-sm text-muted-foreground">{t("GitHub access needs attention. Check the app’s installation and repository access in GitHub, then reconnect.")}</p>}
+
+        <IntegrationDetails>
+            <IntegrationDetail term={t("Repository")} action={canAuthorize && healthy && <a href={connectHref} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+                {t("Change repository")}<ArrowUpRight data-icon="inline-end" /></a>}>
+                {connection.repositoryName} ({publicConfirmationRequired ? t("public access needs confirmation") : connection.repositoryVisibility})
+            </IntegrationDetail>
+            {connection.lastSyncedAt && <IntegrationDetail term={t("Last synced")}><DateTime value={connection.lastSyncedAt} /></IntegrationDetail>}
+            <BackfillDetail backfill={connection.backfill} />
+        </IntegrationDetails>
+
+        {canAuthorize && !healthy && <a href={connectHref} className={cn(buttonVariants(), 'w-fit')}>{t("Reconnect GitHub")}<ArrowUpRight data-icon="inline-end" /></a>}
+        {settings.configured && settings.setup && <DestinationPanel><GitHubRepositoryPicker key={settings.setup.receipt} projectId={projectId} settings={settings} /></DestinationPanel>}
+
+        <ConnectionControls projectId={projectId} manage={manageGitHubAction}
+            sync={connection.enabled || canSync ? { checked: connection.enabled } : undefined}
+            backfill={canSync && connection.enabled ? { label: t("Backfill GitHub feedback"), queueing: Boolean(connection.backfill && !connection.backfill.done) } : undefined}
+            reconnect={canAuthorize && healthy ? { label: t("Reconnect GitHub"), href: connectHref } : undefined}
+            disconnect={{ label: t("Disconnect GitHub"), title: t("Disconnect GitHub from this project?"),
+                description: t("Stops future sync from this project. Existing GitHub issues, comments and copies remain. Other projects keep their connections. To remove the app’s wider access, manage its installation in GitHub.") }}>
+            {canAuthorize && <GitHubInstallations projectId={projectId} settings={settings} />}
+            {canSync && <ConnectionNote>{t("Backfill selects up to 1,000 existing shared threads for this repository. Delivery continues in the background.")}</ConnectionNote>}
+            <ConnectionNote>{t("The GitHub App’s installation controls repository access. Turning sync on copies new shared feedback; existing threads need a separate backfill. Private threads and the public showcase are excluded.")}</ConnectionNote>
+            <ConnectionNote>{t("Screenshots stay as protected uier links. GitHub copies, edit histories, notifications and independently written comments follow GitHub’s access and retention settings.")}</ConnectionNote>
+        </ConnectionControls>
+    </>;
 }
 
 function GitHubRepositoryPicker({ projectId, settings }: { projectId: string; settings: Settings }) {
@@ -102,7 +140,7 @@ function GitHubRepositoryPicker({ projectId, settings }: { projectId: string; se
             <form action={load}>
                 <input type="hidden" name="projectId" value={projectId} />
                 <input type="hidden" name="setupReceipt" value={setup.receipt} />
-                <Button type="submit" variant="outline" disabled={loading || saving}>
+                <Button type="submit" variant={loaded?.ok ? "outline" : "default"} disabled={loading || saving}>
                     {loading ? <Spinner data-icon="inline-start" /> : <RefreshCw data-icon="inline-start" />}{t("Load repositories")}{' '}</Button>
             </form>
             <FormMessage state={loaded} />
@@ -136,57 +174,13 @@ function GitHubRepositoryPicker({ projectId, settings }: { projectId: string; se
                     </FieldContent>
                 </Field>}
                 <FieldDescription>{t("Saving turns sync on for new shared feedback. Nothing is copied before you save.")}</FieldDescription>
-                <Field>
-                    <Button className="w-fit" type="submit" disabled={saving || !repository || (!repository.private && !publicConfirmed) || Boolean(settings.connection && !switchConfirmed)}>
+                <div className="flex flex-col items-start gap-3">
+                    <Button type="submit" disabled={saving || !repository || (!repository.private && !publicConfirmed) || Boolean(settings.connection && !switchConfirmed)}>
                         {saving && <Spinner data-icon="inline-start" />}{t("Save GitHub repository")}{' '}</Button>
                     <FormMessage state={saved} />
-                </Field>
+                </div>
             </FieldGroup>
         </form>}
         <a href={`/app/github/connect?project=${encodeURIComponent(projectId)}`} className={cn(buttonVariants({ variant: 'ghost' }), 'w-fit')}>{t("Start GitHub authorization again")}</a>
     </FieldGroup>;
-}
-
-function GitHubManagement({ projectId, settings }: { projectId: string; settings: Settings }) {
-    const { t } = useAppI18n();
-    const router = useRouter();
-    const connection = settings.connection!;
-    const [result, setResult] = useState<ActionState<{ message: string }>>(null);
-    const [pending, startTransition] = useTransition();
-    const [confirming, setConfirming] = useState(false);
-    function change(operation: 'enable' | 'disable' | 'disconnect' | 'backfill') {
-        startTransition(async () => {
-            const form = new FormData();
-            form.set('projectId', projectId); form.set('operation', operation);
-            const next = await manageGitHubAction(null, form);
-            setResult(next);
-            if (next?.ok) { setConfirming(false); router.refresh(); }
-        });
-    }
-    const canSync = settings.configured && connection.status === 'connected';
-    return <div className="flex flex-col gap-3">
-        <div className="flex flex-wrap gap-2">
-            {(connection.enabled || canSync) && <Button type="button" variant="outline" disabled={pending} onClick={() => change(connection.enabled ? 'disable' : 'enable')}>
-                {pending && <Spinner data-icon="inline-start" />}{connection.enabled ? t("Turn GitHub sync off") : t("Turn GitHub sync on")}
-            </Button>}
-            {canSync && connection.enabled && <Button type="button" variant="outline" disabled={pending || Boolean(connection.backfill && !connection.backfill.done)} onClick={() => change('backfill')}>{t("Backfill GitHub feedback")}</Button>}
-            <AlertDialog open={confirming} onOpenChange={setConfirming}>
-                <AlertDialogTrigger render={<Button type="button" variant="outline" disabled={pending} />}>{t("Disconnect GitHub")}</AlertDialogTrigger>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>{t("Disconnect GitHub from this project?")}</AlertDialogTitle>
-                        <AlertDialogDescription>{t("Stops future sync from this project. Existing GitHub issues, comments and copies remain. Other projects keep their connections. To remove the app’s wider access, manage its installation in GitHub.")}</AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <FormMessage state={result && !result.ok ? result : null} />
-                    <AlertDialogFooter>
-                        <AlertDialogCancel disabled={pending}>{t("Keep connected")}</AlertDialogCancel>
-                        <AlertDialogAction variant="outline" disabled={pending} onClick={() => change('disconnect')}>
-                            {pending && <Spinner data-icon="inline-start" />}{t("Disconnect GitHub")}{' '}</AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-        </div>
-        {canSync && <p className="m-0 text-sm text-muted-foreground">{t("Backfill selects up to 1,000 existing shared threads for this repository. Delivery continues in the background.")}</p>}
-        <FormMessage state={result?.ok ? { ...result, message: result.data.message } : result} />
-    </div>;
 }

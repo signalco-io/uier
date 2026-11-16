@@ -42,6 +42,6 @@ test('Integrations lists connected services that open their own page, then servi
     await expectNoAxeViolations(page);
     await connected.click();
     await expect(page).toHaveURL(`${baseURL}${overviewUrl}/notion`);
-    await expect(page.getByRole('region', { name: 'Notion', exact: true })).toContainText('Connected workspace: Test workspace.');
+    await expect(page.getByRole('region', { name: 'Notion', exact: true }).locator('[data-integration-details]')).toContainText('Test workspace');
     expect((await page.request.get(`${overviewUrl}/unknown`)).status()).toBe(404);
 });

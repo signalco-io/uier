@@ -29,8 +29,12 @@ test('Azure DevOps sign-in, destination choices, sync controls, backfill and dis
     await page.getByRole('button', { name: 'Accept Azure DevOps access' }).click();
     await expect(page).toHaveURL(new RegExp(`${settingsUrl}\\?azure-devops=connected$`));
     await expect(section).toContainText('Choose a destination');
-    await expect(section).toContainText('Connected as Test Microsoft user.');
-    await expect(section.getByRole('button', { name: 'Backfill existing feedback' })).toHaveCount(0);
+    const details = section.locator('[data-integration-details]');
+    await expect(details.locator('dt')).toHaveText(['Connected as', 'Pull requests']);
+    await expect(details.locator('dd')).toContainText(['Test Microsoft user', 'Plain links']);
+    // Before a destination is chosen there is nothing to turn on, and the rare actions stay closed
+    await expect(section.getByRole('switch')).toHaveCount(0);
+    await expect(section.getByRole('button', { name: 'Disconnect Azure DevOps', exact: true })).toHaveCount(0);
     const organizationRequest = page.waitForRequest(request => request.method() === 'POST' && Boolean(request.headers()['next-action']));
     await section.getByRole('button', { name: 'Load organizations', exact: true }).click();
     const actionRequest = await organizationRequest;
@@ -55,7 +59,22 @@ test('Azure DevOps sign-in, destination choices, sync controls, backfill and dis
     await section.getByRole('button', { name: 'Save Azure DevOps destination', exact: true }).click();
     await expect(section).toContainText('Sync on');
     await page.reload();
-    await expect(section).toContainText('Destination: uier-test / Website, Bug work items in Website\\Marketing. Open feedback is New, done feedback is Resolved.');
+    const destination = ['Test Microsoft user', 'uier-test / Website', 'Bug in Website\\Marketing', 'New / Resolved'];
+    await expect(details.locator('dt')).toHaveText(['Connected as', 'Destination', 'Work items', 'States', 'Pull requests']);
+    await expect(details.locator('dd')).toContainText([...destination, 'Plain links']);
+    // The saved destination comes back in the form; Cancel changes nothing
+    const change = section.getByRole('button', { name: 'Change destination', exact: true });
+    await expect(section.getByRole('combobox')).toHaveCount(0);
+    await change.click();
+    await expect(change).toHaveAttribute('aria-expanded', 'true');
+    await expect(section.getByRole('combobox', { name: 'Organization', exact: true })).toContainText('uier-test');
+    await expect(section.getByRole('combobox', { name: 'Project', exact: true })).toContainText('Website');
+    await expect(section.getByRole('combobox', { name: 'Work item type', exact: true })).toContainText('Bug');
+    await expect(section.getByRole('combobox', { name: 'State for done feedback', exact: true })).toContainText('Resolved');
+    await expect(section.getByRole('combobox', { name: 'Area path (optional)', exact: true })).toContainText('Website\\Marketing');
+    await section.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await expect(section.getByRole('combobox')).toHaveCount(0);
+    await expect(change).toBeFocused();
     // Optional code consent is separate from the normal work-item connection.
     const showState = section.getByRole('link', { name: 'Show pull request state', exact: true });
     await expect(showState).toHaveAttribute('href', `/app/azure-devops/connect?project=${projectId}&pullRequests=1`);
@@ -68,9 +87,11 @@ test('Azure DevOps sign-in, destination choices, sync controls, backfill and dis
     await showState.click();
     await page.getByRole('button', { name: 'Accept Azure DevOps access' }).click();
     await expect(showState).toHaveCount(0);
-    await section.getByRole('button', { name: 'Turn sync on', exact: true }).click();
+    const sync = section.getByRole('switch', { name: 'Sync', exact: true });
+    await expect(sync).not.toBeChecked();
+    await sync.click();
     await expect(section).toContainText('Sync on');
-    await expect(section).toContainText('Destination: uier-test / Website, Bug work items in Website\\Marketing. Open feedback is New, done feedback is Resolved.');
+    await expect(details.locator('dd')).toContainText([...destination, 'Shown with their state']);
     const document = await page.content();
     expect(document).not.toMatch(/ado-test-(?:access|refresh|secret)|"(?:grantId|accessToken|refreshToken|userId)":/);
 
@@ -99,11 +120,16 @@ test('Azure DevOps sign-in, destination choices, sync controls, backfill and dis
     } finally { await member.context.close(); }
 
     await page.goto(settingsUrl);
-    await section.getByRole('button', { name: 'Turn sync off', exact: true }).click();
+    // The switch saves at once; a backfill needs sync on
+    await expect(sync).toBeChecked();
+    await sync.click();
     await expect(section).toContainText('Sync off');
+    await expect(sync).not.toBeChecked();
+    await section.getByRole('button', { name: 'More options', exact: true }).click();
     await expect(section.getByRole('button', { name: 'Backfill existing feedback' })).toHaveCount(0);
-    await section.getByRole('button', { name: 'Turn sync on', exact: true }).click();
+    await sync.click();
     await expect(section).toContainText('Sync on');
+    await expect(section.getByRole('button', { name: 'Backfill existing feedback', exact: true })).toBeEnabled();
     await setProjectAccess(page, projectId, 'Anyone with the link');
     await page.goto(settingsUrl);
     const source = await page.request.post(`/api/review/${projectId}/comments`, { headers: {
@@ -111,9 +137,11 @@ test('Azure DevOps sign-in, destination choices, sync controls, backfill and dis
     }, data: { path: '/azure-devops-review', text: 'Feedback for an Azure DevOps backfill', authorName: 'Reviewer',
         position: { type: 'point', selector: 'h1', xNormal: 0.5, yNormal: 0.5 } } });
     expect(source.status()).toBe(201);
+    await section.getByRole('button', { name: 'More options', exact: true }).click();
+    await expectNoAxeViolations(page);
     await section.getByRole('button', { name: 'Backfill existing feedback', exact: true }).click();
     await expect(section).toContainText('A backfill of 1 selected threads is queued.');
-    await expect(section).toContainText('Backfill: 0 of 1 selected threads queued for delivery.');
+    await expect(details).toContainText('0 of 1 selected threads queued for delivery.');
     await section.getByRole('button', { name: 'Disconnect Azure DevOps', exact: true }).click();
     const disconnect = page.getByRole('alertdialog');
     await expect(disconnect).toContainText('Existing work items remain in Azure DevOps.');
@@ -123,6 +151,7 @@ test('Azure DevOps sign-in, destination choices, sync controls, backfill and dis
     await disconnect.getByRole('button', { name: 'Disconnect Azure DevOps', exact: true }).click();
     await expect(section.getByRole('link', { name: 'Reconnect Azure DevOps', exact: true })).toBeVisible();
     await page.reload();
-    await expect(section.getByRole('button', { name: 'Turn sync on' })).toHaveCount(0);
+    await expect(section.getByRole('switch')).toHaveCount(0);
+    await expect(section.getByRole('button', { name: 'More options', exact: true })).toHaveCount(0);
     await expectNoAxeViolations(page);
 });

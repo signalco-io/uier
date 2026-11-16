@@ -2,7 +2,7 @@
 
 import { useAppI18n } from '@/src/lib/i18n/client';
 
-import { useActionState, useId, useOptimistic, useRef, useState, useTransition } from 'react';
+import { useActionState, useId, useOptimistic, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowUpRight, RefreshCw } from 'lucide-react';
 import { cn } from 'cn';
@@ -15,10 +15,11 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
     AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/src/components/ui/alert-dialog';
 import { Spinner } from '@/src/components/ui/spinner';
-import { Switch } from '@/src/components/ui/switch';
 import { KnownPages } from '@/src/knownPages';
 import type { ActionState } from '@/src/lib/app/actionResult';
 import type { getSlackSettings } from '@/src/lib/integrations/slack/settings';
+import { BackfillDetail, ConnectionSwitch } from '../integrations/ConnectionControls';
+import { ChangeDestinationButton, DestinationPanel, useDestinationForm } from '../integrations/DestinationForm';
 import { IntegrationDetail, IntegrationDetails } from '../integrations/IntegrationDetails';
 import { IntegrationTitle } from '../integrations/IntegrationLogo';
 import { MoreOptions } from '../integrations/MoreOptions';
@@ -57,36 +58,28 @@ export function SlackSection({ projectId, settings, outcome }: { projectId: stri
 function SlackConnection({ projectId, settings, connectHref }: { projectId: string; settings: Settings; connectHref: string }) {
     const { t } = useAppI18n();
     const router = useRouter();
-    const id = useId();
     const connection = settings.connection!;
     const connected = settings.configured && connection.status === 'connected';
     const active = connected && Boolean(connection.channelName);
 
     // The channel form: open until a channel is chosen, then behind Change channel
-    const changeButton = useRef<HTMLButtonElement>(null);
-    const details = useRef<HTMLDivElement>(null);
-    const [editing, setEditing] = useState(false);
+    const form = useDestinationForm(Boolean(connection.channelName));
     const [, startLoad] = useTransition();
     const [channels, load, loading] = useActionState(loadSlackChannelsAction, null);
-    const [saved, save, saving] = useActionState(async (previous: ActionState, form: FormData) => {
-        const response = await saveSlackDestinationAction(previous, form);
-        if (response?.ok) closeForm();
+    const [saved, save, saving] = useActionState(async (previous: ActionState, data: FormData) => {
+        const response = await saveSlackDestinationAction(previous, data);
+        // The form leaves the page with the focus in it, so closing it moves the focus (`useDestinationForm`)
+        if (response?.ok) form.close();
         return response;
     }, null);
-    const showForm = connected && (editing || !connection.channelName);
-    function closeForm() {
-        // The form leaves the page with the focus in it. The focus goes back to where the form was opened,
-        // or to the details that now name the first channel
-        (changeButton.current ?? details.current)?.focus();
-        setEditing(false);
-    }
+    const showForm = connected && form.open;
     function toggleForm() {
         if (saving) return;
-        if (editing) return closeForm();
-        setEditing(true);
+        if (form.editing) return form.close();
+        form.edit();
         // Asking to change the channel is the request to read the workspace's channels
-        const form = new FormData(); form.set('projectId', projectId);
-        startLoad(() => load(form));
+        const data = new FormData(); data.set('projectId', projectId);
+        startLoad(() => load(data));
     }
 
     // On or off, a test message, a backfill and disconnecting
@@ -121,26 +114,23 @@ function SlackConnection({ projectId, settings, connectHref }: { projectId: stri
             <AlertDescription>{connection.needsReviewCount}{connection.needsReviewCountCapped ? '+' : ''} {t("deliveries need an administrator’s review. An unknown send is held to avoid duplicate notifications.")}</AlertDescription>
         </Alert>}
 
-        <div ref={details} tabIndex={-1} className="outline-none"><IntegrationDetails>
+        <IntegrationDetails ref={form.details}>
             <IntegrationDetail term={t("Workspace")}>{connection.teamName || t('Slack workspace')}</IntegrationDetail>
             {connection.channelName && <>
-                <IntegrationDetail term={t("Channel")} action={connected && <Button ref={changeButton} type="button" variant="outline" size="sm"
-                    aria-expanded={editing} aria-controls={editing ? `${id}-destination` : undefined} onClick={toggleForm}>{t("Change channel")}</Button>}>
+                <IntegrationDetail term={t("Channel")} action={connected && <ChangeDestinationButton form={form} onClick={toggleForm}>{t("Change channel")}</ChangeDestinationButton>}>
                     #{connection.channelName}
                 </IntegrationDetail>
                 <IntegrationDetail term={t("Summaries")}>{t(summaries)}</IntegrationDetail>
             </>}
             {connection.lastSyncedAt && <IntegrationDetail term={t("Last delivery")}><DateTime value={connection.lastSyncedAt} /></IntegrationDetail>}
-            {connection.backfill && <IntegrationDetail term={t("Backfill")}>
-                {connection.backfill.queued} {t("of")}{' '}{connection.backfill.total} {t("selected threads queued for delivery.")}{' '}{connection.backfill.done ? t("Queueing is complete.") : t("Queueing continues in the background.")}
-            </IntegrationDetail>}
-        </IntegrationDetails></div>
+            <BackfillDetail backfill={connection.backfill} />
+        </IntegrationDetails>
 
         {settings.configured && connection.status === 'needs_reconnect' && <a href={connectHref} className={cn(buttonVariants(), 'w-fit')}>
             {t("Reconnect Slack")}<ArrowUpRight data-icon="inline-end" />
         </a>}
 
-        {showForm && <div id={`${id}-destination`} className="flex flex-col gap-5 rounded-lg border p-4">
+        {showForm && <DestinationPanel form={form}>
             <div className="flex flex-col gap-3">
                 <div className="flex flex-col gap-1">
                     {!connection.channelName && <p className="m-0 text-sm font-medium">{t("Choose a channel")}</p>}
@@ -154,17 +144,12 @@ function SlackConnection({ projectId, settings, connectHref }: { projectId: stri
                 {channels?.ok && channels.data.items.length === 0 && <p className="m-0 text-sm text-muted-foreground">{t("Invite the uier app to a channel in Slack, then load channels again.")}</p>}
             </div>
             {channels?.ok && channels.data.items.length > 0 && <SlackChannelForm key={connection.channelName ?? ''} projectId={projectId} settings={settings}
-                channels={channels.data} save={save} saving={saving} error={saved && !saved.ok ? saved : null} onCancel={connection.channelName ? closeForm : undefined} />}
-        </div>}
+                channels={channels.data} save={save} saving={saving} error={saved && !saved.ok ? saved : null} onCancel={connection.channelName ? form.close : undefined} />}
+        </DestinationPanel>}
         {!showForm && <FormMessage state={saved} />}
 
-        {(connection.enabled || active) && <Field orientation="horizontal">
-            <FieldContent>
-                <FieldLabel htmlFor={`${id}-enabled`}>{t("Notifications")}</FieldLabel>
-                <FieldDescription>{t("Pause notifications without disconnecting. Existing messages stay.")}</FieldDescription>
-            </FieldContent>
-            <Switch id={`${id}-enabled`} checked={enabled} disabled={pending} onCheckedChange={on => change(on ? 'enable' : 'disable')} />
-        </Field>}
+        {(connection.enabled || active) && <ConnectionSwitch label={t("Notifications")} description={t("Pause notifications without disconnecting. Existing messages stay.")}
+            checked={enabled} disabled={pending} onCheckedChange={on => change(on ? 'enable' : 'disable')} />}
 
         {active && connection.enabled && <Button type="button" variant="outline" className="w-fit" disabled={pending} onClick={() => change('test')}>
             {pending && operation === 'test' && <Spinner data-icon="inline-start" />}{t("Send a test notification")}

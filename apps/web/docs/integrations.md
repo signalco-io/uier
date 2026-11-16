@@ -73,7 +73,8 @@ Never persist feedback bodies in integration ledgers or expose credentials in vi
 
 The registry resolves all five adapters lazily to avoid initialization cycles with shared authority
 helpers. Settings rendering is database-only; provider option/schema requests require an explicit
-admin action (Slack's Change channel is one: it opens the channel form and reads the channels).
+admin action (Slack's Change channel is one: it opens the channel form and reads the channels; Change destination and
+Change database read the lists and the saved destination's choices the same way).
 OAuth return routes bypass the signed-out proxy so transient codes and states are
 never echoed into a sign-in return URL. Provider credentials are production-only, configured
 through the setup runbook. Off/disconnect must work even when credentials are unavailable.
