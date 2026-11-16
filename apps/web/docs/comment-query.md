@@ -93,6 +93,8 @@ time. Sorts put missing values last in either direction, then break ties by scop
 Paging is a **live keyset view**, not a historical snapshot: concurrent inserts/moves can change
 subsequent pages. Each request reauthorizes scope and private visibility; a cursor grants no access.
 
+- The sidebar uses the separate exact `CommentsStore.countOpen` aggregate for its fixed unfinished/unarchived count, preserving private visibility and legacy missing `resolved` fields without scanning query candidates or changing query v1.
+
 ## Saved definitions
 
 Workspace and member-only review routes expose `comment-views` (list/create), `comment-views/:id`

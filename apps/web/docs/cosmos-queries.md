@@ -8,3 +8,5 @@ lease/access/idempotency checks remain at dispatch. The store's opt-in sampled d
 continuations or raw diagnostics. See [Cosmos query costs](../../../docs/cosmos-query-costs.md) for
 the operation inventory, measured limits, safe preview profiling and the unchanged-frequency
 forecast. In-memory tests cannot establish RU savings.
+
+- Sidebar counts use `CommentsStore.countOpen`: one partition-scoped scalar `COUNT(1)` per listed visible project, with workflow, archive and viewer visibility predicates before aggregation. No thread list or candidate cap participates; memory and Cosmos share these semantics. Failures omit the badge.

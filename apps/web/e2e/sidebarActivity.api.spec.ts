@@ -107,8 +107,11 @@ test('ordered by name, the sidebar uses creation times without reading activity;
         const times = (listed: Awaited<ReturnType<typeof loadSidebarProjects>>) =>
             listed.map(({ name, status, createdAt, activityAt }) => [name, status, createdAt, activityAt]);
 
+        expect((await loadSidebarProjects(context, projects, { sort: 'alphabetical', group: 'none' })).map(p => p.openCount)).toEqual([1, 0, undefined]);
+        expect((await loadSidebarProjects(context, projects, { sort: 'created', group: 'status' })).map(p => p.openCount)).toEqual([1, 0, 1]);
+
         // Every project comes with its status, so grouping by status shows the done ones at once.
-        // The newer comments are not read: only Recent activity needs them
+        // The newer activity timestamps are not read: only Recent activity needs them
         for (const sort of ['alphabetical', 'created'] as const)
             expect(times(await loadSidebarProjects(context, projects, { sort, group: 'status' }))).toEqual([
                 ['a', 'active', '2026-11-01T00:00:00.000Z', '2026-11-01T00:00:00.000Z'],
@@ -131,4 +134,46 @@ test('ordered by name, the sidebar uses creation times without reading activity;
             if (value === undefined) delete process.env[name];
             else process.env[name] = value;
     }
+});
+
+test('open counts include every unfinished visible thread, excluding archived, Done and other partitions', async () => {
+    const store = getMemoryCommentsStore();
+    const domain = `project:counts-${randomUUID()}`;
+    expect(await store.countOpen(domain)).toBe(0);
+    await store.create(comment(domain, 'comment_open'));
+    await store.create(comment(domain, 'comment_progress', { inProgress: true }));
+    await store.create(comment(domain, 'comment_ready', { verification: { outcome: 'pending' } as DbComment['verification'] }));
+    await store.create(comment(domain, 'comment_legacy', { resolved: undefined }));
+    await store.create(comment(domain, 'comment_done', { resolved: true }));
+    await store.create(comment(domain, 'comment_archived', { archivedAt: '2026-11-01T00:00:00Z' }));
+    await store.create(comment(domain, 'comment_private', { private: true, authorId: 'user:u_other' }));
+    await store.create(comment(domain, 'comment_own', { private: true, authorId: 'user:u_author' }));
+    await store.create(comment(`${domain}-other`, 'comment_elsewhere'));
+    await store.nextCommentNumber(domain);
+    expect(await store.countOpen(domain)).toBe(6);
+    expect(await store.countOpen(domain, commentVisibilityFilter(domain, author))).toBe(5);
+    expect(await store.countOpen(domain, { authorId: 'nobody' })).toBe(4);
+    // No legacy document-list cap may truncate an exact count.
+    for (let i = 0; i < 510; i++) await store.create(comment(domain, `comment_bulk_${i}`));
+    expect(await store.countOpen(domain)).toBe(516);
+});
+
+test('Cosmos open counts drain pages and aggregate inside the authorized project partition', async () => {
+    let captured: { query: string; parameters: unknown[] } | undefined;
+    let capturedOptions: unknown;
+    const pages = [[], [1234]];
+    const container = { id: 'comments-preview', items: { query(input: typeof captured, options: unknown) {
+        captured = input;
+        capturedOptions = options;
+        return { hasMoreResults: () => pages.length > 0, async fetchNext() { return { resources: pages.shift(), requestCharge: 1 }; } };
+    } } } as unknown as Container;
+    expect(await createCosmosCommentsStore(() => container).countOpen(PUBLIC_PROJECT_PARTITION,
+        commentVisibilityFilter(PUBLIC_PROJECT_PARTITION, author))).toBe(1234);
+    expect(capturedOptions).toEqual({ partitionKey: PUBLIC_PROJECT_PARTITION });
+    expect(captured?.query).toContain('SELECT VALUE COUNT(1)');
+    expect(captured?.query).toContain('(NOT IS_DEFINED(c.resolved) OR c.resolved = false) AND NOT IS_STRING(c.archivedAt)');
+    expect(captured?.query).toContain('OR c.authorId = @readerId');
+    expect(captured?.parameters).toContainEqual({ name: '@readerId', value: 'user:u_author' });
+    expect(captured?.parameters).toContainEqual({ name: '@privatePath', value: '/app' });
+    expect(captured?.query).not.toMatch(/TOP|SELECT \*/);
 });

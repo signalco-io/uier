@@ -66,6 +66,8 @@ test('the sidebar sorts the active projects by recent activity, creation or name
     await appNavigation(page);
     await expect(projectLinks(page)).toHaveText(inOrder('Bravo', 'Delta', 'Alpha', 'Charlie'));
 
+    await expect(page.locator('[data-slot=sidebar-menu-badge]')).toHaveCount(0);
+
     // New feedback moves its project to the top
     await setProjectAccess(page, charlie, 'Anyone with the link');
     const headers = await verifiedReviewHeaders(request, charlie, site.origin());
@@ -76,6 +78,10 @@ test('the sidebar sorts the active projects by recent activity, creation or name
     await page.goto('/app/projects');
     await appNavigation(page);
     await expect(projectLinks(page)).toHaveText(inOrder('Charlie', 'Bravo', 'Delta', 'Alpha'));
+
+    const charlieLink = projectLinks(page).filter({ hasText: 'Charlie' });
+    await expect(charlieLink).toHaveAccessibleDescription('1 open comment');
+    await expect(charlieLink.locator('..').locator('[data-slot=sidebar-menu-badge] > span[aria-hidden=true]')).toHaveText('1');
 
     // Two labelled sections, one choice in each
     let menu = await openOrderMenu(page);

@@ -319,6 +319,13 @@ export function createCosmosCommentsStore(getContainer: () => Container = cosmos
                     IIF(IS_DEFINED(c.activity), {"items": []}, {"items": ARRAY(SELECT VALUE {"authorId": i.authorId, "deletedAt": i.deletedAt} FROM i IN c.thread.items)}) AS thread
                  FROM c WHERE c.domain = @domain AND IS_STRING(c.path)`, []);
         },
+        async countOpen(domain, visibleTo) {
+            const visibility = visibilitySql(visibleTo);
+            const [count] = await queryAll<number>('count-open', domain,
+                `SELECT VALUE COUNT(1) FROM c WHERE c.domain = @domain AND IS_STRING(c.path) AND (NOT IS_DEFINED(c.resolved) OR c.resolved = false) AND NOT IS_STRING(c.archivedAt)${visibility.clause}`,
+                visibility.parameters);
+            return count ?? 0;
+        },
         async latestActivity(domain, visibleTo) {
             // One scalar over indexed fields (automatic /* indexing), however many threads the partition holds
             const visibility = visibilitySql(visibleTo);

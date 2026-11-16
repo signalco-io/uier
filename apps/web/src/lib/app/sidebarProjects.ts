@@ -7,7 +7,7 @@ import { appActor } from './projectComments';
 import { listsProject, type OrderableProject, type ProjectOrder } from './projectOrder';
 
 /** A project in the sidebar's quick switcher; grouped by client, the client's tile (its logo, else its icon or letter) heads its projects */
-export type SidebarProject = OrderableProject & { url?: string; client?: Pick<ClientSummary, 'id' | 'name' | 'icon' | 'color' | 'logoUrl'> };
+export type SidebarProject = OrderableProject & { openCount?: number; url?: string; client?: Pick<ClientSummary, 'id' | 'name' | 'icon' | 'color' | 'logoUrl'> };
 
 /**
  * When a project last changed for this member: the newest `updatedAt` of a thread they can see (a comment, reply,
@@ -26,20 +26,43 @@ async function projectActivityAt(context: AppContext, project: DbProject) {
     }
 }
 
+/** Failed counts stay absent; a sidebar read must never turn an outage into a displayed zero. */
+async function projectOpenCount(context: AppContext, project: DbProject) {
+    const domain = projectPartition(project.id);
+    try {
+        return await getCommentsStore().countOpen(domain, commentVisibilityFilter(domain, appActor(context)));
+    } catch (error) {
+        console.warn('[app] Sidebar open comment count is unavailable', error);
+        return undefined;
+    }
+}
+
 /**
  * The projects for the sidebar, active and done, with their client to group by; the order picks which it lists
  * (`listsProject`), so switching to grouping by status shows the done ones at once. The shell layout renders on
- * every refresh, so comments are read only for Recent activity and only for the listed projects; otherwise
+ * every refresh, so activity is read only for Recent activity and only for the listed projects; otherwise
  * `activityAt` is the creation time. Choosing a new order saves the cookie in a server action, and Next renders
  * the layout again with the activity.
  */
 export async function loadSidebarProjects(context: AppContext, projects: DbProject[], order: ProjectOrder): Promise<SidebarProject[]> {
     const listed = projects.map(project => listsProject(order, project));
-    const [clients, activity] = await Promise.all([
+    const [clients, activity, counts] = await Promise.all([
         projects.some(project => project.status !== 'done' && project.clientId) ? loadClients(context.workspace.id) : undefined,
         order.sort === 'recent'
             ? Promise.all(projects.map((project, index) => (listed[index] ? projectActivityAt(context, project) : undefined)))
-            : undefined
+            : undefined,
+        // Bound count fanout even in workspaces with many projects. Only visible, listed projects reach storage.
+        (async () => {
+            const counts: (number | undefined)[] = new Array(projects.length);
+            let next = 0;
+            await Promise.all(Array.from({ length: Math.min(4, projects.length) }, async () => {
+                while (next < projects.length) {
+                    const index = next++;
+                    if (listed[index]) counts[index] = await projectOpenCount(context, projects[index]!);
+                }
+            }));
+            return counts;
+        })()
     ]);
     return projects.map((project, index) => {
         const client = clients && projectClient(project, clients);
@@ -49,6 +72,7 @@ export async function loadSidebarProjects(context: AppContext, projects: DbProje
             url: project.urls[0],
             status: project.status === 'done' ? 'done' : 'active',
             createdAt: project.createdAt,
+            openCount: counts[index],
             activityAt: activity?.[index] ?? project.createdAt,
             client: client && { id: client.id, name: client.name, icon: client.icon, color: client.color, ...(client.logoUrl ? { logoUrl: client.logoUrl } : {}) }
         };

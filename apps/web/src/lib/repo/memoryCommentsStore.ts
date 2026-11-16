@@ -287,6 +287,10 @@ export function getMemoryCommentsStore(): CommentsStore {
                     thread: { items: activity ? [] : comment.thread.items.map(item => ({ authorId: item.authorId, deletedAt: item.deletedAt })) } }];
             }).sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));
         },
+        async countOpen(domain, visibleTo) {
+            return domainComments(domain).filter(comment => typeof comment.path === 'string'
+                && !comment.resolved && typeof comment.archivedAt !== 'string' && matchesVisibility(comment, visibleTo)).length;
+        },
         async latestActivity(domain, visibleTo) {
             return domainComments(domain)
                 .filter(comment => typeof comment.path === 'string' && matchesVisibility(comment, visibleTo))
