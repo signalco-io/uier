@@ -13,6 +13,15 @@ review receipts below describe the earlier permission set. The owner-approved pr
 [reply permission receipt](integration-activation.md#reply-sync-extension-2-november-2026). Hosted
 reply acceptance remains separate from implementation and local tests.
 
+## Slack file permission, 16 November 2026
+
+Optional file sharing adds the Slack `files:write` bot scope. The setting stays off until a project
+admin allows file uploads through its explicit reconnect and turns it on. This is implemented and
+covered by local tests only. The scope is not yet registered in the Slack app's console, so the
+reconnect cannot succeed in production, and no hosted acceptance has run. Record the console change
+and the [acceptance items](slack-integration-plan.md#6-choosing-the-channel-and-message-content) here
+when they are done. The installation and review receipts below describe the earlier permission set.
+
 ## Provider status
 
 Summary reconciled on 12 November 2026 against the dated records below; no provider console or

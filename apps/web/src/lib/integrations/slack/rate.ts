@@ -21,7 +21,8 @@ export async function withSlackRateLimit<T>(identity: Identity, method: SlackMet
     const methodBucket = (await store.get<SlackRateBucket>(pk, methodId))?.doc;
     if (methodBucket?.requiresReview) throw new SlackApiError(429, 'rate_limit_requires_review', undefined, true, method);
     if ((methodBucket?.pausedUntil ?? 0) > Date.now()) throw new SlackRateWait(new Date(methodBucket!.pausedUntil).toISOString());
-    if (method === 'chat.postMessage' && channelId) {
+    // A shared file is a message in the channel too, so it takes the same posting slot.
+    if ((method === 'chat.postMessage' || method === 'files.completeUploadExternal') && channelId) {
         const id = `channel_${channelId}`;
         const nonce = randomUUID();
         await store.create<SlackRateBucket>({ type: 'slack-rate', pk, id, nextAt: 0, pausedUntil: 0 });

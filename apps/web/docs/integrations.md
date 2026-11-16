@@ -148,6 +148,38 @@ messages. Reply copy hashes include the rendered translation while reconciliatio
 native-copy language changes and provider delivery. Listing language claims still require a deployed
 version and hosted acceptance; local tests do not change Marketplace state.
 
+The Slack card (`slack/message.ts`) is a heading, the reviewer's words and one line of details. The
+heading is a rich text block: the type and thread number in bold, linked to the thread, then the
+project name ("Bug #7 in Acme"). It is translated as one sentence (`{thread} in {project}`), so the
+linked name sits where each language puts it. The details line gives Open or Done, the priority unless it is
+Normal, the page path (cut at 60 characters) and the environment label, separated by middle dots;
+the verification sentence keeps its own line. Reviewer text (the excerpt and the page path) stays in
+`plain_text` objects with Slack's three entities. Slack documents no escaping for rich text
+elements, so the heading holds only the admin's type and project labels and the number, with angle
+brackets replaced by `‹` and `›`. Do not move reviewer text into rich text or `mrkdwn` before
+checking in a real workspace that `<!channel>` and `<@U…>` stay inert there. The fallback `text`
+repeats every line. A changed layout reaches an existing card the next time its thread changes
+(`chat.update`, no notification).
+
+`slack/files.ts` shares screenshots and recordings under that card when the connection's `files`
+setting is on and its grant has `files:write` ([design](../../../docs/integrations.md#slack-files)).
+It runs last in a delivery, after the message, summaries and replies, and returns a code instead of
+failing them. Rules to keep: bytes are read through the connecting admin's access
+(`getProjectScreenshot`, `commentRecordingBytes`) and only inside `context.operation`; the upload
+address must pass `slackUploadUrl` (Slack's hosts, or the local stub); every file method is sent as
+form fields; `share_file` and `delete_file` are repeatable because an unconfirmed share is deleted by
+its known id first; a stale or orphaned copy is deleted even when the setting is off; cleanup deletes
+files before messages. File names and titles are fixed words and the thread number, never reviewer
+text; the title and an image's alt text use the project's review language as it is when the file is
+sent, and a later language change does not rename files already in Slack. The reply reader and the
+Events API import (`slack/events.ts`, which accepts `file_share` messages) skip these messages because
+the bot user posted them. Delivery right after a change (`deliverNow.ts`) runs file sync too, inside
+its 15 second budget: an upload cut short is non-definitive and the worker repeats it by file id.
+`slack.api.spec.ts` covers the permission and setting, upload, replacement, cleanup, replies, a lost
+share response, a refused file and a lost permission against `e2e/support/slackStub.ts`. Real Slack
+behaviour that the stub only assumes is listed as acceptance items in
+[the Slack plan](../../../docs/slack-integration-plan.md#6-choosing-the-channel-and-message-content).
+
 Signed-in integration setup, status badges, capability descriptions, confirmation dialogs and results use the [app language](localization.md). Provider names, remote destination names, mapped fields and configuration snippets remain unchanged. Machine operation ids are never translated.
 
 ## Workspace projects from Notion

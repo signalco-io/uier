@@ -20,9 +20,16 @@ export type SlackDestination = { generation: number; since: string; teamId: stri
 export type SlackConfig = {
     teamId: string; teamName: string; botId: string; teamHost?: string; channelId?: string; channelName?: string;
     since?: string; replySummaries: boolean; statusSummaries: boolean;
+    /** Share screenshots and recordings as files in the thread. Needs the optional files:write scope. */
+    files?: boolean;
 };
 export type SlackConnection = IntegrationConnection & { provider: 'slack'; type: 'slack-connection'; config: SlackConfig & Record<string, unknown>; setupNonce?: string };
 export type SlackMessage = { ts: string; channelId: string; teamId: string; payloadHash?: string; permalink?: string; replySync?: import('../replies').ReplyCopies };
+/**
+ * A screenshot or recording shared under a root message. `key` is `root:screenshot`, `root:recording` or
+ * `<reply item id>:<kind>`; `revision` identifies the source bytes. `shared` is set once Slack confirms it.
+ */
+export type SlackFile = { key: string; revision: string; fileId: string; teamId: string; channelId: string; rootTs: string; shared?: boolean };
 export type SlackUncertainPost = { operationId: string; step: string; channelId: string; teamId: string;
     destinationRevision: number; firstSentAt: string; planHash: string; resolved?: 'adopted' | 'absent'; ts?: string };
 export type SlackState = IntegrationState & {
@@ -37,4 +44,7 @@ export type SlackState = IntegrationState & {
     resume?: { id: string; requestedAt: string; destinationRevision: number; completed?: boolean };
     uncertainPosts?: SlackUncertainPost[];
     missing?: boolean;
+    files?: SlackFile[];
+    /** Files Slack refused for good (type, size, workspace policy), so a run does not try them again. */
+    skippedFiles?: { key: string; revision: string; code: string }[];
 };

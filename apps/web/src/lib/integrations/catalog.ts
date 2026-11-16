@@ -170,7 +170,7 @@ export const integrationCatalog: Record<IntegrationProviderId, IntegrationCatalo
         features: [
             { key: 'items', title: 'A message for each thread', detail: 'Each new shared feedback thread posts a short excerpt and a link to one channel. uier keeps that message current.' },
             { key: 'summaries', title: 'Reply and status summaries', detail: 'A short reply count or the current status, posted in the Slack thread. Choose either or both.', optional: true },
-            { key: 'screenshots', title: 'Screenshots stay in uier', detail: 'Screenshot files are not copied to Slack. The message links to the thread in uier.' },
+            { key: 'screenshots', title: 'Screenshots and recordings', detail: 'Send each thread’s screenshots and recordings as files in its Slack thread. They stay in uier until an admin allows file uploads and turns this on.', optional: true },
             { key: 'reply-sync', title: 'Reply sync', detail: 'New replies are copied into the Slack thread, and replies there come back to uier. Edit or delete the original to update its copies.', optional: true },
             { key: 'backfill', title: 'Backfill', detail: 'Existing feedback stays silent. Send up to 100 existing shared threads only if you ask.' }
         ],
@@ -179,6 +179,7 @@ export const integrationCatalog: Record<IntegrationProviderId, IntegrationCatalo
             { name: 'Notify about new replies', detail: 'Off by default. Sends a short reply count in the Slack thread.' },
             { name: 'Notify about status changes', detail: 'Off by default. Sends the current open or done status in the Slack thread.' },
             { ...replySyncSetting, detail: `${replySyncSetting.detail} Slack asks you to allow reading replies first.` },
+            { name: 'Send screenshots and recordings', detail: 'Off by default. Posts each file in the message’s Slack thread and removes it when it is replaced or deleted in uier. Slack asks you to allow file uploads first.' },
             { name: 'Test notification', detail: 'Sends a message to the channel to check the connection.' },
             { name: 'Notifications on or off', detail: 'Pause notifications without disconnecting. Existing messages stay.' }
         ],
@@ -188,9 +189,9 @@ export const integrationCatalog: Record<IntegrationProviderId, IntegrationCatalo
             'Authorize the uier app in your Slack workspace and invite it to the channel you want to use.',
             'Load channels, choose a channel and save. Select which changes should produce summaries. Existing feedback is silent unless you explicitly request a backfill.'
         ],
-        access: 'Send messages and list accessible public and private channels: chat:write, channels:read and groups:read. Optional reply sync requests channels:history and groups:history through an explicit reconnect. No user tokens or auto-join permission are requested.',
+        access: 'Send messages and list accessible public and private channels: chat:write, channels:read and groups:read. Optional reply sync requests channels:history and groups:history through an explicit reconnect, and sending screenshots and recordings requests files:write the same way. No user tokens or auto-join permission are requested.',
         limits: 'Notifications can combine changes between background runs. Edits and deleted replies do not create alerts. Imported replies are read-only in uier. Public unlisted distribution is enabled; the app is not listed in Slack Marketplace.',
-        removal: 'Making a thread private or deleting it queues removal of reachable managed messages. Delivered notifications and Slack retention can remain. Disconnect keeps existing messages; remove the app in Slack to revoke channel access.'
+        removal: 'Making a thread private or deleting it queues removal of reachable managed messages and files. Delivered notifications, copies people saved and Slack retention can remain. Disconnect keeps existing messages and files; remove the app in Slack to revoke channel access.'
     }
 };
 

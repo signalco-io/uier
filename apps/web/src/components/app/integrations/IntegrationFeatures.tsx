@@ -14,6 +14,7 @@ function featureState(feature: IntegrationFeature, connection?: IntegrationConne
     if (!feature.optional) return undefined;
     if (connection && feature.key === 'two-way-status') return connection.twoWaySync === true ? 'On' : 'Off';
     if (connection && feature.key === 'reply-sync') return connection.replySync?.enabled === true ? 'On' : 'Off';
+    if (connection?.provider === 'slack' && feature.key === 'screenshots') return connection.config.files === true ? 'On' : 'Off';
     return 'Optional';
 }
 

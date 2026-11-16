@@ -5,7 +5,8 @@ import { expect, test as base } from '@playwright/test';
 import { memberId, projectRefPk, userPk, workspacePk, type DbMember, type DbProject, type DbProjectRef, type DbUser, type DbWorkspace } from '../src/lib/app/model';
 import { getAppStore, updateDoc } from '../src/lib/app/store';
 import { findOrCreateUser } from '../src/lib/app/users';
-import type { DbComment } from '../src/lib/db/schema';
+import { recordingUploadDocumentId, screenshotDocumentId, type DbComment, type DbCommentRecording, type DbScreenshot } from '../src/lib/db/schema';
+import { getRecordingBlobs, recordingNames } from '../src/lib/recordings/blobStore';
 import { getCommentsStore } from '../src/lib/repo/commentsStore';
 import { processIntegrationDelivery } from '../src/lib/integrations/delivery';
 import { discoverThreadIntegrationSync, enqueueIntegrationSync, integrationPk, integrationSyncId } from '../src/lib/integrations/discovery';
@@ -13,7 +14,7 @@ import { startIntegrationBackfill, queueIntegrationBackfills } from '../src/lib/
 import { syncPendingKey } from '../src/lib/integrations/syncSignal';
 import type { IntegrationSync } from '../src/lib/integrations/model';
 import { slackAdapter, beginSlackConnect, finishSlackConnect, getSlackSettings, loadSlackChannels, saveSlackDestination,
-    disconnectSlack, setSlackEnabled, resumeSlackNotification, resolveSlackUncertainPost, sendSlackTestNotification,
+    disconnectSlack, setSlackEnabled, setSlackFiles, resumeSlackNotification, resolveSlackUncertainPost, sendSlackTestNotification,
     clearSlackRateReview, listSlackRateReviews } from '../src/lib/integrations/slack';
 import { currentSlackGrant, rawSlackConnection, recoverSlackSetups, slackAccessToken, invalidateSlackGrant } from '../src/lib/integrations/slack/connection';
 import { SlackApiError, slackRequest } from '../src/lib/integrations/slack/client';
@@ -86,6 +87,33 @@ async function retry(f: Fixture, options: Parameters<typeof processIntegrationDe
     await processIntegrationDelivery(value, baseUrl, slackAdapter, options); return ledger(f);
 }
 function state(value: IntegrationSync) { return value.state as SlackState; }
+const fileScopes = 'chat:write,channels:read,groups:read,files:write';
+/** The explicit reconnect for file uploads, then the setting itself */
+async function allowFiles(f: Fixture, slack: SlackStub, scopes = fileScopes, options: { requestReplies?: boolean } = {}) {
+    const upgrade = new URL(await beginSlackConnect({ userId: f.owner.id, workspaceId: f.project.workspaceId, projectId: f.project.id, baseUrl, requestFiles: true, ...options }));
+    expect(upgrade.searchParams.get('scope')).toBe(scopes); expect(upgrade.searchParams.has('user_scope')).toBe(false);
+    expect((await finishSlackConnect({ userId: f.owner.id, state: upgrade.searchParams.get('state'), baseUrl, code: slack.code({ scopes }) })).status).toBe('connected');
+    await setSlackFiles(await fresh(f), f.owner.id, true); await fresh(f);
+}
+/** A stored image for the thread or one of its replies; returns what the comment records about it */
+async function saveScreenshot(f: Fixture, bytes: Buffer, revision: string, itemId?: string) {
+    const metadata = { contentType: 'image/webp' as const, width: 2, height: 1, bytes: bytes.length, revision };
+    const image: DbScreenshot = { type: 'screenshot', id: screenshotDocumentId(f.source.id, itemId), domain: f.source.domain, commentId: f.source.id,
+        ...(itemId ? { itemId } : {}), ...metadata, data: bytes.toString('base64'), createdAt: old };
+    await f.comments.deleteScreenshot(f.source.domain, f.source.id, undefined, itemId); await f.comments.createScreenshot(image);
+    return metadata;
+}
+async function saveRecording(f: Fixture, bytes: Buffer, itemId?: string): Promise<DbCommentRecording> {
+    const id = `recording_${randomUUID()}`;
+    const metadata: DbCommentRecording = { id, contentType: 'video/mp4', size: bytes.length, duration: 3, width: 640, height: 360 };
+    await f.comments.createRecordingUpload({ id: recordingUploadDocumentId(id), domain: f.source.domain, type: 'recording-upload', recordingId: id,
+        authorId: `user:${f.owner.id}`, createdAt: old, expiresAt: old, ttl: -1, expectedSize: bytes.length, contentType: 'video/mp4', metadata,
+        attached: { commentId: f.source.id, ...(itemId ? { itemId } : {}) } });
+    await getRecordingBlobs().put(recordingNames(f.source.domain, id).video, bytes, 'video/mp4');
+    return metadata;
+}
+/** Files people can see in Slack. An upload that was never completed is discarded there. */
+const liveFiles = (slack: SlackStub) => [...slack.files.values()].filter(file => file.completed && !file.deleted);
 
 test('Slack OAuth is single-use, bot-only, rotating, encrypted and off until a channel is explicitly selected', async ({ slack }) => {
     const f = await fixture();
@@ -668,6 +696,9 @@ test('Events API imports Slack thread replies at once and uier replies reach Sla
         expect((await send(event({ user: 'UHUMAN', text: 'Unknown thread', ts: ts(3.5), thread_ts: ts(-60) }))).status).toBe(200);
         expect(slack.calls.length).toBe(before);
         expect((await source(f)).thread.items).toHaveLength(1);
+        // A file the app shared (Screenshots and recordings) comes back as the bot user's file_share message, with or without its app id.
+        await send(event({ subtype: 'file_share', user: slack.botId, text: '', files: [{ id: 'F0TESTFILE' }], ts: ts(3.7), thread_ts: root.ts }));
+        expect((await source(f)).thread.items).toHaveLength(1);
 
         // A reply imports with the person's Slack name, without a history read; the next one is not held back.
         const first = ts(4);
@@ -708,9 +739,154 @@ test('custom feedback types use their saved label and built-in names stay stable
         status: 'open', feedback: null, anchor: { type: 'page' }, source: { path: '/' }, links: {},
         reproduction: {}, screenshot: { state: 'unavailable' }, discussion: [], notes: []
     };
-    expect(slackRootMessage(context, 'Project').payload.text).toContain('Design review');
+    expect(slackRootMessage(context, 'Project').payload.text.split('\n')[0]).toBe('Design review in Project');
     for (const [kind, label] of [['feedback', 'Feedback'], ['bug', 'Bug'], ['rewrite', 'Suggested rewrite']] as const)
-        expect(slackRootMessage({ ...context, kind }, 'Project').payload.text).toContain(` · ${label} · `);
+        expect(slackRootMessage({ ...context, kind }, 'Project').payload.text.split('\n')[0]).toBe(`${label} in Project`);
+});
+
+test('the card links its heading, keeps reviewer text plain and gives status, priority, page and environment one line', () => {
+    const context: FeedbackContext = {
+        schemaVersion: 1, contentTrust: 'untrusted', identity: { projectId: 'abcdefghijkl', commentId: 'comment_card', number: 7 },
+        title: 'Saved thread', kind: 'bug', priority: 'high', status: 'open', feedback: { id: 'item_card', deleted: false, text: 'The price is cut off <!channel>' },
+        anchor: { type: 'page' }, source: { path: '/pricing', environment: 'Production' }, links: {},
+        reproduction: {}, screenshot: { state: 'unavailable' }, discussion: [], notes: []
+    };
+    const link = 'https://uier.io/app/review/abcdefghijkl?comment=comment_card';
+    const { payload } = slackRootMessage(context, 'Acme <!here> & Co');
+    expect(payload.blocks).toEqual([
+        // Labels in rich text lose their angle brackets; the fallback and reviewer text keep Slack's documented entities.
+        { type: 'rich_text', elements: [{ type: 'rich_text_section', elements: [
+            { type: 'link', url: link, text: 'Bug #7', style: { bold: true } }, { type: 'text', text: ' in Acme ‹!here› & Co' }] }] },
+        { type: 'section', text: { type: 'plain_text', text: 'The price is cut off &lt;!channel&gt;', emoji: false } },
+        { type: 'context', elements: [{ type: 'plain_text', text: 'Open · Priority: High · /pricing · Production', emoji: false }] },
+        { type: 'actions', elements: [{ type: 'button', text: { type: 'plain_text', text: 'Open in uier', emoji: false }, url: link }] }
+    ]);
+    expect(payload.text).toBe(['Bug #7 in Acme &lt;!here&gt; &amp; Co', 'The price is cut off &lt;!channel&gt;',
+        'Open · Priority: High · /pricing · Production', `Open in uier: ${link}`].join('\n'));
+    // The default priority is left out, a long page path is cut, and a thread without a link gets a plain heading and no button.
+    const quiet = slackRootMessage({ ...context, identity: { commentId: 'comment_card' }, priority: 'normal', status: 'done',
+        source: { path: `/${'a'.repeat(100)}` } }, 'Project').payload;
+    expect(quiet.blocks).toEqual([
+        { type: 'rich_text', elements: [{ type: 'rich_text_section', elements: [{ type: 'text', text: 'Bug', style: { bold: true } }, { type: 'text', text: ' in Project' }] }] },
+        { type: 'section', text: { type: 'plain_text', text: 'The price is cut off &lt;!channel&gt;', emoji: false } },
+        { type: 'context', elements: [{ type: 'plain_text', text: `Done · /${'a'.repeat(58)}…`, emoji: false }] }
+    ]);
+    expect(quiet.text).toContain('Open the project in uier to view this feedback.');
+});
+
+test('sending files needs its own permission and setting, and keeps the channel and other optional access', async ({ slack }) => {
+    const f = await fixture(); const before = await connect(f, slack);
+    expect((await getSlackSettings(f.project, f.owner.id)).connection).toMatchObject({ files: false, filesAllowed: false });
+    await expect(setSlackFiles(f.project, f.owner.id, true)).rejects.toMatchObject({ code: 'files_permission_required' });
+    await allowFiles(f, slack);
+    expect((await rawSlackConnection(f.project))!).toMatchObject({ enabled: true, destinationRevision: before.destinationRevision,
+        config: { channelId: slack.channelId, files: true } });
+    expect((await getSlackSettings(f.project, f.owner.id)).connection).toMatchObject({ files: true, filesAllowed: true });
+    // A later request for reply access asks for file access again, so one never replaces the other.
+    const replies = new URL(await beginSlackConnect({ userId: f.owner.id, workspaceId: f.project.workspaceId, projectId: f.project.id, baseUrl, requestReplies: true }));
+    expect(replies.searchParams.get('scope')).toBe('chat:write,channels:read,groups:read,channels:history,groups:history,users:read,files:write');
+    // A grant that comes back without the permission turns sending off, rather than failing on every thread.
+    expect((await finishSlackConnect({ userId: f.owner.id, state: replies.searchParams.get('state'), baseUrl,
+        code: slack.code({ scopes: 'chat:write,channels:read,groups:read,channels:history,groups:history,users:read' }) })).status).toBe('connected');
+    expect((await rawSlackConnection(await fresh(f)))!.config.files).toBe(false);
+    expect((await getSlackSettings(f.project, f.owner.id)).connection).toMatchObject({ files: false, filesAllowed: false });
+    expect(slack.calls.some(call => call.method.startsWith('files.') || call.method === 'upload')).toBe(false);
+});
+
+test('screenshots and recordings are shared under the message, replaced when they change and removed with the thread', async ({ slack }) => {
+    test.setTimeout(90_000);
+    const f = await fixture(); await connect(f, slack); await allowFiles(f, slack);
+    const image = Buffer.from('first-image'); const video = Buffer.from('recording-bytes');
+    await change(f, { screenshot: await saveScreenshot(f, image, 'r1'), recording: await saveRecording(f, video) });
+    await newThread(f); let row = await dispatch(f);
+    expect(row.status).toBe('accepted'); expect(row.attempt).toBeUndefined();
+    const root = state(row).root!;
+    expect(liveFiles(slack).map(file => [file.name, file.title, file.channel, file.threadTs, file.completed])).toEqual([
+        ['uier-feedback-screenshot.webp', 'Screenshot', root.channelId, root.ts, true], ['uier-feedback-recording.mp4', 'Recording', root.channelId, root.ts, true]]);
+    expect(liveFiles(slack).map(file => file.bytes)).toEqual([image, video]); expect(liveFiles(slack)[0]!.alt).toContain('Screenshot');
+    expect(state(row).files).toMatchObject([{ key: 'root:screenshot', revision: 'r1', shared: true, channelId: root.channelId, rootTs: root.ts },
+        { key: 'root:recording', shared: true }]);
+    // The bytes travel only in the upload: no message and no ledger holds them.
+    expect(JSON.stringify([...slack.messages.values()].map(message => message.payload))).not.toMatch(/first-image|recording-bytes/);
+    expect(JSON.stringify(row)).not.toMatch(/first-image|recording-bytes/);
+    const uploads = () => slack.calls.filter(call => call.method === 'upload').length;
+    await change(f, { resolved: true }); row = await dispatch(f); expect(row.status).toBe('accepted'); expect(uploads()).toBe(2);
+    // A replaced image, for example a redacted one, replaces its copy.
+    await change(f, { screenshot: await saveScreenshot(f, Buffer.from('redacted'), 'r2') }); row = await dispatch(f);
+    expect(liveFiles(slack).map(file => file.bytes!.toString()).sort()).toEqual(['recording-bytes', 'redacted']);
+    expect([...slack.files.values()].filter(file => file.deleted)).toHaveLength(1);
+    // Off: nothing new is sent, and a file replaced or removed in uier still leaves Slack.
+    await setSlackFiles(await fresh(f), f.owner.id, false);
+    await f.comments.deleteScreenshot(f.source.domain, f.source.id);
+    await change(f, { screenshot: undefined, recording: await saveRecording(f, Buffer.from('second-recording')) }); row = await dispatch(f);
+    expect(row.status).toBe('accepted'); expect(liveFiles(slack)).toEqual([]); expect(uploads()).toBe(3);
+    // On again: the next change to the thread sends what it has now.
+    await setSlackFiles(await fresh(f), f.owner.id, true);
+    await change(f, { resolved: false }); row = await dispatch(f);
+    expect(liveFiles(slack).map(file => [file.title, file.bytes!.toString()])).toEqual([['Recording', 'second-recording']]);
+    // Privacy cleanup deletes the remaining file with the message, without a feedback packet.
+    await change(f, { private: true }); row = await dispatch(f, { exportFeedback: async () => { throw new Error('No private packet'); } });
+    expect(liveFiles(slack)).toEqual([]); expect(slack.messages.size).toBe(0); expect(state(row).files ?? []).toEqual([]);
+});
+
+test('the files of a reply follow its synced copy in the Slack thread and leave with it', async ({ slack }) => {
+    test.setTimeout(90_000);
+    const f = await fixture(); await connect(f, slack);
+    await allowFiles(f, slack, 'chat:write,channels:read,groups:read,channels:history,groups:history,users:read,files:write', { requestReplies: true });
+    await newThread(f); await dispatch(f);
+    const item = (offset: number) => ({ id: `item_${randomUUID()}`, text: 'Here it is', authorId: `user:${f.owner.id}`, createdAt: new Date(Date.now() + offset).toISOString() });
+    const withFiles = async (reply: ReturnType<typeof item>) => ({ ...reply, screenshot: await saveScreenshot(f, Buffer.from(`image-${reply.id}`), 'r1', reply.id),
+        recording: await saveRecording(f, Buffer.from(`video-${reply.id}`), reply.id) });
+    // Without reply sync the reply is not in Slack, so its files stay in uier too.
+    const first = item(-1000); await change(f, { thread: { items: [...(await source(f)).thread.items, await withFiles(first)] } });
+    let row = await dispatch(f); expect(row.status).toBe('accepted'); expect(slack.files.size).toBe(0);
+    // Reply sync starts with replies added after it is turned on; the earlier reply and its files stay out.
+    await setIntegrationReplySync(await fresh(f), 'slack', f.owner.id, true);
+    const second = item(1000); await change(f, { thread: { items: [...(await source(f)).thread.items, await withFiles(second)] } });
+    row = await dispatch(f); expect(row.status).toBe('accepted');
+    const root = state(row).root!;
+    expect(liveFiles(slack).map(file => [file.name, file.title, file.threadTs, file.bytes!.toString()])).toEqual([
+        ['uier-feedback-reply-screenshot.webp', 'Screenshot from a reply', root.ts, `image-${second.id}`],
+        ['uier-feedback-reply-recording.mp4', 'Recording from a reply', root.ts, `video-${second.id}`]]);
+    expect(state(row).files!.map(file => file.key)).toEqual([`${second.id}:screenshot`, `${second.id}:recording`]);
+    // The file messages are the app's own: reading the thread back imports nothing from them.
+    await processIntegrationDelivery(row, baseUrl, slackAdapter, { statusOnly: true });
+    expect((await source(f)).thread.items).toHaveLength(3);
+    // A reply deleted in uier takes its copy and its files out of Slack.
+    await change(f, { thread: { items: (await source(f)).thread.items.filter(reply => reply.id !== second.id) } }); row = await dispatch(f);
+    expect(row.status).toBe('accepted'); expect(liveFiles(slack)).toEqual([]); expect(state(row).files).toEqual([]);
+    expect([...slack.messages.values()].filter(message => message.threadTs === root.ts)).toHaveLength(0);
+});
+
+test('an upload with an unknown outcome is deleted by its id and sent once more, a refused file is not retried and a lost permission never holds back the message', async ({ slack }) => {
+    test.setTimeout(90_000);
+    const f = await fixture(); await connect(f, slack); await allowFiles(f, slack);
+    await change(f, { screenshot: await saveScreenshot(f, Buffer.from('image'), 'r1') }); await newThread(f);
+    slack.fault('files.completeUploadExternal', 'lost');
+    let row = await dispatch(f);
+    // Slack shared the file, but the answer never arrived: the message stands and the file is unconfirmed.
+    expect(row.status).toBe('queued'); expect(row.attempt).toMatchObject({ step: 'share_file', repeatable: true });
+    expect(state(row).root).toBeDefined(); expect(state(row).files).toHaveLength(1); expect(state(row).files![0]!.shared).toBeUndefined();
+    row = await retry(f); expect(row.status).toBe('accepted'); expect(row.attempt).toBeUndefined();
+    expect([...slack.files.values()].map(file => Boolean(file.deleted))).toEqual([true, false]); expect(state(row).files).toMatchObject([{ shared: true }]);
+    expect(liveFiles(slack)).toHaveLength(1);
+    expect(slack.calls.filter(call => call.method === 'chat.postMessage')).toHaveLength(1);
+    // A file type the workspace refuses is remembered for that revision.
+    slack.fault('files.completeUploadExternal', 'refused');
+    await change(f, { screenshot: await saveScreenshot(f, Buffer.from('second'), 'r2') }); row = await dispatch(f);
+    expect(row.status).toBe('accepted'); expect(row.lastCode).toBe('file_refused'); expect(row.attempt).toBeUndefined();
+    expect(state(row).skippedFiles).toEqual([{ key: 'root:screenshot', revision: 'r2', code: 'file_type_not_allowed' }]); expect(liveFiles(slack)).toEqual([]);
+    const reserved = () => slack.calls.filter(call => call.method === 'files.getUploadURLExternal').length; const before = reserved();
+    await change(f, { resolved: true }); row = await dispatch(f); expect(row.lastCode).toBe('file_refused'); expect(reserved()).toBe(before);
+    // Without the permission the message still updates and the connection stays on; the file waits.
+    slack.fault('files.getUploadURLExternal', 'scope');
+    await change(f, { resolved: false, screenshot: await saveScreenshot(f, Buffer.from('third'), 'r3') }); row = await dispatch(f);
+    expect(row.status).toBe('accepted'); expect(row.lastCode).toBe('files_permission_required'); expect(row.attempt).toBeUndefined();
+    expect((await rawSlackConnection(await fresh(f)))!.status).toBe('connected');
+    expect(String([...slack.messages.values()][0]!.payload.text)).toContain('Open · /pricing');
+    // The next change sends it.
+    await change(f, { resolved: true }); row = await dispatch(f);
+    expect(row.status).toBe('accepted'); expect(row.lastCode).toBeUndefined(); expect(liveFiles(slack).map(file => file.bytes!.toString())).toEqual(['third']);
 });
 
 const slackLanguages = [
@@ -726,7 +902,7 @@ for (const expected of slackLanguages) test(`Slack ${expected.language} translat
     const i18n = createAppI18n(expected.language, await loadAppCatalog(expected.language));
     const context: FeedbackContext = {
         schemaVersion: 1, contentTrust: 'untrusted', identity: { projectId: 'abcdefgh1234', commentId: 'comment_language', number: 8 },
-        title: 'Saved title', kind: 'rewrite', status: 'done',
+        title: 'Saved title', kind: 'rewrite', status: 'done', priority: 'high',
         feedback: { id: 'item_language', deleted: false, text: 'Nemojte prevoditi <@U123> & {text} $&.' },
         anchor: { type: 'page' }, source: { path: '/', environment: 'Saved environment' }, links: {},
         reproduction: {}, screenshot: { state: 'unavailable' }, discussion: [], notes: [],
@@ -738,7 +914,10 @@ for (const expected of slackLanguages) test(`Slack ${expected.language} translat
     expect(root.text).toContain('Nemojte prevoditi &lt;@U123&gt; &amp; {text} $&amp;.');
     for (const saved of ['Saved project', 'Saved environment', 'Ana &lt;@U123&gt;', 'Luka &amp; Lea', 'Saved actor']) expect(root.text).toContain(saved);
     expect(root.text).toContain(i18n.t('Suggested rewrite'));
-    expect(root.text).toContain(i18n.t('Normal'));
+    expect(root.text).toContain(i18n.t('Priority: {priority}', { priority: i18n.t('High') }));
+    // The heading is one translated sentence; the linked name sits where that language puts it.
+    expect(root.text.split('\n')[0]).toBe(i18n.t('{thread} in {project}', { thread: `${i18n.t('Suggested rewrite')} #8`, project: 'Saved project' }));
+    expect(JSON.stringify(root.blocks[0])).toContain(`"text":"${i18n.t('Suggested rewrite')} #8","style":{"bold":true}`);
     if (expected.language !== 'en') expect(root.text).not.toMatch(/Requested by|admin override for|historical only|Priority:|Environment:|Suggested rewrite:/);
     expect(root).toMatchObject({ mrkdwn: false, parse: 'none', unfurl_links: false, unfurl_media: false });
     expect(slackChangeSummary(undefined, 1, i18n).payload.text).toBe(expected.one);
@@ -750,7 +929,8 @@ for (const expected of slackLanguages) test(`Slack ${expected.language} translat
     expect(copy).toContain(`#uier-reply-stable|${expected.view}>`);
     expect(copy).not.toMatch(/<@|<!channel>/);
     const custom = slackRootMessage({ ...context, kind: 'custom_language', feedbackType: { id: 'custom_language', label: 'Open', icon: 'message' } }, 'Saved project', baseUrl, i18n);
-    expect(custom.payload.text).toContain(' · Open · ');
+    // A custom type named like a built-in word stays as saved.
+    expect(custom.payload.text.split('\n')[0]).toContain('Open #8');
     for (const feedback of [null, { id: 'deleted', deleted: true }, { id: 'empty', deleted: false, text: '' }]) {
         const fallback = slackRootMessage({ ...context, kind: 'feedback', identity: { commentId: 'no_project' }, feedback }, '', baseUrl, i18n).payload.text;
         if (expected.language !== 'en') expect(fallback).not.toMatch(/This message was deleted|Feedback is unavailable|Open the feedback|Open the project/);

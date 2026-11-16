@@ -138,7 +138,9 @@ export default function PrivacyPolicyPage() {
                 our public pages is public, while signed-in feedback and customer projects follow the access
                 rules above. We store video bytes privately in Azure Blob Storage in Europe and only references
                 and metadata in Cosmos DB. Playback uses temporary, read-only links after an access check.
-                Recordings are not sent to our AI providers or copied to connected services automatically.
+                Recordings are not sent to our AI providers. They are copied to a connected service only
+                where a workspace admin turns that on, which today is the Slack option described under
+                Optional connected services.
             </p>
             <p>
                 Deleting the message or thread removes access to its recording and schedules deletion of the
@@ -388,8 +390,12 @@ export default function PrivacyPolicyPage() {
                 context. Notion can receive saved screenshots; Linear screenshot uploads are optional.
                 GitHub and Azure DevOps use protected links to screenshots in uier. Azure DevOps work items are
                 written as the Microsoft account that connected the project. Slack receives bounded excerpts,
-                project and page context, priority, links and optional reply-count or status summaries, without
-                screenshot files. People with access to the chosen destination can read these copies
+                project and page context, priority, links and optional reply-count or status summaries.
+                Screenshot and recording files stay in uier unless an admin allows file uploads in Slack and
+                turns on sending them. They are then posted as files in the message&rsquo;s Slack thread, and
+                removed there when the file is replaced or deleted in uier or its thread becomes private. For
+                each file we keep its Slack file id and a version marker, never a second copy of the file.
+                People with access to the chosen destination can read these copies
                 under the service&rsquo;s own permissions.
             </p>
             <p>

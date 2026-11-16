@@ -173,8 +173,8 @@ application. See [Entra OAuth for Azure DevOps](https://learn.microsoft.com/en-u
 1. Register a Slack app with exact OAuth redirect `https://uier.io/app/slack/callback`.
 2. Use bot scopes `chat:write`, `channels:read` and `groups:read`. Do not add user scopes,
    `chat:write.public`, incoming webhooks or interactivity. Register optional bot scopes
-   `channels:history`, `groups:history` and `users:read` for reply sync; the normal connect path does
-   not request them.
+   `channels:history`, `groups:history` and `users:read` for reply sync and `files:write` for
+   sending screenshots and recordings; the normal connect path does not request them.
 3. Under **Event Subscriptions**, set the request URL `https://uier.io/api/integrations/slack/events`
    and subscribe to the bot events `message.channels` and `message.groups` (they use the history
    scopes above, so only reply-sync installations send them). Copy the app's **Signing Secret** from
@@ -188,6 +188,9 @@ application. See [Entra OAuth for Azure DevOps](https://learn.microsoft.com/en-u
    assertion of completed distribution readiness, not an API check or automatic approval.
 5. Record the app/client ids and client secret. Invite the bot to the chosen channel. uier does not
    join channels automatically. Test private-channel access, channel removal and reconnect.
+6. Under Basic Information, Display Information, upload `apps/web/public/android-chrome-512x512.png`
+   as the app icon. Without it every message shows Slack's default app picture. Slack accepts
+   512 to 2000 px squares; re-render the file with `pnpm -C packages/brand icons`.
 
 See [Slack OAuth](https://docs.slack.dev/authentication/installing-with-oauth/) and
 [token rotation](https://docs.slack.dev/authentication/using-token-rotation/). Slack receives bounded
@@ -324,6 +327,13 @@ Reply sync is a separate, default-off admin setting for all five providers. See 
   only known linked threads and catches missed events. `users:read` adds the person's Slack name to
   imported replies (an installation without it shows the Slack user id, and settings offer the
   reconnect). `chat:write` creates, edits and deletes the bot's own reply copies.
+- **Slack files:** register `files:write` as an optional bot scope too. The project admin selects
+  **Allow Slack file uploads**, approves OAuth in the same workspace, then turns on the **Screenshots
+  and recordings** switch. The channel, its messages and any reply access are kept.
+  [files.getUploadURLExternal](https://docs.slack.dev/reference/methods/files.getUploadURLExternal/) and
+  [files.completeUploadExternal](https://docs.slack.dev/reference/methods/files.completeUploadExternal/)
+  share each file in the message's thread; [files.delete](https://docs.slack.dev/reference/methods/files.delete/)
+  removes the app's own copies. No `files:read` is requested.
 - **GitHub / Linear:** existing issue/comment and read/write app permissions suffice. No extra
   scopes or content webhooks are added.
 - **Azure DevOps:** existing delegated `vso.work_write` covers the

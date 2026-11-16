@@ -8,7 +8,7 @@ import { integrationPk, integrationSyncId, enqueueIntegrationSync } from '../dis
 import { getCommentsStore } from '../../repo/commentsStore';
 import { isPrivateAppFeedback } from '../../comments/publicProject';
 import { acquireOwner, currentSlackGrant, releaseOwner, SlackConnectionError, rawSlackConnection, requireSlackProject, slackAccessToken } from './connection';
-import { isSlackConfigured, slackId, slackLabel } from './config';
+import { isSlackConfigured, slackFileScopes, slackId, slackLabel } from './config';
 import { slackMethods, slackRequest, type SlackMethod } from './client';
 import type { SlackConnection, SlackInstallationOwner, SlackState } from './model';
 import { slackRatePk, withSlackRateLimit, type SlackRateBucket } from './rate';
@@ -24,10 +24,13 @@ export async function getSlackSettings(project: DbProject, userId: string) {
         if (error instanceof SlackConnectionError) return [] as SlackMethod[];
         throw error;
     }) : [];
+    // Scope names only: the grant's credentials never enter the settings view.
+    const scopes = connection ? (await currentSlackGrant(connection).catch(() => null))?.scopes ?? [] : [];
     return { configured: isSlackConfigured(), connection: connection ? {
         status: connection.status, statusCode: connection.statusCode, enabled: connection.enabled,
         teamName: slackLabel(connection.config.teamName), channelName: slackLabel(connection.config.channelName),
         replySummaries: connection.config.replySummaries, statusSummaries: connection.config.statusSummaries,
+        files: connection.config.files === true, filesAllowed: slackFileScopes.every(scope => scopes.includes(scope)),
         lastSyncedAt: connection.lastSyncedAt,
         backfill: connection.backfill ? { queued: connection.backfill.queued, total: connection.backfill.threadIds.length, done: connection.backfill.done } : undefined,
         needsReviewCount: ledgers.length, needsReviewCountCapped: review.some(page => page.length === 1000), rateReviewMethods
@@ -159,6 +162,28 @@ export async function setSlackEnabled(project: DbProject, userId: string, enable
     });
     if (enabled) for (const ledger of await getAppStore().query<IntegrationSync>({ type: 'slack-sync', pk: integrationPk('slack', project.id), where: { connectionId: connection.id, active: true }, limit: 1000 }))
         await updateDoc<IntegrationSync>(ledger.pk, ledger.id, current => ({ ...current, nextAttemptAt: new Date().toISOString() }));
+}
+
+/**
+ * Share screenshots and recordings as files under each message. It applies from the next change to a
+ * thread; nothing is uploaded or removed when the setting itself changes.
+ */
+export async function setSlackFiles(project: DbProject, userId: string, enabled: boolean) {
+    if (typeof enabled !== 'boolean') throw new SlackConnectionError('invalid_setting');
+    project = await requireSlackProject(project.workspaceId, project.id, userId);
+    const connection = await rawSlackConnection(project);
+    if (!connection) throw new SlackConnectionError('needs_reconnect');
+    if (enabled) {
+        if (connection.status !== 'connected') throw new SlackConnectionError('needs_reconnect');
+        const grant = await currentSlackGrant(connection);
+        if (!slackFileScopes.every(scope => grant.scopes.includes(scope))) throw new SlackConnectionError('files_permission_required');
+    }
+    const saved = await updateDoc<SlackConnection>(connection.pk, connection.id, current => {
+        if (current.grantId !== connection.grantId || current.destinationRevision !== connection.destinationRevision || current.connectedBy !== connection.connectedBy)
+            throw new SlackConnectionError('connection_changed');
+        return { ...current, config: { ...current.config, files: enabled }, updatedAt: new Date().toISOString() };
+    });
+    if (!saved) throw new SlackConnectionError('connection_changed');
 }
 
 export async function resumeSlackNotification(project: DbProject, userId: string, threadId: string) {

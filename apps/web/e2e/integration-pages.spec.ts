@@ -15,7 +15,7 @@ test('the integrations index leads to the five setup guides', async ({ page }) =
     const services = page.getByRole('region', { name: 'Choose a service' });
     await expect(services.locator('[data-integration-logo]')).toHaveCount(5);
     await expect(services.getByRole('list', { name: 'Optional for GitHub' }).getByRole('listitem')).toHaveText(['Two-way status sync', 'Reply sync']);
-    await expect(services.getByRole('list', { name: 'Optional for Slack' }).getByRole('listitem')).toHaveText(['Reply and status summaries', 'Reply sync']);
+    await expect(services.getByRole('list', { name: 'Optional for Slack' }).getByRole('listitem')).toHaveText(['Reply and status summaries', 'Screenshots and recordings', 'Reply sync']);
     await expect(page.getByRole('contentinfo').getByRole('link', { name: 'Integrations', exact: true })).toHaveAttribute('href', '/integrations');
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await assertAccessibility(page, '/integrations');

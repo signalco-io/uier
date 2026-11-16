@@ -8,7 +8,7 @@ import { startIntegrationBackfill } from '@/src/lib/integrations/backfill';
 import { disconnectSlack, SlackConnectionError } from '@/src/lib/integrations/slack/connection';
 import { SlackApiError } from '@/src/lib/integrations/slack/client';
 import { SlackRateWait } from '@/src/lib/integrations/slack/rate';
-import { loadSlackChannels, saveSlackDestination, sendSlackTestNotification, setSlackEnabled } from '@/src/lib/integrations/slack/settings';
+import { loadSlackChannels, saveSlackDestination, sendSlackTestNotification, setSlackEnabled, setSlackFiles } from '@/src/lib/integrations/slack/settings';
 import { revalidateIntegration } from '../integrations/revalidate';
 
 async function slackResult<T>(run: () => Promise<T>, message?: string) {
@@ -28,7 +28,8 @@ async function slackResult<T>(run: () => Promise<T>, message?: string) {
                     ratelimited: 'Slack is waiting for its request limit to reset. Try again later.',
                     rate_limited: 'Slack is waiting for its request limit to reset. Try again later.',
                     rate_limit_requires_review: 'Slack’s request limit needs a site administrator’s review before requests can resume.',
-                    notification_busy: 'Another Slack operation is still running. Try again later.'
+                    notification_busy: 'Another Slack operation is still running. Try again later.',
+                    files_permission_required: 'Allow Slack file uploads first, then turn this on.'
                 };
                 throw new UserFacingError(messages[error.code] ?? 'Slack could not complete this change. Reconnect or try again.');
             }
@@ -59,6 +60,16 @@ export async function saveSlackDestinationAction(_: ActionState, form: FormData)
             statusSummaries: form.get('statusSummaries') === 'true' });
         revalidateIntegration(project.id, 'slack');
     }, 'The Slack channel is saved. Notifications are on for new shared feedback.');
+}
+
+/** The Screenshots and recordings switch. It shows the change itself, so only a refusal has a message. */
+export async function setSlackFilesAction(_: ActionState, form: FormData): Promise<ActionState> {
+    return slackResult(async () => {
+        const enabled = z.enum(['true', 'false']).parse(form.get('enabled')) === 'true';
+        const { context, project } = await admin(form);
+        await setSlackFiles(project, context.user.id, enabled);
+        revalidateIntegration(project.id, 'slack');
+    });
 }
 
 export async function manageSlackAction(_: ActionState<{ message: string }>, form: FormData) {

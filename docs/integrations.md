@@ -49,7 +49,7 @@ control access to its copies. See [setup and manual tasks](integration-setup.md)
   copies. Human labels and discussion remain separate from uier's managed content.
 - **Slack:** a rotating bot grant posts one root message for new shared feedback in the chosen
   channel and updates its current summary. Optional reply-count and status summaries are off by
-  default. The normal connection requests no history, direct-message or file scope. Optional reply sync requests public/private channel history and Slack names (`users:read`) through an explicit reconnect, and receives thread replies through signed Events API requests within seconds. The app must already be a channel
+  default. The normal connection requests no history, direct-message or file scope. Optional reply sync requests public/private channel history and Slack names (`users:read`) through an explicit reconnect, and receives thread replies through signed Events API requests within seconds. Optional file sharing, also off by default, requests `files:write` the same way and posts each screenshot and recording in the message's thread ([Slack files](#slack-files)). The app must already be a channel
   member. Channel changes start a new activation cutoff; edits to older threads stay silent unless
   an admin explicitly selects backfill or resumes a cleaned thread. Missing bot messages are held
   for review. An uncertain post cannot be found automatically without history access, so an admin
@@ -171,6 +171,34 @@ worker, so its first minutes of edits and deletion are batched into one message.
 existing authorizations may need reconnecting. GitHub Issues read/write, Linear read/write and
 Azure DevOps `vso.work_write` already cover their comment operations. See the
 [setup steps](integration-setup.md#two-way-reply-sync) for provider registration and acceptance.
+
+## Slack files
+
+Sending screenshots and recordings to Slack is a project setting (the Screenshots and recordings switch
+on Slack's settings page), off by default. It needs an explicit
+**Allow Slack file uploads** reconnect requesting the `files:write` bot scope, which keeps the
+destination, its state and any reply access. A reconnect that returns without the scope turns the
+setting off.
+
+Each file is uploaded with Slack's external upload calls and shared as the app's own message in the
+thread under the feedback message: the thread's screenshot and recording first, then those of each
+reply that has a synced copy. Slack's API cannot attach an upload to the message itself, and image
+blocks accept only PNG, JPEG and GIF while most screenshots are WebP. Without reply sync a reply is
+not in Slack, so its files stay in uier. The setting applies from the next change to a thread; turning
+it on or off uploads and deletes nothing by itself. A change to a thread Slack already has is delivered
+right after it, so a reply's screenshot usually follows within seconds; an upload that outlasts that
+short budget is finished by the worker. The app's own file messages are skipped by the reply poll and
+by Events API imports, like its reply copies.
+
+The ledger keeps each copy's Slack file id, its source revision and the message it sits under, never
+bytes. Slack returns the file id before any bytes leave, so an upload with an unknown outcome is
+deleted by that id and sent again; no history access is needed. A replaced image (redaction included),
+a deleted message and privacy cleanup delete the copy, also while the setting is off. A file Slack
+refuses for its type or by workspace policy is remembered for that revision and not retried. A missing
+permission or a failed upload never fails the message: the delivery is accepted with a code
+(`files_permission_required`, `file_refused`, `file_upload_failed`, `file_unavailable`) and the file is
+tried again on the next change. Files in a retired channel stay with its old messages until cleanup.
+Copies people saved and Slack's own retention are outside this.
 
 ## Source outbox
 

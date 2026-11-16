@@ -27,10 +27,11 @@ import { getIntegrationConnection } from '@/src/lib/integrations/connection';
 import { configuredIntegrationAdapters } from '@/src/lib/integrations/registry';
 import { TwoWaySync } from '@/src/components/app/integrations/TwoWaySync';
 import { ReplySync } from '@/src/components/app/integrations/ReplySync';
+import { SlackFiles } from '@/src/components/app/slack/SlackFiles';
 import { IntegrationFeatures } from '@/src/components/app/integrations/IntegrationFeatures';
 import { getAppStore } from '@/src/lib/app/store';
 import type { SlackGrant } from '@/src/lib/integrations/slack/model';
-import { slackNameScopes, slackReplyScopes } from '@/src/lib/integrations/slack/config';
+import { slackFileScopes, slackNameScopes, slackReplyScopes } from '@/src/lib/integrations/slack/config';
 import type { NotionConnection } from '@/src/lib/integrations/notion/model';
 
 export async function generateMetadata({ params }: PageProps<'/app/projects/[projectId]/settings/integrations/[provider]'>): Promise<Metadata> {
@@ -57,6 +58,7 @@ async function ProjectIntegrationSettingsPageContent({ params, searchParams }: P
     const grant = provider === 'slack' && connection?.grantId ? (await getAppStore().get<SlackGrant>(connection.pk, connection.grantId))?.doc : null;
     const needsReplyPermissions = provider === 'slack' && (!grant || !slackReplyScopes.every(scope => grant.scopes.includes(scope)));
     const missingSlackNames = provider === 'slack' && Boolean(grant) && !slackNameScopes.every(scope => grant!.scopes.includes(scope));
+    const needsFilePermission = !grant || !slackFileScopes.every(scope => grant.scopes.includes(scope));
     const needsMapping = provider === 'notion' && !(connection as NotionConnection | null)?.config.mapping?.status;
     const value = (key: string) => typeof query[key] === 'string' ? query[key] as string : undefined;
 
@@ -70,6 +72,9 @@ async function ProjectIntegrationSettingsPageContent({ params, searchParams }: P
             {connection && adapter?.supportsReplySync && <ReplySync key={`replies:${connection.id}`} projectId={project.id} provider={provider}
                 enabled={connection.replySync?.enabled === true} canEnable={adapter.isConfigured() && connection.status === 'connected'} needsPermissions={needsReplyPermissions}
                 missingNames={missingSlackNames} />}
+            {/* Files go to the chosen channel, so the option appears once there is one */}
+            {connection && provider === 'slack' && typeof connection.config.channelId === 'string' && <SlackFiles key={`files:${connection.id}`} projectId={project.id}
+                enabled={connection.config.files === true} canEnable={adapter!.isConfigured() && connection.status === 'connected'} needsPermission={needsFilePermission} />}
             <IntegrationFeatures provider={provider} connection={connection} />
         </>
     );

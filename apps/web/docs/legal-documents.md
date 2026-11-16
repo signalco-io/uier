@@ -33,3 +33,9 @@ analytics status and erasure limitations.
 The privacy policy's 14 November 2026 update also describes optional workspace Notion project imports
 and the identifier-only associations retained to prevent recreation after manual override, deletion
 or transfer. This wording remains subject to the owner review above before merge.
+
+The privacy policy's 16 November 2026 update describes the optional Slack file sharing: screenshot and
+recording files reach Slack only after an admin allows file uploads and turns the option on, are posted
+in the message's thread, and are removed when replaced, deleted or made private. The recordings section
+no longer says recordings are never copied to connected services. This wording needs the same owner
+review before merge.
