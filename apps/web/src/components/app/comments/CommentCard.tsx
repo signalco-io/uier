@@ -40,7 +40,6 @@ import {
     AlertDialogHeader,
     AlertDialogTitle
 } from '@/src/components/ui/alert-dialog';
-import { Avatar, AvatarFallback, AvatarImage } from '@/src/components/ui/avatar';
 import { Badge } from '@/src/components/ui/badge';
 import { Button } from '@/src/components/ui/button';
 import { Card } from '@/src/components/ui/card';
@@ -62,9 +61,9 @@ import { ThreadPullRequests } from './ThreadPullRequests';
 import { ThreadIntegrationLinks } from './ThreadIntegrationLinks';
 import type { MessageMentionRange, ProjectCommentMessage, ProjectCommentView } from '../../../lib/app/projectComments';
 import { MessageMarkdown } from './MessageMarkdown';
+import { MessageAvatar } from './MessageAvatar';
 import type { ActionState } from '../../../lib/app/actionResult';
 import type { DbCommentKind } from '../../../lib/db/schema';
-import { initials } from '../initials';
 import { RelativeTime } from './DateTime';
 import { CommentDevice } from './CommentDevice';
 import { SelectorCode } from './SelectorCode';
@@ -216,10 +215,7 @@ export function Message({ author, agent, avatarName, avatarUrl, createdAt, statu
     return (
         // The avatar is centred on the header row, however tall its actions make it (44px on touch; uier #281)
         <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-2.5 gap-y-1">
-            <Avatar size="sm" aria-hidden="true" className="self-center">
-                {avatarUrl && <AvatarImage src={avatarUrl} alt="" />}
-                <AvatarFallback className="font-semibold text-foreground">{initials(avatarName)}</AvatarFallback>
-            </Avatar>
+            <MessageAvatar name={avatarName} avatarUrl={avatarUrl} className="self-center" />
             <div className="flex min-h-7 items-center justify-between gap-2">
                 <div className="flex min-w-0 items-center gap-2 text-sm">
                     {/* Trimmed to the cap height, so the name and the smaller time centre on the avatar alike (uier #378) */}

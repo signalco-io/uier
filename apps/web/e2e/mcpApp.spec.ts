@@ -75,7 +75,8 @@ test('thread card refreshes status through the read-only bridge and opens the ap
     await page.clock.install();
     const frame = await mount(page);
     await expect(statusBadge(frame)).toHaveText('Status: Open');
-    await expect(frame.getByText('Assigned to Ana', { exact: true })).toBeVisible();
+    await expect(frame.getByText('Assigned to Ana', { exact: true })).toBeAttached();
+    await expect(frame.getByText('Ana', { exact: true })).toBeVisible();
     await expect(frame.getByText('I can reproduce this on mobile.')).toBeVisible();
     await setResult(page, fixture('in-progress'));
     await page.clock.runFor(30_001);
@@ -88,6 +89,90 @@ test('thread card refreshes status through the read-only bridge and opens the ap
     const calls = await hostCalls(page);
     expect(calls.filter(call => call.method === 'tools/call').map(call => call.params)).toEqual(Array(3).fill({ name: 'get_feedback', arguments: { projectId: 'project-test', commentId: 'comment-test' } }));
     expect(calls.at(-1)).toEqual({ method: 'ui/open-link', params: { url: 'https://uier.io/app/review/project-test?comment=comment-test' } });
+});
+
+test('thread card shows the latest message as Markdown, with the app avatars, and opens its links through the host', async ({ page }) => {
+    const frame = await mount(page);
+    const result = fixture();
+    const context: Record<string, unknown> = result.structuredContent.context;
+    context.assignees = [{ name: 'Ana', agents: [{ kind: 'claude', label: 'Claude' }] }, { name: 'marko', agents: [{ kind: 'newer-tool', label: 'Tool' }] }];
+    context.discussion = [{ id: 'reply-2', deleted: false, authorName: 'Luka via Claude', agent: { kind: 'claude', label: 'Claude' }, editedAt: '2026-01-02T00:00:00Z',
+        text: 'The **CMS** reads `externalVideos`:\n\n- public site\n- v2 dev\n\nSee [the recipe](https://example.com/recipe) or [this](javascript:alert(1)).' }];
+    await setResult(page, result);
+    await frame.getByRole('button', { name: 'Refresh', exact: true }).click();
+    const message = frame.getByRole('region', { name: 'Latest message' });
+    await expect(message.locator('strong')).toHaveText('CMS');
+    await expect(message.locator('code')).toHaveText('externalVideos');
+    await expect(message.getByRole('listitem')).toHaveText(['public site', 'v2 dev']);
+    // Only safe addresses become links; the rest stays text.
+    await expect(message.getByRole('link')).toHaveText(['the recipe']);
+    await expect(message.getByText('(edited)')).toBeVisible();
+    // The author as in the app's thread: their initial, their name, then "via Claude" with its mark.
+    await expect(message.locator('[data-slot="avatar"]')).toHaveText('L');
+    await expect(message.getByText('Luka', { exact: true })).toBeVisible();
+    await expect(message.locator('[data-message-agent="claude"]')).toHaveText('viaClaude');
+    await expect(message.locator('[data-message-agent] [data-agent-mark="claude"]')).toBeVisible();
+    // Assignees: the app's avatars with their agents' marks; a kind this card doesn't know gets the generic mark.
+    // `PersonAvatar` draws its initial from `data-initials` with CSS, as in the app.
+    await expect(frame.locator('[data-assignee-avatar]')).toHaveCount(2);
+    expect(await frame.locator('[data-assignee-avatar] [data-initials]').evaluateAll(avatars => avatars.map(avatar => getComputedStyle(avatar, '::after').content)))
+        .toEqual(['"A"', '"M"']);
+    await expect(frame.locator('[data-assignee-avatar="0"] [data-agent="claude"]')).toBeVisible();
+    await expect(frame.locator('[data-assignee-avatar="1"] [data-agent="agent"]')).toBeVisible();
+    // Screen readers hear the agents too, in the app's words; the visible names are not read twice.
+    await expect(frame.getByText('Assigned to Ana, with Claude; marko, with Tool', { exact: true })).toBeAttached();
+    await expect(frame.getByText('Ana, marko', { exact: true })).toHaveAttribute('aria-hidden', 'true');
+    await expectNoAxeViolations(page);
+    // The frame is sandboxed: a message link opens through the host, never in the frame or a popup.
+    await message.getByRole('link', { name: 'the recipe' }).click();
+    await expect.poll(async () => (await hostCalls(page)).at(-1)).toEqual({ method: 'ui/open-link', params: { url: 'https://example.com/recipe' } });
+    expect(page.context().pages()).toHaveLength(1);
+    await expect(frame.getByRole('heading')).toHaveText('Make the navigation easier to read');
+    await setHost(page, { rpcError: true });
+    await message.getByRole('link', { name: 'the recipe' }).click();
+    await expect(frame.getByText('Could not open the link. Follow it from the thread in uier.')).toBeVisible();
+});
+
+test('thread card shows the start of a long message and the rest on request', async ({ page }) => {
+    await page.clock.install();
+    const frame = await mount(page);
+    const result = fixture();
+    result.structuredContent.context.discussion = [{ id: 'long', deleted: false, authorName: 'Luka',
+        text: Array.from({ length: 8 }, (_, index) => `Paragraph ${index + 1} with [link ${index + 1}](https://example.com/${index + 1}).`).join('\n\n') }];
+    await setResult(page, result);
+    await frame.getByRole('button', { name: 'Refresh', exact: true }).click();
+    const preview = frame.locator('[data-message-preview]');
+    await expect(preview).toHaveAttribute('data-message-preview', 'clipped');
+    // Five 24 px lines of the message, then Show more (a fractional device pixel ratio rounds the box).
+    const clipped = (await preview.boundingBox())!.height;
+    expect(clipped).toBeLessThan(120.5);
+    const more = frame.getByRole('button', { name: 'Show more' });
+    await expect(more).toHaveAttribute('aria-expanded', 'false');
+    await expect(more).toHaveAttribute('aria-controls', (await preview.getAttribute('id'))!);
+    await more.click();
+    const less = frame.getByRole('button', { name: 'Show less' });
+    await expect(less).toHaveAttribute('aria-expanded', 'true');
+    await expect(less).toBeFocused();
+    expect((await preview.boundingBox())!.height).toBeGreaterThan(clipped * 2);
+    // A check that finds the same message keeps it open.
+    await page.clock.runFor(30_001);
+    await expect(preview).toHaveAttribute('data-message-preview', 'expanded');
+    await less.click();
+    await expect(preview).toHaveAttribute('data-message-preview', 'clipped');
+    // Focus on a link that shows keeps the preview; focus in the fade (the fourth paragraph) or below it shows the whole message.
+    await frame.getByRole('link', { name: 'link 3' }).focus();
+    await expect(preview).toHaveAttribute('data-message-preview', 'clipped');
+    await frame.getByRole('link', { name: 'link 4' }).focus();
+    await expect(preview).toHaveAttribute('data-message-preview', 'expanded');
+    await frame.getByRole('button', { name: 'Show less' }).click();
+    await frame.getByRole('link', { name: 'link 8' }).focus();
+    await expect(preview).toHaveAttribute('data-message-preview', 'expanded');
+    await expect(frame.getByRole('link', { name: 'link 8' })).toBeInViewport();
+    // A short message has no Show more.
+    await setResult(page, fixture());
+    await frame.getByRole('button', { name: 'Refresh', exact: true }).click();
+    await expect(preview).toHaveAttribute('data-message-preview', 'full');
+    await expect(frame.getByRole('button', { name: /^Show (more|less)$/ })).toHaveCount(0);
 });
 
 test('thread card draws Open as an ink ring and announces status changes, not check times', async ({ page }) => {
@@ -138,7 +223,8 @@ test('thread card has its own border and one status line while up to date', asyn
     await frame.getByRole('button', { name: 'Refresh', exact: true }).click();
     await page.clock.runFor(15_001);
     await expect(frame.getByText(stale)).toBeVisible();
-    expect((await notice(frame).boundingBox())!.height).toBeGreaterThanOrEqual(line);
+    // Within half a pixel: a fractional device pixel ratio (Mobile Chrome) rounds both boxes.
+    expect((await notice(frame).boundingBox())!.height).toBeGreaterThan(line - 0.5);
     await expect(checked).toBeVisible();
 });
 

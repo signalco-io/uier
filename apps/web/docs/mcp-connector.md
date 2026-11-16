@@ -411,6 +411,18 @@ changes are live regions; the last-checked time stays out of them, so a check th
 announces nothing. An up-to-date card draws one footer line, the last-checked time: its notice
 ("Updates every 30 seconds") stays in the live region for screen readers and as the time's tooltip.
 Warnings are drawn above the time. The status dot follows BRAND.md (Open an ink ring). The card
+reuses the app's message pieces, so it can't drift from the thread: the latest message is laid out like
+`Message` (`MessageAvatar`, the name, "via" and the agent's mark) and its text is `MessageMarkdown`; the
+assignees are `AssigneeAvatars`. `scripts/build-mcp-app.mjs` bundles the `@uier/toolbar/*` modules they import
+from source (each export's `types` entry), since `pnpm dev` builds the card before the toolbar's watch build
+has written anything. List any component the card starts using with `@source` in `thread.css`: the
+preset's `content` glob also scans all of `apps/web/src` today, so a missing entry won't show until that
+changes. Screen readers hear the assignees as the app's `assignedLabel` (agents included). Avatars are initials: profile pictures need a session cookie and are
+same-origin only, and the card loads no images. Agent kinds the card doesn't know get the generic mark. A message
+longer than five lines shows them, the last one faded, with **Show more** (`aria-expanded`); focus moving to
+a link in or under the fade shows the rest, and a check that finds the same message keeps it open. Message links are
+http(s) or mailto, as the parser allows, and open through `ui/open-link`, never by navigating the
+sandboxed frame; a refused one says so in the footer. The card
 draws its own edge (a 1 px border and 12 px radius on the card surface, the latest message on the
 muted surface) over a transparent page, so the resource declares `_meta.ui.prefersBorder: false`:
 a host that also framed it would double the border. No writes, screenshots,
