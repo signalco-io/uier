@@ -5,7 +5,8 @@ import type { IntegrationAdapter, IntegrationDeliveryContext, IntegrationResult 
 import { SlackApiError, slackRequest, type SlackMethod } from './client';
 import { isSlackConfigured, slackId, slackTimestamp } from './config';
 import { currentSlackGrant, invalidateSlackGrant, recoverSlackSetups, SlackConnectionError, slackAccessToken } from './connection';
-import { slackChangeSummary, slackRootMessage } from './message';
+import { slackChangeSummary, slackReplyMessage, slackRootMessage } from './message';
+import { englishSlackI18n, loadSlackI18n } from './i18n';
 import type { SlackConnection, SlackMessage, SlackState, SlackUncertainPost } from './model';
 import { SlackRateWait, withSlackRateLimit } from './rate';
 import { eligibleChannel } from './settings';
@@ -58,6 +59,8 @@ export const slackAdapter: IntegrationAdapter = { provider: 'slack', isConfigure
             if (!slackId(teamId) || !slackId(channelId) || !connection.config.since || !Number.isFinite(Date.parse(connection.config.since)))
                 throw new SlackConnectionError('destination_required');
             grant = await currentSlackGrant(connection);
+            const i18n = context.mode === 'cleanup' ? englishSlackI18n : await loadSlackI18n(context.project);
+            const { t } = i18n;
             const token = await slackAccessToken(connection, { refresh: payload => context.read(signal => slackRequest('oauth.v2.access', payload, { oauth: true, signal })) });
             async function read(method: SlackMethod, payload: Record<string, unknown>) {
                 return withSlackRateLimit(grant!, method, undefined, () => context.read(signal => slackRequest(method, payload, { token, signal })), context.deadline);
@@ -92,15 +95,13 @@ export const slackAdapter: IntegrationAdapter = { provider: 'slack', isConfigure
                     const profile = message.user_profile && typeof message.user_profile === 'object' ? message.user_profile as Record<string, unknown> : {};
                     return { id: message.ts, text: message.text, fingerprint: message.text,
                         authorId: typeof message.user === 'string' ? message.user : String(message.bot_id ?? 'Slack reviewer'),
-                        authorName: typeof profile.display_name === 'string' ? profile.display_name : typeof message.user === 'string' ? `Slack user ${message.user}` : 'Slack app',
+                        authorName: typeof profile.display_name === 'string' ? profile.display_name : typeof message.user === 'string' ? t('Slack user {id}', { id: message.user }) : t('Slack app'),
                         createdAt: new Date(Number(message.ts) * 1000).toISOString(),
                         own: message.ts === root.ts || message.user === grant!.botId || message.app_id === process.env.SLACK_APP_ID };
                 };
-                const text = (payload: ReplyPayload) => {
-                    const escape = (value: string) => value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
-                    return `${escape(payload.author)} via uier:\n\n${escape(payload.text)}\n\n<${payload.url}|View in uier>`;
-                };
-                return { target: `${root.teamId}:${root.channelId}:${root.ts}`,
+                const text = (payload: ReplyPayload) => slackReplyMessage(payload, i18n);
+                return { target: `${root.teamId}:${root.channelId}:${root.ts}`, defaultAuthor: t('Reviewer'),
+                    contentHash: payload => sha256Hex(text(payload)),
                     async list(cursor) {
                         const response = await read('conversations.replies', { channel: root.channelId, ts: root.ts, limit: 50, ...(cursor ? { cursor } : {}) });
                         if (!Array.isArray(response.messages) || response.messages.length > 50) throw new SlackConnectionError('invalid_reply_page');
@@ -187,7 +188,7 @@ export const slackAdapter: IntegrationAdapter = { provider: 'slack', isConfigure
                 state.baselineOnly = true; state.lastNotifiedStatus = feedback.status; state.notifiedReplyIds = replyIds;
                 await context.checkpoint(state); return { status: 'suppressed', code: state.suppressed ? 'privacy_suppressed' : state.missing ? 'message_missing' : 'historical_baseline' };
             }
-            const projection = slackRootMessage(feedback, context.project.name, context.baseUrl);
+            const projection = slackRootMessage(feedback, context.project.name, context.baseUrl, i18n);
             const initial = !state.root;
             if (initial) {
                 const response = await write('chat.postMessage', 'post_root', { channel: channelId, ...projection.payload, reply_broadcast: false }, false);
@@ -215,7 +216,7 @@ export const slackAdapter: IntegrationAdapter = { provider: 'slack', isConfigure
             const newReplies = connection.config.replySummaries && !connection.replySync?.enabled ? replyIds.filter(id => !state.notifiedReplyIds?.includes(id)).length : 0;
             if (!initial && !state.resolvedSummary && (changedStatus || newReplies)) {
                 if ((state.notifications?.length ?? 0) >= 1000) return { status: 'failed', code: 'summary_limit' };
-                const summary = slackChangeSummary(changedStatus ? feedback.status : undefined, newReplies);
+                const summary = slackChangeSummary(changedStatus ? feedback.status : undefined, newReplies, i18n);
                 const response = await write('chat.postMessage', 'post_summary', { channel: channelId, thread_ts: state.root!.ts, ...summary.payload }, false);
                 if (response.channel !== channelId || !slackTimestamp(response.ts)) throw new SlackApiError(200, 'response_uncertain', undefined, false);
                 state.notifications = [...(state.notifications ?? []), { ts: response.ts, teamId, channelId, payloadHash: summary.hash }];

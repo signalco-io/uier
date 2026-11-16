@@ -112,7 +112,21 @@ Notion Kind select values use the saved feedback type label for custom kinds (co
 as Notion refuses them in option names); built-in values retain their original lowercase names so
 existing database options remain stable.
 Slack notification titles also use the saved custom label, retaining the existing Feedback, Bug and
-Suggested rewrite titles for built-in kinds. Labels remain literal, bounded text.
+Suggested rewrite titles for built-in kinds in English. Built-in names are translated; saved custom
+labels remain literal, bounded text.
+
+Slack messages and buttons use the project's review/toolbar language, falling back to the workspace's
+review language and then English. An explicit English project choice overrides the workspace. Personal
+app/toolbar preferences and request headers do not change shared channel output. The same six app
+catalogs translate roots, status/reply-count summaries, verification details and UTC dates, native
+reply attribution/link labels, missing-author labels and connection tests. Names, environment values,
+custom feedback labels, feedback and replies remain as written; Slack escaping and size budgets still apply.
+Changing the language affects future delivery and updates existing managed roots and native reply
+copies on their next eligible sync. It does not replay old summary notifications or create duplicate
+messages. Reply copy hashes include the rendered translation while reconciliation markers remain stable.
+`slack.api.spec.ts` covers all six languages, inheritance/fallback, literal user content, bounded output,
+native-copy language changes and provider delivery. Listing language claims still require a deployed
+version and hosted acceptance; local tests do not change Marketplace state.
 
 Signed-in integration setup, status badges, capability descriptions, confirmation dialogs and results use the [app language](localization.md). Provider names, remote destination names, mapped fields and configuration snippets remain unchanged. Machine operation ids are never translated.
 

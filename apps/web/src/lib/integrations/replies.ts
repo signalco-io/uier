@@ -8,6 +8,9 @@ export type ReplyCopies = { copies?: Record<string, { id: string; hash: string; 
 export type ReplyPayload = { text: string; author: string; url: string; marker: string };
 export type ReplyTransport = {
     target: string;
+    defaultAuthor?: string;
+    /** Includes any translated transport text so existing copies can converge after a language change. */
+    contentHash?(payload: ReplyPayload): string;
     list(cursor?: string): Promise<{ items: NativeReply[]; next?: string }>;
     get(id: string): Promise<NativeReply | null>;
     create(payload: ReplyPayload, metadata: IntegrationState): Promise<string>;
@@ -83,8 +86,8 @@ export async function sendNativeReplies(context: IntegrationDeliveryContext, sav
         const marker = `uier-reply-${sha256Hex(`${context.connection.id}:${io.target}:${item.id}`)}`;
         const url = new URL(context.feedback.context.links.comment ?? `/app/projects/${context.project.id}`, context.baseUrl);
         url.hash = marker;
-        const payload: ReplyPayload = { text: item.text ?? '', author: item.authorName ?? 'Reviewer', url: url.href, marker };
-        const hash = sha256Hex(JSON.stringify(payload));
+        const payload: ReplyPayload = { text: item.text ?? '', author: item.authorName ?? io.defaultAuthor ?? 'Reviewer', url: url.href, marker };
+        const hash = io.contentHash?.(payload) ?? sha256Hex(JSON.stringify(payload));
         if (!copy) {
             if (Object.keys(copies).length >= 50) throw new ReplySyncError('reply_copy_limit');
             const id = await io.create(payload, { target: io.target, itemId: item.id, marker });

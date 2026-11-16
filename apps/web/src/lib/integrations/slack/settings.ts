@@ -12,6 +12,7 @@ import { isSlackConfigured, slackId, slackLabel } from './config';
 import { slackMethods, slackRequest, type SlackMethod } from './client';
 import type { SlackConnection, SlackInstallationOwner, SlackState } from './model';
 import { slackRatePk, withSlackRateLimit, type SlackRateBucket } from './rate';
+import { loadSlackI18n } from './i18n';
 
 export async function getSlackSettings(project: DbProject, userId: string) {
     project = await requireSlackProject(project.workspaceId, project.id, userId);
@@ -186,6 +187,7 @@ export async function resumeSlackNotification(project: DbProject, userId: string
 
 export async function sendSlackTestNotification(project: DbProject, userId: string) {
     project = await requireSlackProject(project.workspaceId, project.id, userId);
+    const { t } = await loadSlackI18n(project);
     const connection = await rawSlackConnection(project);
     if (!connection?.config.channelId) throw new SlackConnectionError('invalid_channel');
     const token = await slackAccessToken(connection);
@@ -206,7 +208,7 @@ export async function sendSlackTestNotification(project: DbProject, userId: stri
             if (!current?.enabled || current.status !== 'connected' || current.destinationRevision !== connection.destinationRevision || current.connectedBy !== connection.connectedBy)
                 throw new SlackConnectionError('connection_changed');
             postStarted = true;
-            return slackRequest('chat.postMessage', { channel: receipt.channelId, text: 'uier is connected to this channel.',
+            return slackRequest('chat.postMessage', { channel: receipt.channelId, text: t('uier is connected to this channel.'),
                 mrkdwn: false, parse: 'none', unfurl_links: false, unfurl_media: false, reply_broadcast: false }, { token });
         });
         if (response.channel !== receipt.channelId || typeof response.ts !== 'string' || !/^\d+\.\d+$/.test(response.ts)) throw new SlackConnectionError('response_uncertain');
