@@ -6,9 +6,9 @@
   The layout shows them with `SettingsLayout` (`LinkTabs` `side`: a column beside the section, a row above it on
   small screens; while that row scrolls, an edge fades out as long as more sections are hidden past it) and the breadcrumbs end with the section. `settingsContext.ts` loads the viewer and project once per request;
   admin-only sections call `configurableProject` (404 for commenters and the uier workspace). Commenters see
-  Installation and Notifications, and the settings page redirects them to Notifications. Integrations is a grid of
-  the services not connected yet (logo, one line, Connect, Details) above the connected ones, each a row with its
-  destination and status badge; every service has its own page, `settings/integrations/<provider>`
+  Installation and Notifications, and the settings page redirects them to Notifications. Integrations lists the
+  connected services first, each a row with its destination and status badge, then a grid of the services not
+  connected yet (logo, one line, Connect, Details); every service has its own page, `settings/integrations/<provider>`
   (`KnownPageLinks.projectIntegration`), with the provider's section: destination, sync controls and privacy limits.
   `components/app/integrations/projectIntegrations.ts` lists the services and computes the status badges both pages
   show. Connect/callback routes return to the provider's page (`?github=connected`); actions revalidate it and the

@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { expectNoAxeViolations } from './accessibility';
 import { createProject, signIn, uniqueEmail } from './support/app';
 
-test('Integrations lists services to connect, then connected ones that open their own page', async ({ page, baseURL }) => {
+test('Integrations lists connected services that open their own page, then services to connect', async ({ page, baseURL }) => {
     await signIn(page, uniqueEmail('integrations-overview'));
     const projectId = await createProject(page, { urls: [baseURL!], name: 'Integrations overview' });
     const overviewUrl = `/app/projects/${projectId}/settings/integrations`;
@@ -38,6 +38,7 @@ test('Integrations lists services to connect, then connected ones that open thei
     await expect(connected).toContainText('Notion');
     await expect(connected).toContainText('Test workspace');
     await expect(connected).toContainText('Choose a destination');
+    await expect(page.getByRole('heading', { level: 2, name: /^(Connected|Available integrations)$/ })).toHaveText(['Connected', 'Available integrations']);
     await expectNoAxeViolations(page);
     await connected.click();
     await expect(page).toHaveURL(`${baseURL}${overviewUrl}/notion`);
