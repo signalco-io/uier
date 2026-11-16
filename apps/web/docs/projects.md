@@ -55,3 +55,5 @@
 - Notion-imported project codes use HMAC-SHA256 under the existing app server secret, rather than
   a public hash of workspace and row identifiers. The saved row receipt preserves the project code
   on subsequent imports, including after secret rotation; public review IDs remain independently random.
+
+- Sidebar project entries show a nonzero open comment count (all unfinished, unarchived threads the viewer can see, including In progress and Ready to verify); Done projects get counts when listed by status.

@@ -18,6 +18,7 @@ import {
     SidebarHeader,
     SidebarMenu,
     SidebarMenuButton,
+    SidebarMenuBadge,
     SidebarMenuItem,
     SidebarRail,
     useSidebar
@@ -71,16 +72,23 @@ function NavItem({ href, label, icon: Icon, current, roving }: { href: string; l
 
 /** An active project's entry: its favicon and name, current on its pages */
 function ProjectItem({ project, current, roving }: { project: SidebarProject; current: boolean; roving: RovingProps }) {
-    const { t } = useAppI18n();
+    const { t, language } = useAppI18n();
+    const countId = useId();
+    const count = project.openCount ?? 0;
+    const category = new Intl.PluralRules(language).select(count);
+    const words = category === 'one' ? t(" open comment") : category === 'few' ? t(" open comments [few]") : t(" open comments");
     return (
         <SidebarMenuItem>
-            <SidebarMenuButton {...roving} isActive={current} tooltip={project.name} render={<Link href={KnownPageLinks.project(project.id)} aria-current={current ? "page" : undefined} />}>
+            <SidebarMenuButton {...roving} className={count > 0 ? "pr-14" : undefined} isActive={current} tooltip={project.name} render={<Link href={KnownPageLinks.project(project.id)} aria-current={current ? "page" : undefined} aria-describedby={count > 0 ? countId : undefined} />}>
                 {/* A 20 px tile with the mark's own 2 px padding inside its border (uier #87), so the favicon sits on the tile
                     as in the project header and the projects list. The negative margin keeps it in the 16 px icon slot:
                     names line up with the pages above, also collapsed and in the sheet */}
                 <ProjectMark name={project.name} projectId={project.id} url={project.url} className="-m-0.5 size-5 text-xs" />
                 <span>{project.name}</span>
             </SidebarMenuButton>
+            {count > 0 && <SidebarMenuBadge id={countId} className="text-muted-foreground">
+                <span aria-hidden="true">{count}</span><span className="sr-only">{count}{words}</span>
+            </SidebarMenuBadge>}
         </SidebarMenuItem>
     );
 }

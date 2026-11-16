@@ -55,6 +55,8 @@ export type CommentsStore = {
     listPage(domain: string, options: CommentPageOptions): Promise<DbComment[]>;
     /** All thread activity, without message text or images; authoritative badge counts. */
     listActivity(domain: string): Promise<DbCommentActivity[]>;
+    /** Exact unfinished, unarchived thread count with visibility applied before aggregation. */
+    countOpen(domain: string, visibleTo?: VisibilityFilter): Promise<number>;
     /**
      * The newest `updatedAt` among the partition's threads that `visibleTo` may see (every thread without it), or
      * `undefined`. One aggregate value, never a document list. Every write sets `updatedAt`, so only threads untouched

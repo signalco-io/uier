@@ -117,7 +117,7 @@ the separately bundled review toolbar owns its own query cache.
   `lib/app/sidebarProjects.ts` gives every project its status, creation time, client and, only for Recent activity
   and only for the listed projects, its latest activity: `CommentsStore.latestActivity`, one `MAX(c.updatedAt)`
   aggregate per project with `canSeeComment`'s rule in the query (`commentVisibilityFilter`,
-  `repo/visibilityFilter.ts`), else the project's creation. The other sorts read no comments; choosing a new order
+  `repo/visibilityFilter.ts`), else the project's creation. The other sorts read no activity; choosing a new order
   saves the cookie in a server action, whose render reads them. `lib/app/projectOrder.ts` (pure, shared by server
   render and browser) sorts with a fixed `en` collator and code-unit comparisons for ids and timestamps, so both
   agree, and groups by client (clients ordered like their projects, No client last) or by status (Active, then Done).
@@ -130,6 +130,11 @@ the separately bundled review toolbar owns its own query cache.
   in order. The shell layout
   renders on every refresh (`RealtimeComments` too): keep its reads point reads or bounded aggregates, and list them in
   [Cosmos query costs](../../../docs/cosmos-query-costs.md#shell-layout-sidebar-project-order).
+- **Sidebar open counts (uier #463).** Each listed project has a quiet `SidebarMenuBadge` for unfinished,
+  unarchived comments visible to the current member. Zero and unavailable counts render no badge; the link
+  describes the count to screen readers. Counts refresh with the shell, in every sort/group, using
+  partition-scoped `COUNT(1)` with at most four count queries in flight. Only authorized projects from
+  `listVisibleProjects` reach this loader.
 - **Workspace area** (`workspace/`): the workspace's name above `LinkTabs` (`workspace/(tabs)/layout.tsx`,
   `workspaceTabs`): Users, Teams, Clients, Usage, Activity and Settings for admins, Clients and Usage for everyone
   else and in the uier workspace ([Usage](usage.md)). `/app/workspace` opens the first tab. A team's and a person's own pages (`workspace/teams/[teamId]`,
