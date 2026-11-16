@@ -640,6 +640,11 @@ test('native reply sync upgrades Slack scopes explicitly, syncs thread replies a
     expect(current.attempt?.step).toBe('create_native_reply'); current = await retry(f); expect(current.status).toBe('accepted');
     const root = state(current).root!; const copy = [...slack.messages.values()].find(message => message.threadTs === root.ts)!;
     expect(copy.payload.text).toContain(reply.text);
+    // The bold author and the quote only render as mrkdwn: the post asks for it and no update turns it off (Slack's default for text).
+    const sent = slack.calls.filter(call => /^chat\.(postMessage|update)$/.test(call.method) && String(call.payload.text ?? '').includes(reply.text));
+    expect(sent.filter(call => call.method === 'chat.postMessage').every(call => call.payload.mrkdwn === true)).toBe(true);
+    expect(sent.length).toBeGreaterThan(0); expect(sent.every(call => call.payload.mrkdwn !== false && call.payload.link_names === false)).toBe(true);
+    expect(String(copy.payload.text)).toMatch(/^💬 \*.+\* via uier:\n> A Slack thread reply\n<https:[^|]+#uier-reply-[0-9a-f]+\|View in uier>$/);
     await updateDoc<DbProject>(f.project.pk, f.project.id, project => ({ ...project, toolbarLanguage: 'hr' }));
     await change(f, { thread: (await source(f)).thread });
     current = await dispatch(f);
@@ -772,6 +777,20 @@ test('the card links its heading, keeps reviewer text plain and gives status, pr
         { type: 'context', elements: [{ type: 'plain_text', text: `Done · /${'a'.repeat(58)}…`, emoji: false }] }
     ]);
     expect(quiet.text).toContain('Open the project in uier to view this feedback.');
+});
+
+test('a uier reply in Slack opens with a speech balloon and its author in bold, quotes the words, then links back', () => {
+    const url = 'https://uier.io/app/review/abcdefgh1234#uier-reply-stable';
+    expect(slackReplyMessage({ author: 'Ana Horvat', text: '\nFirst line\r\n\nSecond > line <!here>\n  ', url, marker: 'uier-reply-stable' })).toBe([
+        '💬 *Ana Horvat* via uier:', '> First line', '>', '> Second &gt; line &lt;!here&gt;', `<${url}|View in uier>`].join('\n'));
+    // A name with an asterisk or a line break stays on one line without bold; a reply with no words, such as only a screenshot, has no quote.
+    expect(slackReplyMessage({ author: 'Ana *\nHorvat', text: ' \n', url, marker: 'uier-reply-stable' }))
+        .toBe(['💬 Ana * Horvat via uier:', `<${url}|View in uier>`].join('\n'));
+    // Slack has no code block inside a quote: fenced code stays a code block between quoted lines, and an open fence is closed.
+    expect(slackReplyMessage({ author: 'Ana', text: 'Fixed:\n```css\n.nav > a {}\n\n````\nThanks\n~~~\nnot code\n~~~', url, marker: 'uier-reply-stable' })).toBe([
+        '💬 *Ana* via uier:', '> Fixed:', '```css', '.nav &gt; a {}', '', '````', '> Thanks', '> ~~~', '> not code', '> ~~~', `<${url}|View in uier>`].join('\n'));
+    expect(slackReplyMessage({ author: 'Ana', text: 'See ```inline``` code\n```\n<!here>', url, marker: 'uier-reply-stable' })).toBe([
+        '💬 *Ana* via uier:', '> See ```inline``` code', '```', '&lt;!here&gt;', '```', `<${url}|View in uier>`].join('\n'));
 });
 
 test('sending files needs its own permission and setting, and keeps the channel and other optional access', async ({ slack }) => {
@@ -925,7 +944,8 @@ for (const expected of slackLanguages) test(`Slack ${expected.language} translat
     expect(slackChangeSummary('done', 0, i18n).payload.text).toContain(i18n.t('Done'));
     const copy = slackReplyMessage({ author: 'Saved author <@U123>', text: 'Original reply & <!channel> {author}',
         url: 'https://uier.io/app/review/abcdefgh1234#uier-reply-stable', marker: 'uier-reply-stable' }, i18n);
-    expect(copy).toContain('Saved author &lt;@U123&gt;'); expect(copy).toContain('Original reply &amp; &lt;!channel&gt; {author}');
+    expect(copy.split('\n')[0]).toBe(`💬 ${i18n.t('{author} via uier:', { author: '*Saved author &lt;@U123&gt;*' })}`);
+    expect(copy).toContain('\n> Original reply &amp; &lt;!channel&gt; {author}\n');
     expect(copy).toContain(`#uier-reply-stable|${expected.view}>`);
     expect(copy).not.toMatch(/<@|<!channel>/);
     const custom = slackRootMessage({ ...context, kind: 'custom_language', feedbackType: { id: 'custom_language', label: 'Open', icon: 'message' } }, 'Saved project', baseUrl, i18n);

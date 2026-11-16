@@ -118,6 +118,14 @@ Acceptance items for file sharing that need a real workspace, because the local 
 - `files.getUploadURLExternal`, `files.completeUploadExternal` and `files.delete` accept form fields with a rotating bot token.
 - Slack returns `missing_scope` for these calls on an installation without `files:write`.
 
+Acceptance items for reply copies (`slackReplyMessage`) that need a real workspace, because the tests only compare text:
+
+- The 💬 and the bold author show in the desktop and mobile clients, in each of the six languages.
+- A reply of several paragraphs shows as one quote; a lone `>` on a blank line shows no literal `>`.
+- A fenced code block shows as a code block between the quoted lines, with no `>` inside it.
+- Reply text such as `<!here>`, `<@U…>` and a line starting with `>` stays literal text in the quote.
+- `chat.update` of a copy sent in the earlier layout shows the new layout and sends no notification.
+
 ## 7. Notification semantics
 
 Slack projects current state, not the complete mutation history. A new non-private thread created after the active destination generation's `since` gets one root notification. Older or undated legacy threads establish a silent baseline unless the admin explicitly requests historical sending. New replies to an old, unsent thread do not unexpectedly export its entire historical discussion.

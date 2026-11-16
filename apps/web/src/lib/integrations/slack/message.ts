@@ -72,8 +72,34 @@ export function slackChangeSummary(status: FeedbackContext['status'] | undefined
     return { payload, hash: sha256Hex(JSON.stringify(payload)) };
 }
 
-/** Only the attribution and link label are translated; author names, text and reconciliation markers stay literal. */
+/**
+ * A uier reply in the Slack thread: a speech balloon and the author in bold, the words as a quote, then the link,
+ * so it reads apart from the app's other messages (the card's files) that Slack shows under the same name.
+ * Only the attribution and link label are translated; author names, text and reconciliation markers stay literal.
+ */
 export function slackReplyMessage(payload: ReplyPayload, { t }: AppI18n = englishSlackI18n) {
     const escape = (value: string) => value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
-    return `${t('{author} via uier:', { author: escape(payload.author) })}\n\n${escape(payload.text)}\n\n<${payload.url}|${t('View in uier')}>`;
+    // Slack's bold holds no asterisk and does not cross a line, so the name is one line and bold only without one.
+    const name = escape(payload.author.replace(/\s+/g, ' ').trim());
+    const author = name && !name.includes('*') ? `*${name}*` : name;
+    const lines = escape(payload.text).split(/\r\n?|\n/);
+    while (lines.length && !lines[0]!.trim()) lines.shift();
+    while (lines.length && !lines.at(-1)!.trim()) lines.pop();
+    const body: string[] = [];
+    for (let index = 0; index < lines.length; index++) {
+        // Slack has no code block inside a quote, so fenced code (uier's rule for ``` fences) stays a code block
+        // between quoted lines. A fence the reply leaves open runs to the end, as uier shows it, and is closed here.
+        const fence = /^ {0,3}(`{3,})[^`]*$/.exec(lines[index]!);
+        if (fence) {
+            const closing = new RegExp(`^ {0,3}\`{${fence[1]!.length},}[ \\t]*$`);
+            let end = index + 1;
+            while (end < lines.length && !closing.test(lines[end]!)) end++;
+            body.push(...lines.slice(index, end + 1), ...(end < lines.length ? [] : ['```']));
+            index = end;
+            continue;
+        }
+        // Every other line is quoted, blank ones too, so a reply of several paragraphs stays one quote.
+        body.push(lines[index]!.trim() ? `> ${lines[index]}` : '>');
+    }
+    return [`💬 ${t('{author} via uier:', { author })}`, ...body, `<${payload.url}|${t('View in uier')}>`].join('\n');
 }
