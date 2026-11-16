@@ -32,8 +32,8 @@ export async function generateMetadata(): Promise<Metadata> {
 type IntegrationState = { configured: boolean; connected: boolean; status: string; destination?: string };
 
 /**
- * The services a project can connect: a grid of those not connected yet (Connect starts the provider's
- * sign-in), then the connected ones, each opening its own page with the destination and sync controls
+ * The services a project can connect: the connected ones first, each opening its own page with the destination
+ * and sync controls, then a grid of those not connected yet (Connect starts the provider's sign-in)
  */
 async function ProjectIntegrationsSettingsPageContent({ params }: PageProps<'/app/projects/[projectId]/settings/integrations'>) {
     const { t } = await getAppI18n();
@@ -61,6 +61,26 @@ async function ProjectIntegrationsSettingsPageContent({ params }: PageProps<'/ap
 
     return (
         <>
+            {connected.length > 0 && <section aria-labelledby="connected-integrations-title" className="flex flex-col gap-4">
+                <h2 id="connected-integrations-title" className="m-0 text-base leading-6 font-semibold tracking-[-0.01em]">{t("Connected")}</h2>
+                <ItemGroup aria-label={t("Connected integrations")} className="gap-3">
+                    {connected.map(({ provider, name }) => (
+                        <div key={provider} role="listitem">
+                            <Item variant="outline" className="rounded-xl" render={<Link href={KnownPageLinks.projectIntegration(project.id, provider)} />}>
+                                <ItemMedia><IntegrationLogo provider={provider} className="size-9 p-1.5" /></ItemMedia>
+                                <ItemContent className="min-w-0">
+                                    <ItemTitle>{name}</ItemTitle>
+                                    {states[provider].destination && <ItemDescription className="truncate">{states[provider].destination}</ItemDescription>}
+                                </ItemContent>
+                                <ItemActions>
+                                    <Badge variant="secondary">{t(states[provider].status)}</Badge>
+                                    <ChevronRight className="text-muted-foreground" />
+                                </ItemActions>
+                            </Item>
+                        </div>
+                    ))}
+                </ItemGroup>
+            </section>}
             <section aria-labelledby="available-integrations-title" className="@container flex flex-col gap-4">
                 <div className="flex flex-col gap-1">
                     <h2 id="available-integrations-title" className="m-0 text-base leading-6 font-semibold tracking-[-0.01em]">{t("Available integrations")}</h2>
@@ -94,26 +114,6 @@ async function ProjectIntegrationsSettingsPageContent({ params }: PageProps<'/ap
                     : <p className="m-0 text-sm text-muted-foreground">{t("Every integration is connected to this project.")}</p>}
                 <SuggestIntegration />
             </section>
-            {connected.length > 0 && <section aria-labelledby="connected-integrations-title" className="flex flex-col gap-4">
-                <h2 id="connected-integrations-title" className="m-0 text-base leading-6 font-semibold tracking-[-0.01em]">{t("Connected")}</h2>
-                <ItemGroup aria-label={t("Connected integrations")} className="gap-3">
-                    {connected.map(({ provider, name }) => (
-                        <div key={provider} role="listitem">
-                            <Item variant="outline" className="rounded-xl" render={<Link href={KnownPageLinks.projectIntegration(project.id, provider)} />}>
-                                <ItemMedia><IntegrationLogo provider={provider} className="size-9 p-1.5" /></ItemMedia>
-                                <ItemContent className="min-w-0">
-                                    <ItemTitle>{name}</ItemTitle>
-                                    {states[provider].destination && <ItemDescription className="truncate">{states[provider].destination}</ItemDescription>}
-                                </ItemContent>
-                                <ItemActions>
-                                    <Badge variant="secondary">{t(states[provider].status)}</Badge>
-                                    <ChevronRight className="text-muted-foreground" />
-                                </ItemActions>
-                            </Item>
-                        </div>
-                    ))}
-                </ItemGroup>
-            </section>}
         </>
     );
 }
