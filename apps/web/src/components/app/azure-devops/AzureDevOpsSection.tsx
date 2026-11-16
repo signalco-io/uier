@@ -3,11 +3,8 @@
 import { useAppI18n } from '@/src/lib/i18n/client';
 
 import { useActionState, useId, useState, useTransition, type FormEvent } from 'react';
-import { useRouter } from 'next/navigation';
 import { ArrowUpRight, RefreshCw } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/src/components/ui/alert';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
-    AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/src/components/ui/alert-dialog';
 import { Badge } from '@/src/components/ui/badge';
 import { cn } from 'cn';
 import { Button, buttonVariants } from '@/src/components/ui/button';
@@ -19,6 +16,9 @@ import type { getAzureDevOpsSettings } from '@/src/lib/integrations/azure-devops
 import { doneCategories, openCategories, type AzureDevOpsProjectOptions } from '@/src/lib/integrations/azure-devops/model';
 import { DateTime } from '../comments/DateTime';
 import { FormMessage } from '../FormMessage';
+import { BackfillDetail, ConnectionControls, ConnectionNote } from '../integrations/ConnectionControls';
+import { ChangeDestinationButton, DestinationPanel, useDestinationForm } from '../integrations/DestinationForm';
+import { IntegrationDetail, IntegrationDetails } from '../integrations/IntegrationDetails';
 import { IntegrationTitle } from '../integrations/IntegrationLogo';
 import { azureDevOpsStatus } from '../integrations/projectIntegrations';
 import { Section } from '../PageHeader';
@@ -26,6 +26,9 @@ import { loadAzureDevOpsOrganizationsAction, loadAzureDevOpsProjectOptionsAction
     manageAzureDevOpsAction, saveAzureDevOpsDestinationAction } from './actions';
 
 type Settings = Awaited<ReturnType<typeof getAzureDevOpsSettings>>;
+type Organizations = Awaited<ReturnType<typeof loadAzureDevOpsOrganizationsAction>>;
+type Projects = Awaited<ReturnType<typeof loadAzureDevOpsProjectsAction>>;
+type LoadedOptions = Awaited<ReturnType<typeof loadAzureDevOpsProjectOptionsAction>>;
 type Option = { id: string; name: string };
 /** Area paths are trimmed, so a leading space can never collide with one. */
 const DEFAULT_AREA = ' default';
@@ -37,61 +40,131 @@ const outcomes: Record<string, string> = {
     unavailable: 'Azure DevOps is unavailable right now. Try again later.'
 };
 
+/**
+ * Azure DevOps for a project, in the order of Slack's card: the status badge, where work items go, the Sync
+ * switch, then the rare actions under More options. Without a connection it is one button.
+ */
 export function AzureDevOpsSection({ projectId, settings, outcome }: { projectId: string; settings: Settings; outcome?: string }) {
     const { t } = useAppI18n();
     const notice = outcome && Object.hasOwn(outcomes, outcome) ? outcomes[outcome] : undefined;
     const status = azureDevOpsStatus(settings);
+    const connectHref = `/app/azure-devops/connect?project=${encodeURIComponent(projectId)}`;
     return <Section id="azure-devops" title={<IntegrationTitle provider="azure-devops" name="Azure DevOps" />} description={t("Create one Azure Boards work item for each shared feedback thread. uier keeps its description, discussion and state up to date.")}
         actions={<Badge variant="secondary">{t(status)}</Badge>}>
         <div className="flex flex-col gap-5">
-            {notice && <p role="status" className="m-0 text-sm text-muted-foreground">{notice}</p>}
-            {!settings.configured ? <p className="m-0 text-sm text-muted-foreground">{t("Azure DevOps is unavailable on this deployment. A site administrator needs to configure it.")}</p>
-                : <>
-                    {settings.accountName && <p className="m-0 text-sm">{t("Connected as")}{' '}{settings.accountName}{t(". Work items are created and updated as this account.")}</p>}
-                    {(!settings.connected || settings.status === 'needs_reconnect') && <a href={`/app/azure-devops/connect?project=${encodeURIComponent(projectId)}`} className={cn(buttonVariants(), 'w-fit')}>
-                        <ArrowUpRight data-icon="inline-start" />{settings.status === 'needs_reconnect' ? t("Reconnect Azure DevOps") : t("Connect Azure DevOps")}
-                    </a>}
-                    {settings.connected && settings.status !== 'needs_reconnect' && <>
-                        {!settings.pullRequestAccess && <div className="flex flex-col gap-2">
-                            <p className="m-0 text-sm text-muted-foreground">{t("Pull requests stay plain links. Reconnect with code read access to show their state.")}</p>
-                            <a href={`/app/azure-devops/connect?project=${encodeURIComponent(projectId)}&pullRequests=1`} className={cn(buttonVariants({ variant: 'outline' }), 'w-fit')}>
-                                {t("Show pull request state")}{' '}</a>
-                        </div>}
-                        <AzureDevOpsDestination key={`${settings.organization}:${settings.azureProjectId}:${settings.workItemType}:${settings.openState}:${settings.doneState}:${settings.areaPath}`}
-                            projectId={projectId} settings={settings} />
-                        {settings.azureProjectId && <p className="m-0 text-sm text-muted-foreground">
-                            {t("Destination:")}{' '}{settings.organization} / {settings.azureProjectName ?? t('Saved project')}, {settings.workItemType} {t("work items")}{' '}{settings.areaPath ? t(" in {value1}", { value1: settings.areaPath }) : ''}{t(". Open feedback is")}{' '}{settings.openState}{t(", done feedback is")}{' '}{settings.doneState}.
-                        </p>}
-                    </>}
-                </>}
-            {settings.lastSyncedAt && <p className="m-0 text-sm text-muted-foreground">{t("Last synced")}{' '}<DateTime value={settings.lastSyncedAt} />.</p>}
-            {settings.pausedUntil && <p className="m-0 text-sm text-muted-foreground">{t("Azure DevOps requests resume after")}{' '}<DateTime value={settings.pausedUntil} />.</p>}
-            {settings.status === 'paused' && settings.statusCode && <p className="m-0 text-sm text-muted-foreground">
-                {settings.statusCode === 'work_item_rejected' ? t("Azure DevOps rejected a work item. Check the type’s required fields and rules, then turn sync on again.")
-                    : t("Sync is paused. Check the destination and the connected account’s access in Azure DevOps, then turn sync on again.")}
-            </p>}
-            {settings.needsReviewCount > 0 && <Alert>
-                <AlertTitle>{t("Some threads need review")}</AlertTitle>
-                <AlertDescription>{settings.needsReviewCount}{settings.needsReviewCountCapped ? '+' : ''} {t("threads could not be confirmed in Azure DevOps. A work item may have been deleted or moved there, or a removal could not finish. Check the existing work items before requesting a backfill.")}</AlertDescription>
-            </Alert>}
-            {settings.backfill && <p role="status" className="m-0 text-sm text-muted-foreground">
-                {t("Backfill:")}{' '}{settings.backfill.queued} {t("of")}{' '}{settings.backfill.total} {t("selected threads queued for delivery.")}{' '}{settings.backfill.done && <>{t("Queueing is complete.")}{' '}{t("Delivery continues in the background.")}</>}
-            </p>}
-            {settings.connected && <AzureDevOpsManagement projectId={projectId} settings={settings} />}
+            {notice && !(outcome === 'connected' && settings.azureProjectId) && <p role="status" className="m-0 text-sm text-muted-foreground">{notice}</p>}
+            {!settings.configured && <p className="m-0 text-sm text-muted-foreground">{t("Azure DevOps is unavailable on this deployment. A site administrator needs to configure it.")}</p>}
+            {settings.connected ? <AzureDevOpsConnection projectId={projectId} settings={settings} connectHref={connectHref} />
+                : settings.configured && <a href={connectHref} className={cn(buttonVariants(), 'w-fit')}>
+                    {settings.status === 'needs_reconnect' ? t("Reconnect Azure DevOps") : t("Connect Azure DevOps")}<ArrowUpRight data-icon="inline-end" />
+                </a>}
         </div>
     </Section>;
 }
 
-function AzureDevOpsDestination({ projectId, settings }: { projectId: string; settings: Settings }) {
+function AzureDevOpsConnection({ projectId, settings, connectHref }: { projectId: string; settings: Settings; connectHref: string }) {
     const { t } = useAppI18n();
-    const formId = useId();
+    const needsReconnect = settings.status === 'needs_reconnect';
+    const usable = settings.configured && !needsReconnect;
+    const canSync = usable && Boolean(settings.azureProjectId);
+    // Paused sync is switched on again, which also clears what paused it
+    const running = settings.enabled && settings.status !== 'paused';
+
+    // The destination form: open until a project is saved, then behind Change destination
+    const form = useDestinationForm(Boolean(settings.azureProjectId));
     const [, startLoad] = useTransition();
     const [organizations, loadOrganizations, loadingOrganizations] = useActionState(loadAzureDevOpsOrganizationsAction, null);
     const [projects, loadProjects, loadingProjects] = useActionState(loadAzureDevOpsProjectsAction, null);
     const [options, loadOptions, loadingOptions] = useActionState(loadAzureDevOpsProjectOptionsAction, null);
+    const [saved, save, saving] = useActionState(async (previous: ActionState, data: FormData) => {
+        const response = await saveAzureDevOpsDestinationAction(previous, data);
+        if (response?.ok) form.close();
+        return response;
+    }, null);
+    function toggleForm() {
+        if (saving) return;
+        if (form.editing) return form.close();
+        form.edit();
+        // Asking to change the destination is the request to read the organizations and the saved project's choices
+        const project = new FormData(); project.set('projectId', projectId);
+        project.set('organization', settings.organization!); project.set('azureProjectId', settings.azureProjectId!);
+        startLoad(() => { loadOrganizations(project); loadProjects(project); loadOptions(project); });
+    }
+
+    return <>
+        {settings.status === 'paused' && settings.statusCode && <Alert role="status">
+            <AlertDescription>{settings.statusCode === 'work_item_rejected' ? t("Azure DevOps rejected a work item. Check the type’s required fields and rules, then turn sync on again.")
+                : t("Sync is paused. Check the destination and the connected account’s access in Azure DevOps, then turn sync on again.")}</AlertDescription>
+        </Alert>}
+        {settings.needsReviewCount > 0 && <Alert>
+            <AlertTitle>{t("Some threads need review")}</AlertTitle>
+            <AlertDescription>{settings.needsReviewCount}{settings.needsReviewCountCapped ? '+' : ''} {t("threads could not be confirmed in Azure DevOps. A work item may have been deleted or moved there, or a removal could not finish. Check the existing work items before requesting a backfill.")}</AlertDescription>
+        </Alert>}
+
+        <IntegrationDetails ref={form.details}>
+            {settings.accountName && <IntegrationDetail term={t("Connected as")}>{settings.accountName}</IntegrationDetail>}
+            {settings.azureProjectId && <>
+                <IntegrationDetail term={t("Destination")} action={usable && <ChangeDestinationButton form={form} onClick={toggleForm}>{t("Change destination")}</ChangeDestinationButton>}>
+                    {settings.organization} / {settings.azureProjectName ?? t('Saved project')}
+                </IntegrationDetail>
+                <IntegrationDetail term={t("Work items")}>{settings.workItemType}{settings.areaPath ? t(" in {value1}", { value1: settings.areaPath }) : ''}</IntegrationDetail>
+                <IntegrationDetail term={t("States")}>{settings.openState} / {settings.doneState}</IntegrationDetail>
+            </>}
+            {usable && <IntegrationDetail term={t("Pull requests")} action={!settings.pullRequestAccess && <a href={`${connectHref}&pullRequests=1`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+                {t("Show pull request state")}<ArrowUpRight data-icon="inline-end" /></a>}>
+                {settings.pullRequestAccess ? t("Shown with their state") : t("Plain links")}
+            </IntegrationDetail>}
+            {settings.lastSyncedAt && <IntegrationDetail term={t("Last synced")}><DateTime value={settings.lastSyncedAt} /></IntegrationDetail>}
+            {settings.pausedUntil && <IntegrationDetail term={t("Requests resume")}><DateTime value={settings.pausedUntil} /></IntegrationDetail>}
+            <BackfillDetail backfill={settings.backfill} />
+        </IntegrationDetails>
+
+        {settings.configured && needsReconnect && <a href={connectHref} className={cn(buttonVariants(), 'w-fit')}>{t("Reconnect Azure DevOps")}<ArrowUpRight data-icon="inline-end" /></a>}
+
+        {usable && form.open && <DestinationPanel form={form}>
+            <AzureDevOpsDestination projectId={projectId} settings={settings} organizations={organizations} loadOrganizations={loadOrganizations} loadingOrganizations={loadingOrganizations}
+                projects={projects} loadProjects={loadProjects} loadingProjects={loadingProjects} options={options} loadOptions={loadOptions} loadingOptions={loadingOptions}
+                save={save} saving={saving} error={saved && !saved.ok ? saved : null} onCancel={settings.azureProjectId ? form.close : undefined} />
+        </DestinationPanel>}
+        {!form.open && <FormMessage state={saved} />}
+
+        <ConnectionControls projectId={projectId} manage={manageAzureDevOpsAction}
+            sync={settings.enabled || canSync ? { checked: running } : undefined}
+            backfill={canSync && settings.enabled && settings.status === 'connected' ? { label: t("Backfill existing feedback"), queueing: Boolean(settings.backfill && !settings.backfill.done) } : undefined}
+            disconnect={{ label: t("Disconnect Azure DevOps"), title: t("Disconnect Azure DevOps from this project?"),
+                description: t("Stops future sync from this project and deletes its stored Azure DevOps credentials. Existing work items remain in Azure DevOps. To withdraw uier’s access completely, remove it from your Microsoft account’s apps.") }}>
+            {canSync && <ConnectionNote>{t("Backfill selects up to 1,000 existing shared threads for this Azure DevOps destination. New feedback syncs automatically while sync is on.")}</ConnectionNote>}
+            <ConnectionNote>{t("Work items are created and updated as the connected account.")}</ConnectionNote>
+            {usable && !settings.pullRequestAccess && <ConnectionNote>{t("Pull requests stay plain links. Reconnect with code read access to show their state.")}</ConnectionNote>}
+        </ConnectionControls>
+    </>;
+}
+
+/** The organization, its project, then that project's choices. The lists are read from Azure DevOps only when asked for */
+function AzureDevOpsDestination({ projectId, settings, organizations, loadOrganizations, loadingOrganizations, projects, loadProjects, loadingProjects,
+    options, loadOptions, loadingOptions, save, saving, error, onCancel }: {
+    projectId: string;
+    settings: Settings;
+    organizations: Organizations;
+    loadOrganizations: (form: FormData) => void;
+    loadingOrganizations: boolean;
+    projects: Projects;
+    loadProjects: (form: FormData) => void;
+    loadingProjects: boolean;
+    options: LoadedOptions;
+    loadOptions: (form: FormData) => void;
+    loadingOptions: boolean;
+    save: (form: FormData) => void;
+    saving: boolean;
+    error: ActionState;
+    onCancel?: () => void;
+}) {
+    const { t } = useAppI18n();
+    const formId = useId();
+    const [, startLoad] = useTransition();
     const [organization, setOrganization] = useState(settings.organization ?? '');
     const [azureProject, setAzureProject] = useState(settings.azureProjectId ?? '');
-    const loading = loadingOrganizations || loadingProjects || loadingOptions;
+    const loading = loadingOrganizations || loadingProjects || loadingOptions || saving;
     const organizationChoices = organizations?.ok ? organizations.data.items.map(item => ({ id: item.name, name: item.name })) : [];
     const organizationOptions: Option[] = settings.organization && !organizationChoices.some(item => item.id === settings.organization)
         ? [{ id: settings.organization, name: settings.organization }, ...organizationChoices] : organizationChoices;
@@ -109,7 +182,7 @@ function AzureDevOpsDestination({ projectId, settings }: { projectId: string; se
             <FieldDescription>{t("Load the organizations the connected account belongs to. This only reads your Azure DevOps choices.")}</FieldDescription>
             <form action={loadOrganizations}>
                 <input type="hidden" name="projectId" value={projectId} />
-                <Button type="submit" variant="outline" disabled={loading}>
+                <Button type="submit" variant={organizations?.ok || settings.azureProjectId ? "outline" : "default"} disabled={loading}>
                     {loadingOrganizations ? <Spinner data-icon="inline-start" /> : <RefreshCw data-icon="inline-start" />}{t("Load organizations")}{' '}</Button>
             </form>
             <FormMessage state={organizations} />
@@ -127,13 +200,13 @@ function AzureDevOpsDestination({ projectId, settings }: { projectId: string; se
                         <SelectContent><SelectGroup>{organizationOptions.map(item => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}</SelectGroup></SelectContent>
                     </Select>
                 </Field>
-                <Field>
-                    <Button className="w-fit" type="submit" variant="outline" disabled={!organization || loading}>
+                <div className="flex flex-col items-start gap-3">
+                    <Button type="submit" variant="outline" disabled={!organization || loading}>
                         {loadingProjects && <Spinner data-icon="inline-start" />}{t("Load projects")}{' '}</Button>
                     <FormMessage state={projects} />
                     {loadedProjects?.items.length === 0 && <FieldDescription>{t("No projects in this organization are available to the connected account.")}</FieldDescription>}
                     {loadedProjects?.truncated && <FieldDescription>{t("Only the first 500 projects are shown.")}</FieldDescription>}
-                </Field>
+                </div>
             </FieldGroup>
         </form>}
         {projectOptions.length > 0 && <form onSubmit={submit(loadOptions)}>
@@ -149,22 +222,25 @@ function AzureDevOpsDestination({ projectId, settings }: { projectId: string; se
                     </Select>
                     <FieldDescription>{t("Load this project’s work item types, states and area paths before saving.")}</FieldDescription>
                 </Field>
-                <Field>
-                    <Button className="w-fit" type="submit" variant="outline" disabled={!azureProject || loading}>
+                <div className="flex flex-col items-start gap-3">
+                    <Button type="submit" variant="outline" disabled={!azureProject || loading}>
                         {loadingOptions && <Spinner data-icon="inline-start" />}{t("Load project options")}{' '}</Button>
                     <FormMessage state={options} />
-                </Field>
+                </div>
             </FieldGroup>
         </form>}
-        {loadedOptions && <AzureDevOpsDestinationForm key={`${loadedOptions.organization}:${loadedOptions.projectId}`}
-            projectId={projectId} settings={settings} options={loadedOptions} />}
+        {loadedOptions ? <AzureDevOpsDestinationForm key={`${loadedOptions.organization}:${loadedOptions.projectId}`}
+            projectId={projectId} settings={settings} options={loadedOptions} save={save} pending={saving} error={error} onCancel={onCancel} />
+            : onCancel && <Button type="button" variant="ghost" className="w-fit" disabled={saving} onClick={onCancel}>{t("Cancel")}</Button>}
     </FieldGroup>;
 }
 
-function AzureDevOpsDestinationForm({ projectId, settings, options }: { projectId: string; settings: Settings; options: AzureDevOpsProjectOptions }) {
+/** The saved choices come back in the form when its project is the saved one */
+function AzureDevOpsDestinationForm({ projectId, settings, options, save, pending, error, onCancel }: {
+    projectId: string; settings: Settings; options: AzureDevOpsProjectOptions; save: (form: FormData) => void; pending: boolean; error: ActionState; onCancel?: () => void;
+}) {
     const { t } = useAppI18n();
     const id = useId();
-    const [state, save, pending] = useActionState(saveAzureDevOpsDestinationAction, null);
     const sameProject = settings.organization === options.organization && settings.azureProjectId === options.projectId;
     const [type, setType] = useState(() => sameProject && options.types.some(item => item.name === settings.workItemType) ? settings.workItemType! : '');
     const states = options.types.find(item => item.name === type)?.states ?? [];
@@ -205,11 +281,14 @@ function AzureDevOpsDestinationForm({ projectId, settings, options }: { projectI
             </Field>
             {options.truncated && <FieldDescription>{t("Only the first 500 choices in each list are shown. Missing choices cannot be saved here.")}</FieldDescription>}
             <FieldDescription>{t("Saving turns sync on for shared feedback. uier sets the state when the feedback’s status changes and keeps state changes made on your board. Changing the organization, project or type starts new work items. Existing work items stay where they are.")}</FieldDescription>
-            <Field>
-                <Button className="w-fit" type="submit" disabled={pending || !type || !openState || !doneState}>
-                    {pending && <Spinner data-icon="inline-start" />}{t("Save Azure DevOps destination")}{' '}</Button>
-                <FormMessage state={state} />
-            </Field>
+            <div className="flex flex-col gap-3">
+                <div className="flex flex-wrap gap-2">
+                    <Button type="submit" disabled={pending || !type || !openState || !doneState}>
+                        {pending && <Spinner data-icon="inline-start" />}{t("Save Azure DevOps destination")}{' '}</Button>
+                    {onCancel && <Button type="button" variant="ghost" disabled={pending} onClick={onCancel}>{t("Cancel")}</Button>}
+                </div>
+                <FormMessage state={error} />
+            </div>
         </FieldGroup>
     </form>;
 }
@@ -223,51 +302,4 @@ function Choice({ id, label, placeholder, choices, value, onChange, disabled }: 
             <SelectContent><SelectGroup>{choices.map(item => <SelectItem key={item} value={item}>{item}</SelectItem>)}</SelectGroup></SelectContent>
         </Select>
     </Field>;
-}
-
-function AzureDevOpsManagement({ projectId, settings }: { projectId: string; settings: Settings }) {
-    const { t } = useAppI18n();
-    const router = useRouter();
-    const [state, setState] = useState<ActionState<{ message: string }>>(null);
-    const [pending, startTransition] = useTransition();
-    const [confirming, setConfirming] = useState(false);
-    function change(operation: 'enable' | 'disable' | 'disconnect' | 'backfill') {
-        startTransition(async () => {
-            const form = new FormData();
-            form.set('projectId', projectId);
-            form.set('operation', operation);
-            const result = await manageAzureDevOpsAction(null, form);
-            setState(result);
-            if (result?.ok) { setConfirming(false); router.refresh(); }
-        });
-    }
-    const canSync = settings.configured && Boolean(settings.azureProjectId) && settings.status !== 'needs_reconnect';
-    return <div className="flex flex-col gap-3">
-        <div className="flex flex-wrap gap-2">
-            {(settings.enabled || canSync) && <Button type="button" variant="outline" disabled={pending}
-                onClick={() => change(settings.enabled && settings.status !== 'paused' ? 'disable' : 'enable')}>
-                {pending && <Spinner data-icon="inline-start" />}{settings.enabled && settings.status !== 'paused' ? t("Turn sync off") : t("Turn sync on")}
-            </Button>}
-            {canSync && settings.enabled && settings.status === 'connected' && <Button type="button" variant="outline"
-                disabled={pending || Boolean(settings.backfill && !settings.backfill.done)} onClick={() => change('backfill')}>
-                {t("Backfill existing feedback")}{' '}</Button>}
-            <AlertDialog open={confirming} onOpenChange={setConfirming}>
-                <AlertDialogTrigger render={<Button type="button" variant="outline" disabled={pending} />}>{t("Disconnect Azure DevOps")}</AlertDialogTrigger>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>{t("Disconnect Azure DevOps from this project?")}</AlertDialogTitle>
-                        <AlertDialogDescription>{t("Stops future sync from this project and deletes its stored Azure DevOps credentials. Existing work items remain in Azure DevOps. To withdraw uier’s access completely, remove it from your Microsoft account’s apps.")}</AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <FormMessage state={state && !state.ok ? state : null} />
-                    <AlertDialogFooter>
-                        <AlertDialogCancel disabled={pending}>{t("Keep connected")}</AlertDialogCancel>
-                        <AlertDialogAction variant="outline" disabled={pending} onClick={() => change('disconnect')}>
-                            {pending && <Spinner data-icon="inline-start" />}{t("Disconnect Azure DevOps")}{' '}</AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-        </div>
-        {canSync && <p className="m-0 text-sm text-muted-foreground">{t("Backfill selects up to 1,000 existing shared threads for this Azure DevOps destination. New feedback syncs automatically while sync is on.")}</p>}
-        <FormMessage state={state?.ok ? { ...state, message: state.data.message } : state} />
-    </div>;
 }

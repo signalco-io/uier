@@ -28,8 +28,13 @@ test('Notion OAuth, explicit field mapping, destination confirmation and sync co
     await notion.getByRole('link', { name: 'Connect Notion', exact: true }).click();
     await page.getByRole('button', { name: 'Allow Notion connection' }).click();
     await expect(page).toHaveURL(new RegExp(`${settingsUrl}\\?notion=connected$`));
-    await expect(notion).toContainText('Connected workspace: Test workspace.');
+    const details = notion.locator('[data-integration-details]');
+    await expect(details.locator('dt')).toHaveText(['Workspace']);
+    await expect(details.locator('dd')).toContainText(['Test workspace']);
     await expect(notion.getByRole('combobox')).toHaveCount(0);
+    // Before a database is chosen there is nothing to turn on, and the rare actions stay closed
+    await expect(notion.getByRole('switch')).toHaveCount(0);
+    await expect(notion.getByRole('button', { name: 'Disconnect Notion', exact: true })).toHaveCount(0);
     await hydrated(notion.getByRole('button', { name: 'Load databases', exact: true }));
     const action = page.waitForRequest(request => request.method() === 'POST' && Boolean(request.headers()['next-action']));
     await notion.getByRole('button', { name: 'Load databases', exact: true }).click(); const actionRequest = await action;
@@ -66,12 +71,26 @@ test('Notion OAuth, explicit field mapping, destination confirmation and sync co
     await expect(notion).toContainText('Sync on');
     await expect(page.getByRole('switch', { name: 'Enable two-way status sync' })).toBeDisabled();
     await page.reload();
-    await notion.getByRole('button', { name: 'Load fields', exact: true }).click();
+    await expect(details.locator('dt')).toHaveText(['Workspace', 'Database', 'Status values']);
+    await expect(details.locator('dd')).toContainText(['Test workspace', 'Website feedback', 'Not mapped']);
+    // Change database reads the saved database's fields; Cancel changes nothing
+    const change = notion.getByRole('button', { name: 'Change database', exact: true });
+    await expect(notion.getByRole('combobox')).toHaveCount(0);
+    await change.click();
+    await expect(change).toHaveAttribute('aria-expanded', 'true');
+    await expect(notion.getByRole('combobox', { name: 'Database', exact: true })).toContainText('Website feedback');
+    await expect(notion.getByRole('combobox', { name: 'Title (required)', exact: true })).toContainText('Name');
+    await notion.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await expect(notion.getByRole('combobox')).toHaveCount(0);
+    await expect(change).toBeFocused();
+    await change.click();
     await notion.getByRole('combobox', { name: 'Status', exact: true }).click();
     await page.getByRole('option', { name: 'Status', exact: true }).click();
     await notion.getByRole('button', { name: 'Save Notion mapping', exact: true }).click();
     await expect(page.getByRole('switch', { name: 'Enable two-way status sync' })).toBeEnabled();
-    await page.reload(); await expect(notion).toContainText('Destination: Website feedback.');
+    await expect(notion.getByRole('combobox')).toHaveCount(0);
+    await expect(change).toBeFocused();
+    await page.reload(); await expect(details.locator('dd')).toContainText(['Test workspace', 'Website feedback', 'Open / Done']);
     const twoWay = page.getByRole('region', { name: 'Two-way status sync', exact: true });
     // The sync options are switches that save at once
     const toggle = twoWay.getByRole('switch', { name: 'Enable two-way status sync' });
@@ -97,9 +116,8 @@ test('Notion OAuth, explicit field mapping, destination confirmation and sync co
     await page.reload(); await expect(toggle).not.toBeChecked();
     await expectNoAxeViolations(page);
     expect(await page.content()).not.toMatch(/notion-test-secret|access-[a-f0-9-]{36}|refresh-[a-f0-9-]{36}|v1\.k1\.|"(?:tokens|grantId|botId|connectedBy)":/);
-    await notion.getByRole('button', { name: 'Load fields', exact: true }).click();
+    await change.click();
     await expect(notion.getByRole('combobox', { name: 'Assignee name', exact: true })).toContainText('Not mapped');
-    await notion.getByRole('button', { name: 'Load databases', exact: true }).click();
     await notion.getByRole('combobox', { name: 'Database', exact: true }).click();
     await page.getByRole('option', { name: 'Other feedback', exact: true }).click();
     await notion.getByRole('button', { name: 'Load fields', exact: true }).click();
@@ -107,10 +125,11 @@ test('Notion OAuth, explicit field mapping, destination confirmation and sync co
     const destination = page.getByRole('alertdialog', { name: 'Switch Notion database?' });
     await expect(destination).toContainText('Existing pages stay in the previous database.');
     await destination.getByRole('button', { name: 'Keep current database' }).click();
-    await expect(notion).toContainText('Destination: Website feedback.');
+    await expect(details.locator('dd')).toContainText(['Test workspace', 'Website feedback']);
     await notion.getByRole('button', { name: 'Save Notion mapping', exact: true }).click();
     await destination.getByRole('button', { name: 'Switch database', exact: true }).click();
-    await expect(notion).toContainText('Destination: Other feedback.');
+    await expect(details.locator('dd')).toContainText(['Test workspace', 'Other feedback']);
+    await expect(notion.getByRole('combobox')).toHaveCount(0);
 
     await page.goto(`/app/projects/${projectId}`);
     await openProjectInvite(page);
@@ -132,18 +151,27 @@ test('Notion OAuth, explicit field mapping, destination confirmation and sync co
     } finally { await member.context.close(); }
 
     await page.goto(settingsUrl);
-    await notion.getByRole('button', { name: 'Turn sync off', exact: true }).click(); await expect(notion).toContainText('Sync off');
+    // The switch saves at once; a backfill needs sync on
+    const sync = notion.getByRole('switch', { name: 'Sync', exact: true });
+    await expect(sync).toBeChecked();
+    await sync.click(); await expect(notion).toContainText('Sync off');
+    await expect(sync).not.toBeChecked();
+    await notion.getByRole('button', { name: 'More options', exact: true }).click();
+    await expect(notion.getByRole('link', { name: 'Reconnect Notion', exact: true })).toHaveAttribute('href', `/app/notion/connect?project=${projectId}`);
     await expect(notion.getByRole('button', { name: 'Backfill existing feedback' })).toHaveCount(0);
-    await notion.getByRole('button', { name: 'Turn sync on', exact: true }).click(); await expect(notion).toContainText('Sync on');
+    await sync.click(); await expect(notion).toContainText('Sync on');
+    await expect(notion.getByRole('button', { name: 'Backfill existing feedback', exact: true })).toBeEnabled();
     await setProjectAccess(page, projectId, 'Anyone with the link');
     await page.goto(settingsUrl);
     const source = await page.request.post(`/api/review/${projectId}/comments`, { headers: { Origin: new URL(baseURL!).origin,
         'X-Uier-Visitor': randomBytes(32).toString('base64url') }, data: { path: '/notion-review', text: 'Feedback for Notion backfill', authorName: 'Reviewer',
         position: { type: 'point', selector: 'h1', xNormal: 0.5, yNormal: 0.5 } } });
     expect(source.status()).toBe(201);
+    await notion.getByRole('button', { name: 'More options', exact: true }).click();
+    await expectNoAxeViolations(page);
     await notion.getByRole('button', { name: 'Backfill existing feedback', exact: true }).click();
     await expect(notion).toContainText('A backfill of 1 selected threads is queued.');
-    await expect(notion).toContainText('Backfill: 0 of 1 selected threads queued for delivery.');
+    await expect(details).toContainText('0 of 1 selected threads queued for delivery.');
     await notion.getByRole('button', { name: 'Disconnect Notion', exact: true }).click();
     const disconnect = page.getByRole('alertdialog', { name: 'Disconnect Notion from this project?' });
     await expect(disconnect).toContainText('Existing pages and files remain in Notion.');
@@ -151,6 +179,7 @@ test('Notion OAuth, explicit field mapping, destination confirmation and sync co
     await notion.getByRole('button', { name: 'Disconnect Notion', exact: true }).click();
     await disconnect.getByRole('button', { name: 'Disconnect Notion', exact: true }).click();
     await expect(notion.getByRole('link', { name: 'Connect Notion', exact: true })).toBeVisible();
-    await page.reload(); await expect(notion.getByRole('button', { name: 'Turn sync on' })).toHaveCount(0);
+    await page.reload(); await expect(notion.getByRole('switch')).toHaveCount(0);
+    await expect(notion.getByRole('button', { name: 'More options', exact: true })).toHaveCount(0);
     await expectNoAxeViolations(page);
 });

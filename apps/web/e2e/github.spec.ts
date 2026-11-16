@@ -40,20 +40,34 @@ test('GitHub installation, repository confirmation and project controls work thr
     await expectNoAxeViolations(page);
     await section.getByRole('checkbox', { name: 'Allow shared feedback in this public repository' }).check();
     await save.click();
-    await expect(section).toContainText('Repository: acme/repo-2 (public).');
-    await expect(section.getByRole('button', { name: 'Turn GitHub sync off' })).toBeVisible();
-    await expect(section).not.toContainText('Backfill:');
+    // The connection reads as a list of facts; the picker is gone and the rare actions stay closed
+    const details = section.locator('[data-integration-details]');
+    await expect(details.locator('dt')).toHaveText(['Repository']);
+    await expect(details.locator('dd')).toContainText(['acme/repo-2 (public)']);
+    await expect(section.getByRole('link', { name: 'Change repository', exact: true })).toHaveAttribute('href', `/app/github/connect?project=${projectId}`);
+    const sync = section.getByRole('switch', { name: 'Sync', exact: true });
+    await expect(sync).toBeChecked();
     await expect(section.getByRole('button', { name: 'Load repositories' })).toHaveCount(0);
+    await expect(section.getByRole('button', { name: 'Disconnect GitHub', exact: true })).toHaveCount(0);
     const document = await page.content();
     expect(document).not.toMatch(/BEGIN (?:RSA )?PRIVATE KEY|installation-token-|user-token|never-persist-refresh|v1\.k1\./);
-    await section.getByRole('button', { name: 'Turn GitHub sync off' }).click();
-    await expect(section.getByRole('button', { name: 'Turn GitHub sync on' })).toBeVisible();
+    // The switch saves at once; a backfill needs sync on
+    await sync.click();
+    await expect(section).toContainText('Sync off');
+    await expect(sync).not.toBeChecked();
     await page.reload();
-    await expect(section.getByRole('button', { name: 'Turn GitHub sync on' })).toBeVisible();
-    await section.getByRole('button', { name: 'Turn GitHub sync on' }).click();
+    await expect(sync).not.toBeChecked();
+    await section.getByRole('button', { name: 'More options', exact: true }).click();
+    await expect(section.getByRole('link', { name: 'Reconnect GitHub', exact: true })).toHaveAttribute('href', `/app/github/connect?project=${projectId}`);
+    await expect(section.getByRole('button', { name: 'Backfill GitHub feedback' })).toHaveCount(0);
+    await sync.click();
+    await expect(section).toContainText('Sync on');
     await expect(section.getByRole('button', { name: 'Backfill GitHub feedback' })).toBeEnabled();
+    await expectNoAxeViolations(page);
     await section.getByRole('button', { name: 'Backfill GitHub feedback' }).click();
     await expect(section).toContainText('A backfill of 1 selected threads is queued. Delivery continues in the background.');
+    await expect(details.locator('dt')).toHaveText(['Repository', 'Backfill']);
+    await expect(details).toContainText('selected threads queued for delivery.');
     await section.getByRole('button', { name: 'Disconnect GitHub' }).click();
     const dialog = page.getByRole('alertdialog');
     await expect(dialog).toHaveAccessibleName('Disconnect GitHub from this project?');
@@ -85,7 +99,7 @@ test('a second project can authorize an existing installation without reopening 
     await page.getByRole('button', { name: 'Authorize uier test app' }).click();
     await expect(second.getByRole('button', { name: 'Load repositories' })).toBeVisible();
     await expect(second).toContainText('Choose a repository');
-    await expect(second.getByRole('button', { name: 'Turn GitHub sync off' })).toHaveCount(0);
+    await expect(second.getByRole('switch')).toHaveCount(0);
     await expectNoAxeViolations(page);
 });
 
@@ -103,7 +117,8 @@ test('organization approval returns to the original workspace and explains how t
     await expect(section.getByRole('status')).toContainText('An organization owner needs to approve');
     await expect(section.getByRole('link', { name: 'Connect GitHub', exact: true })).toBeVisible();
     await expect(section.getByRole('button', { name: 'Load repositories' })).toHaveCount(0);
-    await expect(section.getByRole('button', { name: 'Turn GitHub sync off' })).toHaveCount(0);
+    await expect(section.getByRole('switch')).toHaveCount(0);
+    await expect(section.getByRole('button', { name: 'More options', exact: true })).toHaveCount(0);
     await expectNoAxeViolations(page);
     await section.getByRole('link', { name: 'Connect GitHub', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Install the uier test app' })).toBeVisible();

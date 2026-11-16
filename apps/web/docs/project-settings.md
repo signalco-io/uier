@@ -46,8 +46,21 @@
   itself and selects the saved one, so changing a summary does not mean choosing the channel again. Without a connection the
   card is one Connect button; after Disconnect it is one Reconnect button and no More options. Two-way status sync and Reply
   sync (`SyncOption`) are each a card with one switch that saves at once; the switch shows the change, only a refusal adds a
-  message. The other providers' cards keep their own layout and can move to the same blocks. `slack.spec.ts` and
-  `notion.spec.ts` cover the controls.
+  message. `slack.spec.ts` and `notion.spec.ts` cover the controls.
+- **GitHub, Linear, Notion and Azure DevOps** use the same blocks ([uier #459](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2F05lb2p3clzi9%2Fsettings%2Fintegrations%2Fslack&comment=comment_I4dW_MU23SfnybdxNZBuW)),
+  shared in `components/app/integrations`: the facts (`IntegrationDetails`, with `BackfillDetail`), a Sync switch that saves at
+  once, then backfill, reconnect and disconnect with the provider's notes under More options (`ConnectionControls`, which
+  takes the provider's manage action and button names; `ConnectionSwitch` is the switch Slack's Notifications uses too).
+  `useDestinationForm`, `ChangeDestinationButton` and `DestinationPanel` (`DestinationForm.tsx`) hold what Slack's channel
+  form does: open until a destination is saved, afterwards behind the Change action of its row, with the focus back on that
+  action (or on the details) when it closes. Change destination (Linear, Azure DevOps) and Change database (Notion) read
+  the lists and the saved destination's choices in one step, so the saved values come back in the form; the first setup
+  keeps its Load buttons. GitHub chooses a repository only after an authorization, so Change repository is a link to it and
+  the picker shows while that authorization is open. Azure DevOps lists pull request access as a fact with Show pull
+  request state beside it. A reconnect the connection needs is a button on the card; one nothing asks for (GitHub, Notion)
+  is under More options, where GitHub also lists the workspace's other installations. Without a connection each card is
+  one Connect button (GitHub adds those installations), after Disconnect one Connect or Reconnect button. `github.spec.ts`,
+  `linear.spec.ts`, `notion.spec.ts` and `azure-devops.spec.ts` cover the controls.
 - The board's column sorts are the project's too, but they are chosen on the board, from each column's header, by
   everyone who triages the project, and saved at once ([column sorts](comments-inbox.md#board-column-sorts)).
 

@@ -3,11 +3,8 @@
 import { useAppI18n } from '@/src/lib/i18n/client';
 
 import { useActionState, useId, useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import { ArrowUpRight, RefreshCw } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/src/components/ui/alert';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
-    AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/src/components/ui/alert-dialog';
 import { Badge } from '@/src/components/ui/badge';
 import { cn } from 'cn';
 import { Button, buttonVariants } from '@/src/components/ui/button';
@@ -19,13 +16,18 @@ import type { ActionState } from '@/src/lib/app/actionResult';
 import type { getLinearSettings } from '@/src/lib/integrations/linear';
 import { DateTime } from '../comments/DateTime';
 import { FormMessage } from '../FormMessage';
+import { BackfillDetail, ConnectionControls, ConnectionNote } from '../integrations/ConnectionControls';
+import { ChangeDestinationButton, DestinationPanel, useDestinationForm } from '../integrations/DestinationForm';
+import { IntegrationDetail, IntegrationDetails } from '../integrations/IntegrationDetails';
 import { IntegrationTitle } from '../integrations/IntegrationLogo';
 import { linearStatus } from '../integrations/projectIntegrations';
 import { Section } from '../PageHeader';
 import { loadLinearDestinationOptionsAction, loadLinearTeamsAction, manageLinearAction, saveLinearDestinationAction } from './actions';
 
 type Settings = Awaited<ReturnType<typeof getLinearSettings>>;
-type Options = Extract<NonNullable<Awaited<ReturnType<typeof loadLinearDestinationOptionsAction>>>, { ok: true }>['data'];
+type Teams = Awaited<ReturnType<typeof loadLinearTeamsAction>>;
+type LoadedOptions = Awaited<ReturnType<typeof loadLinearDestinationOptionsAction>>;
+type Options = Extract<NonNullable<LoadedOptions>, { ok: true }>['data'];
 type Option = { id: string; name: string; type?: string };
 
 const outcomes: Record<string, string> = {
@@ -35,58 +37,122 @@ const outcomes: Record<string, string> = {
     unavailable: 'Linear is unavailable right now. Try again later.'
 };
 
+/**
+ * Linear for a project, in the order of Slack's card: the status badge, where issues go, the Sync switch,
+ * then the rare actions under More options. Without a connection it is one button.
+ */
 export function LinearSection({ projectId, settings, outcome }: { projectId: string; settings: Settings; outcome?: string }) {
     const { t } = useAppI18n();
     const notice = outcome && Object.hasOwn(outcomes, outcome) ? outcomes[outcome] : undefined;
     const status = linearStatus(settings);
+    const connectHref = `/app/linear/connect?project=${encodeURIComponent(projectId)}`;
     return <Section id="linear" title={<IntegrationTitle provider="linear" name="Linear" />} description={t("Create one Linear issue for each shared feedback thread. uier keeps the issue and its discussion up to date.")}
         actions={<Badge variant="secondary">{t(status)}</Badge>}>
         <div className="flex flex-col gap-5">
-            {notice && <p role="status" className="m-0 text-sm text-muted-foreground">{notice}</p>}
-            {!settings.configured ? <p className="m-0 text-sm text-muted-foreground">{t("Linear is unavailable on this deployment. A site administrator needs to configure it.")}</p>
-                : <>
-                    {settings.organizationName && <p className="m-0 text-sm">{t("Connected organization:")}{' '}{settings.organizationName}.</p>}
-                    {(!settings.connected || settings.status === 'needs_reconnect') && <a href={`/app/linear/connect?project=${encodeURIComponent(projectId)}`} className={cn(buttonVariants(), 'w-fit')}>
-                        <ArrowUpRight data-icon="inline-start" />{settings.status === 'needs_reconnect' ? t("Reconnect Linear") : t("Connect Linear")}
-                    </a>}
-                    {settings.connected && settings.status !== 'needs_reconnect' && <>
-                        <LinearDestination key={`${settings.teamId}:${settings.linearProjectId}:${settings.openStateId}:${settings.doneStateId}:${settings.labelIds.join(',')}:${settings.screenshots}`}
-                            projectId={projectId} settings={settings} />
-                        {settings.teamId && <p className="m-0 text-sm text-muted-foreground">{t("Destination:")}{' '}{settings.teamName ?? t('Saved team')}{settings.projectName ? t(" / {value1}", { value1: settings.projectName }) : ''}{t(". Screenshots are")}{' '}{settings.screenshots ? t("on") : t("off")}.</p>}
-                    </>}
-                </>}
-            {settings.lastSyncedAt && <p className="m-0 text-sm text-muted-foreground">{t("Last synced")}{' '}<DateTime value={settings.lastSyncedAt} />.</p>}
-            {settings.pausedUntil && <p className="m-0 text-sm text-muted-foreground">{t("Linear requests resume after")}{' '}<DateTime value={settings.pausedUntil} />.</p>}
-            {settings.needsReviewCount > 0 && <Alert>
-                <AlertTitle>{t("Some threads need review")}</AlertTitle>
-                <AlertDescription>{settings.needsReviewCount}{settings.needsReviewCountCapped ? '+' : ''} {t("threads could not be confirmed in Linear. Check the existing Linear copies before requesting a backfill. uier keeps uncertain issue identities to avoid creating duplicates.")}</AlertDescription>
-            </Alert>}
-            {settings.backfill && <p role="status" className="m-0 text-sm text-muted-foreground">
-                {t("Backfill:")}{' '}{settings.backfill.queued} {t("of")}{' '}{settings.backfill.total} {t("selected threads queued for delivery.")}{' '}{settings.backfill.done && <>{t("Queueing is complete.")}{' '}{t("Delivery continues in the background.")}</>}
-            </p>}
-            {settings.connected && <LinearManagement projectId={projectId} settings={settings} />}
+            {notice && !(outcome === 'connected' && settings.teamId) && <p role="status" className="m-0 text-sm text-muted-foreground">{notice}</p>}
+            {!settings.configured && <p className="m-0 text-sm text-muted-foreground">{t("Linear is unavailable on this deployment. A site administrator needs to configure it.")}</p>}
+            {settings.connected ? <LinearConnection projectId={projectId} settings={settings} connectHref={connectHref} />
+                : settings.configured && <a href={connectHref} className={cn(buttonVariants(), 'w-fit')}>
+                    {settings.status === 'needs_reconnect' ? t("Reconnect Linear") : t("Connect Linear")}<ArrowUpRight data-icon="inline-end" />
+                </a>}
         </div>
     </Section>;
 }
 
-function LinearDestination({ projectId, settings }: { projectId: string; settings: Settings }) {
+function LinearConnection({ projectId, settings, connectHref }: { projectId: string; settings: Settings; connectHref: string }) {
+    const { t } = useAppI18n();
+    const needsReconnect = settings.status === 'needs_reconnect';
+    const usable = settings.configured && !needsReconnect;
+    const canSync = settings.configured && Boolean(settings.teamId) && settings.status === 'connected';
+
+    // The destination form: open until a team is saved, then behind Change destination
+    const form = useDestinationForm(Boolean(settings.teamId));
+    const [, startLoad] = useTransition();
+    const [teams, loadTeams, loadingTeams] = useActionState(loadLinearTeamsAction, null);
+    const [options, loadOptions, loadingOptions] = useActionState(loadLinearDestinationOptionsAction, null);
+    const [saved, save, saving] = useActionState(async (previous: ActionState, data: FormData) => {
+        const response = await saveLinearDestinationAction(previous, data);
+        if (response?.ok) form.close();
+        return response;
+    }, null);
+    function toggleForm() {
+        if (saving) return;
+        if (form.editing) return form.close();
+        form.edit();
+        // Asking to change the destination is the request to read the teams and the saved team's choices
+        const team = new FormData(); team.set('projectId', projectId); team.set('teamId', settings.teamId!);
+        startLoad(() => { loadTeams(team); loadOptions(team); });
+    }
+
+    return <>
+        {settings.needsReviewCount > 0 && <Alert>
+            <AlertTitle>{t("Some threads need review")}</AlertTitle>
+            <AlertDescription>{settings.needsReviewCount}{settings.needsReviewCountCapped ? '+' : ''} {t("threads could not be confirmed in Linear. Check the existing Linear copies before requesting a backfill. uier keeps uncertain issue identities to avoid creating duplicates.")}</AlertDescription>
+        </Alert>}
+
+        <IntegrationDetails ref={form.details}>
+            {settings.organizationName && <IntegrationDetail term={t("Organization")}>{settings.organizationName}</IntegrationDetail>}
+            {settings.teamId && <>
+                <IntegrationDetail term={t("Destination")} action={usable && <ChangeDestinationButton form={form} onClick={toggleForm}>{t("Change destination")}</ChangeDestinationButton>}>
+                    {settings.teamName ?? t('Saved team')}{settings.projectName ? t(" / {value1}", { value1: settings.projectName }) : ''}
+                </IntegrationDetail>
+                <IntegrationDetail term={t("Screenshots")}>{settings.screenshots ? t("On") : t("Off")}</IntegrationDetail>
+            </>}
+            {settings.lastSyncedAt && <IntegrationDetail term={t("Last synced")}><DateTime value={settings.lastSyncedAt} /></IntegrationDetail>}
+            {settings.pausedUntil && <IntegrationDetail term={t("Requests resume")}><DateTime value={settings.pausedUntil} /></IntegrationDetail>}
+            <BackfillDetail backfill={settings.backfill} />
+        </IntegrationDetails>
+
+        {settings.configured && needsReconnect && <a href={connectHref} className={cn(buttonVariants(), 'w-fit')}>{t("Reconnect Linear")}<ArrowUpRight data-icon="inline-end" /></a>}
+
+        {usable && form.open && <DestinationPanel form={form}>
+            <LinearDestination projectId={projectId} settings={settings} teams={teams} loadTeams={loadTeams} loadingTeams={loadingTeams}
+                options={options} loadOptions={loadOptions} loadingOptions={loadingOptions}
+                save={save} saving={saving} error={saved && !saved.ok ? saved : null} onCancel={settings.teamId ? form.close : undefined} />
+        </DestinationPanel>}
+        {!form.open && <FormMessage state={saved} />}
+
+        <ConnectionControls projectId={projectId} manage={manageLinearAction}
+            sync={settings.enabled || canSync ? { checked: settings.enabled } : undefined}
+            backfill={canSync && settings.enabled ? { label: t("Backfill existing feedback"), queueing: Boolean(settings.backfill && !settings.backfill.done) } : undefined}
+            disconnect={{ label: t("Disconnect Linear"), title: t("Disconnect Linear from this project?"),
+                description: t("Stops future sync from this project. Existing issues, comments and files remain in Linear. Other projects keep their connections.") }}>
+            {canSync && <ConnectionNote>{t("Backfill selects up to 1,000 existing shared threads for this Linear destination. New feedback syncs automatically while sync is on.")}</ConnectionNote>}
+        </ConnectionControls>
+    </>;
+}
+
+/** The team, then that team's choices. The lists are read from Linear only when asked for */
+function LinearDestination({ projectId, settings, teams, loadTeams, loadingTeams, options: loaded, loadOptions, loadingOptions, save, saving, error, onCancel }: {
+    projectId: string;
+    settings: Settings;
+    teams: Teams;
+    loadTeams: (form: FormData) => void;
+    loadingTeams: boolean;
+    options: LoadedOptions;
+    loadOptions: (form: FormData) => void;
+    loadingOptions: boolean;
+    save: (form: FormData) => void;
+    saving: boolean;
+    error: ActionState;
+    onCancel?: () => void;
+}) {
     const { t } = useAppI18n();
     const formId = useId();
     const [, startLoad] = useTransition();
-    const [teams, loadTeams, loadingTeams] = useActionState(loadLinearTeamsAction, null);
-    const [details, loadDetails, loadingDetails] = useActionState(loadLinearDestinationOptionsAction, null);
     const [teamId, setTeamId] = useState(settings.teamId ?? '');
     const choices = teams?.ok ? teams.data.items : [];
     const teamOptions = settings.teamId && !choices.some(item => item.id === settings.teamId)
         ? [{ id: settings.teamId, name: settings.teamName ?? t('Saved team') }, ...choices] : choices;
-    const options = details?.ok && details.data.teamId === teamId ? details.data : undefined;
+    const options = loaded?.ok && loaded.data.teamId === teamId ? loaded.data : undefined;
+    const busy = loadingTeams || loadingOptions || saving;
     return <FieldGroup>
         <Field>
             <FieldLabel>{t("Linear teams")}</FieldLabel>
             <FieldDescription>{t("Load the teams available to the connected Linear app. This only reads your Linear choices.")}</FieldDescription>
             <form action={loadTeams}>
                 <input type="hidden" name="projectId" value={projectId} />
-                <Button type="submit" variant="outline" disabled={loadingTeams || loadingDetails}>
+                <Button type="submit" variant={teams?.ok || settings.teamId ? "outline" : "default"} disabled={busy}>
                     {loadingTeams ? <Spinner data-icon="inline-start" /> : <RefreshCw data-icon="inline-start" />}{t("Load teams")}{' '}</Button>
             </form>
             <FormMessage state={teams} />
@@ -94,34 +160,37 @@ function LinearDestination({ projectId, settings }: { projectId: string; setting
             {teams?.ok && teams.data.truncated && <FieldDescription>{t("Only the first 500 teams are shown. A team outside this list cannot be selected here.")}</FieldDescription>}
         </Field>
         {teamOptions.length > 0 && <form onSubmit={event => {
-            event.preventDefault(); const data = new FormData(event.currentTarget); startLoad(() => loadDetails(data));
+            event.preventDefault(); const data = new FormData(event.currentTarget); startLoad(() => loadOptions(data));
         }}>
             <input type="hidden" name="projectId" value={projectId} />
             <input type="hidden" name="teamId" value={teamId} />
             <FieldGroup>
                 <Field>
                     <FieldLabel htmlFor={`${formId}-team`}>{t("Team")}</FieldLabel>
-                    <Select items={teamOptions.map(item => ({ value: item.id, label: item.name }))} value={teamId} onValueChange={value => value !== null && setTeamId(value)} disabled={loadingDetails}>
+                    <Select items={teamOptions.map(item => ({ value: item.id, label: item.name }))} value={teamId} onValueChange={value => value !== null && setTeamId(value)} disabled={loadingOptions || saving}>
                         <SelectTrigger id={`${formId}-team`}><SelectValue placeholder={t("Choose a team")} /></SelectTrigger>
                         <SelectContent><SelectGroup>{teamOptions.map(item => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}</SelectGroup></SelectContent>
                     </Select>
                     <FieldDescription>{t("Load this team’s projects, workflow states and labels before saving.")}</FieldDescription>
                 </Field>
-                <Field>
-                    <Button className="w-fit" type="submit" variant="outline" disabled={!teamId || loadingDetails || loadingTeams}>
-                        {loadingDetails && <Spinner data-icon="inline-start" />}{t("Load team options")}{' '}</Button>
-                    <FormMessage state={details} />
-                </Field>
+                <div className="flex flex-col items-start gap-3">
+                    <Button type="submit" variant="outline" disabled={!teamId || busy}>
+                        {loadingOptions && <Spinner data-icon="inline-start" />}{t("Load team options")}{' '}</Button>
+                    <FormMessage state={loaded} />
+                </div>
             </FieldGroup>
         </form>}
-        {options && <LinearDestinationForm key={options.teamId} projectId={projectId} settings={settings} options={options} />}
+        {options ? <LinearDestinationForm key={options.teamId} projectId={projectId} settings={settings} options={options} save={save} pending={saving} error={error} onCancel={onCancel} />
+            : onCancel && <Button type="button" variant="ghost" className="w-fit" disabled={saving} onClick={onCancel}>{t("Cancel")}</Button>}
     </FieldGroup>;
 }
 
-function LinearDestinationForm({ projectId, settings, options }: { projectId: string; settings: Settings; options: Options }) {
+/** The saved choices come back in the form when its team is the saved one */
+function LinearDestinationForm({ projectId, settings, options, save, pending, error, onCancel }: {
+    projectId: string; settings: Settings; options: Options; save: (form: FormData) => void; pending: boolean; error: ActionState; onCancel?: () => void;
+}) {
     const { t } = useAppI18n();
     const id = useId();
-    const [state, save, pending] = useActionState(saveLinearDestinationAction, null);
     const sameTeam = settings.teamId === options.teamId;
     const initialChoice = (items: Option[], value?: string) => sameTeam && items.some(item => item.id === value) ? value! : '';
     const openStates = options.states.items.filter(item => ['triage', 'backlog', 'unstarted', 'started'].includes(item.type ?? ''));
@@ -166,11 +235,14 @@ function LinearDestinationForm({ projectId, settings, options }: { projectId: st
             </Field>
             {(options.projects.truncated || options.states.truncated || options.labels.truncated) && <FieldDescription>{t("Only the first 500 choices in each list are shown. Missing choices cannot be saved here.")}</FieldDescription>}
             <FieldDescription>{t("Saving turns sync on for shared feedback. Changing the team or Linear project starts new issue identities. Existing Linear copies stay in their previous destination.")}</FieldDescription>
-            <Field>
-                <Button className="w-fit" type="submit" disabled={pending || !openState || !doneState}>
-                    {pending && <Spinner data-icon="inline-start" />}{t("Save Linear destination")}{' '}</Button>
-                <FormMessage state={state} />
-            </Field>
+            <div className="flex flex-col gap-3">
+                <div className="flex flex-wrap gap-2">
+                    <Button type="submit" disabled={pending || !openState || !doneState}>
+                        {pending && <Spinner data-icon="inline-start" />}{t("Save Linear destination")}{' '}</Button>
+                    {onCancel && <Button type="button" variant="ghost" disabled={pending} onClick={onCancel}>{t("Cancel")}</Button>}
+                </div>
+                <FormMessage state={error} />
+            </div>
         </FieldGroup>
     </form>;
 }
@@ -184,49 +256,4 @@ function StateChoice({ id, label, choices, value, onChange, disabled }: { id: st
             <SelectContent><SelectGroup>{choices.map(item => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}</SelectGroup></SelectContent>
         </Select>
     </Field>;
-}
-
-function LinearManagement({ projectId, settings }: { projectId: string; settings: Settings }) {
-    const { t } = useAppI18n();
-    const router = useRouter();
-    const [state, setState] = useState<ActionState<{ message: string }>>(null);
-    const [pending, startTransition] = useTransition();
-    const [confirming, setConfirming] = useState(false);
-    function change(operation: 'enable' | 'disable' | 'disconnect' | 'backfill') {
-        startTransition(async () => {
-            const form = new FormData();
-            form.set('projectId', projectId);
-            form.set('operation', operation);
-            const result = await manageLinearAction(null, form);
-            setState(result);
-            if (result?.ok) { setConfirming(false); router.refresh(); }
-        });
-    }
-    const canSync = settings.configured && Boolean(settings.teamId) && settings.status === 'connected';
-    return <div className="flex flex-col gap-3">
-        <div className="flex flex-wrap gap-2">
-            {(settings.enabled || canSync) && <Button type="button" variant="outline" disabled={pending} onClick={() => change(settings.enabled ? 'disable' : 'enable')}>
-                {pending && <Spinner data-icon="inline-start" />}{settings.enabled ? t("Turn sync off") : t("Turn sync on")}
-            </Button>}
-            {canSync && settings.enabled && <Button type="button" variant="outline" disabled={pending || Boolean(settings.backfill && !settings.backfill.done)} onClick={() => change('backfill')}>
-                {t("Backfill existing feedback")}{' '}</Button>}
-            <AlertDialog open={confirming} onOpenChange={setConfirming}>
-                <AlertDialogTrigger render={<Button type="button" variant="outline" disabled={pending} />}>{t("Disconnect Linear")}</AlertDialogTrigger>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>{t("Disconnect Linear from this project?")}</AlertDialogTitle>
-                        <AlertDialogDescription>{t("Stops future sync from this project. Existing issues, comments and files remain in Linear. Other projects keep their connections.")}</AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <FormMessage state={state && !state.ok ? state : null} />
-                    <AlertDialogFooter>
-                        <AlertDialogCancel disabled={pending}>{t("Keep connected")}</AlertDialogCancel>
-                        <AlertDialogAction variant="outline" disabled={pending} onClick={() => change('disconnect')}>
-                            {pending && <Spinner data-icon="inline-start" />}{t("Disconnect Linear")}{' '}</AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-        </div>
-        {canSync && <p className="m-0 text-sm text-muted-foreground">{t("Backfill selects up to 1,000 existing shared threads for this Linear destination. New feedback syncs automatically while sync is on.")}</p>}
-        <FormMessage state={state?.ok ? { ...state, message: state.data.message } : state} />
-    </div>;
 }

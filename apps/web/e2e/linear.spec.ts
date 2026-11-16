@@ -28,7 +28,9 @@ test('Linear OAuth, explicit destination choices, sync controls, backfill and di
     await expect(page).toHaveURL(new RegExp(`${settingsUrl}\\?linear=connected$`));
     await expect(linear).toContainText('Choose a destination');
     await expect(linear.getByRole('combobox')).toHaveCount(0);
-    await expect(linear.getByRole('button', { name: 'Backfill existing feedback' })).toHaveCount(0);
+    // Before a destination is chosen there is nothing to turn on, and the rare actions stay closed
+    await expect(linear.getByRole('switch')).toHaveCount(0);
+    await expect(linear.getByRole('button', { name: 'Disconnect Linear', exact: true })).toHaveCount(0);
     const teamRequest = page.waitForRequest(request => request.method() === 'POST' && Boolean(request.headers()['next-action']));
     await linear.getByRole('button', { name: 'Load teams', exact: true }).click();
     const actionRequest = await teamRequest;
@@ -49,7 +51,28 @@ test('Linear OAuth, explicit destination choices, sync controls, backfill and di
     await linear.getByRole('button', { name: 'Save Linear destination', exact: true }).click();
     await expect(linear).toContainText('Sync on');
     await page.reload();
-    await expect(linear).toContainText('Destination: Engineering / Website. Screenshots are on.');
+    const details = linear.locator('[data-integration-details]');
+    await expect(details.locator('dt')).toHaveText(['Organization', 'Destination', 'Screenshots']);
+    await expect(details.locator('dd')).toContainText(['Test organization', 'Engineering / Website', 'On']);
+    // The saved destination comes back in the form; Cancel changes nothing
+    const change = linear.getByRole('button', { name: 'Change destination', exact: true });
+    await expect(linear.getByRole('combobox')).toHaveCount(0);
+    await change.click();
+    await expect(change).toHaveAttribute('aria-expanded', 'true');
+    await expect(linear.getByRole('combobox', { name: 'Team', exact: true })).toContainText('Engineering');
+    await expect(linear.getByRole('combobox', { name: 'Linear project (optional)', exact: true })).toContainText('Website');
+    await expect(linear.getByRole('combobox', { name: 'State for open feedback', exact: true })).toContainText('Todo');
+    await expect(linear.getByRole('checkbox', { name: 'Website feedback', exact: true })).toBeChecked();
+    await expect(linear.getByRole('checkbox', { name: 'Include screenshots', exact: true })).toBeChecked();
+    await linear.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await expect(linear.getByRole('combobox')).toHaveCount(0);
+    await expect(change).toBeFocused();
+    await change.click();
+    await linear.getByRole('checkbox', { name: 'Include screenshots', exact: true }).uncheck();
+    await linear.getByRole('button', { name: 'Save Linear destination', exact: true }).click();
+    await expect(details.locator('dd')).toContainText(['Test organization', 'Engineering / Website', 'Off']);
+    await expect(linear.getByRole('combobox')).toHaveCount(0);
+    await expect(change).toBeFocused();
     const document = await page.content();
     expect(document).not.toMatch(/linear-test-(?:access|refresh|secret)|"(?:grantId|accessToken|refreshToken)":/);
 
@@ -78,11 +101,17 @@ test('Linear OAuth, explicit destination choices, sync controls, backfill and di
     } finally { await member.context.close(); }
 
     await page.goto(settingsUrl);
-    await linear.getByRole('button', { name: 'Turn sync off', exact: true }).click();
+    // The switch saves at once; a backfill needs sync on
+    const sync = linear.getByRole('switch', { name: 'Sync', exact: true });
+    await expect(sync).toBeChecked();
+    await sync.click();
     await expect(linear).toContainText('Sync off');
+    await expect(sync).not.toBeChecked();
+    await linear.getByRole('button', { name: 'More options', exact: true }).click();
     await expect(linear.getByRole('button', { name: 'Backfill existing feedback' })).toHaveCount(0);
-    await linear.getByRole('button', { name: 'Turn sync on', exact: true }).click();
+    await sync.click();
     await expect(linear).toContainText('Sync on');
+    await expect(linear.getByRole('button', { name: 'Backfill existing feedback', exact: true })).toBeEnabled();
     await setProjectAccess(page, projectId, 'Anyone with the link');
     await page.goto(settingsUrl);
     const source = await page.request.post(`/api/review/${projectId}/comments`, { headers: {
@@ -90,9 +119,11 @@ test('Linear OAuth, explicit destination choices, sync controls, backfill and di
     }, data: { path: '/linear-review', text: 'Feedback for Linear backfill', authorName: 'Reviewer',
         position: { type: 'point', selector: 'h1', xNormal: 0.5, yNormal: 0.5 } } });
     expect(source.status()).toBe(201);
+    await linear.getByRole('button', { name: 'More options', exact: true }).click();
+    await expectNoAxeViolations(page);
     await linear.getByRole('button', { name: 'Backfill existing feedback', exact: true }).click();
     await expect(linear).toContainText('A backfill of 1 selected threads is queued.');
-    await expect(linear).toContainText('Backfill: 0 of 1 selected threads queued for delivery.');
+    await expect(details).toContainText('0 of 1 selected threads queued for delivery.');
     await linear.getByRole('button', { name: 'Disconnect Linear', exact: true }).click();
     const disconnect = page.getByRole('alertdialog');
     await expect(disconnect).toContainText('Existing issues, comments and files remain in Linear.');
@@ -102,6 +133,7 @@ test('Linear OAuth, explicit destination choices, sync controls, backfill and di
     await disconnect.getByRole('button', { name: 'Disconnect Linear', exact: true }).click();
     await expect(linear.getByRole('link', { name: 'Reconnect Linear', exact: true })).toBeVisible();
     await page.reload();
-    await expect(linear.getByRole('button', { name: 'Turn sync on' })).toHaveCount(0);
+    await expect(linear.getByRole('switch')).toHaveCount(0);
+    await expect(linear.getByRole('button', { name: 'More options', exact: true })).toHaveCount(0);
     await expectNoAxeViolations(page);
 });

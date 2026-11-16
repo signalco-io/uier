@@ -3,11 +3,10 @@
 import { useAppI18n } from '@/src/lib/i18n/client';
 
 import { useActionState, useId, useRef, useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import { ArrowUpRight, RefreshCw } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/src/components/ui/alert';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
-    AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/src/components/ui/alert-dialog';
+    AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/src/components/ui/alert-dialog';
 import { Badge } from '@/src/components/ui/badge';
 import { cn } from 'cn';
 import { Button, buttonVariants } from '@/src/components/ui/button';
@@ -19,12 +18,17 @@ import type { ActionState } from '@/src/lib/app/actionResult';
 import type { NotionMapping, NotionSchema, NotionSettingsView } from '@/src/lib/integrations/notion';
 import { DateTime } from '../comments/DateTime';
 import { FormMessage } from '../FormMessage';
+import { BackfillDetail, ConnectionControls, ConnectionNote } from '../integrations/ConnectionControls';
+import { ChangeDestinationButton, DestinationPanel, useDestinationForm } from '../integrations/DestinationForm';
+import { IntegrationDetail, IntegrationDetails } from '../integrations/IntegrationDetails';
 import { IntegrationTitle } from '../integrations/IntegrationLogo';
 import { notionStatus } from '../integrations/projectIntegrations';
 import { Section } from '../PageHeader';
 import { loadNotionDataSourcesAction, loadNotionSchemaAction, manageNotionAction, saveNotionMappingAction } from './actions';
 
-type SchemaOptions = Extract<NonNullable<Awaited<ReturnType<typeof loadNotionSchemaAction>>>, { ok: true }>['data'];
+type Sources = Awaited<ReturnType<typeof loadNotionDataSourcesAction>>;
+type LoadedSchema = Awaited<ReturnType<typeof loadNotionSchemaAction>>;
+type SchemaOptions = Extract<NonNullable<LoadedSchema>, { ok: true }>['data'];
 const outcomes: Record<string, string> = {
     connected: 'Notion is connected.',
     denied: 'The Notion connection was canceled. You can connect again.',
@@ -32,62 +36,132 @@ const outcomes: Record<string, string> = {
     unavailable: 'Notion is unavailable right now. Try again later.'
 };
 const problems: Record<string, string> = {
-    mapping_invalid: 'A mapped field changed in Notion. Load the fields and save the mapping again.',
+    mapping_invalid: 'A mapped field changed in Notion. Choose Change database, then save the mapping again.',
     data_source_missing: 'The saved database is unavailable. Share it with the Notion connection or choose another database.',
     insufficient_capabilities: 'Notion needs permission to read, insert and update content. Check the connection in Notion, then load the fields again.',
     cleanup_blocked: 'Some copied content could not be removed. Restore access to its previous Notion workspace or database, then save its mapping to retry cleanup.',
     request_blocked: 'Notion blocked this connection’s requests. Check its access in Notion before turning sync on again.'
 };
 
+/**
+ * Notion for a project, in the order of Slack's card: the status badge, where pages go, the Sync switch,
+ * then the rare actions under More options. Without a connection it is one button.
+ */
 export function NotionSection({ projectId, settings, outcome }: { projectId: string; settings: NotionSettingsView; outcome?: string }) {
     const { t } = useAppI18n();
     const connected = settings.status !== 'not_connected';
     const notice = outcome && Object.hasOwn(outcomes, outcome) && (outcome !== 'connected' || connected) ? outcomes[outcome] : undefined;
-    const problem = settings.statusCode && Object.hasOwn(problems, settings.statusCode) ? problems[settings.statusCode] : undefined;
     const status = notionStatus(settings);
+    const connectHref = `/app/notion/connect?project=${encodeURIComponent(projectId)}`;
     return <Section id="notion" title={<IntegrationTitle provider="notion" name="Notion" />} description={t("Create one Notion page for each shared feedback thread. uier keeps its fields, discussion and screenshot up to date.")}
         actions={<Badge variant="secondary">{t(status)}</Badge>}>
         <div className="flex flex-col gap-5">
             {notice && <p role="status" className="m-0 text-sm text-muted-foreground">{notice}</p>}
-            {!settings.configured ? <p className="m-0 text-sm text-muted-foreground">{t("Notion is unavailable on this deployment. A site administrator needs to configure it.")}</p> : <>
-                {settings.notionWorkspaceName && <p className="m-0 text-sm">{t("Connected workspace:")}{' '}{settings.notionWorkspaceName}.</p>}
-                {(!connected || settings.status === 'needs_reconnect') && <a href={`/app/notion/connect?project=${encodeURIComponent(projectId)}`} className={cn(buttonVariants(), 'w-fit')}><ArrowUpRight data-icon="inline-start" />
-                    {settings.status === 'needs_reconnect' ? t("Reconnect Notion") : t("Connect Notion")}</a>}
-                {connected && settings.status !== 'needs_reconnect' && <>
-                    {problem && <Alert><AlertTitle>{t("Check the Notion connection")}</AlertTitle><AlertDescription>{problem}</AlertDescription></Alert>}
-                    {settings.dataSourceId && <p className="m-0 text-sm">{t("Destination:")}{' '}{settings.dataSourceName ?? t('Saved database')}.</p>}
-                    <NotionDestination projectId={projectId} settings={settings} />
-                </>}
-            </>}
-            {settings.lastSyncedAt && <p className="m-0 text-sm text-muted-foreground">{t("Last synced")}{' '}<DateTime value={settings.lastSyncedAt} />.</p>}
-            {settings.pausedUntil && <p className="m-0 text-sm text-muted-foreground">{t("Notion requests resume after")}{' '}<DateTime value={settings.pausedUntil} />.</p>}
-            {settings.needsReviewCount > 0 && <Alert><AlertTitle>{t("Some threads need review")}</AlertTitle>
-                <AlertDescription>{settings.needsReviewCount}{settings.needsReviewCountCapped ? '+' : ''} {t("threads could not be confirmed in Notion. Check their existing copies before retrying. uier retains uncertain page identities to avoid duplicates.")}</AlertDescription>
-            </Alert>}
-            {settings.backfill && <p role="status" className="m-0 text-sm text-muted-foreground">{t("Backfill:")}{' '}{settings.backfill.queued} {t("of")}{' '}{settings.backfill.total} {t("selected threads queued for delivery.")}{' '}{settings.backfill.done && <>{t("Queueing is complete.")}{' '}{t("Delivery continues in the background.")}</>}</p>}
-            {connected && <NotionManagement projectId={projectId} settings={settings} />}
-            <p className="m-0 text-sm text-muted-foreground">{t("Private feedback is never sent. Making shared feedback private or deleting it clears and trashes reachable Notion pages. Notion’s history, files and other retained copies follow its own settings.")}</p>
+            {!settings.configured && <p className="m-0 text-sm text-muted-foreground">{t("Notion is unavailable on this deployment. A site administrator needs to configure it.")}</p>}
+            {connected ? <NotionConnection projectId={projectId} settings={settings} connectHref={connectHref} />
+                : settings.configured && <a href={connectHref} className={cn(buttonVariants(), 'w-fit')}>{t("Connect Notion")}<ArrowUpRight data-icon="inline-end" /></a>}
         </div>
     </Section>;
 }
 
-function NotionDestination({ projectId, settings }: { projectId: string; settings: NotionSettingsView }) {
+function NotionConnection({ projectId, settings, connectHref }: { projectId: string; settings: NotionSettingsView; connectHref: string }) {
     const { t } = useAppI18n();
-    const id = useId();
+    const needsReconnect = settings.status === 'needs_reconnect';
+    const usable = settings.configured && !needsReconnect;
+    const canSync = settings.configured && Boolean(settings.dataSourceId) && settings.status === 'connected';
+    const problem = usable && settings.statusCode && Object.hasOwn(problems, settings.statusCode) ? problems[settings.statusCode] : undefined;
+
+    // The database and its field mapping: open until a database is saved, then behind Change database
+    const form = useDestinationForm(Boolean(settings.dataSourceId));
     const [, startLoad] = useTransition();
     const [sources, loadSources, loadingSources] = useActionState(loadNotionDataSourcesAction, null);
     const [fields, loadFields, loadingFields] = useActionState(loadNotionSchemaAction, null);
+    const [saved, save, saving] = useActionState(async (previous: ActionState, data: FormData) => {
+        const response = await saveNotionMappingAction(previous, data);
+        if (response?.ok) form.close();
+        return response;
+    }, null);
+    function toggleForm() {
+        if (saving) return;
+        if (form.editing) return form.close();
+        form.edit();
+        // Asking to change the database is the request to read the databases and the saved one's fields
+        const source = new FormData(); source.set('projectId', projectId); source.set('dataSourceId', settings.dataSourceId!);
+        startLoad(() => { loadSources(source); loadFields(source); });
+    }
+
+    return <>
+        {problem && <Alert><AlertTitle>{t("Check the Notion connection")}</AlertTitle><AlertDescription>{t(problem)}</AlertDescription></Alert>}
+        {settings.needsReviewCount > 0 && <Alert><AlertTitle>{t("Some threads need review")}</AlertTitle>
+            <AlertDescription>{settings.needsReviewCount}{settings.needsReviewCountCapped ? '+' : ''} {t("threads could not be confirmed in Notion. Check their existing copies before retrying. uier retains uncertain page identities to avoid duplicates.")}</AlertDescription>
+        </Alert>}
+
+        <IntegrationDetails ref={form.details}>
+            {settings.notionWorkspaceName && <IntegrationDetail term={t("Workspace")}>{settings.notionWorkspaceName}</IntegrationDetail>}
+            {settings.dataSourceId && <>
+                <IntegrationDetail term={t("Database")} action={usable && <ChangeDestinationButton form={form} onClick={toggleForm}>{t("Change database")}</ChangeDestinationButton>}>
+                    {settings.dataSourceName ?? t('Saved database')}
+                </IntegrationDetail>
+                <IntegrationDetail term={t("Status values")}>
+                    {settings.mapping?.status ? `${settings.mapping.status.open} / ${settings.mapping.status.done}` : t("Not mapped")}
+                </IntegrationDetail>
+            </>}
+            {settings.lastSyncedAt && <IntegrationDetail term={t("Last synced")}><DateTime value={settings.lastSyncedAt} /></IntegrationDetail>}
+            {settings.pausedUntil && <IntegrationDetail term={t("Requests resume")}><DateTime value={settings.pausedUntil} /></IntegrationDetail>}
+            <BackfillDetail backfill={settings.backfill} />
+        </IntegrationDetails>
+
+        {settings.configured && needsReconnect && <a href={connectHref} className={cn(buttonVariants(), 'w-fit')}>{t("Reconnect Notion")}<ArrowUpRight data-icon="inline-end" /></a>}
+
+        {usable && form.open && <DestinationPanel form={form}>
+            <NotionDestination projectId={projectId} settings={settings} sources={sources} loadSources={loadSources} loadingSources={loadingSources}
+                fields={fields} loadFields={loadFields} loadingFields={loadingFields}
+                save={save} saving={saving} error={saved && !saved.ok ? saved : null} onCancel={settings.dataSourceId ? form.close : undefined} />
+        </DestinationPanel>}
+        {!form.open && <FormMessage state={saved} />}
+
+        <ConnectionControls projectId={projectId} manage={manageNotionAction}
+            sync={settings.enabled || canSync ? { checked: settings.enabled } : undefined}
+            backfill={canSync && settings.enabled ? { label: t("Backfill existing feedback"), queueing: Boolean(settings.backfill && !settings.backfill.done) } : undefined}
+            reconnect={usable ? { label: t("Reconnect Notion"), href: connectHref } : undefined}
+            disconnect={{ label: t("Disconnect Notion"), title: t("Disconnect Notion from this project?"),
+                description: t("Stops future sync from this project. Existing pages and files remain in Notion. Other projects keep their connections.") }}>
+            {canSync && <ConnectionNote>{t("Backfill selects up to 1,000 existing shared threads for this Notion destination. New feedback syncs automatically while sync is on.")}</ConnectionNote>}
+            <ConnectionNote>{t("Private feedback is never sent. Making shared feedback private or deleting it clears and trashes reachable Notion pages. Notion’s history, files and other retained copies follow its own settings.")}</ConnectionNote>
+        </ConnectionControls>
+    </>;
+}
+
+/** The database, then its fields. The lists are read from Notion only when asked for */
+function NotionDestination({ projectId, settings, sources, loadSources, loadingSources, fields, loadFields, loadingFields, save, saving, error, onCancel }: {
+    projectId: string;
+    settings: NotionSettingsView;
+    sources: Sources;
+    loadSources: (form: FormData) => void;
+    loadingSources: boolean;
+    fields: LoadedSchema;
+    loadFields: (form: FormData) => void;
+    loadingFields: boolean;
+    save: (form: FormData) => void;
+    saving: boolean;
+    error: ActionState;
+    onCancel?: () => void;
+}) {
+    const { t } = useAppI18n();
+    const id = useId();
+    const [, startLoad] = useTransition();
     const [sourceId, setSourceId] = useState(settings.dataSourceId ?? '');
     const choices = sources?.ok ? sources.data : [];
     const allChoices = settings.dataSourceId && !choices.some(item => item.id === settings.dataSourceId)
         ? [{ id: settings.dataSourceId, name: settings.dataSourceName ?? t('Saved database') }, ...choices] : choices;
     const options = fields?.ok && fields.data.dataSourceId === sourceId ? fields.data : undefined;
+    const busy = loadingSources || loadingFields || saving;
     return <FieldGroup>
         <Field>
             <FieldLabel>{t("Notion databases")}</FieldLabel>
             <FieldDescription>{t("Load databases shared with this Notion connection. These actions only read your choices.")}</FieldDescription>
             <form action={loadSources}><input type="hidden" name="projectId" value={projectId} />
-                <Button type="submit" variant="outline" disabled={loadingSources || loadingFields}>
+                <Button type="submit" variant={sources?.ok || settings.dataSourceId ? "outline" : "default"} disabled={busy}>
                     {loadingSources ? <Spinner data-icon="inline-start" /> : <RefreshCw data-icon="inline-start" />}{t("Load databases")}{' '}</Button>
             </form>
             <FormMessage state={sources} />
@@ -100,17 +174,19 @@ function NotionDestination({ projectId, settings }: { projectId: string; setting
             <input type="hidden" name="projectId" value={projectId} /><input type="hidden" name="dataSourceId" value={sourceId} />
             <FieldGroup>
                 <Field><FieldLabel htmlFor={`${id}-source`}>{t("Database")}</FieldLabel>
-                    <Select items={allChoices.map(item => ({ value: item.id, label: item.name }))} value={sourceId} onValueChange={value => value !== null && setSourceId(value)} disabled={loadingFields}>
+                    <Select items={allChoices.map(item => ({ value: item.id, label: item.name }))} value={sourceId} onValueChange={value => value !== null && setSourceId(value)} disabled={loadingFields || saving}>
                         <SelectTrigger id={`${id}-source`}><SelectValue placeholder={t("Choose a database")} /></SelectTrigger>
                         <SelectContent><SelectGroup>{allChoices.map(item => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}</SelectGroup></SelectContent>
                     </Select>
                     <FieldDescription>{t("For a database with multiple data sources, each source appears as a separate choice.")}</FieldDescription>
                 </Field>
-                <Field><Button type="submit" className="w-fit" variant="outline" disabled={!sourceId || loadingFields || loadingSources}>
-                    {loadingFields && <Spinner data-icon="inline-start" />}{t("Load fields")}</Button><FormMessage state={fields} /></Field>
+                <div className="flex flex-col items-start gap-3"><Button type="submit" variant="outline" disabled={!sourceId || busy}>
+                    {loadingFields && <Spinner data-icon="inline-start" />}{t("Load fields")}</Button><FormMessage state={fields} /></div>
             </FieldGroup>
         </form>}
-        {options && <NotionMappingForm key={`${options.dataSourceId}:${JSON.stringify(options.schema)}`} projectId={projectId} settings={settings} options={options} />}
+        {options ? <NotionMappingForm key={`${options.dataSourceId}:${JSON.stringify(options.schema)}`} projectId={projectId} settings={settings} options={options}
+            save={save} pending={saving} error={error} onCancel={onCancel} />
+            : onCancel && <Button type="button" variant="ghost" className="w-fit" disabled={saving} onClick={onCancel}>{t("Cancel")}</Button>}
     </FieldGroup>;
 }
 
@@ -130,10 +206,12 @@ function initialMapping(options: SchemaOptions, settings: NotionSettingsView) {
     if (source.status && options.schema[source.status.property]?.type === source.status.type) result.status = source.status;
     return result;
 }
-function NotionMappingForm({ projectId, settings, options }: { projectId: string; settings: NotionSettingsView; options: SchemaOptions }) {
+/** The saved mapping comes back in the form when its database is the saved one */
+function NotionMappingForm({ projectId, settings, options, save, pending, error, onCancel }: {
+    projectId: string; settings: NotionSettingsView; options: SchemaOptions; save: (form: FormData) => void; pending: boolean; error: ActionState; onCancel?: () => void;
+}) {
     const { t } = useAppI18n();
     const id = useId(); const form = useRef<HTMLFormElement>(null); const confirmed = useRef(false);
-    const [state, save, pending] = useActionState(saveNotionMappingAction, null);
     const [mapping, setMapping] = useState(() => initialMapping(options, settings));
     const [confirming, setConfirming] = useState(false);
     const chosen = [...mappedFields.map(field => mapping[field.key]).filter(Boolean), mapping.status?.property].filter(Boolean);
@@ -176,7 +254,13 @@ function NotionMappingForm({ projectId, settings, options }: { projectId: string
                 {(!mapping.title || !mapping.uierId) && <Alert><AlertTitle>{t("Required fields are missing")}</AlertTitle><AlertDescription>{t("Choose a title field and a rich text field for the uier id. Add missing fields in Notion, then load the fields again.")}</AlertDescription></Alert>}
                 {duplicates.size > 0 && <Alert><AlertTitle>{t("Choose separate fields")}</AlertTitle><AlertDescription>{t("A Notion field can only be mapped once.")}</AlertDescription></Alert>}
                 <FieldDescription>{t("Saving turns sync on for shared feedback, including screenshots. Existing Notion pages stay in their previous database when the destination changes.")}</FieldDescription>
-                <Field><Button type="submit" className="w-fit" disabled={pending || invalid}>{pending && <Spinner data-icon="inline-start" />}{t("Save Notion mapping")}</Button><FormMessage state={state} /></Field>
+                <div className="flex flex-col gap-3">
+                    <div className="flex flex-wrap gap-2">
+                        <Button type="submit" disabled={pending || invalid}>{pending && <Spinner data-icon="inline-start" />}{t("Save Notion mapping")}</Button>
+                        {onCancel && <Button type="button" variant="ghost" disabled={pending} onClick={onCancel}>{t("Cancel")}</Button>}
+                    </div>
+                    <FormMessage state={error} />
+                </div>
             </FieldGroup>
         </form>
         <AlertDialog open={confirming} onOpenChange={setConfirming}><AlertDialogContent><AlertDialogHeader>
@@ -200,32 +284,4 @@ function PropertyChoice({ id, label, schema, types, value, onChange, required = 
         </Select>
         {!choices.length && <FieldDescription>{t("No")}{' '}{types.join(' or ')} {t("fields are available.")}</FieldDescription>}
     </Field>;
-}
-
-function NotionManagement({ projectId, settings }: { projectId: string; settings: NotionSettingsView }) {
-    const { t } = useAppI18n();
-    const router = useRouter(); const [state, setState] = useState<ActionState<{ message: string }>>(null);
-    const [pending, startTransition] = useTransition(); const [confirming, setConfirming] = useState(false);
-    const change = (operation: 'enable' | 'disable' | 'disconnect' | 'backfill') => startTransition(async () => {
-        const form = new FormData(); form.set('projectId', projectId); form.set('operation', operation);
-        const result = await manageNotionAction(null, form); setState(result);
-        if (result?.ok) { setConfirming(false); router.refresh(); }
-    });
-    const canSync = settings.configured && Boolean(settings.dataSourceId) && settings.status === 'connected';
-    return <div className="flex flex-col gap-3"><div className="flex flex-wrap gap-2">
-        {settings.configured && settings.status !== 'needs_reconnect' && <a href={`/app/notion/connect?project=${encodeURIComponent(projectId)}`} className={buttonVariants({ variant: 'outline' })}>{t("Reconnect Notion")}</a>}
-        {(settings.enabled || canSync) && <Button type="button" variant="outline" disabled={pending} onClick={() => change(settings.enabled ? 'disable' : 'enable')}>
-            {pending && <Spinner data-icon="inline-start" />}{settings.enabled ? t("Turn sync off") : t("Turn sync on")}</Button>}
-        {canSync && settings.enabled && <Button type="button" variant="outline" disabled={pending || Boolean(settings.backfill && !settings.backfill.done)} onClick={() => change('backfill')}>{t("Backfill existing feedback")}</Button>}
-        <AlertDialog open={confirming} onOpenChange={setConfirming}><AlertDialogTrigger render={<Button type="button" variant="outline" disabled={pending} />}>{t("Disconnect Notion")}</AlertDialogTrigger>
-            <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>{t("Disconnect Notion from this project?")}</AlertDialogTitle>
-                <AlertDialogDescription>{t("Stops future sync from this project. Existing pages and files remain in Notion. Other projects keep their connections.")}</AlertDialogDescription>
-            </AlertDialogHeader><FormMessage state={state && !state.ok ? state : null} /><AlertDialogFooter><AlertDialogCancel disabled={pending}>{t("Keep connected")}</AlertDialogCancel>
-                <AlertDialogAction variant="outline" disabled={pending} onClick={() => change('disconnect')}>{pending && <Spinner data-icon="inline-start" />}{t("Disconnect Notion")}</AlertDialogAction>
-            </AlertDialogFooter></AlertDialogContent>
-        </AlertDialog>
-    </div>
-        {canSync && <p className="m-0 text-sm text-muted-foreground">{t("Backfill selects up to 1,000 existing shared threads for this Notion destination. New feedback syncs automatically while sync is on.")}</p>}
-        <FormMessage state={state?.ok ? { ...state, message: state.data.message } : state} />
-    </div>;
 }
