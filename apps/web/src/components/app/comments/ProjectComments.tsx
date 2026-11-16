@@ -392,7 +392,7 @@ function ProjectCommentsView({ labels = [], workflow = defaultStatusWorkflow, pr
             ) : board ? (
                 <LabelBoards grouped={groupIds !== false} labels={groupedLabels} renderBoard={group => <CommentBoard workflow={workflow} projectOf={() => ({ id: projectId, assignees })} columns={Object.fromEntries(Object.entries(columns).map(([status, cards]) => [status, cards.filter(comment => inLabelWindow(comment, group))])) as typeof columns} sorts={boardSorts} onSort={canSortBoard ? changeSort : undefined}
                     archiveAll={canSortBoard ? { projectId, group, params: Object.fromEntries(Object.entries(query).flatMap(([key, value]) => value === undefined ? [] : [[key, String(value)]])) } : undefined}
-                    archive={{ comments: archived.filter(comment => inLabelWindow(comment, group)), expanded: archiveExpanded, onExpandedChange: changeArchive }}
+                    archive={{ comments: archived.filter(comment => inLabelWindow(comment, group)), expanded: archiveExpanded, onExpandedChange: changeArchive }} collapseScope={projectId}
                     allComments={scopeComments} userId={userId} openComment={openComment}
                     detailRevision={pager.data.revision} paging={Object.fromEntries(orderedStatuses(workflow).map(status => [status.id, pageControl(group ? labelLaneKey(status.id, group) : status.id)]))} />} />
             ) : (

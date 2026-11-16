@@ -54,7 +54,7 @@ mutations and accessibility scans; individual assertions retain their usual time
   `e2e/app-keyboard.spec.ts` the board's and My work's. `CommentBoard.tsx` shows
   Open, In progress, Ready to verify and Done as compact cards, one column per `commentStatuses` entry (keep the
   column set data-driven: that list and `commentStatusLabels`), then Archive, collapsed unless expanded
-  ([Board archive column](#board-archive-column)), in one row of equal columns however many there are, on phones and
+  ([Board archive column](#board-archive-column); any status column folds to a strip too, [collapsed board columns](#collapsed-board-columns)), in one row of equal columns however many there are, on phones and
   tablets too, each 18rem to 20rem (on a phone at most the page's width less 3rem, so the next column peeks in at the
   edge, [uier #305](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_Lnt-zHIL2JcwH6VBeik9Y)) and centred beyond that; when they don't fit, the board scrolls sideways
   (`data-board-scroll`, `justify-center-safe`; a swipe on a touch screen) rather than squeezing them. The scroller runs
@@ -204,6 +204,25 @@ defaults does not initialize Zod. Actions and persistence use that same schema b
   commenters, guests and uier's user feedback project (staff only, kept by provisioning).
   `e2e/comment-order.spec.ts` (full suite) chooses sorts from the header, checks the keys, Move and a
   drop's placeholder against them, a reload and a teammate's board.
+
+## Collapsed board columns
+
+[uier #464](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_YRhNYQfUrEUYtzlB_GI4h): each status column's header ends with Collapse (`FoldHorizontalIcon`, "Collapse In progress", a tooltip,
+`aria-expanded`), after the sort. Collapsed, the column is a 3rem strip like Archive's, on phones too: its dot (with
+its glow), name and count run down it as one turned group, the whole strip one button inside the column's heading
+("In progress 2", `aria-expanded="false"`, `data-column-toggle`) that expands it. The focus moves to the other toggle
+either way, and the strip and the column morph into each other like Archive's (`useColumnFold`, nothing moves with
+reduced motion). The grid's tracks follow (`--board-columns`), so the next column moves up beside the strip.
+- Per viewer, unlike the sorts and Archive's expansion: `comments/boardCollapse.ts` keeps the collapsed status ids in this
+  browser (`localStorage` `uier:board-collapsed`, one list per board: the project's id, or `my-work`), and other tabs
+  follow. The server and the first paint show every column; a remembered choice applies once the board hydrates.
+  Blocked storage keeps it until the page is opened again. Label lanes on one project share the choice.
+- A collapsed column's cards are not rendered: they are out of the keys' lanes (← → skip it, J and K pass it) and
+  the tab stop. It is still a drop target: while a card is dragged the strip stretches to the longest column and
+  takes the dashed, highlighted and refused looks like any column, and a dropped card waits there, counted. Move
+  still offers it; after a move into it the focus goes to its strip, and the move is announced as usual.
+- `e2e/comment-board.spec.ts` covers collapsing, the strip's width and name, a mouse or touch drop onto it, the
+  reload, Move from the keyboard and expanding again.
 
 ## Motion
 

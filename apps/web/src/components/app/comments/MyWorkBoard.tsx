@@ -214,7 +214,7 @@ export function MyWorkBoard({ items, assignees, userId, empty, header, noMatch, 
                 {/* Mounted with no card too, only its columns hidden, so a thread archived from the last card keeps its sheet (and Restore) */}
                 <div className={onBoard.length ? 'contents' : 'hidden'}>
                     <CommentBoard verificationEnabled={onBoard.some(comment => comment.verificationEnabled)} projectOf={projectOf} columns={columns} sorts={sorts} onSort={(column, sort) => { if (column !== 'archive') onSort(column, sort); }}
-                        allComments={comments} userId={userId} openComment={openComment} />
+                        allComments={comments} userId={userId} openComment={openComment} collapseScope="my-work" />
                 </div>
             </div>
         </CommentUpdatesProvider>
