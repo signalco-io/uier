@@ -17,6 +17,13 @@ function featureState(feature: IntegrationFeature, connection?: IntegrationConne
     return 'Optional';
 }
 
+/** On reads as success (green tint and dot), Off is muted and Optional stays neutral, so the current setup stands out */
+const stateBadge: Record<NonNullable<ReturnType<typeof featureState>>, string> = {
+    On: 'border-[hsl(var(--brand-success)/0.35)] bg-[hsl(var(--brand-success)/0.12)] text-[hsl(var(--brand-success))]',
+    Off: 'text-muted-foreground',
+    Optional: ''
+};
+
 /**
  * What a service does with the project's shared feedback, from the same catalog as its public page
  * (`/integrations/<provider>`). With a connection, two-way status sync and reply sync say whether they are on.
@@ -36,7 +43,9 @@ export async function IntegrationFeatures({ provider, connection }: { provider: 
                         <ItemTitle>{t(feature.title)}</ItemTitle>
                         <ItemDescription className="line-clamp-none">{t(feature.detail)}</ItemDescription>
                     </ItemContent>
-                    {state && <ItemActions><Badge variant={state === 'On' ? "secondary" : "outline"}>{t(state)}</Badge></ItemActions>}
+                    {state && <ItemActions><Badge variant="outline" className={stateBadge[state]}>
+                        {state === 'On' && <span aria-hidden="true" className="size-1.5 rounded-full bg-[hsl(var(--brand-success))]" />}{t(state)}
+                    </Badge></ItemActions>}
                 </Item>;
             })}
         </ItemGroup>

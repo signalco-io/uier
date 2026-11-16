@@ -61,6 +61,9 @@
   is under More options, where GitHub also lists the workspace's other installations. Without a connection each card is
   one Connect button (GitHub adds those installations), after Disconnect one Connect or Reconnect button. `github.spec.ts`,
   `linear.spec.ts`, `notion.spec.ts` and `azure-devops.spec.ts` cover the controls.
+- **What it does** (`integrations/IntegrationFeatures.tsx`, [uier #461](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2F05lb2p3clzi9%2Fsettings%2Fintegrations%2Fslack&comment=comment_pIH4sQUEjMNlNVFuIemAC)) marks an optional
+  feature's state with a badge: On green (`--brand-success` tint, text and a dot beside the word), Off muted, Optional
+  neutral, so the current setup stands out. Send a test notification carries Lucide's `Send` icon, a spinner while it sends.
 - The board's column sorts are the project's too, but they are chosen on the board, from each column's header, by
   everyone who triages the project, and saved at once ([column sorts](comments-inbox.md#board-column-sorts)).
 
