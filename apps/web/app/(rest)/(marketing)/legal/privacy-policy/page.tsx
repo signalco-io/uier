@@ -563,7 +563,7 @@ export default function PrivacyPolicyPage() {
                 To find failing requests and improve what coding tools can do, we record each coding tool request
                 in our hosting logs: the operation and the tool, prompt, resource or event it used, the outcome and error
                 codes, which arguments it gave with their sizes, numbers and fixed options (such as a status
-                filter), the size of the answer, the tool&rsquo;s own name and version, and keyed hashes of your
+                filter), the size of the answer, measured database usage, the tool&rsquo;s own name and version, and keyed hashes of your
                 account and the connection. These records contain no feedback, replies, search text, page
                 addresses, callback addresses, names, email addresses, tokens, secrets or plain account, project or feedback ids.
                 They follow the hosting log retention settings.

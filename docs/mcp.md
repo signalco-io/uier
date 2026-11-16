@@ -986,6 +986,13 @@ two keyed references: `ref` for the connection and `user` for the account. They 
 an HMAC with the server secret, so requests of one connection can be followed across events, and
 an operator who knows a connection id can find its requests, without the id in the logs.
 
+The bounded monitor read tools (`list_feedback` and `list_feedback_events`) add optional numeric
+`database.requestCharge` and `database.operations` to their request event. The response header
+`x-uier-database-ru` carries the same observed SDK charge, including the HTTP quota counter.
+This is per-request accounting without diagnostic sampling; interrupted requests and streams
+omit it. It excludes counter TTL cleanup, storage, transfer, hosting and AI tokens. Other tools
+leave database charge coverage unknown.
+
 `calls` has one entry per JSON-RPC message (at most 10; `omittedCalls` counts the rest):
 
 - `method` (the skills methods `skills/list`, `skills/get` and `resources/directory/read` included;

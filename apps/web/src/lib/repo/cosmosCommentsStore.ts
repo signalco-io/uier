@@ -527,10 +527,10 @@ export function createCosmosCommentsStore(getContainer: () => Container = cosmos
             const container = getContainer();
             for (let attempt = 0; attempt < 3; attempt++) {
                 try {
-                    await container.item(id, domain).patch<DbCounter>({
+                    await cosmosPoint(() => container.item(id, domain).patch<DbCounter>({
                         condition: `FROM c WHERE c.count < ${limit}`,
                         operations: [{ op: 'incr', path: '/count', value: 1 }]
-                    });
+                    }), { operation: 'comments.counter.patch', container: container.id, partition: 'single' });
                     return true;
                 } catch (error) {
                     const code = errorCode(error);
@@ -542,7 +542,8 @@ export function createCosmosCommentsStore(getContainer: () => Container = cosmos
 
                 // First write in this window: create the counter (409 = created concurrently, patch again)
                 try {
-                    await container.items.create<DbCounter>({ id, domain, type: 'counter', count: 1, ttl: ttlSeconds });
+                    await cosmosPoint(() => container.items.create<DbCounter>({ id, domain, type: 'counter', count: 1, ttl: ttlSeconds }),
+                        { operation: 'comments.counter.create', container: container.id, partition: 'single' });
                     return limit > 0;
                 } catch (error) {
                     if (errorCode(error) !== 409)

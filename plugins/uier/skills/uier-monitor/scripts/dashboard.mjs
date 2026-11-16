@@ -322,6 +322,14 @@ export function snapshot(dir, now = Date.now()) {
     const pidFile = json(join(dir, 'watch.pid'), null);
     const inbox = list(json(join(dir, 'inbox.json'), []));
     const notification = json(join(dir, 'notification.json'), {}) ?? {};
+    const savedUsage = json(join(dir, 'usage.json'), {}) ?? {};
+    const usage = { requests: 0, responseBytes: 0, errors: 0, meteredRequests: 0, databaseRu: 0, idleWakes: 0 };
+    const usageCutoff = new Date(now - 30 * DAY).toISOString().slice(0, 10);
+    const usageToday = new Date(now).toISOString().slice(0, 10);
+    for (const [day, values] of Object.entries(savedUsage.days ?? {})) {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || day < usageCutoff || day > usageToday) continue;
+        for (const key of Object.keys(usage)) if (Number.isFinite(values?.[key]) && values[key] >= 0) usage[key] += values[key];
+    }
     const events = journal(dir);
     const items = state.items && typeof state.items === 'object' ? state.items : {};
     const groups = Object.entries(state.groups && typeof state.groups === 'object' ? state.groups : {}).filter(([, group]) => group && typeof group === 'object');
@@ -407,6 +415,8 @@ export function snapshot(dir, now = Date.now()) {
         health.push({ level: 'warn', text: 'A wake was delivered but not taken yet (a busy or stopped thread, or a usage limit)', since: time(notification.deliveredAt) });
     if (text(seen.pollError)) health.push({ level: 'warn', text: `Polling fails: ${text(seen.pollError, 160)}` });
     if (seen.leases === 'unsupported') health.push({ level: 'warn', text: 'The watcher token cannot show the working spinner (it lacks Assign feedback).' });
+    if (running && pidFile?.persistent !== true) health.push({ level: 'warn', text: 'One-shot watching can start the AI without work; use persistent delivery.' });
+    if (usage.idleWakes) health.push({ level: 'warn', text: `${usage.idleWakes} idle model wakes recorded; check timer polling and the watcher token.` });
     // Monitors on one disk share this warning; the page shows it once.
     if (free !== null && free < 15) health.push({ level: 'warn', machine: true, text: `Low disk space: ${free} GiB free. Sessions need room for their worktrees.` });
     const limits = Object.entries(state.limits && typeof state.limits === 'object' ? state.limits : {})
@@ -462,7 +472,9 @@ export function snapshot(dir, now = Date.now()) {
         harness: { kind: text(state.harness?.kind, 24), thread: environment && thread ? sessionLink(`t3-thread://v2/${environment}/${thread}`) : undefined },
         status,
         watcher: { pid: running ? pid : undefined, version: text(running ? pidFile?.version : undefined, 16), persistent: running ? pidFile?.persistent === true : undefined,
-            startedAt: running ? time(pidFile?.startedAt) : undefined, heartbeatAt: time(heartbeat), reconciledAt: time(seen.reconciledAt) },
+            startedAt: running ? time(pidFile?.startedAt) : undefined, heartbeatAt: time(heartbeat), reconciledAt: time(seen.reconciledAt),
+            eventIntervalSeconds: Number.isFinite(seen.eventIntervalSeconds) ? seen.eventIntervalSeconds : undefined },
+        usage: { ...usage, since: time(savedUsage.since), databaseRu: usage.meteredRequests ? usage.databaseRu : null },
         note: text(settings.note, 320), updatedAt: time(state.updatedAt), wakes: Number(settings.wakes) || 0,
         slots: { used, max: Number(state.max) || 6 }, inbox: { total: inbox.length, loud: loud.length }, diskFreeGiB: free,
         health, waiting, pipeline, attention, ended,
@@ -1448,6 +1460,7 @@ function details(entry) {
             h('span', { class: 'facts num' }, [entry.watcher.version ? ['version', 'version ' + entry.watcher.version] : null,
                 entry.watcher.persistent === undefined ? null : entry.watcher.persistent ? ['persistent', 'persistent'] : ['oneshot', 'one-shot'],
                 entry.watcher.heartbeatAt ? ['heartbeat', ['checked in ', ago(entry.watcher.heartbeatAt)]] : null, ['wake', plural(entry.wakes, 'wake')],
+                entry.watcher.eventIntervalSeconds ? ['poll', 'event reads every ' + entry.watcher.eventIntervalSeconds + 's'] : null,
                 entry.inbox.total ? ['inbox', plural(entry.inbox.total, 'event') + ' in the inbox'] : null, entry.diskFreeGiB === null ? null : ['disk', entry.diskFreeGiB + ' GiB free']]
                 .filter(Boolean).map(function (fact) { return h('span', { class: 'fact' }, icon(fact[0]), fact[1]); })), links),
         h('div', { class: 'pipeline', 'data-key': 'pipeline', 'data-list': true }, columns.map(function (stage) {
@@ -1465,7 +1478,10 @@ function details(entry) {
                 h('h3', { text: 'Numbers' }), h('div', { class: 'stats', 'data-list': true },
                     tile('Closed, last 24 h', metrics.closed24h, plural(metrics.done, 'comment') + ' in total'),
                     tile('Start to close, median', cycle, metrics.cycleGroups ? plural(metrics.cycleGroups, 'group') + ', last 7 days' : 'last 7 days'),
-                    metrics.journal ? tile('Wakes, last 24 h', metrics.wakes24h, plural(metrics.quiet24h, 'event') + ' handled without one') : null))));
+                    metrics.journal ? tile('Wakes, last 24 h', metrics.wakes24h, plural(metrics.quiet24h, 'event') + ' handled without one') : null,
+                    entry.usage && entry.usage.since ? tile('Requests, up to 31 UTC days', entry.usage.requests, plural(entry.usage.errors, 'error') + ' · ' + Math.round(entry.usage.responseBytes / 1024) + ' KiB of response bodies') : null,
+                    entry.usage && entry.usage.since ? tile('Measured database RU', entry.usage.databaseRu === null ? 'Unknown' : entry.usage.databaseRu.toFixed(2), entry.usage.meteredRequests + '/' + entry.usage.requests + ' requests measured; excludes hosting and transfer') : null,
+                    entry.usage && entry.usage.since ? tile('Idle model wakes', entry.usage.idleWakes, 'Since usage recording began; up to 31 UTC days') : null))));
 }
 
 // The project's tile: its site's icon, which the server fetched, or the first letter of its name.

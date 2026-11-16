@@ -40,6 +40,9 @@ test('the monitor dashboard loads the toolbar under its own CSP, and a member co
             items: { a: { number: 7, decision: 'accepted', stage: 'in-progress' } },
             groups: { g7: { items: ['a'], state: 'building', model: 'claude-opus-5-5', effort: 'high', startedAt: new Date().toISOString() } }
         }));
+        writeFileSync(join(dir, 'usage.json'), JSON.stringify({ since: new Date().toISOString(), days: {
+            [new Date().toISOString().slice(0, 10)]: { requests: 8, responseBytes: 2048, meteredRequests: 0, idleWakes: 0 }
+        } }));
         let output = '';
         child = spawn(process.execPath, [dashboard, '--port', String(port), '--review', publicId, '--state', dir], {
             cwd: tmpdir(), stdio: ['ignore', 'pipe', 'pipe'],
@@ -56,6 +59,11 @@ test('the monitor dashboard loads the toolbar under its own CSP, and a member co
         await expect(page).toHaveURL(`${origin}/?toolbar-code=${publicId}`);
         await expect(page.getByRole('article', { name: 'Fixture monitor' })).toContainText('Building');
         await expect(toolbar(page)).toBeVisible();
+        const monitor = page.getByRole('article', { name: 'Fixture monitor' });
+        await expect(monitor.getByText('Requests, up to 31 UTC days')).toBeVisible();
+        await expect(monitor.getByText('Unknown', { exact: true })).toBeVisible();
+        await expect(monitor.getByText('0/8 requests measured; excludes hosting and transfer')).toBeVisible();
+        await monitor.getByRole('button', { name: 'Hide details' }).click();
 
         await page.getByRole('button', { name: 'Add comment' }).click();
         const card = await page.getByRole('heading', { name: 'Fixture monitor' }).boundingBox();

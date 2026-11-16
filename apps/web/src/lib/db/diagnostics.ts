@@ -1,4 +1,13 @@
 import type { CosmosDiagnostics, QueryIterator } from '@azure/cosmos';
+import { AsyncLocalStorage } from 'node:async_hooks';
+
+export type CosmosRequestUsage = { requestCharge: number; operations: number };
+const requestUsage = new AsyncLocalStorage<CosmosRequestUsage>();
+
+/** Request-local numeric accounting, independent of opt-in diagnostic log sampling. */
+export function withCosmosRequestUsage<T>(usage: CosmosRequestUsage, action: () => T): T {
+    return requestUsage.run(usage, action);
+}
 
 type Response = { requestCharge?: number; diagnostics?: CosmosDiagnostics; code?: number; resource?: unknown; resources?: unknown[]; headers?: Record<string, unknown> };
 type Labels = { operation: string; container: string; partition: 'single' | 'cross' };
@@ -10,14 +19,19 @@ export function cosmosMeasurement(labels: Labels) {
     const configured = Number(process.env.UIER_COSMOS_DIAGNOSTICS_SAMPLE_RATE ?? 0);
     const rate = Number.isFinite(configured) ? Math.max(0, Math.min(1, configured)) : 0;
     const sampled = rate > 0 && Math.random() < rate;
+    const usage = requestUsage.getStore();
     const start = performance.now();
     let requestCharge = 0, pages = 0, rows = 0, retries = 0, throttles = 0;
     return {
         add(value: unknown, count: number, page = false) {
-            if (!sampled || !value || typeof value !== 'object') return;
+            if ((!sampled && !usage) || !value || typeof value !== 'object') return;
             const response = value as Response;
             const charge = Number(response.requestCharge ?? response.headers?.['x-ms-request-charge'] ?? 0);
-            if (Number.isFinite(charge)) requestCharge += charge;
+            if (Number.isFinite(charge) && charge >= 0) {
+                requestCharge += charge;
+                if (usage) { usage.requestCharge += charge; usage.operations++; }
+            }
+            if (!sampled) return;
             rows += count;
             if (page) pages++;
             const attempts = response.diagnostics?.clientSideRequestStatistics?.retryDiagnostics?.failedAttempts ?? [];

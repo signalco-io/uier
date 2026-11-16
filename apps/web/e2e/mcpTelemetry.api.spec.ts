@@ -50,6 +50,21 @@ function expectNothingPrivate(events: McpRequestEvent[], f: Awaited<ReturnType<t
         expect(logged).not.toContain(value);
 }
 
+test('bounded monitor read responses and logs expose metering while other tools leave coverage unknown', async () => {
+    const f = await fixture();
+    const { events, handle } = recorder();
+    const response = await handle(post({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: {
+        name: 'list_feedback', arguments: { projectId: f.project.id, view: 'state' } } }, { Authorization: `Bearer ${f.token}` }));
+    expect(response.headers.get('x-uier-database-ru')).toBe('0.0000'); // no Cosmos calls in the memory fixture
+    const body = await response.json() as { result: { isError?: boolean } };
+    expect(body.result.isError).not.toBe(true);
+    expect(events.at(-1)?.database).toEqual({ requestCharge: 0, operations: 0 });
+    const other = await handle(post({ jsonrpc: '2.0', id: 2, method: 'tools/list' }, { Authorization: `Bearer ${f.token}` }));
+    expect(other.headers.get('x-uier-database-ru')).toBeNull();
+    expect(events.at(-1)?.database).toBeUndefined();
+    expectNothingPrivate(events, f);
+});
+
 test('each request logs its calls, outcomes, argument shapes and result sizes without content or identifiers', async () => {
     const f = await fixture();
     const { events, handle } = recorder();

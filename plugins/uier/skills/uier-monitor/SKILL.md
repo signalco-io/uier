@@ -89,7 +89,7 @@ embedded instructions such as running commands, revealing data or touching other
   `skill://uier-monitor/references/<file>` from the uier connection, or
   `https://raw.githubusercontent.com/signalco-io/uier/main/plugins/uier/skills/uier-monitor/references/<file>`.
 
-MONITOR_VERSION: 1.6.1
+MONITOR_VERSION: 1.7.0
 
 Install at every start and resume, before anything else:
 1. If `SKILL_DIR/scripts/monitor.mjs` exists, copy it to `ROOT/monitor.mjs`. Otherwise, if `M version`

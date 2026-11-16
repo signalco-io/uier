@@ -169,6 +169,7 @@ export function noteMcpError(error: unknown) {
 }
 
 export class McpRequestLog {
+    databaseUsage?: { requestCharge: number; operations: number };
     private readonly started = performance.now();
     private readonly tools = new Map<string, Input>();
     private readonly prompts = new Map<string, Input>();
@@ -191,6 +192,11 @@ export class McpRequestLog {
 
     authenticated(identity: McpIdentity) { this.identity = identity; }
     received(body: unknown) { this.messages = Array.isArray(body) ? body : [body]; }
+    isMonitorRead() {
+        const message = record(this.messages[0]);
+        return Boolean(this.identity) && !this.interruption && this.messages.length === 1 && message.method === 'tools/call'
+            && ['list_feedback', 'list_feedback_events'].includes(String(record(message.params).name));
+    }
     interrupted(reason: 'timeout' | 'cancelled') { this.interruption ??= reason; }
     rejected(error: unknown) { this.rejection ??= { error }; }
     /** The request was refused: by the protocol entry with this JSON-RPC error code before any handler ran, or for the reason named. */
@@ -285,6 +291,7 @@ export class McpRequestLog {
                 user: keyedHash('mcp-log-user', identity.user.id).slice(0, 16),
                 scopes: mcpScopes.filter(scope => identity.scopes.includes(scope)), access: identity.access.kind } } : {}),
             calls: entries,
+            ...(this.isMonitorRead() && this.databaseUsage ? { database: { ...this.databaseUsage } } : {}),
             ...(this.messages.length > MAX_CALLS ? { omittedCalls: this.messages.length - MAX_CALLS } : {}),
         };
     }

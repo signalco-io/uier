@@ -128,7 +128,7 @@ function runtime() {
         static now() { return now; }
     }
     const context = vm.createContext({ process: { argv: [], pid: 42, platform: 'linux', on() {} },
-        Date: Clock, Set, Map, createHash, URL, AbortSignal, dirname, join: (...parts) => parts.join('/'),
+        Date: Clock, Set, Map, createHash, URL, AbortSignal, Buffer, dirname, join: (...parts) => parts.join('/'),
         mkdirSync() {}, rmSync: path => files.delete(path) });
     vm.runInContext(source, context);
     Object.assign(context, {
@@ -410,6 +410,111 @@ test('persistent watching suppresses idle model wakes and keeps a heartbeat', as
     assert.equal(output.length, 0);
     assert.ok(files.get('/state/watch.json').heartbeatAt);
     assert.equal(files.has('/state/watch.pid'), false);
+});
+
+test('saved T3 monitors default to detached event delivery and model polling requires an explicit opt-in', () => {
+    const { context } = runtime();
+    const state = { harness: { kind: 't3', threadId: 'saved-thread', t3Cli: '/tools/t3' } };
+    const selected = context.watchOptions({ replace: true }, state);
+    assert.deepEqual([selected.persistent, selected.detach, selected.thread, selected['t3-cli']], [true, true, 'saved-thread', '/tools/t3']);
+    assert.equal(context.watchOptions({ 'allow-model-polling': true }, state).persistent, undefined);
+    assert.equal(context.watchOptions({ persistent: true }, state).detach, true);
+    assert.equal(context.watchOptions({ persistent: true, worker: true }, state).detach, false);
+    assert.throws(() => context.watchOptions({}, { harness: { kind: 't3' } }), /thread id/);
+});
+
+test('persistent upgrades retire legacy idle markers without consuming actual queued work', async () => {
+    const { context, files } = runtime();
+    files.set('/state/inbox.json', [{ type: 'heartbeat' }, { type: 'reply', commentId: 'keep' }, { type: 'poll-uier' }]);
+    const queued = await context.enqueue('/state', [{ type: 'assignment', commentId: 'new' }], true);
+    assert.deepEqual(Array.from(queued, event => event.type), ['reply', 'assignment']);
+    assert.deepEqual(files.get('/state/inbox.json').map(event => event.type), ['reply', 'assignment']);
+});
+
+test('an hour of idle watching backs off only event reads, keeps controls fast and wakes nobody', async () => {
+    const { context, files, advance } = runtime();
+    let cycles = 0, polls = 0, controls = 0;
+    context.pollUier = async (_ctx, _state, seen) => {
+        polls++;
+        if (!seen.reconciledAt || context.Date.now() - Date.parse(seen.reconciledAt) >= 900_000)
+            seen.reconciledAt = new context.Date().toISOString();
+    };
+    context.keepLeases = async () => { controls++; };
+    context.fetch = () => assert.fail('No idle notification');
+    context.sleep = async ms => {
+        assert.ok(ms <= 60_000, 'local controls cannot wait five minutes');
+        advance(ms);
+        if (++cycles === 60) files.get('/state/state.json').stopped = true;
+    };
+    await context.watch({ persistent: true, 'notify-file': '/private/url' });
+    assert.equal(polls, 24);
+    assert.equal(controls, 60);
+    assert.equal(files.get('/state/watch.json').eventIntervalSeconds, 300);
+    assert.equal(context.usageSnapshot('/state').totals.wakes, 0);
+});
+
+test('active work and new visible activity restore fast reads; a timer fires between idle reads', async () => {
+    const { context, files, advance } = runtime();
+    const past = new context.Date(context.Date.now() - 20 * 60_000).toISOString();
+    const state = files.get('/state/state.json');
+    files.set('/state/watch.json', { lastActivityAt: past, eventCheckedAt: past, reconciledAt: new context.Date().toISOString() });
+    assert.equal(context.eventInterval(state, files.get('/state/watch.json'), context.Date.now()), 300_000);
+    assert.equal(context.eventInterval({ ...state, groups: { g1: { state: 'building' } } }, files.get('/state/watch.json'), context.Date.now()), 60_000);
+    assert.equal(context.eventInterval(state, { lastActivityAt: new context.Date().toISOString() }, context.Date.now()), 60_000);
+    state.watch = { wakeAt: new context.Date(context.Date.now() + 120_000).toISOString() };
+    let polls = 0, cycles = 0;
+    context.pollUier = async () => { polls++; };
+    context.fetch = async () => ({ ok: true });
+    context.sleep = async ms => {
+        advance(ms);
+        if (++cycles === 4) files.get('/state/state.json').stopped = true;
+    };
+    await context.watch({ persistent: true, 'notify-file': '/private/url', 'batch-seconds': 0 });
+    assert.equal(files.get('/state/inbox.json')[0].type, 'timer');
+    assert.equal(polls, 2, 'one idle read, then fast reading resumes after the timer');
+    assert.equal(context.usageSnapshot('/state').totals.idleWakes, 0);
+});
+
+test('missing and expired tokens never silently activate periodic model polling', async () => {
+    const { context, files, advance } = runtime();
+    context.connection = () => null;
+    await assert.rejects(context.watch({ persistent: true, 'notify-file': '/private/url' }), /allow-model-polling/);
+    context.connection = () => ({});
+    context.pollUier = async () => { throw Object.assign(new Error('Token expired'), { kind: 'auth' }); };
+    context.fetch = async () => ({ ok: true });
+    let cycles = 0;
+    context.sleep = async ms => {
+        advance(ms);
+        files.set('/state/inbox.json', []);
+        if (++cycles === 40) files.get('/state/state.json').stopped = true;
+    };
+    await context.watch({ persistent: true, 'notify-file': '/private/url', 'batch-seconds': 0 });
+    assert.equal(context.usageSnapshot('/state').totals.wakes, 1, 'one actionable authentication error');
+    assert.equal(context.usageSnapshot('/state').totals.idleWakes, 0);
+});
+
+test('usage counts HTTP failures, retries, UTF-8 bytes and measured RU without saving content', async () => {
+    const { context, files, advance } = runtime();
+    let calls = 0;
+    context.sleep = async ms => advance(ms);
+    context.fetch = async () => ++calls === 1 ? new Response('unavailable', { status: 503 })
+        : new Response(JSON.stringify({ result: { structuredContent: { text: 'private č' } } }), { headers: { 'x-uier-database-ru': '12.5' } });
+    const ctx = { endpoint: 'https://private.example', token: 'secret-token', id: 0, usageDir: '/state' };
+    await context.rpc(ctx, 'tools/call', { name: 'list_feedback_events', arguments: { projectId: 'private-project' } });
+    const snapshot = context.usageSnapshot('/state');
+    assert.equal(snapshot.totals.requests, 2);
+    assert.equal(snapshot.totals.errors, 1);
+    assert.equal(snapshot.totals.retries, 1);
+    assert.equal(snapshot.databaseRu, 12.5);
+    assert.equal(snapshot.unmeteredRequests, 1);
+    assert.ok(snapshot.totals.responseBytes > 0);
+    assert.doesNotMatch(JSON.stringify(files.get('/state/usage.json')), /private|secret|example|project/);
+    await context.recordWake('/state', [{ type: 'heartbeat' }]);
+    assert.equal(context.usageSnapshot('/state').totals.idleWakes, 1);
+    advance(32 * 86_400_000);
+    await context.recordUsage('/state', { requests: 1, meteredRequests: 1, databaseRu: 2 });
+    assert.equal(Object.keys(files.get('/state/usage.json').days).length, 1);
+    assert.equal(context.usageSnapshot('/state').databaseRu, 2);
 });
 
 test('webhook delivery retains work, retries one replay key, gates pending wakes and recovers stalled acknowledgement', async () => {

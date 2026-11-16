@@ -76,8 +76,8 @@ Without that permission or the required operations, the skill keeps the existing
 in Account → Coding agents → Access tokens, select the project, choose Read feedback, Read screenshots,
 Assign feedback, Change status and Reply to feedback, and use 30 days. In T3 Code it asks with `request_secret` and file delivery, then
 imports the file with `monitor.mjs token --from-file`. Elsewhere, import a file or export
-`UIER_MCP_TOKEN` in the environment that starts the coding tool. Without a token the monitor still
-works, but it polls uier itself every 15 minutes, which costs more tokens.
+`UIER_MCP_TOKEN` in the environment that starts the coding tool. Without a token, the helper refuses to start by default. `--allow-model-polling` explicitly
+enables the 15-minute model fallback and makes its usage visible.
 
 ### The working spinner
 
@@ -142,7 +142,13 @@ the message links the comment instead.
 
 Everything lives in `$(git rev-parse --git-common-dir)/uier-monitor/`, which all worktrees share and
 git never commits. That folder holds `monitor.mjs`, and each project has a folder with
-`state.json`, `inbox.json` and `watch.log`. `context.json` retains the last compact wake and its
+`state.json`, `inbox.json` and `watch.log`. `usage.json` holds numeric usage counters for up to 31 UTC days: HTTP attempts, retries, failures,
+consumed JSON body bytes, elapsed HTTP time, measured database RU with coverage, delivery failures
+and idle model wakes. It contains no feedback, endpoints, identities or tokens. `usage` prints it;
+optional `--ru-price-per-million N --currency EUR` estimates only measured RU at the supplied rate.
+Missing measurements stay unknown. AI token usage, hosting CPU/memory, storage and transfer are
+excluded. The dashboard details and `status` show the counters and call out idle model wakes.
+`context.json` retains the last compact wake and its
 delta baseline; `notification.json` tracks delivery without consuming the inbox. For a quick look:
 
 ```bash
@@ -253,7 +259,8 @@ another address with `--host` makes the page readable by everyone who can reach 
 ## How it works
 
 - **Gate before the model.** In T3, the local `t3 thread send` CLI lets a detached persistent watcher
-  wake its existing thread only after work arrives. Use `watch --persistent --detach --thread <id>`;
+  wake its existing thread only after work arrives. Saved T3 monitors automatically select detached
+  persistent mode, even when an older prompt calls `watch --replace`. Use `watch --persistent --detach --thread <id>`;
   pass `--t3-cli <absolute path>` when the CLI is not on PATH. The skill verifies a live PID and
   fresh `watch.json.heartbeatAt` before disabling an old interval fallback. Busy threads queue the
   message without interruption. Models and provider routing are unchanged. A webhook task is an
@@ -262,10 +269,13 @@ another address with `--host` makes the page readable by everyone who can reach 
   without dropping events; an unconsumed wake is recovered after thirty minutes. A new urgent
   control can notify sooner. A detached process survives a terminal exit, not an OS restart;
   manual resume checks health, and an existing OS supervisor can restart a dead watcher. No system
-  service is installed. When neither wake transport is available, the existing fallback remains;
+  service is installed. When neither wake transport is available, model polling needs an explicit `--allow-model-polling` opt-in;
   checking for changes inside a scheduled model prompt does not save that prompt's tokens.
-- **Waiting is a script.** `monitor.mjs watch` reads uier's event feed every minute and the open list
-  every 15 minutes, because the feed has missed comments before. Reconciliation reads all statuses
+- **Waiting is a script.** `monitor.mjs watch` reads uier's event feed every minute during work
+  and for 15 quiet minutes, then every five minutes while idle. New visible activity restores the
+  fast cadence. Leases, hold timers, wake delivery and release checks keep their fast local cycle;
+  a slower event read never delays those controls. Safety reconciliation stays every 15 minutes,
+  because the feed has missed comments before. Reconciliation reads all statuses
   with `list_feedback`'s compact `view: "state"` and pages of up to 1,000 rows, following every returned
   cursor. It avoids repeated 25-row reads and display payloads. Older servers that reject this schema
   use the existing summary pages; the helper probes compact support again after a day. Authentication
@@ -392,3 +402,22 @@ paths still resolve to these files. For plugin adapters, catalogs and releases, 
 [maintain and validate](agent-plugins.md#maintain-and-validate).
 
 When a fix session opens a PR, Session results step 3 immediately calls uier `link_feedback_pull_request` for every fixed item before review or CI. The orchestrator needs `feedback:assign`; retries use the same canonical URL. T3 PR linking alone does not attach a PR in uier. Failed attachments remain recorded for retry.
+
+## Idle usage controls
+
+Persistent watching sends no heartbeat to the model. An expired token reports one actionable
+authentication failure and never silently starts timer polling. `--allow-model-polling` is an
+explicit opt-in for a harness without a usable event transport or token; it is reported in the
+watcher record and every heartbeat-only delivery increments `idleWakes`. Existing interval model
+tasks must be disabled after a persistent replacement has a live PID and fresh heartbeat.
+
+The current helper is 1.7.0. To upgrade an existing monitor, keep its state, cursor, inbox, token,
+target thread, routing and release restrictions; replace only the shared helper, start it with
+`watch --persistent --detach --thread <saved thread> --replace`, and verify its loaded version
+and heartbeat. Do not restart explicitly stopped monitors. The compact API capability probe
+falls back only for an older schema, not for authorization or network failures.
+
+The two monitor read tools return `x-uier-database-ru` when supported, covering instrumented
+reads and the HTTP quota counter. This is response-time SDK charge accounting, independent of
+optional diagnostic sampling. Counter TTL deletion, storage, transfer and hosting are outside
+that number. Servers without the header remain compatible and show unmeasured coverage.

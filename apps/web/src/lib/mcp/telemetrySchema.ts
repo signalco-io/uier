@@ -57,6 +57,8 @@ export const mcpRequestEventSchema = z.object({
     connection: z.object({ kind: z.enum(['oauth', 'credential']), ref, user: ref, scopes: z.array(z.enum(mcpScopes)),
         access: z.enum(['all', 'selected']) }).strict().optional(),
     calls: z.array(callSchema).max(MAX_CALLS),
+    /** Observed SDK charges for bounded monitor reads, including the HTTP rate-limit counter. */
+    database: z.object({ requestCharge: z.number().finite().nonnegative(), operations: count }).strict().optional(),
     omittedCalls: z.number().int().positive().optional(),
 }).strict();
 export type McpRequestEvent = z.infer<typeof mcpRequestEventSchema>;
