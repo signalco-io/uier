@@ -161,6 +161,20 @@ checking in a real workspace that `<!channel>` and `<@U…>` stay inert there. T
 repeats every line. A changed layout reaches an existing card the next time its thread changes
 (`chat.update`, no notification).
 
+A uier reply copied into the Slack thread (`slackReplyMessage`) is one `mrkdwn` text: 💬, the author
+in bold and the translated "{author} via uier:", then every line of the reply as a quote (`>`, blank
+lines too), then the "View in uier" link that carries the reconciliation marker. Slack shows the
+app's messages under one name, so this keeps a reply apart from the card's files above it. The
+author is one line and is bold only without an asterisk. Leading and trailing blank lines are
+dropped and a reply without words has no quote. Slack has no code block inside a quote, so a
+backtick-fenced block (uier's rule for its fences) stays unquoted between quoted lines, and a fence
+the reply leaves open is closed at the end. Every other line already starts with `> `, and Slack's
+three entities keep reviewer `<`, `>` and `&` literal, so reviewer text never becomes a mention,
+a link or a quote of its own. Avatars are not used: uier's pictures are only for signed-in users and
+Slack cannot load them. The copy hash covers the rendered text, so a layout change updates existing
+copies on their next sync, as a language change does. How Slack draws this is an
+[acceptance item](../../../docs/slack-integration-plan.md#6-choosing-the-channel-and-message-content).
+
 `slack/files.ts` shares screenshots and recordings under that card when the connection's `files`
 setting is on and its grant has `files:write` ([design](../../../docs/integrations.md#slack-files)).
 It runs last in a delivery, after the message, summaries and replies, and returns a code instead of
