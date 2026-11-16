@@ -534,6 +534,7 @@ const messages: Record<keyof typeof en, string> = {
     "Reconnect Notion": "Riconnetti Notion",
     "Reconnect Slack": "Riconnetti Slack",
     "Reconnect Slack to allow reading replies in this connection’s public and private channels.": "Riconnetti Slack per consentire la lettura delle risposte nei canali pubblici e privati di questa connessione.",
+    "Reconnect Slack to show Slack names on imported replies.": "Riconnetti Slack per mostrare i nomi Slack nelle risposte importate.",
     "Reconnect needed": "Riconnessione necessaria",
     "Relationship": "Relazione",
     "Remove": "Rimuovi",

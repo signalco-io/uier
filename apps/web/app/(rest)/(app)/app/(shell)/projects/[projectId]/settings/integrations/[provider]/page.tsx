@@ -30,7 +30,7 @@ import { ReplySync } from '@/src/components/app/integrations/ReplySync';
 import { IntegrationFeatures } from '@/src/components/app/integrations/IntegrationFeatures';
 import { getAppStore } from '@/src/lib/app/store';
 import type { SlackGrant } from '@/src/lib/integrations/slack/model';
-import { slackReplyScopes } from '@/src/lib/integrations/slack/config';
+import { slackNameScopes, slackReplyScopes } from '@/src/lib/integrations/slack/config';
 import type { NotionConnection } from '@/src/lib/integrations/notion/model';
 
 export async function generateMetadata({ params }: PageProps<'/app/projects/[projectId]/settings/integrations/[provider]'>): Promise<Metadata> {
@@ -56,6 +56,7 @@ async function ProjectIntegrationSettingsPageContent({ params, searchParams }: P
     const connection = adapter?.supportsStatusSync || adapter?.supportsReplySync ? await getIntegrationConnection(project, provider) : null;
     const grant = provider === 'slack' && connection?.grantId ? (await getAppStore().get<SlackGrant>(connection.pk, connection.grantId))?.doc : null;
     const needsReplyPermissions = provider === 'slack' && (!grant || !slackReplyScopes.every(scope => grant.scopes.includes(scope)));
+    const missingSlackNames = provider === 'slack' && Boolean(grant) && !slackNameScopes.every(scope => grant!.scopes.includes(scope));
     const needsMapping = provider === 'notion' && !(connection as NotionConnection | null)?.config.mapping?.status;
     const value = (key: string) => typeof query[key] === 'string' ? query[key] as string : undefined;
 
@@ -67,7 +68,8 @@ async function ProjectIntegrationSettingsPageContent({ params, searchParams }: P
                 enabled={connection.twoWaySync === true} canEnable={adapter!.isConfigured() && connection.status === 'connected' && !needsMapping}
                 needsMapping={needsMapping} />}
             {connection && adapter?.supportsReplySync && <ReplySync key={`replies:${connection.id}`} projectId={project.id} provider={provider}
-                enabled={connection.replySync?.enabled === true} canEnable={adapter.isConfigured() && connection.status === 'connected'} needsPermissions={needsReplyPermissions} />}
+                enabled={connection.replySync?.enabled === true} canEnable={adapter.isConfigured() && connection.status === 'connected'} needsPermissions={needsReplyPermissions}
+                missingNames={missingSlackNames} />}
             <IntegrationFeatures provider={provider} connection={connection} />
         </>
     );

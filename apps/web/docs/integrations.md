@@ -91,7 +91,26 @@ appear in DTOs. Do not map provider identities to members, infer deletion from l
 blindly resend uncertain creates. Commit incoming status/replies together after the source,
 toggle, binding, destination and admin checks; keep verification-state semantics intact.
 Slack history needs an explicit optional-scope reconnect; Notion needs read/insert comment
-capabilities. Keep normal notification permissions minimal. Native-copy cleanup also runs when
+capabilities.
+
+Slack replies also arrive through the Events API. `slack/events.ts` (route
+`app/api/integrations/slack/events`) verifies Slack's `v0` signature over the raw body with
+`SLACK_SIGNING_SECRET` and a five-minute replay window, answers the URL check and acknowledges every
+other request at once; Slack retries after three seconds. `slackEventReply` keeps only replies,
+edits and deletions in a thread and drops other channel messages before any read, storage or log.
+`slack/threads.ts` stores identifier-only pointers from a root message to its ledger (written when a
+reply-sync root is posted and refreshed by the poll, 120-day TTL); every use rechecks the ledger.
+The import runs after the response as a status-only delivery with `pushedReplies`, so it keeps the
+poll's lease, authority, visibility, reply-sync and channel checks without a history read. It first
+sends a pending uier change and afterwards acknowledges its own sync mark, so the next reply is not
+held back. The poll remains the fallback. `users:read` (optional, requested with reply access) names
+new imports through `users.info`; a failed lookup never blocks the reply.
+
+`immediate.ts` queues `deliverNow.ts` after a reply, a thread change or a deleted reply (`review/comments.ts`).
+It updates only ledgers whose adapter reports an existing copy (`deliversAfterChange`, Slack today) and
+uses the worker's discovery and delivery; new threads keep the worker's batching window. Like MCP
+events it does nothing without `after()`, so API specs call `deliverThreadNow` and
+`receiveSlackEvent` with an inline scheduler (`slack.api.spec.ts`). Keep normal notification permissions minimal. Native-copy cleanup also runs when
 reply sync is off. The React settings serialize booleans, never grants or source provenance.
 
 The shared API suites are

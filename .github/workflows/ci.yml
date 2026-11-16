@@ -222,6 +222,7 @@ jobs:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       UIER_INTEGRATION_ENV: ""
       ANTHROPIC_API_KEY: ""
+      SLACK_SIGNING_SECRET: ""
     with:
       command: preview
 

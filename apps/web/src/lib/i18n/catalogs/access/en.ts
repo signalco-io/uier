@@ -533,6 +533,7 @@ const messages = {
     "Reconnect Notion": "Reconnect Notion",
     "Reconnect Slack": "Reconnect Slack",
     "Reconnect Slack to allow reading replies in this connection’s public and private channels.": "Reconnect Slack to allow reading replies in this connection’s public and private channels.",
+    "Reconnect Slack to show Slack names on imported replies.": "Reconnect Slack to show Slack names on imported replies.",
     "Reconnect needed": "Reconnect needed",
     "Relationship": "Relationship",
     "Remove": "Remove",

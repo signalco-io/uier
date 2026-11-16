@@ -3,6 +3,10 @@ import { isSecretKeyConfigured } from '../secrets';
 
 export const slackScopes = ['chat:write', 'channels:read', 'groups:read'] as const;
 export const slackReplyScopes = ['channels:history', 'groups:history'] as const;
+/** Requested with reply access so imported replies show Slack names. Optional: reply sync works without it. */
+export const slackNameScopes = ['users:read'] as const;
+/** Verifies Events API requests. Without it the endpoint refuses events and the worker's poll imports replies. */
+export const slackSigningSecret = () => process.env.SLACK_SIGNING_SECRET ?? '';
 export const slackSecretKey = () => ({ key: process.env.SLACK_TOKEN_KEY, keyId: process.env.SLACK_TOKEN_KEY_ID ?? 'k1',
     ...(process.env.SLACK_TOKEN_KEY_PREVIOUS ? { previousKeys: { [process.env.SLACK_TOKEN_KEY_PREVIOUS_ID ?? 'k1']: process.env.SLACK_TOKEN_KEY_PREVIOUS } } : {}) });
 

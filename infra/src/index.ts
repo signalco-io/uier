@@ -349,6 +349,21 @@ const up = async () => {
             sensitive: true,
         }, { ...envVarOptions, ...preservePreviewValue(existingEnvironment, 'ANTHROPIC_API_KEY', 'vercel-uier-env-anthropic') });
     }
+    // Slack's Events API signs each request with the app's signing secret
+    // (apps/web/src/lib/integrations/slack/events.ts). Like the Anthropic key, it is the
+    // production-environment secret SLACK_SIGNING_SECRET, supplied only to updates. Without it no
+    // variable is created and the events endpoint answers 503; replies still sync on the worker's poll.
+    const slackSigningSecret = process.env.SLACK_SIGNING_SECRET;
+    if (slackSigningSecret || existingEnvironment.has('SLACK_SIGNING_SECRET')) {
+        new ProjectEnvironmentVariable('vercel-uier-env-slack-signing-secret', {
+            teamId: vercelTeamId,
+            projectId: app.projectId,
+            key: 'SLACK_SIGNING_SECRET',
+            value: secret(slackSigningSecret ?? 'existing production value retained during preview'),
+            targets: ['production'],
+            sensitive: true,
+        }, { ...envVarOptions, ...preservePreviewValue(existingEnvironment, 'SLACK_SIGNING_SECRET', 'vercel-uier-env-slack-signing-secret') });
+    }
     // Keep asynchronous routing discovery and resource registration attached to the stack.
     return emailRouting();
 };

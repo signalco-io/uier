@@ -1,6 +1,6 @@
 import type { FeedbackContext } from '@uier/toolbar/feedback-context';
 import { setIntegrationReplySync } from '../src/lib/integrations/connection';
-import { randomUUID } from 'node:crypto';
+import { createHmac, randomUUID } from 'node:crypto';
 import { expect, test as base } from '@playwright/test';
 import { memberId, projectRefPk, userPk, workspacePk, type DbMember, type DbProject, type DbProjectRef, type DbUser, type DbWorkspace } from '../src/lib/app/model';
 import { getAppStore, updateDoc } from '../src/lib/app/store';
@@ -24,6 +24,9 @@ import { loadAppCatalog } from '../src/lib/i18n/catalog';
 import { createAppI18n } from '../src/lib/i18n/translate';
 import { toolbarLanguages } from '@uier/toolbar/languages';
 import type { SlackConnection, SlackGrant, SlackInstallationOwner, SlackState } from '../src/lib/integrations/slack/model';
+import { receiveSlackEvent } from '../src/lib/integrations/slack/events';
+import { findSlackThread } from '../src/lib/integrations/slack/threads';
+import { deliverThreadNow } from '../src/lib/integrations/deliverNow';
 import { startSlackStub, type SlackStub } from './support/slackStub';
 
 const test = base.extend<{ slack: SlackStub }>({ slack: async ({}, use) => {
@@ -597,7 +600,7 @@ test('native reply sync upgrades Slack scopes explicitly, syncs thread replies a
     const upgrade = new URL(await beginSlackConnect({ userId: f.owner.id, workspaceId: f.project.workspaceId, projectId: f.project.id, baseUrl, requestReplies: true }));
     expect(upgrade.searchParams.get('scope')).toContain('channels:history'); expect(upgrade.searchParams.has('user_scope')).toBe(false);
     expect((await finishSlackConnect({ userId: f.owner.id, state: upgrade.searchParams.get('state'), baseUrl,
-        code: slack.code({ scopes: 'chat:write,channels:read,groups:read,channels:history,groups:history' }) })).status).toBe('connected');
+        code: slack.code({ scopes: 'chat:write,channels:read,groups:read,channels:history,groups:history,users:read' }) })).status).toBe('connected');
     await fresh(f);
     const upgraded = (await rawSlackConnection(f.project))!;
     const reused = new URL(await beginSlackConnect({ userId: f.owner.id, workspaceId: f.project.workspaceId, projectId: f.project.id, baseUrl, requestReplies: true }));
@@ -625,6 +628,77 @@ test('native reply sync upgrades Slack scopes explicitly, syncs thread replies a
     current = await dispatch(f); expect([...slack.messages.values()].filter(message => message.threadTs === root.ts)).toHaveLength(1);
     slack.messages.get(`${root.channelId}:${ts}`)!.payload.text = 'Edited in Slack'; await poll(); expect((await source(f)).thread.items.at(-1)!.text).toBe('Edited in Slack');
     current = await dispatch(f); slack.messages.delete(`${root.channelId}:${ts}`); await poll(); expect((await source(f)).thread.items.at(-1)!.deletedAt).toBeTruthy();
+});
+
+test('Events API imports Slack thread replies at once and uier replies reach Slack without the worker', async ({ slack }) => {
+    test.setTimeout(90_000);
+    const secret = 'slack-test-signing-secret';
+    const f = await fixture(); await connect(f, slack);
+    const upgrade = new URL(await beginSlackConnect({ userId: f.owner.id, workspaceId: f.project.workspaceId, projectId: f.project.id, baseUrl, requestReplies: true }));
+    expect(upgrade.searchParams.get('scope')).toBe('chat:write,channels:read,groups:read,channels:history,groups:history,users:read');
+    expect((await finishSlackConnect({ userId: f.owner.id, state: upgrade.searchParams.get('state'), baseUrl,
+        code: slack.code({ scopes: 'chat:write,channels:read,groups:read,channels:history,groups:history,users:read' }) })).status).toBe('connected');
+    await setIntegrationReplySync(await fresh(f), 'slack', f.owner.id, true);
+    await newThread(f); const current = await dispatch(f); const root = state(current).root!;
+    expect(await findSlackThread(root.teamId, root.channelId, root.ts)).toMatchObject({ ledgerPk: current.pk, ledgerId: current.id });
+
+    const tasks: Promise<void>[] = [];
+    const send = async (body: object, options: { secret?: string; at?: number } = {}) => {
+        const raw = JSON.stringify(body); const at = options.at ?? Math.floor(Date.now() / 1000);
+        const signature = `v0=${createHmac('sha256', options.secret ?? secret).update(`v0:${at}:${raw}`).digest('hex')}`;
+        const result = await receiveSlackEvent(raw, new Headers({ 'x-slack-request-timestamp': String(at), 'x-slack-signature': signature }),
+            { baseUrl, schedule: task => { tasks.push(task()); return true; } });
+        await Promise.all(tasks.splice(0)); return result;
+    };
+    const event = (inner: object) => ({ type: 'event_callback', api_app_id: slack.appId, team_id: root.teamId,
+        event: { type: 'message', channel: root.channelId, ...inner } });
+    const ts = (seconds: number) => (Date.now() / 1000 + seconds).toFixed(6);
+    expect((await send({ type: 'url_verification', challenge: 'missing-secret' })).status).toBe(503);
+    process.env.SLACK_SIGNING_SECRET = secret;
+    try {
+        expect(await send({ type: 'url_verification', challenge: 'challenge-123' })).toEqual({ status: 200, body: JSON.stringify({ challenge: 'challenge-123' }) });
+        expect((await send({ type: 'url_verification', challenge: 'forged' }, { secret: 'not-the-secret' })).status).toBe(401);
+        expect((await send({ type: 'url_verification', challenge: 'replayed' }, { at: Math.floor(Date.now() / 1000) - 600 })).status).toBe(401);
+
+        // Channel messages outside a linked thread, other apps' callbacks and uier's own copies are dropped unread.
+        const before = slack.calls.length;
+        expect((await send(event({ user: 'UHUMAN', text: 'Unrelated channel message', ts: ts(1) }))).status).toBe(200);
+        expect((await send({ ...event({ user: 'UHUMAN', text: 'Another app', ts: ts(2), thread_ts: root.ts }), api_app_id: 'AOTHERAPP' })).status).toBe(200);
+        expect((await send(event({ user: slack.botId, app_id: slack.appId, bot_id: 'BTESTBOT', text: 'Own copy', ts: ts(3), thread_ts: root.ts }))).status).toBe(200);
+        expect((await send(event({ user: 'UHUMAN', text: 'Unknown thread', ts: ts(3.5), thread_ts: ts(-60) }))).status).toBe(200);
+        expect(slack.calls.length).toBe(before);
+        expect((await source(f)).thread.items).toHaveLength(1);
+
+        // A reply imports with the person's Slack name, without a history read; the next one is not held back.
+        const first = ts(4);
+        await send(event({ user: 'UHUMAN', text: 'Looks good from Slack', ts: first, thread_ts: root.ts }));
+        expect((await source(f)).thread.items.at(-1)).toMatchObject({ text: 'Looks good from Slack', authorName: 'Human via Slack' });
+        await send(event({ user: 'UHUMAN', text: 'One more thing', ts: ts(5), thread_ts: root.ts }));
+        expect((await source(f)).thread.items.at(-1)!.text).toBe('One more thing');
+        expect(slack.calls.filter(call => call.method === 'conversations.replies')).toHaveLength(0);
+        // One name lookup per new reply; edits and deletions below need none.
+        expect(slack.calls.filter(call => call.method === 'users.info')).toHaveLength(2);
+        const imported = (await source(f)).thread.items.find(item => item.integrationSource?.externalId === first)!;
+        await send(event({ subtype: 'message_changed', ts: ts(6), message: { user: 'UHUMAN', text: 'Edited in Slack', ts: first, thread_ts: root.ts } }));
+        expect((await source(f)).thread.items.find(item => item.id === imported.id)!.text).toBe('Edited in Slack');
+        await send(event({ subtype: 'message_deleted', ts: ts(7), deleted_ts: first, previous_message: { user: 'UHUMAN', text: 'Edited in Slack', ts: first, thread_ts: root.ts } }));
+        expect((await source(f)).thread.items.find(item => item.id === imported.id)!.deletedAt).toBeTruthy();
+        expect(slack.calls.filter(call => call.method === 'users.info')).toHaveLength(2);
+
+        // A uier reply to a thread Slack already has goes out right away.
+        const reply = { id: `item_${randomUUID()}`, text: 'Replying from uier', authorId: `user:${f.owner.id}`, createdAt: new Date().toISOString() };
+        await change(f, { thread: { items: [...(await source(f)).thread.items, reply] } });
+        expect(await deliverThreadNow(f.project.id, f.source.id, { baseUrl, deadline: Date.now() + 15_000 })).toBe(1);
+        expect([...slack.messages.values()].some(message => message.threadTs === root.ts && String(message.payload.text).includes('Replying from uier'))).toBe(true);
+        expect((await source(f)).syncPending).toBe(false);
+    } finally { delete process.env.SLACK_SIGNING_SECRET; }
+});
+
+test('a new thread keeps the worker batching window; immediate delivery only updates existing Slack copies', async ({ slack }) => {
+    const f = await fixture(); await connect(f, slack); await newThread(f);
+    expect(await deliverThreadNow(f.project.id, f.source.id, { baseUrl, deadline: Date.now() + 15_000 })).toBe(0);
+    expect(slack.calls.filter(call => call.method === 'chat.postMessage')).toHaveLength(0);
+    expect((await source(f)).syncPending).toBe(true);
 });
 
 test('custom feedback types use their saved label and built-in names stay stable', () => {

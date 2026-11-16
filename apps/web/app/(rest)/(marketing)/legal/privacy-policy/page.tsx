@@ -14,7 +14,7 @@ export const metadata = publicPageMetadata('/legal/privacy-policy', {
 
 export default function PrivacyPolicyPage() {
     return (
-        <LegalDocument href={KnownPages.LegalPrivacyPolicy} title="Privacy policy" effective="14 November 2026">
+        <LegalDocument href={KnownPages.LegalPrivacyPolicy} title="Privacy policy" effective="16 November 2026">
             <p>
                 This policy explains what {brand.domain} collects, why, where it is stored and for how long.
                 {' '}{brand.name} is a {brand.parent.name} project: {brand.parent.name} runs {brand.domain} and is
@@ -403,7 +403,10 @@ export default function PrivacyPolicyPage() {
                 shared thread&rsquo;s access and retention rules. They can be copied to other connected
                 services. Provider identities do not become uier members. Attachments and reactions
                 are not imported. Slack reply sync requests public/private channel history access
-                through an explicit reconnect, but reads only known linked threads. Notion reply sync
+                and Slack names through an explicit reconnect, but reads only known linked threads.
+                With it, Slack also sends us new messages in the channels the uier app is in, as
+                they are posted. We keep only replies in linked threads and discard every other
+                message on arrival, without storing or logging it. Notion reply sync
                 needs read and insert comment capabilities. These permissions can cover more data
                 than the linked items; the worker limits reads to the configured destination.
             </p>

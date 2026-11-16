@@ -14,8 +14,9 @@ It manages:
   and preview identities, `comments` / `comments-preview`, each its own `UIER_COMMENTS_SECRET`),
   the app's `COSMOSDB_APP_CONTAINER` (`app` / `app-preview`) and, for production only, the email
   variables `ACS_CONNECTION_STRING` and `UIER_EMAIL_SENDER` (retrievable, not Sensitive: the
-  existing variable flags are retained during credential migration), and `ANTHROPIC_API_KEY` (rewrite
-  suggestions) when the production-environment secret `ANTHROPIC_API_KEY` is set (passed to Pulumi as env);
+  existing variable flags are retained during credential migration), `ANTHROPIC_API_KEY` (rewrite
+  suggestions) when the production-environment secret `ANTHROPIC_API_KEY` is set (passed to Pulumi as env),
+  and `SLACK_SIGNING_SECRET` (Slack Events API) the same way from its production-environment secret;
 - the production-only sensitive `UIER_STAFF_EMAILS` variable from required secret Pulumi config
   `uier:staffEmails`. Never store staff addresses in plaintext. See README "Removing abusive
   comments" for encrypted config updates, rollout and verification;
@@ -108,7 +109,8 @@ unchanged. See [storage rollout](../docs/screenshot-storage.md) before merging o
 - No credentials in config or code: Pulumi, the state backend and the secrets provider use
   the current Azure login (GitHub OIDC in CI, `az login` locally); Vercel and Cloudflare tokens
   come from `VERCEL_API_TOKEN` and `CLOUDFLARE_API_TOKEN`, the Anthropic key from `ANTHROPIC_API_KEY`
-  (environment secrets resolved inside `.github/workflows/pulumi_reusable.yml`).
+  and the Slack signing secret from `SLACK_SIGNING_SECRET` (environment secrets resolved inside
+  `.github/workflows/pulumi_reusable.yml`).
 - Pulumi runs the compiled `dist/index.js` (`typescript: false`), so build before a preview:
   `pnpm preview` does both.
 - Keep the Pulumi CLI version pinned in `.github/workflows/pulumi_reusable.yml` equal to

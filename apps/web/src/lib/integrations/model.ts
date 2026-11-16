@@ -111,6 +111,11 @@ export type IntegrationDeliveryContext = {
     readonly statusOnly?: boolean;
     receiveStatus?(resolved: boolean): Promise<void>;
     receiveReplies?(replies: IntegrationReply[]): Promise<void>;
+    /**
+     * Status-only: replies a verified provider event already delivered (Slack's Events API). The
+     * adapter checks they belong to its managed copy and receives them instead of listing.
+     */
+    readonly pushedReplies?: IntegrationReply[];
     readonly importedReplies?: { externalId: string; target?: string; createdAt: string }[];
     /** A safe read still checks authority and the provider's remaining budget. */
     read<T>(send: (signal: AbortSignal) => Promise<T>): Promise<T>;
@@ -132,6 +137,11 @@ export type IntegrationAdapter = {
     maintenance?(options: { deadline: number; maxCalls: number }): Promise<{ calls: number; deferred?: number }>;
     /** Must reconcile ledger.attempt before planning another create, even during cleanup. */
     deliver(context: IntegrationDeliveryContext): Promise<IntegrationResult>;
+    /**
+     * True when this ledger already has a managed copy that a change should update right away
+     * (`immediate.ts`). Threads without one wait for the scheduled worker's batching window.
+     */
+    deliversAfterChange?(ledger: IntegrationSync): boolean;
     externalLink?(connection: IntegrationConnection, ledger: IntegrationSync): string | null;
     /** Destination-specific HTTPS validation; a provider response URL alone is not authority. */
     validateExternalLink?(url: URL, connection: IntegrationConnection, ledger: IntegrationSync): boolean;

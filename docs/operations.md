@@ -26,6 +26,7 @@ Vercel-trusted identity; account-key authentication remains enabled until the st
   email variables `ACS_CONNECTION_STRING` and `UIER_EMAIL_SENDER` (retrievable, not Sensitive: the
   existing variable sensitivity is retained during credential migration), and `ANTHROPIC_API_KEY` (rewrite
   suggestions and AI thread titles; `UIER_AI_TITLES=off`, set by hand, stops only the titles) once the production-environment secret `ANTHROPIC_API_KEY` is set,
+  and the Sensitive `SLACK_SIGNING_SECRET` (Slack Events API) once the production-environment secret of that name is set,
 - the Cloudflare DNS records for `uier.io` (`A 76.76.21.21`) and `www.uier.io` (`CNAME cname.vercel-dns.com`),
   both DNS only (not proxied), so Vercel terminates TLS and renews the Let's Encrypt certificates itself;
   the apex CAA `0 issue letsencrypt.org` restricts issuance to that documented CA (Cloudflare `data`, not `content`),
@@ -301,7 +302,7 @@ owner's unattended deployment policy. `AleksandarDev` remains administrator.
 | `AZURE_STORAGE_ACCOUNT` | Pulumi state account | Same account, read scope | Absent |
 | `VERCEL_TOKEN` | Separate uier-project token | Separate uier-project token | Absent |
 | `CLOUDFLARE_API_TOKEN` | Zone: DNS Edit, Zone Read, Zone Settings Read, Email Routing Rules Edit on `uier.io`; account: Email Routing Addresses Read | Zone: DNS Read, Zone Read, Zone Settings Read, Email Routing Rules Read on `uier.io`; account: Email Routing Addresses Read | Absent |
-| `UIER_INTEGRATION_ENV`, optional `ANTHROPIC_API_KEY` | Pulumi production variables | Absent | Absent |
+| `UIER_INTEGRATION_ENV`, optional `ANTHROPIC_API_KEY`, optional `SLACK_SIGNING_SECRET` | Pulumi production variables | Absent | Absent |
 | `UIER_WORKER_SETTINGS` | Absent | Absent | Allowlisted data/transport/crypto settings only |
 
 The strict production integration map and rotations are described in

@@ -1,15 +1,16 @@
 import { sha256Hex } from '../../app/tokens';
 import { GrantLeaseError } from '../grants';
 import { readNativeReplies, reconcileNativeReply, sendNativeReplies, type NativeReply, type ReplyTransport, type ReplyPayload } from '../replies';
-import type { IntegrationAdapter, IntegrationDeliveryContext, IntegrationResult } from '../model';
+import type { IntegrationAdapter, IntegrationDeliveryContext, IntegrationReply, IntegrationResult } from '../model';
 import { SlackApiError, slackRequest, type SlackMethod } from './client';
-import { isSlackConfigured, slackId, slackTimestamp } from './config';
+import { isSlackConfigured, slackId, slackLabel, slackNameScopes, slackTimestamp } from './config';
 import { currentSlackGrant, invalidateSlackGrant, recoverSlackSetups, SlackConnectionError, slackAccessToken } from './connection';
 import { slackChangeSummary, slackReplyMessage, slackRootMessage } from './message';
 import { englishSlackI18n, loadSlackI18n } from './i18n';
 import type { SlackConnection, SlackMessage, SlackState, SlackUncertainPost } from './model';
 import { SlackRateWait, withSlackRateLimit } from './rate';
 import { eligibleChannel } from './settings';
+import { indexSlackThread } from './threads';
 
 const invalid = () => new SlackConnectionError('invalid_ledger');
 function validMessage(value: SlackMessage) { return slackTimestamp(value.ts) && slackId(value.teamId) && slackId(value.channelId); }
@@ -37,6 +38,10 @@ export function validSlackLink(url: URL, connection: SlackConnection, root: Slac
 }
 
 export const slackAdapter: IntegrationAdapter = { provider: 'slack', isConfigured: isSlackConfigured, maxRunMs: 3 * 60_000, maxCalls: 60, supportsReplySync: true,
+    deliversAfterChange(ledger) {
+        const state = ledger.state as SlackState;
+        return Boolean(state.root && !state.suppressed && !state.missing);
+    },
     async maintenance({ deadline }) { await recoverSlackSetups({ deadline }); return { calls: 0 }; },
     async deliver(context): Promise<IntegrationResult> {
         const connection = context.connection as SlackConnection;
@@ -86,6 +91,33 @@ export const slackAdapter: IntegrationAdapter = { provider: 'slack', isConfigure
                     throw error;
                 }
             }
+            // Slack sends only user ids. With users:read, new imports get the person's Slack name;
+            // otherwise the project's language labels them (event replies arrive without a name).
+            const userLabel = (id: string) => t('Slack user {id}', { id });
+            const isBot = (id: string) => id.startsWith('B');
+            const names = new Map<string, string>();
+            async function named(replies: NativeReply[]) {
+                const imported = new Set((context.importedReplies ?? []).map(item => item.externalId));
+                const since = Date.parse(connection.replySync?.since ?? '');
+                const unnamed = (item: NativeReply) => slackId(item.authorId) && (!item.authorName || item.authorName === userLabel(item.authorId));
+                const users = [...new Set(replies.filter(item => unnamed(item) && !isBot(item.authorId) && !item.own && !item.deleted
+                    && !imported.has(item.id) && !(Date.parse(item.createdAt) < since)).map(item => item.authorId))].slice(0, 5);
+                if (users.length && slackNameScopes.every(scope => grant!.scopes.includes(scope))) for (const user of users) {
+                    if (names.has(user)) continue;
+                    try {
+                        const response = await read('users.info', { user });
+                        const value = response.user && typeof response.user === 'object' ? response.user as Record<string, unknown> : {};
+                        const profile = value.profile && typeof value.profile === 'object' ? value.profile as Record<string, unknown> : {};
+                        const name = [profile.display_name, profile.real_name, value.real_name, value.name].map(slackLabel).find(Boolean);
+                        if (name) names.set(user, name);
+                    } catch (error) {
+                        // A missing name never blocks the reply itself.
+                        if (!(error instanceof SlackApiError) && !(error instanceof SlackRateWait)) throw error;
+                    }
+                }
+                return replies.map(item => !unnamed(item) ? item : { ...item,
+                    authorName: names.get(item.authorId) ?? (isBot(item.authorId) ? t('Slack app') : userLabel(item.authorId)) });
+            }
             const replyIO = (root: SlackMessage): ReplyTransport => {
                 if (root.teamId !== grant!.teamId) throw new SlackConnectionError('reply_authority_changed');
                 const decode = (raw: unknown): NativeReply => {
@@ -95,7 +127,8 @@ export const slackAdapter: IntegrationAdapter = { provider: 'slack', isConfigure
                     const profile = message.user_profile && typeof message.user_profile === 'object' ? message.user_profile as Record<string, unknown> : {};
                     return { id: message.ts, text: message.text, fingerprint: message.text,
                         authorId: typeof message.user === 'string' ? message.user : String(message.bot_id ?? 'Slack reviewer'),
-                        authorName: typeof profile.display_name === 'string' ? profile.display_name : typeof message.user === 'string' ? t('Slack user {id}', { id: message.user }) : t('Slack app'),
+                        authorName: slackLabel(profile.display_name) || slackLabel(profile.real_name)
+                            || (typeof message.user === 'string' ? t('Slack user {id}', { id: message.user }) : t('Slack app')),
                         createdAt: new Date(Number(message.ts) * 1000).toISOString(),
                         own: message.ts === root.ts || message.user === grant!.botId || message.app_id === process.env.SLACK_APP_ID };
                 };
@@ -130,7 +163,19 @@ export const slackAdapter: IntegrationAdapter = { provider: 'slack', isConfigure
                     || state.destination?.generation !== connection.destinationRevision) return { status: 'accepted' };
                 const metadata = await read('conversations.info', { channel: channelId });
                 if (!eligibleChannel(metadata.channel)) throw new SlackApiError(200, 'channel_ineligible');
-                await readNativeReplies(context, state.root.replySync ??= {}, replyIO(state.root), () => context.checkpoint(state));
+                // Keeps Events API lookups working for roots posted before reply sync was enabled.
+                await indexSlackThread(context.ledger, state.root).catch(() => undefined);
+                const io = replyIO(state.root);
+                if (context.pushedReplies) {
+                    // A signed event already carries the reply: no history read, the same import checks.
+                    const pushed = (context.pushedReplies as NativeReply[]).filter(item => item.target === io.target
+                        && !item.own && item.authorId !== grant!.botId);
+                    if (pushed.length) await context.receiveReplies?.(await named(pushed));
+                    return { status: 'accepted' };
+                }
+                const listing = Object.assign(Object.create(context) as IntegrationDeliveryContext, {
+                    receiveReplies: async (replies: IntegrationReply[]) => context.receiveReplies?.(await named(replies as NativeReply[])) });
+                await readNativeReplies(listing, state.root.replySync ??= {}, io, () => context.checkpoint(state));
                 return { status: 'accepted' };
             }
             if (context.ledger.attempt?.step === 'create_native_reply') {
@@ -199,6 +244,7 @@ export const slackAdapter: IntegrationAdapter = { provider: 'slack', isConfigure
                 // Initial roots include the current state; they never emit an extra historical summary.
                 state.lastNotifiedStatus = feedback.status; state.notifiedReplyIds = replyIds;
                 await context.checkpoint(state, { clearAttempt: true });
+                if (connection.replySync?.enabled) await indexSlackThread(context.ledger, state.root).catch(() => undefined);
             } else if (state.root!.payloadHash !== projection.hash) {
                 try { await write('chat.update', 'update_root', { channel: channelId, ts: state.root!.ts, ...projection.payload }, true); }
                 catch (error) {

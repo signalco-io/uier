@@ -43,6 +43,7 @@ import { assertEligibleParticipant, assertParticipantEditor, validateMentions } 
 import { replaceSavedScreenshot } from '../comments/replaceScreenshot';
 import type { ParsedScreenshot } from '../comments/screenshot';
 import { queueMcpEventDelivery } from '../mcp/events/trigger';
+import { queueIntegrationDelivery } from '../integrations/immediate';
 import { queueAiTitles } from '../titles/threadTitles';
 import { cleanManualTitle, MANUAL_TITLE_MAX_LENGTH } from '../titles/model';
 import { assignedAgents, assignedUserIds, assigneeIdsSchema, assignmentModeSchema, withAssignments, type AssignmentMode } from './assignments';
@@ -346,6 +347,7 @@ export type ReplyInput = { recordingId?: string; screenshot?: ParsedScreenshot; 
 export async function replyToProjectComment(request: Request, project: DbProject, actor: ProjectActor, id: string, input: ReplyInput) {
     const saved = await appendProjectReply(request, project, actor, id, input);
     queueMcpEventDelivery(project.id);
+    queueIntegrationDelivery(project, id);
     queueAiTitles(project, [saved], 'change');
     return saved;
 }
@@ -447,6 +449,7 @@ export async function changeComment(project: DbProject, actor: ProjectActor, id:
         : await updateComment(store, project, actor, id, apply);
     if (options.ephemeral) return saved;
     queueMcpEventDelivery(project.id);
+    queueIntegrationDelivery(project, id);
     // A new first message (an edit) gets a new title; a thread made before titles gets its first one
     queueAiTitles(project, [saved], 'change');
     return saved;
@@ -710,6 +713,7 @@ export async function deleteProjectCommentItem(project: DbProject, actor: Projec
     }, (comment, etag) => deleteProjectThread(store, project, comment, etag));
     await forgetScreenshot(store, partition, id, hadScreenshot, updated, previousImageItems);
     if (previous) await cleanupRemovedRecordings(previous, updated, store);
+    if (updated) queueIntegrationDelivery(project, id);
     return updated;
 }
 

@@ -172,12 +172,21 @@ application. See [Entra OAuth for Azure DevOps](https://learn.microsoft.com/en-u
 
 1. Register a Slack app with exact OAuth redirect `https://uier.io/app/slack/callback`.
 2. Use bot scopes `chat:write`, `channels:read` and `groups:read`. Do not add user scopes,
-   `chat:write.public`, incoming webhooks, interactivity or the Events API. Register optional bot scopes `channels:history` and `groups:history` for reply sync; the normal connect path does not request them.
-3. Complete Slack's applicable distribution/approval requirements for the intended customer
+   `chat:write.public`, incoming webhooks or interactivity. Register optional bot scopes
+   `channels:history`, `groups:history` and `users:read` for reply sync; the normal connect path does
+   not request them.
+3. Under **Event Subscriptions**, set the request URL `https://uier.io/api/integrations/slack/events`
+   and subscribe to the bot events `message.channels` and `message.groups` (they use the history
+   scopes above, so only reply-sync installations send them). Copy the app's **Signing Secret** from
+   **Basic Information** into the `production` environment secret `SLACK_SIGNING_SECRET`; CI applies
+   it with Pulumi as a production-only Sensitive Vercel variable. Deploy before saving the request
+   URL: Slack verifies it with a signed challenge. Without the secret the endpoint answers 503 and
+   replies still arrive through the worker's poll.
+4. Complete Slack's applicable distribution/approval requirements for the intended customer
    workspaces. Enable token rotation for the controlled test installation and verify it before production rollout.
    Keep `SLACK_DISTRIBUTION_APPROVED="0"` until that release decision is made; `"1"` is an owner
    assertion of completed distribution readiness, not an API check or automatic approval.
-4. Record the app/client ids and client secret. Invite the bot to the chosen channel. uier does not
+5. Record the app/client ids and client secret. Invite the bot to the chosen channel. uier does not
    join channels automatically. Test private-channel access, channel removal and reconnect.
 
 See [Slack OAuth](https://docs.slack.dev/authentication/installing-with-oauth/) and
@@ -306,11 +315,15 @@ Reply sync is a separate, default-off admin setting for all five providers. See 
   [update](https://developers.notion.com/reference/update-a-comment) and
   [delete](https://developers.notion.com/reference/delete-a-comment) on the linked page's comments.
   User-information capabilities are unnecessary. Update/delete only affect integration-owned copies.
-- **Slack:** register `channels:history` and `groups:history` as optional bot scopes, alongside the
-  existing three scopes. The project admin selects **Allow Slack reply access**, approves OAuth in
-  the same workspace, then enables reply sync. The existing channel stays selected. Bot
-  [conversations.replies](https://docs.slack.dev/reference/methods/conversations.replies/) reads only
-  known linked threads; `chat:write` creates, edits and deletes the bot's own reply copies.
+- **Slack:** register `channels:history`, `groups:history` and `users:read` as optional bot scopes,
+  alongside the existing three scopes, and the event subscription above. The project admin selects
+  **Allow Slack reply access**, approves OAuth in the same workspace, then enables reply sync. The
+  existing channel stays selected. Signed [message events](https://docs.slack.dev/reference/events/message.channels/)
+  bring thread replies in within seconds; the worker's
+  [conversations.replies](https://docs.slack.dev/reference/methods/conversations.replies/) poll reads
+  only known linked threads and catches missed events. `users:read` adds the person's Slack name to
+  imported replies (an installation without it shows the Slack user id, and settings offer the
+  reconnect). `chat:write` creates, edits and deletes the bot's own reply copies.
 - **GitHub / Linear:** existing issue/comment and read/write app permissions suffice. No extra
   scopes or content webhooks are added.
 - **Azure DevOps:** existing delegated `vso.work_write` covers the
