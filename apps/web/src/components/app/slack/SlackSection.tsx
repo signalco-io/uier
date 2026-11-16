@@ -4,7 +4,7 @@ import { useAppI18n } from '@/src/lib/i18n/client';
 
 import { useActionState, useId, useOptimistic, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowUpRight, RefreshCw } from 'lucide-react';
+import { ArrowUpRight, RefreshCw, Send } from 'lucide-react';
 import { cn } from 'cn';
 import { Alert, AlertDescription } from '@/src/components/ui/alert';
 import { Button, buttonVariants } from '@/src/components/ui/button';
@@ -152,7 +152,7 @@ function SlackConnection({ projectId, settings, connectHref }: { projectId: stri
             checked={enabled} disabled={pending} onCheckedChange={on => change(on ? 'enable' : 'disable')} />}
 
         {active && connection.enabled && <Button type="button" variant="outline" className="w-fit" disabled={pending} onClick={() => change('test')}>
-            {pending && operation === 'test' && <Spinner data-icon="inline-start" />}{t("Send a test notification")}
+            {pending && operation === 'test' ? <Spinner data-icon="inline-start" /> : <Send data-icon="inline-start" />}{t("Send a test notification")}
         </Button>}
         <FormMessage state={result?.ok ? { ...result, message: result.data.message } : result} />
 
