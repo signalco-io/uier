@@ -78,6 +78,8 @@ test('each status shows its own colour in the board, the list, the status menu a
     await form.getByRole('textbox', { name: 'Fix summary', exact: true }).fill('Fixed the colours');
     await form.getByRole('button', { name: 'Request verification', exact: true }).click();
     await expect(page.getByRole('article').getByRole('button', { name: 'Status: Ready to verify. Change status', exact: true })).toBeVisible();
+    // The thread's status chip glows like the board's column headers (uier #462)
+    await expect(page.getByRole('article').getByRole('button', { name: 'Status: Ready to verify. Change status', exact: true }).locator('[data-status-glow="ready"]')).toHaveCount(1);
     await page.keyboard.press('Escape');
     await expect(column('Ready to verify').getByRole('listitem')).toHaveCount(1);
 
