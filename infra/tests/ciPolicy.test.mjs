@@ -76,6 +76,7 @@ test('builds have no deployment secrets and deployment jobs never execute checko
     const pulumi = readFileSync(join(root, '.github/workflows/pulumi_reusable.yml'), 'utf8');
     assert.match(pulumi, /environment:.*inputs\.command == 'up'.*'production'.*'preview'/);
     assert.match(pulumi, /ANTHROPIC_API_KEY:.*inputs\.command == 'up'/);
+    assert.match(pulumi, /SLACK_SIGNING_SECRET:.*inputs\.command == 'up'/);
     assert.match(pulumi, /UIER_INTEGRATION_ENV:.*inputs\.command == 'up'/);
 });
 
@@ -132,7 +133,7 @@ test('reusable callers allowlist environment secrets and keep production integra
         const references = [...workflow.matchAll(/secrets\.([A-Z_]+)/g)].map(match => match[1]);
         const allowed = new Set(['AZURE_CLIENT_ID', 'AZURE_TENANT_ID', 'AZURE_SUBSCRIPTION_ID',
             'AZURE_STORAGE_ACCOUNT', 'VERCEL_TOKEN', 'CLOUDFLARE_API_TOKEN',
-            ...(name === 'deploy.yml' ? ['UIER_INTEGRATION_ENV', 'ANTHROPIC_API_KEY'] : [])]);
+            ...(name === 'deploy.yml' ? ['UIER_INTEGRATION_ENV', 'ANTHROPIC_API_KEY', 'SLACK_SIGNING_SECRET'] : [])]);
         assert.ok(references.length >= 7);
         assert.ok(references.every(key => allowed.has(key)));
     }

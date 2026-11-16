@@ -49,7 +49,7 @@ control access to its copies. See [setup and manual tasks](integration-setup.md)
   copies. Human labels and discussion remain separate from uier's managed content.
 - **Slack:** a rotating bot grant posts one root message for new shared feedback in the chosen
   channel and updates its current summary. Optional reply-count and status summaries are off by
-  default. The normal connection requests no history, direct-message or file scope. Optional reply sync requests public/private channel history through an explicit reconnect. The app must already be a channel
+  default. The normal connection requests no history, direct-message or file scope. Optional reply sync requests public/private channel history and Slack names (`users:read`) through an explicit reconnect, and receives thread replies through signed Events API requests within seconds. The app must already be a channel
   member. Channel changes start a new activation cutoff; edits to older threads stay silent unless
   an admin explicitly selects backfill or resumes a cleaned thread. Missing bot messages are held
   for review. An uncertain post cannot be found automatically without history access, so an admin
@@ -154,10 +154,20 @@ even after reply sync is disabled. Human originals, provider history and notific
 Removing an external copy does not cause automatic recreation.
 
 Slack reply access requires an explicit **Allow Slack reply access** reconnect requesting
-`channels:history` and `groups:history` as bot scopes. It keeps an existing destination active when
-upgrading the same workspace. History grants are wider than one thread, but the worker reads only
-known linked threads in the selected channel. No user tokens, DMs, Events API or auto-join permission
-are requested. Notion's public connection needs **Read comments** and **Insert comments** capabilities;
+`channels:history`, `groups:history` and `users:read` as bot scopes. It keeps an existing destination
+active when upgrading the same workspace. History grants are wider than one thread, but uier reads
+only known linked threads in the selected channel. With these scopes Slack also sends the app's
+`message.channels`/`message.groups` events, signed with the app's signing secret, for every
+channel the bot is in. `/api/integrations/slack/events` drops anything that is not a reply in a
+known linked thread before any read or storage, and imports the rest at once through the same
+checks as the poll. The poll stays as the fallback for missed events: Slack limits
+`conversations.replies` to one request a minute for apps distributed outside its Marketplace.
+`users:read` only resolves the names of new imported replies. No user tokens, DMs or auto-join
+permission are requested.
+
+Changes to a thread that already has a Slack message (a uier reply, an edit, a status change) are
+sent right after the change instead of on the next worker run. A new thread still waits for the
+worker, so its first minutes of edits and deletion are batched into one message. Notion's public connection needs **Read comments** and **Insert comments** capabilities;
 existing authorizations may need reconnecting. GitHub Issues read/write, Linear read/write and
 Azure DevOps `vso.work_write` already cover their comment operations. See the
 [setup steps](integration-setup.md#two-way-reply-sync) for provider registration and acceptance.

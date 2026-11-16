@@ -19,6 +19,12 @@ Phase 1 sends new-thread notifications and updates their summaries. Phase 2 adds
 
 Non-goals: Slack commands, interactive resolve/assign buttons, receiving Slack replies, Events API subscriptions, two-way sync, channel-wide digests, DMs, Slack Connect channels, org-wide Enterprise installations, GovSlack, screenshots/files, public image URLs, reading channel history, and a guarantee that every intermediate change produces a notification. No delivery happens in a request or detached promise.
 
+Later changes supersede parts of this plan: optional reply sync (history scopes, two-way thread
+replies) and, from November 2026, Events API message subscriptions that import replies within
+seconds, with immediate sending of changes to threads Slack already has. The current behavior is in
+[connected services](integrations.md#two-way-reply-sync) and the
+[setup runbook](integration-setup.md#slack-notifications).
+
 Customer rollout has a distribution gate: Slack's official policy identifies the Marketplace as the channel for commercially distributing Slack API apps, including templated customer-created apps. An unlisted development installation is not treated as customer rollout approval. The owner must confirm uier's distribution eligibility and complete the applicable listing/review before enabling customer connections. [Slack distribution clarification](https://docs.slack.dev/changelog/2025/05/29/rate-limit-changes-for-non-marketplace-apps/).
 
 ## 2. How it works

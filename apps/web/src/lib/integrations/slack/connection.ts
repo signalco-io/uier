@@ -10,7 +10,7 @@ import { createOauthState, consumeOauthState } from '../oauthState';
 import { acquireGrantLease, releaseGrantLease, saveGrantLease } from '../grants';
 import { decryptSecret, encryptSecret } from '../secrets';
 import { slackRequest, SlackApiError } from './client';
-import { isSlackConfigured, slackAuthorizeUrl, slackId, slackLabel, slackScopes, slackReplyScopes, slackSecretKey } from './config';
+import { isSlackConfigured, slackAuthorizeUrl, slackId, slackLabel, slackNameScopes, slackScopes, slackReplyScopes, slackSecretKey } from './config';
 import type { SlackConnection, SlackGrant, SlackInstallationOwner } from './model';
 import { SlackRateWait, withSlackRateLimit } from './rate';
 
@@ -179,7 +179,7 @@ export async function beginSlackConnect(input: { userId: string; workspaceId: st
         const available: SlackGrant[] = [];
         for (const grant of grants) {
             const owner = (await getAppStore().get<SlackInstallationOwner>(ownerPk(grant.teamId), 'owner'))?.doc;
-            if ((!input.requestReplies || slackReplyScopes.every(scope => grant.scopes.includes(scope))) && grant.tokens && !grant.refreshStartedAt && owner?.status === 'active' && owner.workspaceId === project.workspaceId
+            if ((!input.requestReplies || [...slackReplyScopes, ...slackNameScopes].every(scope => grant.scopes.includes(scope))) && grant.tokens && !grant.refreshStartedAt && owner?.status === 'active' && owner.workspaceId === project.workspaceId
                 && owner.grantId === grant.id && owner.generation === grant.generation
                 && (!owner.operationLease || Date.parse(owner.operationLease.until) <= Date.now())) available.push(grant);
         }
@@ -198,7 +198,7 @@ export async function beginSlackConnect(input: { userId: string; workspaceId: st
     const state = await createOauthState({ provider: 'slack', ...input, pkce: false, key: slackSecretKey(),
         metadata: { ...(current?.config.teamId ? { teamId: current.config.teamId } : {}), ...(input.requestReplies ? { replies: '1' } : {}) } });
     const url = new URL(slackAuthorizeUrl());
-    url.search = new URLSearchParams({ client_id: process.env.SLACK_CLIENT_ID!, scope: [...slackScopes, ...(input.requestReplies ? slackReplyScopes : [])].join(','),
+    url.search = new URLSearchParams({ client_id: process.env.SLACK_CLIENT_ID!, scope: [...slackScopes, ...(input.requestReplies ? [...slackReplyScopes, ...slackNameScopes] : [])].join(','),
         redirect_uri: callbackUrl(input.baseUrl), state: state.state }).toString();
     return url.href;
 }
@@ -224,7 +224,7 @@ export async function finishSlackConnect(input: { userId: string; state: unknown
         if (data.token_type !== 'bot' || data.app_id !== process.env.SLACK_APP_ID || data.is_enterprise_install === true
             || !slackId(team?.id) || !slackId(data.bot_user_id) || !slackScopes.every(scope => scopes.includes(scope))
             || (state.metadata?.replies === '1' && !slackReplyScopes.every(scope => scopes.includes(scope)))
-            || scopes.some(scope => ![...slackScopes, ...slackReplyScopes].includes(scope as typeof slackScopes[number]))
+            || scopes.some(scope => !([...slackScopes, ...slackReplyScopes, ...slackNameScopes] as string[]).includes(scope))
             || (data.authed_user && typeof data.authed_user === 'object' && 'access_token' in data.authed_user))
             throw new SlackConnectionError('invalid_installation');
         const tokens = tokenFields(data);

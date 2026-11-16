@@ -14,6 +14,7 @@ function deferredAdapter(provider: IntegrationProviderId, resolve: () => Integra
         get supportsReplySync() { return resolve().supportsReplySync; },
         deliver: context => resolve().deliver(context),
         maintenance: options => resolve().maintenance?.(options) ?? Promise.resolve({ calls: 0 }),
+        deliversAfterChange: ledger => resolve().deliversAfterChange?.(ledger) ?? false,
         externalLink: (connection, ledger) => resolve().externalLink?.(connection, ledger) ?? null,
         validateExternalLink: (url, connection, ledger) => resolve().validateExternalLink?.(url, connection, ledger) ?? false,
         async revokeAdmin(workspaceId, userId) { await resolve().revokeAdmin?.(workspaceId, userId); }

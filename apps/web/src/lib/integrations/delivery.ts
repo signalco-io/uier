@@ -31,6 +31,8 @@ export type DeliveryOptions = {
     maxCalls?: number;
     onRequest?: () => void;
     statusOnly?: boolean;
+    /** Status-only: verified provider event replies, received instead of a listing read. */
+    pushedReplies?: IntegrationReply[];
     exportFeedback?: typeof projectFeedbackExport;
 };
 
@@ -192,6 +194,7 @@ export async function processIntegrationDelivery(candidate: IntegrationSync, bas
         const context: IntegrationDeliveryContext = {
             connection, project, feedback, mode, through, deadline, baseUrl,
             statusOnly,
+            ...(statusOnly && options.pushedReplies ? { pushedReplies: options.pushedReplies.slice(0, 100) } : {}),
             importedReplies: (source?.thread.items ?? []).filter(item => item.integrationSource?.provider === connection.provider
                 && item.integrationSource.connectionId === connection.id
                 && !item.deletedAt).map(item => ({ externalId: item.integrationSource!.externalId, target: item.integrationSource!.target, createdAt: item.createdAt ?? connection.replySync?.since ?? '' })),
