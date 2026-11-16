@@ -37,6 +37,17 @@
   Google Drive (Drive and Docs addresses), Discord and Linear by host; each shows its mark (`ProjectLinkIcon`: the
   integrations' logos, plus `serviceLogos` in `IntegrationLogo.tsx`), any other address Lucide's link. An empty label shows
   the service's name, else the host, which the label's placeholder previews. `project-links{,.api}.spec.ts` cover them.
+- **A service's page** (`settings/integrations/<provider>`, [uier #458](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2F05lb2p3clzi9%2Fsettings%2Fintegrations%2Fslack&comment=comment_K8dHbxsnJbDEpPkeurYjW)) reads in the order people need it: the
+  provider's card with its status badge, the optional syncs, then What it does. Slack's card (`slack/SlackSection.tsx`) shows
+  the connection as a list of facts (`IntegrationDetails`: workspace, channel, summaries, last delivery, backfill), a
+  Notifications switch that saves at once, Send a test notification, and the rare actions (send existing feedback, reconnect,
+  disconnect) under More options (`MoreOptions`, closed until asked for). The channel form (channel, the two summaries and the
+  confirmation, one save) is open until a channel is chosen and afterwards behind Change channel, which reads the channels
+  itself and selects the saved one, so changing a summary does not mean choosing the channel again. Without a connection the
+  card is one Connect button; after Disconnect it is one Reconnect button and no More options. Two-way status sync and Reply
+  sync (`SyncOption`) are each a card with one switch that saves at once; the switch shows the change, only a refusal adds a
+  message. The other providers' cards keep their own layout and can move to the same blocks. `slack.spec.ts` and
+  `notion.spec.ts` cover the controls.
 - The board's column sorts are the project's too, but they are chosen on the board, from each column's header, by
   everyone who triages the project, and saved at once ([column sorts](comments-inbox.md#board-column-sorts)).
 

@@ -21,6 +21,9 @@ test('Slack consent, explicit channel choice, optional summaries, test send, bac
     await expect(page).toHaveURL(new RegExp(`${settingsUrl}\\?slack=connected$`));
     await expect(slack).toContainText('Choose a channel');
     await expect(slack.getByRole('combobox')).toHaveCount(0);
+    // Before a channel is chosen there is nothing to turn on or test, and the rare actions stay closed
+    await expect(slack.getByRole('switch')).toHaveCount(0);
+    await expect(slack.getByRole('button', { name: 'Disconnect Slack', exact: true })).toHaveCount(0);
     const captured = page.waitForRequest(request => request.method() === 'POST' && Boolean(request.headers()['next-action']));
     await slack.getByRole('button', { name: 'Load channels', exact: true }).click();
     const actionRequest = await captured;
@@ -36,15 +39,38 @@ test('Slack consent, explicit channel choice, optional summaries, test send, bac
     await slack.getByRole('button', { name: 'Save Slack channel', exact: true }).click();
     await expect(slack).toContainText('Notifications on');
     await page.reload();
-    await expect(slack).toContainText('Channel: #private-feedback.');
+    const details = slack.locator('[data-integration-details]');
+    await expect(details.locator('dt')).toHaveText(['Workspace', 'Channel', 'Summaries']);
+    await expect(details.locator('dd')).toContainText(['Test Slack workspace', '#private-feedback', 'Status changes']);
+    // The saved channel and summaries come back in the form; Cancel changes nothing
+    const change = slack.getByRole('button', { name: 'Change channel', exact: true });
+    await expect(slack.getByRole('combobox')).toHaveCount(0);
+    await change.click();
+    await expect(slack.getByRole('combobox', { name: 'Channel', exact: true })).toContainText('#private-feedback (private)');
+    await expect(change).toHaveAttribute('aria-expanded', 'true');
+    await expect(slack.getByRole('checkbox', { name: 'Notify about status changes', exact: true })).toBeChecked();
+    await slack.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await expect(slack.getByRole('combobox')).toHaveCount(0);
+    await expect(change).toBeFocused();
+    await change.click();
+    await slack.getByRole('checkbox', { name: 'Notify about new replies', exact: true }).check();
+    await slack.getByRole('checkbox', { name: 'Allow shared feedback in this channel', exact: true }).check();
+    await slack.getByRole('button', { name: 'Save Slack channel', exact: true }).click();
+    await expect(details.locator('dd')).toContainText(['Test Slack workspace', '#private-feedback', 'Replies and status changes']);
+    await expect(slack.getByRole('combobox')).toHaveCount(0);
+    await expect(change).toBeFocused();
     expect(await page.content()).not.toMatch(/xoxb-test-|xoxe-test-|slack-test-secret|"(?:grantId|accessToken|refreshToken)":/);
     await slack.getByRole('button', { name: 'Send a test notification', exact: true }).click();
     await expect(slack).toContainText('The test notification was sent to Slack.');
-    await slack.getByRole('button', { name: 'Turn Slack notifications off', exact: true }).click();
+    const notifications = slack.getByRole('switch', { name: 'Notifications', exact: true });
+    await expect(notifications).toBeChecked();
+    await notifications.click();
     await expect(slack).toContainText('Notifications off');
+    await expect(notifications).not.toBeChecked();
     await expect(slack.getByRole('button', { name: 'Send a test notification', exact: true })).toHaveCount(0);
-    await slack.getByRole('button', { name: 'Turn Slack notifications on', exact: true }).click();
+    await notifications.click();
     await expect(slack).toContainText('Notifications on');
+    await expect(notifications).toBeChecked();
 
     await page.goto(`/app/projects/${projectId}`);
     await openProjectInvite(page);
@@ -76,6 +102,8 @@ test('Slack consent, explicit channel choice, optional summaries, test send, bac
     }, data: { path: '/slack-review', text: 'Feedback for an explicit historical Slack send', authorName: 'Reviewer',
         position: { type: 'point', selector: 'h1', xNormal: 0.5, yNormal: 0.5 } } });
     expect(created.status()).toBe(201);
+    await slack.getByRole('button', { name: 'More options', exact: true }).click();
+    await expectNoAxeViolations(page);
     await slack.getByRole('button', { name: 'Send existing feedback to Slack', exact: true }).click();
     const historical = page.getByRole('alertdialog', { name: 'Send existing feedback to Slack?' });
     await expect(historical).toContainText('This can create many Slack notifications.');
@@ -90,7 +118,9 @@ test('Slack consent, explicit channel choice, optional summaries, test send, bac
     await disconnect.getByRole('button', { name: 'Disconnect Slack', exact: true }).click();
     await expect(slack).toContainText('Reconnect needed');
     await page.reload();
-    await expect(slack.getByRole('button', { name: 'Turn Slack notifications on', exact: true })).toHaveCount(0);
+    await expect(slack.getByRole('switch')).toHaveCount(0);
+    await expect(slack.getByRole('link', { name: 'Reconnect Slack', exact: true })).toBeVisible();
+    await expect(slack.getByRole('button', { name: 'More options', exact: true })).toHaveCount(0);
     await expectNoAxeViolations(page);
 });
 

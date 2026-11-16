@@ -121,7 +121,7 @@ the mapped Resolved state). Cross-system changes are eventually consistent, not 
 
 ## Two-way reply sync
 
-All five providers have a separate **Sync replies in both directions** setting, off by default.
+All five providers have a separate **Reply sync** switch (Sync replies in both directions), off by default.
 It starts with replies created after enabling; it does not backfill old discussions. GitHub and
 Linear keep their existing outbound discussion behavior when this setting is off. Notion and Azure
 DevOps keep older discussion in the document body, while new enabled replies use native comments.
