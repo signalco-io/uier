@@ -50,12 +50,33 @@ export function StatusDot({ stage }: { stage: FeedbackStage }) {
     return <span aria-hidden="true" data-status-dot={stage} className={cx('size-1.5 shrink-0 rounded-full', stageDotColors[stage])} />;
 }
 
-/** "Open", "In progress", "Ready to verify" or "Done", with the status dot in its colour. The app's `StateBadge`. */
+/**
+ * A faint halo in each status's colour behind its dot (Open's ink at a lower strength), on the thread's status chip
+ * (uier #462): the app's `GlowingStateDot`, kept as subtle as the board column headers' (uier #399). Decorative; it
+ * takes no room.
+ */
+const stageGlowColors: Record<FeedbackStage, string> = {
+    open: 'bg-foreground/10',
+    'in-progress': 'bg-[hsl(var(--brand-in-progress)/0.25)]',
+    ready: 'bg-[hsl(var(--brand-ready)/0.25)]',
+    done: 'bg-[hsl(var(--brand-success)/0.25)]'
+};
+
+export function GlowingStatusDot({ stage }: { stage: FeedbackStage }) {
+    return (
+        <span className="relative flex shrink-0 items-center justify-center">
+            <span aria-hidden="true" data-status-glow={stage} className={cx('pointer-events-none absolute size-3 rounded-full blur-[2px]', stageGlowColors[stage])} />
+            <span className="relative flex"><StatusDot stage={stage} /></span>
+        </span>
+    );
+}
+
+/** "Open", "In progress", "Ready to verify" or "Done", with the status dot in its colour and its glow. The app's `StateBadge`. */
 export function CommentStatusBadge({ stage, label }: { stage: FeedbackStage; label?: string }) {
     const t = useMessages();
     return (
         <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium text-foreground">
-            <StatusDot stage={stage} />
+            <GlowingStatusDot stage={stage} />
             <span className="sr-only">{t.thread.statusPrefix}</span>
             {label ?? t.status[stage]}
         </span>
@@ -130,7 +151,7 @@ function CommentStatusMenu({ stage, allowed, pending, shortcut, onChange, status
                     aria-keyshortcuts={shortcut ? 'S' : undefined}
                     data-uier-status=""
                     data-uier-thread-control="">
-                    <StatusDot stage={stage} />
+                    <GlowingStatusDot stage={stage} />
                     <span className="sr-only">{t.thread.statusPrefix}</span>
                     {label}
                     <ExpandDown aria-hidden="true" size={12} className="text-muted-foreground" />

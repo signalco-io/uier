@@ -124,6 +124,8 @@ test('a pin shows its thread\'s status but Open, in its dot and its name (uier #
     await expect.poll(() => colour(threadDot)).not.toBe(light);
     expect(await colour(pinDot)).toBe(await colour(threadDot));
     await page.emulateMedia({ colorScheme: 'light' });
+    // The thread's status chip glows like the app's (uier #462)
+    await expect(thread.getByRole('button', { name: 'Status: In progress. Change status', exact: true }).locator('[data-status-glow="in-progress"]')).toHaveCount(1);
 
     await thread.getByRole('button', { name: 'Status: In progress. Change status', exact: true }).click();
     await page.getByRole('dialog', { name: 'Status', exact: true }).getByRole('button', { name: 'Open', exact: true }).click();

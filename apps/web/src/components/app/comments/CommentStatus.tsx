@@ -50,7 +50,8 @@ const stateGlowColors: Record<CommentStatus, string> = {
 
 /**
  * The status dot with a soft glow around it, where it marks something that holds threads: a board column with cards
- * (uier #356). The glow is decoration only: it takes no room, so the name beside it stays where it was.
+ * (uier #356), and a thread's status chip (`StateBadge`, `StateMenu`'s badge, uier #462). The glow is decoration only:
+ * it takes no room, so the name beside it stays where it was.
  */
 export function GlowingStateDot({ status, glow }: { status: CommentStatus; glow: boolean }) {
     return (
@@ -65,7 +66,7 @@ export function StateBadge({ status, comment }: { status: CommentStatus; comment
     const { t } = useAppI18n();
     return (
         <Badge variant="outline" className="gap-1.5">
-            <StateDot status={status} />
+            <GlowingStateDot status={status} glow />
             <span className="sr-only">{t("Status: ")}</span>
             {comment ? workflowStatusLabel(statusForComment(comment.workflow ?? defaultStatusWorkflow, comment, false), t) : t(commentStatusLabels[status])}
         </Badge>
@@ -103,7 +104,7 @@ export function StateMenu({ status, allowed, disabled, onChange, triggerRef, tri
                         // On a touch screen a 32 px pill with roomier sides (a 44 px one looked tall for its width, uier #280);
                         // the hit area still reaches 44 px above and below it
                         className="relative h-5 gap-1.5 rounded-4xl pl-2 after:absolute after:inset-x-0 after:-inset-y-1.5 pointer-fine:after:hidden pointer-coarse:h-8 pointer-coarse:pl-3 pointer-coarse:pr-2" />}>
-                    <StateDot status={status} />
+                    <GlowingStateDot status={status} glow />
                     {label}
                     <ChevronDownIcon aria-hidden="true" data-icon="inline-end" className="text-muted-foreground" />
                 </DropdownMenuTrigger>
