@@ -9,20 +9,32 @@ import { englishSlackI18n } from './i18n';
 
 const literal = (value: string) => value.replace(/[\p{Cc}\p{Cf}]/gu, ' ').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const limit = (value: string, max: number) => Array.from(value).slice(0, max).join('');
+/** Slack documents no escaping for rich text elements. Without angle brackets a label is inert however Slack reads it. */
+const richLabel = (value: string) => value.replace(/</g, '‹').replace(/>/g, '›');
+/** Holds the thread's place while its sentence is translated. Labels never contain control characters. */
+const slot = '\u0001';
 
-/** Reviewer text stays plain_text; generated links never interpolate a reviewer-supplied label. */
+/**
+ * One card per thread: a heading that links to it, the reviewer's words, then one line of status,
+ * priority, page and environment. Reviewer text stays plain_text; the heading's rich text holds only
+ * the thread number and the admin's own type and project labels, never reviewer text.
+ */
 export function slackRootMessage(context: FeedbackContext, projectName: string, baseUrl = 'https://uier.io', i18n: AppI18n = englishSlackI18n) {
     const { t, language } = i18n;
-    const number = context.identity.number ? `#${context.identity.number}` : t('Feedback');
-    const kind = context.kind.startsWith('custom_') ? context.feedbackType?.label ?? t('Feedback')
+    const kind = context.kind.startsWith('custom_') ? slackLabel(context.feedbackType?.label) || t('Feedback')
         : t(context.kind === 'rewrite' ? 'Suggested rewrite' : context.kind === 'bug' ? 'Bug' : 'Feedback');
-    const title = limit(literal(`${slackLabel(projectName) || t('Project')} · ${number} · ${kind} · ${t(context.status === 'done' ? 'Done' : 'Open')}`), 180);
+    const name = `${kind}${context.identity.number ? ` #${context.identity.number}` : ''}`;
+    // Word order differs by language: the sentence is translated whole, then the linked name takes its place in it.
+    const [before = '', after = ''] = t('{thread} in {project}', { thread: slot, project: slackLabel(projectName) || t('Project') }).split(slot);
     let excerpt = limit(literal(context.feedback?.deleted ? t('This message was deleted.')
         : context.kind === 'rewrite' ? t('Suggested rewrite: {text}', { text: context.feedback?.text ?? t('Feedback is unavailable.') })
             : context.feedback?.text ?? t('Feedback is unavailable.')), 500);
     const verification = context.verification ? limit(literal(verificationText(context.verification, t, language)), 500) : '';
-    const priority = t('Priority: {priority}', { priority: t(priorityLabels[commentPriority(context.priority)]) });
-    const environment = context.source.environment ? limit(literal(t('Environment: {environment}', { environment: slackLabel(context.source.environment) })), 100) : '';
+    const priority = commentPriority(context.priority);
+    const path = slackLabel(context.source.path);
+    // The default priority says nothing, so only the others are named.
+    const details = literal([t(context.status === 'done' ? 'Done' : 'Open'), priority === 'normal' ? '' : t('Priority: {priority}', { priority: t(priorityLabels[priority]) }),
+        Array.from(path).length > 60 ? `${limit(path, 59)}…` : path, slackLabel(context.source.environment)].filter(Boolean).join(' · '));
     let reviewLink: string | undefined;
     if (context.identity.projectId && /^[a-z0-9]{12}$/.test(context.identity.projectId)) {
         const url = new URL(`/app/review/${context.identity.projectId}`, baseUrl);
@@ -30,15 +42,18 @@ export function slackRootMessage(context: FeedbackContext, projectName: string, 
         if (url.protocol === 'https:' && !url.username && !url.password && url.href.length <= 256) reviewLink = url.href;
     }
     function render() {
-        const text = [title, excerpt || t('Open the feedback in uier.'), priority, verification, environment,
+        const text = [literal(before + name + after), excerpt || t('Open the feedback in uier.'), details, verification,
             reviewLink ? t('Open in uier: {url}', { url: literal(reviewLink) }) : t('Open the project in uier to view this feedback.')].filter(Boolean).join('\n');
         const blocks: Record<string, unknown>[] = [
-            { type: 'section', text: { type: 'plain_text', text: title, emoji: false } },
-            { type: 'section', text: { type: 'plain_text', text: excerpt || t('Open the feedback in uier.'), emoji: false } }
+            { type: 'rich_text', elements: [{ type: 'rich_text_section', elements: [
+                ...(before ? [{ type: 'text', text: richLabel(before) }] : []),
+                { type: reviewLink ? 'link' : 'text', ...(reviewLink ? { url: reviewLink } : {}), text: richLabel(name), style: { bold: true } },
+                ...(after ? [{ type: 'text', text: richLabel(after) }] : [])
+            ] }] },
+            { type: 'section', text: { type: 'plain_text', text: excerpt || t('Open the feedback in uier.'), emoji: false } },
+            { type: 'context', elements: [{ type: 'plain_text', text: details, emoji: false }] }
         ];
-        blocks.push({ type: 'context', elements: [{ type: 'plain_text', text: priority, emoji: false }] });
         if (verification) blocks.push({ type: 'context', elements: [{ type: 'plain_text', text: verification, emoji: false }] });
-        if (environment) blocks.push({ type: 'context', elements: [{ type: 'plain_text', text: environment, emoji: false }] });
         if (reviewLink) blocks.push({ type: 'actions', elements: [{ type: 'button', text: { type: 'plain_text', text: t('Open in uier'), emoji: false }, url: reviewLink }] });
         return { text, blocks, mrkdwn: false, parse: 'none', unfurl_links: false, unfurl_media: false };
     }

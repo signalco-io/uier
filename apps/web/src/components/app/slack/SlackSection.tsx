@@ -223,7 +223,7 @@ function SlackChannelForm({ projectId, settings, channels, save, saving, error, 
             <Field orientation="horizontal">
                 <Checkbox id={`${id}-confirm`} name="confirmDestination" value="true" required disabled={saving} />
                 <FieldContent><FieldLabel htmlFor={`${id}-confirm`}>{t("Allow shared feedback in this channel")}</FieldLabel>
-                    <FieldDescription>{t("Everyone with channel access can read shared excerpts. New destinations start with new feedback; old Slack copies remain. Screenshots stay in uier.")}</FieldDescription></FieldContent>
+                    <FieldDescription>{t("Everyone with channel access can read shared excerpts. New destinations start with new feedback; old Slack copies remain. Screenshots and recordings stay in uier unless you choose to send them.")}</FieldDescription></FieldContent>
             </Field>
             <div className="flex flex-col gap-3">
                 <div className="flex flex-wrap gap-2">

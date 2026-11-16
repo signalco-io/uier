@@ -5,6 +5,7 @@ import type { IntegrationAdapter, IntegrationDeliveryContext, IntegrationReply, 
 import { SlackApiError, slackRequest, type SlackMethod } from './client';
 import { isSlackConfigured, slackId, slackLabel, slackNameScopes, slackTimestamp } from './config';
 import { currentSlackGrant, invalidateSlackGrant, recoverSlackSetups, SlackConnectionError, slackAccessToken } from './connection';
+import { cleanupSlackFiles, syncSlackFiles } from './files';
 import { slackChangeSummary, slackReplyMessage, slackRootMessage } from './message';
 import { englishSlackI18n, loadSlackI18n } from './i18n';
 import type { SlackConnection, SlackMessage, SlackState, SlackUncertainPost } from './model';
@@ -17,7 +18,9 @@ function validMessage(value: SlackMessage) { return slackTimestamp(value.ts) && 
 function stateFrom(context: IntegrationDeliveryContext): SlackState {
     const state = structuredClone(context.ledger.state) as SlackState;
     if ((state.root && !validMessage(state.root)) || [...(state.notifications ?? []), ...(state.retired ?? [])].some(value => !validMessage(value))
-        || (state.uncertainPosts ?? []).some(post => !slackId(post.teamId) || !slackId(post.channelId) || typeof post.operationId !== 'string')) throw invalid();
+        || (state.uncertainPosts ?? []).some(post => !slackId(post.teamId) || !slackId(post.channelId) || typeof post.operationId !== 'string')
+        || (state.files ?? []).some(file => !slackId(file.fileId) || !slackId(file.teamId) || !slackId(file.channelId) || !slackTimestamp(file.rootTs)
+            || typeof file.key !== 'string' || typeof file.revision !== 'string')) throw invalid();
     return state;
 }
 function unknownAttempt(context: IntegrationDeliveryContext): SlackUncertainPost | undefined {
@@ -123,9 +126,11 @@ export const slackAdapter: IntegrationAdapter = { provider: 'slack', isConfigure
                 const decode = (raw: unknown): NativeReply => {
                     if (!raw || typeof raw !== 'object') throw new SlackConnectionError('invalid_reply');
                     const message = raw as Record<string, unknown>;
-                    if (!slackTimestamp(message.ts) || typeof message.text !== 'string' || (message.ts !== root.ts && message.thread_ts !== root.ts)) throw new SlackConnectionError('invalid_reply');
+                    // A message that only shares a file, such as the app's own screenshot copies, may carry no text.
+                    const body = typeof message.text === 'string' ? message.text : Array.isArray(message.files) && message.text === undefined ? '' : undefined;
+                    if (!slackTimestamp(message.ts) || body === undefined || (message.ts !== root.ts && message.thread_ts !== root.ts)) throw new SlackConnectionError('invalid_reply');
                     const profile = message.user_profile && typeof message.user_profile === 'object' ? message.user_profile as Record<string, unknown> : {};
-                    return { id: message.ts, text: message.text, fingerprint: message.text,
+                    return { id: message.ts, text: body, fingerprint: body,
                         authorId: typeof message.user === 'string' ? message.user : String(message.bot_id ?? 'Slack reviewer'),
                         authorName: slackLabel(profile.display_name) || slackLabel(profile.real_name)
                             || (typeof message.user === 'string' ? t('Slack user {id}', { id: message.user }) : t('Slack app')),
@@ -187,8 +192,8 @@ export const slackAdapter: IntegrationAdapter = { provider: 'slack', isConfigure
             if (context.mode === 'cleanup') {
                 state.suppressed = true; state.baselineOnly = true; state.resume = undefined; state.missing = undefined;
                 await context.checkpoint(state);
-                let unreachable = false;
-                let denied = false; let currentDenied = false;
+                // Files first: deleting a message leaves the files shared under it in place.
+                let { unreachable, denied, currentDenied } = await cleanupSlackFiles({ context, state, grant, token }, { teamId, channelId });
                 for (const target of [...(state.notifications ?? []), ...(state.retired ?? []), ...(state.root ? [state.root] : [])]) {
                     if (target.teamId !== grant.teamId) { unreachable = true; continue; }
                     try {
@@ -278,7 +283,9 @@ export const slackAdapter: IntegrationAdapter = { provider: 'slack', isConfigure
                 state.root = { ...state.root!, permalink: link.href }; await context.checkpoint(state);
             }
             await sendNativeReplies(context, state.root!.replySync ??= {}, replyIO(state.root!), clearAttempt => context.checkpoint(state, { clearAttempt }));
-            return { status: 'accepted' };
+            // Last, so a failed file never holds back the message, its status or its replies.
+            const fileCode = await syncSlackFiles({ context, state, connection, grant, token, i18n });
+            return { status: 'accepted', ...(fileCode ? { code: fileCode } : {}) };
         } catch (error) {
             if (error instanceof SlackRateWait) return { status: 'waiting', code: 'rate_wait', retryAt: error.retryAt };
             if (error instanceof GrantLeaseError) return { status: 'waiting', code: 'grant_busy' };

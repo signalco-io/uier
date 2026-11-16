@@ -17,7 +17,7 @@ Throughout this plan, “non-private” describes thread visibility inside uier;
 
 Phase 1 sends new-thread notifications and updates their summaries. Phase 2 adds optional reply/status summaries and member-only external links. Phase 3 adds a deliberately requested, bounded historical send. Private uier threads, including private app feedback, are never exported. A private Slack channel does not permit private uier feedback to be exported.
 
-Non-goals: Slack commands, interactive resolve/assign buttons, receiving Slack replies, Events API subscriptions, two-way sync, channel-wide digests, DMs, Slack Connect channels, org-wide Enterprise installations, GovSlack, screenshots/files, public image URLs, reading channel history, and a guarantee that every intermediate change produces a notification. No delivery happens in a request or detached promise.
+Non-goals: Slack commands, interactive resolve/assign buttons, receiving Slack replies, Events API subscriptions, two-way sync, channel-wide digests, DMs, Slack Connect channels, org-wide Enterprise installations, GovSlack, screenshots/files by default (an opt-in exists, see section 6), public image URLs, reading channel history, and a guarantee that every intermediate change produces a notification. No delivery happens in a request or detached promise.
 
 Later changes supersede parts of this plan: optional reply sync (history scopes, two-way thread
 replies) and, from November 2026, Events API message subscriptions that import replies within
@@ -99,15 +99,24 @@ Disconnect removes only the project's Slack binding, disables its delivery and l
 
 ## 6. Choosing the channel and message content
 
-Request bot scopes `chat:write`, `channels:read`, `groups:read`. Do not request `chat:write.public`, auto-join, history, file, user profile, email, DM or command scopes. The admin invites the bot to the selected channel in Slack. Private channel support means the bot must already be a member; it never means exporting private uier feedback.
+Request bot scopes `chat:write`, `channels:read`, `groups:read`. Do not request `chat:write.public`, auto-join, history, file, user profile, email, DM or command scopes on the normal connect path; history and `files:write` are optional scopes behind their own explicit reconnects. The admin invites the bot to the selected channel in Slack. Private channel support means the bot must already be a member; it never means exporting private uier feedback.
 
 A "Load channels" server action paginates `conversations.list` with `types=public_channel,private_channel`, excludes archived channels, caps discovery at 1000 results and lists only eligible bot-member channels. Bound and sanitize names; use ids for identity. Save validates the channel again, rejects DMs/external shared channels and persists its id. If membership cannot be established from the returned metadata, do not enable sending; prove the check against a real development workspace before rollout. Renaming a channel does not retarget it.
 
-Render messages from the authorized `FeedbackContext`; do not read raw `DbComment` or scrape the reviewed site. Include project name, public thread number when present, kind, current open/done status, bounded feedback excerpt, optional environment label, and the approved token-free uier thread link. Do not include detailed device/browser data, selectors, the complete discussion or screenshot references by default. Rewrites retain the "Suggested rewrite" label. Deleted first items have no old text.
+Render messages from the authorized `FeedbackContext`; do not read raw `DbComment` or scrape the reviewed site. Include project name, public thread number when present, kind, current open/done status, a priority other than Normal, bounded feedback excerpt, the bounded page path, optional environment label, and the approved token-free uier thread link. Do not include detailed device/browser data, selectors, the complete discussion or screenshot references by default. Rewrites retain the "Suggested rewrite" label. Deleted first items have no old text.
 
-The renderer uses Block Kit `plain_text` for reviewer text, at most 500 excerpt characters and 2500 characters overall. Include a complete short accessibility fallback, with `mrkdwn: false`, `parse: 'none'`, no `link_names` expansion, and escaped literal control characters. Generated link labels/URLs are separately validated; reviewer text never becomes a Slack mention or link instruction. Posts set `unfurl_links: false`, `unfurl_media: false` and `reply_broadcast: false` where applicable. No message metadata contains secret ids or personal data.
+The renderer uses Block Kit `plain_text` for reviewer text, at most 500 excerpt characters and 2500 characters overall. The heading alone is a rich text block (bold, linked to the thread) made of the thread number and the admin's type and project labels, with angle brackets replaced: Slack documents no escaping for rich text elements. Include a complete short accessibility fallback, with `mrkdwn: false`, `parse: 'none'`, no `link_names` expansion, and escaped literal control characters. Generated link labels/URLs are separately validated; reviewer text never becomes a Slack mention or link instruction. Posts set `unfurl_links: false`, `unfurl_media: false` and `reply_broadcast: false` where applicable. No message metadata contains secret ids or personal data.
 
-Screenshots stay in uier behind their existing access checks. Phase 1 posts no image URL, file upload or signed public bypass. Later image support would need its own scope, retention and cleanup plan.
+Screenshots and recordings stay in uier behind their existing access checks by default. No image URL or signed public bypass is ever posted. An admin can opt in to file uploads with the optional `files:write` scope; the scope, retention and cleanup design is in [Slack files](integrations.md#slack-files).
+
+Acceptance items for file sharing that need a real workspace, because the local stub only assumes them:
+
+- WebP screenshots and WebM recordings preview and play in Slack's desktop and mobile clients.
+- `files.delete` removes the shared message from the thread, or leaves only a "file was deleted" note.
+- A file message posted by the app is returned by `conversations.replies`, and sent as a `file_share` message event, with the bot user as its `user`, so the reply poll and the Events API import both skip it. Deleting the file sends no event that imports as a reply.
+- The upload address is on a `slack.com` host and accepts a raw `application/octet-stream` POST.
+- `files.getUploadURLExternal`, `files.completeUploadExternal` and `files.delete` accept form fields with a rotating bot token.
+- Slack returns `missing_scope` for these calls on an installation without `files:write`.
 
 ## 7. Notification semantics
 

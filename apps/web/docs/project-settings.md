@@ -46,7 +46,9 @@
   itself and selects the saved one, so changing a summary does not mean choosing the channel again. Without a connection the
   card is one Connect button; after Disconnect it is one Reconnect button and no More options. Two-way status sync and Reply
   sync (`SyncOption`) are each a card with one switch that saves at once; the switch shows the change, only a refusal adds a
-  message. `slack.spec.ts` and `notion.spec.ts` cover the controls.
+  message. Slack's Screenshots and recordings (`slack/SlackFiles.tsx`) is the same card, shown once a channel is chosen; until
+  Slack allows file uploads its switch is off and disabled beside an Allow Slack file uploads link. `slack.spec.ts` and
+  `notion.spec.ts` cover the controls.
 - **GitHub, Linear, Notion and Azure DevOps** use the same blocks ([uier #459](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2F05lb2p3clzi9%2Fsettings%2Fintegrations%2Fslack&comment=comment_I4dW_MU23SfnybdxNZBuW)),
   shared in `components/app/integrations`: the facts (`IntegrationDetails`, with `BackfillDetail`), a Sync switch that saves at
   once, then backfill, reconnect and disconnect with the provider's notes under More options (`ConnectionControls`, which

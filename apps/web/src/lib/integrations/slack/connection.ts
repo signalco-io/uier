@@ -10,7 +10,7 @@ import { createOauthState, consumeOauthState } from '../oauthState';
 import { acquireGrantLease, releaseGrantLease, saveGrantLease } from '../grants';
 import { decryptSecret, encryptSecret } from '../secrets';
 import { slackRequest, SlackApiError } from './client';
-import { isSlackConfigured, slackAuthorizeUrl, slackId, slackLabel, slackNameScopes, slackScopes, slackReplyScopes, slackSecretKey } from './config';
+import { isSlackConfigured, slackAuthorizeUrl, slackFileScopes, slackId, slackLabel, slackNameScopes, slackOptionalScopes, slackScopes, slackReplyScopes, slackSecretKey } from './config';
 import type { SlackConnection, SlackGrant, SlackInstallationOwner } from './model';
 import { SlackRateWait, withSlackRateLimit } from './rate';
 
@@ -169,37 +169,46 @@ function tokenFields(data: Record<string, unknown>) {
     return { access: data.access_token, refresh: data.refresh_token, expiresAt: new Date(Date.now() + data.expires_in * 1000).toISOString() };
 }
 
-export async function beginSlackConnect(input: { userId: string; workspaceId: string; projectId: string; baseUrl: string; requestReplies?: boolean }) {
+export async function beginSlackConnect(input: { userId: string; workspaceId: string; projectId: string; baseUrl: string; requestReplies?: boolean; requestFiles?: boolean }) {
     const project = await requireSlackProject(input.workspaceId, input.projectId, input.userId);
     if (!isSlackConfigured()) throw new SlackConnectionError('not_configured');
     await recoverSlackSetups({ workspaceId: project.workspaceId });
     const current = await rawSlackConnection(project);
+    const upgrade = input.requestReplies === true || input.requestFiles === true;
+    // An upgrade asks again for the optional access this connection already has, so one never replaces the other.
+    const held = upgrade && current?.grantId ? (await getAppStore().get<SlackGrant>(current.pk, current.grantId))?.doc.scopes ?? [] : [];
+    const requested = [...slackScopes, ...slackOptionalScopes.filter(scope => held.includes(scope)
+        || (input.requestReplies && ([...slackReplyScopes, ...slackNameScopes] as readonly string[]).includes(scope))
+        || (input.requestFiles && (slackFileScopes as readonly string[]).includes(scope)))];
     if (!current || current.status === 'connected') {
         const grants = await getAppStore().query<SlackGrant>({ type: 'slack-grant', pk: project.pk, where: { status: 'connected', appId: process.env.SLACK_APP_ID! }, limit: 1000 });
         const available: SlackGrant[] = [];
         for (const grant of grants) {
             const owner = (await getAppStore().get<SlackInstallationOwner>(ownerPk(grant.teamId), 'owner'))?.doc;
-            if ((!input.requestReplies || [...slackReplyScopes, ...slackNameScopes].every(scope => grant.scopes.includes(scope))) && grant.tokens && !grant.refreshStartedAt && owner?.status === 'active' && owner.workspaceId === project.workspaceId
+            if (requested.every(scope => grant.scopes.includes(scope)) && grant.tokens && !grant.refreshStartedAt && owner?.status === 'active' && owner.workspaceId === project.workspaceId
                 && owner.grantId === grant.id && owner.generation === grant.generation
                 && (!owner.operationLease || Date.parse(owner.operationLease.until) <= Date.now())) available.push(grant);
         }
         if (available.length === 1) {
             const grant = available[0]!;
-            const held = await acquireOwner(project.workspaceId, grant.teamId, randomUUID(), grant.appId);
+            const lease = await acquireOwner(project.workspaceId, grant.teamId, randomUUID(), grant.appId);
             try {
                 const retained = (await getAppStore().get<SlackGrant>(grant.pk, grant.id))?.doc;
-                if (!retained?.tokens || retained.status !== 'connected' || retained.generation !== held.generation || retained.refreshStartedAt)
+                if (!retained?.tokens || retained.status !== 'connected' || retained.generation !== lease.generation || retained.refreshStartedAt)
                     throw new SlackConnectionError('needs_reconnect');
-                await attachSlackGrant(project, input.userId, retained, undefined, getAppStore(), input.requestReplies === true);
-            } finally { await releaseOwner(held); }
+                await attachSlackGrant(project, input.userId, retained, undefined, getAppStore(), upgrade);
+            } finally { await releaseOwner(lease); }
             return new URL(`${KnownPageLinks.projectIntegration(project.id, 'slack')}?slack=connected`, input.baseUrl).href;
         }
     }
     const state = await createOauthState({ provider: 'slack', ...input, pkce: false, key: slackSecretKey(),
-        metadata: { ...(current?.config.teamId ? { teamId: current.config.teamId } : {}), ...(input.requestReplies ? { replies: '1' } : {}) } });
+        metadata: { ...(current?.config.teamId ? { teamId: current.config.teamId } : {}), ...(input.requestReplies ? { replies: '1' } : {}),
+            ...(input.requestFiles ? { files: '1' } : {}) } });
     const url = new URL(slackAuthorizeUrl());
-    url.search = new URLSearchParams({ client_id: process.env.SLACK_CLIENT_ID!, scope: [...slackScopes, ...(input.requestReplies ? [...slackReplyScopes, ...slackNameScopes] : [])].join(','),
-        redirect_uri: callbackUrl(input.baseUrl), state: state.state }).toString();
+    // An upgrade names its workspace, so Slack offers that one and the channel is kept.
+    const team = upgrade ? current?.config.teamId : undefined;
+    url.search = new URLSearchParams({ client_id: process.env.SLACK_CLIENT_ID!, scope: requested.join(','),
+        redirect_uri: callbackUrl(input.baseUrl), state: state.state, ...(slackId(team) ? { team } : {}) }).toString();
     return url.href;
 }
 
@@ -224,7 +233,8 @@ export async function finishSlackConnect(input: { userId: string; state: unknown
         if (data.token_type !== 'bot' || data.app_id !== process.env.SLACK_APP_ID || data.is_enterprise_install === true
             || !slackId(team?.id) || !slackId(data.bot_user_id) || !slackScopes.every(scope => scopes.includes(scope))
             || (state.metadata?.replies === '1' && !slackReplyScopes.every(scope => scopes.includes(scope)))
-            || scopes.some(scope => !([...slackScopes, ...slackReplyScopes, ...slackNameScopes] as string[]).includes(scope))
+            || (state.metadata?.files === '1' && !slackFileScopes.every(scope => scopes.includes(scope)))
+            || scopes.some(scope => !(slackScopes as readonly string[]).includes(scope) && !slackOptionalScopes.includes(scope))
             || (data.authed_user && typeof data.authed_user === 'object' && 'access_token' in data.authed_user))
             throw new SlackConnectionError('invalid_installation');
         const tokens = tokenFields(data);
@@ -254,7 +264,7 @@ export async function finishSlackConnect(input: { userId: string; state: unknown
             || held.generation !== owner.generation) throw new SlackConnectionError('installation_lease_lost');
         if (!prior ? !await store.create(grant) : await store.replace(grant, prior.etag) !== 'ok') throw new SlackConnectionError('installation_busy');
         await saveOwner(owner, grant.generation, store);
-        await attachSlackGrant(project, input.userId, grant, nonce, store, state.metadata?.replies === '1');
+        await attachSlackGrant(project, input.userId, grant, nonce, store, state.metadata?.replies === '1' || state.metadata?.files === '1');
         await requireSlackProject(project.workspaceId, project.id, input.userId, store);
         if (!await settleSlackSetup(owner, nonce, grant.generation, store)) throw new SlackConnectionError('access_denied');
         return { ...result, status: 'connected' as const };
@@ -358,11 +368,12 @@ export async function disconnectSlack(project: DbProject, userId: string) {
     } finally { if (owner) await releaseOwner(owner); }
 }
 
-async function attachSlackGrant(project: DbProject, userId: string, grant: SlackGrant, setupNonce?: string, store = getAppStore(), replyUpgrade = false) {
+/** `upgrade` adds optional access to the same workspace and keeps its channel, state and settings. */
+async function attachSlackGrant(project: DbProject, userId: string, grant: SlackGrant, setupNonce?: string, store = getAppStore(), upgrade = false) {
     project = await requireSlackProject(project.workspaceId, project.id, userId, store);
     const previous = await rawSlackConnection(project, store);
     const sameTeam = previous?.config.teamId === grant.teamId;
-    const preserveDestination = sameTeam && replyUpgrade;
+    const preserveDestination = sameTeam && upgrade;
     const now = new Date().toISOString();
     const connection: SlackConnection = { type: 'slack-connection', provider: 'slack', pk: project.pk, id: slackConnectionId(project.id),
         workspaceId: project.workspaceId, projectId: project.id, connectedBy: userId, enabled: preserveDestination ? previous!.enabled : false, status: 'connected',
@@ -370,7 +381,9 @@ async function attachSlackGrant(project: DbProject, userId: string, grant: Slack
         ...(sameTeam && previous?.replySync ? { replySync: previous.replySync } : {}),
         createdAt: previous?.createdAt ?? now, updatedAt: now, setupNonce,
         config: { ...(sameTeam ? previous?.config : {}), teamId: grant.teamId, teamName: grant.teamName, botId: grant.botId, teamHost: grant.teamHost,
-            replySummaries: sameTeam ? previous!.config.replySummaries : false, statusSummaries: sameTeam ? previous!.config.statusSummaries : false } };
+            replySummaries: sameTeam ? previous!.config.replySummaries : false, statusSummaries: sameTeam ? previous!.config.statusSummaries : false,
+            // Sending files stays on only while this grant can still upload them.
+            files: sameTeam && previous!.config.files === true && slackFileScopes.every(scope => grant.scopes.includes(scope)) } };
     if (!await store.create(connection)) {
         const saved = await updateDoc<SlackConnection>(connection.pk, connection.id, current => {
             if (previous && (current.destinationRevision !== previous.destinationRevision || current.grantId !== previous.grantId)) throw new SlackConnectionError('connection_changed');

@@ -1,4 +1,4 @@
-import { slackApiBaseUrl } from './config';
+import { slackApiBaseUrl, slackUploadUrl } from './config';
 
 export class SlackApiError extends Error {
     constructor(public readonly status: number, public readonly code: string, public readonly retryAfter?: number,
@@ -10,7 +10,8 @@ export class SlackApiError extends Error {
 
 export const slackMethods = ['oauth.v2.access', 'auth.test', 'conversations.list', 'conversations.info',
     'conversations.replies', 'users.info',
-    'chat.postMessage', 'chat.update', 'chat.delete', 'chat.getPermalink'] as const;
+    'chat.postMessage', 'chat.update', 'chat.delete', 'chat.getPermalink',
+    'files.getUploadURLExternal', 'files.completeUploadExternal', 'files.delete'] as const;
 export type SlackMethod = typeof slackMethods[number];
 
 const safeCode = (value: unknown) => typeof value === 'string' && /^[a-z0-9_]{1,80}$/.test(value) ? value : 'unknown_error';
@@ -23,14 +24,16 @@ export async function slackRequest(method: SlackMethod, payload: Record<string, 
     const base = slackApiBaseUrl();
     const endpoint = new URL(method, base.endsWith('/') ? base : `${base}/`);
     const read = ['auth.test', 'conversations.list', 'conversations.info', 'conversations.replies', 'users.info', 'chat.getPermalink'].includes(method);
-    const headers: Record<string, string> = { ...(!read ? { 'Content-Type': options.oauth ? 'application/x-www-form-urlencoded' : 'application/json' } : {}) };
+    // Every Web API method takes form fields; the file methods are not documented to take JSON. Lists travel as JSON text.
+    const form = options.oauth === true || method.startsWith('files.');
+    const headers: Record<string, string> = { ...(!read ? { 'Content-Type': form ? 'application/x-www-form-urlencoded' : 'application/json' } : {}) };
     if (options.oauth) headers.Authorization = `Basic ${Buffer.from(`${process.env.SLACK_CLIENT_ID}:${process.env.SLACK_CLIENT_SECRET}`).toString('base64')}`;
     else if (options.token) headers.Authorization = `Bearer ${options.token}`;
     let response: Response;
     try {
         if (read) for (const [key, value] of Object.entries(payload)) endpoint.searchParams.set(key, String(value));
         response = await (options.fetcher ?? fetch)(endpoint, { method: read ? 'GET' : 'POST', redirect: 'error', headers,
-            ...(!read ? { body: options.oauth ? new URLSearchParams(Object.entries(payload).map(([key, value]) => [key, String(value)])) : JSON.stringify(payload) } : {}),
+            ...(!read ? { body: form ? new URLSearchParams(Object.entries(payload).map(([key, value]) => [key, value !== null && typeof value === 'object' ? JSON.stringify(value) : String(value)])) : JSON.stringify(payload) } : {}),
             signal: options.signal ?? AbortSignal.timeout(20_000) });
     } catch { throw new SlackApiError(0, 'transport_uncertain', undefined, false, method); }
     const retryHeader = response.headers.get('retry-after');
@@ -52,4 +55,16 @@ export async function slackRequest(method: SlackMethod, payload: Record<string, 
             !['internal_error', 'fatal_error', 'request_timeout', 'unknown_error'].includes(code), method);
     }
     return data;
+}
+
+/** Sends a file's bytes to the upload address Slack returned. Nothing is shared until the upload is completed. */
+export async function slackUpload(target: unknown, bytes: Buffer, options: { signal?: AbortSignal; fetcher?: typeof fetch } = {}) {
+    const url = slackUploadUrl(target);
+    if (!url) throw new SlackApiError(200, 'invalid_upload_url');
+    let response: Response;
+    try {
+        response = await (options.fetcher ?? fetch)(url, { method: 'POST', redirect: 'error', headers: { 'Content-Type': 'application/octet-stream' },
+            body: new Uint8Array(bytes), signal: options.signal ?? AbortSignal.timeout(60_000) });
+    } catch { throw new SlackApiError(0, 'transport_uncertain', undefined, false); }
+    if (!response.ok) throw new SlackApiError(response.status, 'upload_failed', undefined, response.status < 500);
 }

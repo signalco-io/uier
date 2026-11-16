@@ -126,6 +126,14 @@ export async function commentRecordingUrl(request: Request, comment: DbComment, 
     if (!record || record.doc.removedAt || record.doc.attached?.commentId !== comment.id || record.doc.attached?.itemId !== itemId) throw notFound();
     return blobs.url(recordingNames(comment.domain, metadata.id).video, request);
 }
+/** A saved recording's bytes for a server-side copy. The caller has already checked access to the comment. */
+export async function commentRecordingBytes(comment: DbComment, itemId?: string, store = getCommentsStore(), blobs = getRecordingBlobs()) {
+    const metadata = itemId ? comment.thread.items.find(item => item.id === itemId && !item.deletedAt)?.recording : comment.recording;
+    if (!metadata) throw notFound();
+    const record = await store.getRecordingUpload(comment.domain, recordingUploadDocumentId(metadata.id));
+    if (!record || record.doc.removedAt || record.doc.attached?.commentId !== comment.id || record.doc.attached?.itemId !== itemId) throw notFound();
+    return { metadata, bytes: await blobs.read(recordingNames(comment.domain, metadata.id).video) };
+}
 const recordingIds = (comment: DbComment | null) => comment ? [comment.recording?.id, ...comment.thread.items.filter(item => !item.deletedAt).map(item => item.recording?.id)].filter((id): id is string => Boolean(id)) : [];
 
 /** Deletion becomes unreadable with its parent; blob failures retain the durable cleanup record. */

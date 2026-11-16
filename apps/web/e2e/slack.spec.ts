@@ -124,6 +124,46 @@ test('Slack consent, explicit channel choice, optional summaries, test send, bac
     await expectNoAxeViolations(page);
 });
 
+test('screenshots and recordings stay in uier until an admin allows Slack file uploads and turns sending on', async ({ page, baseURL }) => {
+    test.setTimeout(90_000);
+    await signIn(page, uniqueEmail('slack-files'));
+    const projectId = await createProject(page, { urls: [baseURL!], name: 'Slack files' });
+    const settingsUrl = `/app/projects/${projectId}/settings/integrations/slack`;
+    await page.goto(settingsUrl);
+    const slack = page.getByRole('region', { name: 'Slack', exact: true });
+    const option = page.getByRole('region', { name: 'Screenshots and recordings', exact: true });
+    const files = option.getByRole('switch', { name: 'Send screenshots and recordings', exact: true });
+    const allow = option.getByRole('link', { name: 'Allow Slack file uploads', exact: true });
+    const feature = page.getByRole('listitem').filter({ hasText: 'Screenshots and recordings' });
+    await slack.getByRole('link', { name: 'Connect Slack', exact: true }).click();
+    await page.getByRole('button', { name: 'Allow Slack connection' }).click();
+    // Without a channel there is nowhere to send files.
+    await expect(slack).toContainText('Choose a channel'); await expect(option).toHaveCount(0);
+    await slack.getByRole('button', { name: 'Load channels', exact: true }).click();
+    await slack.getByRole('combobox', { name: 'Channel', exact: true }).click();
+    await page.getByRole('option', { name: '#feedback', exact: true }).click();
+    await slack.getByRole('checkbox', { name: 'Allow shared feedback in this channel', exact: true }).check();
+    await slack.getByRole('button', { name: 'Save Slack channel', exact: true }).click();
+    await expect(slack).toContainText('Notifications on');
+    await expect(files).not.toBeChecked(); await expect(files).toBeDisabled(); await expect(feature).toContainText('Off');
+    // The reconnect asks Slack for file uploads, and keeps the channel and its notifications.
+    await allow.click();
+    await expect(page.getByRole('heading', { name: 'Connect Slack test workspace' })).toBeVisible();
+    await page.getByRole('button', { name: 'Allow Slack connection' }).click();
+    await expect(page).toHaveURL(new RegExp(`${settingsUrl}\\?slack=connected$`));
+    await expect(slack.locator('[data-integration-details] dd')).toContainText(['Test Slack workspace', '#feedback']);
+    await expect(slack).toContainText('Notifications on');
+    await expect(allow).toHaveCount(0); await expect(files).toBeEnabled(); await expect(files).not.toBeChecked();
+    await expectNoAxeViolations(page);
+    // The switch saves at once and shows the change itself.
+    await files.click(); await expect(files).toBeChecked();
+    await page.reload();
+    await expect(files).toBeChecked(); await expect(feature).toContainText('On');
+    await files.click(); await expect(files).not.toBeChecked();
+    await page.reload();
+    await expect(files).not.toBeChecked(); await expect(feature).toContainText('Off');
+});
+
 test('a signed-out Slack callback returns to sign-in without copying OAuth credentials into the URL', async ({ page }) => {
     await page.goto('/app/slack/callback?state=private-oauth-state&code=private-oauth-code');
     await expect(page).toHaveURL(/\/app\/sign-in\?next=\/app$/);
