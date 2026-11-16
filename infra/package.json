@@ -20,7 +20,7 @@
         "@pulumi/cloudflare": "6.24.0",
         "@pulumi/pulumi": "3.276.0",
         "@pulumi/random": "4.21.6",
-        "@pulumiverse/vercel": "5.26.1"
+        "@pulumiverse/vercel": "5.27.0"
     },
     "devDependencies": {
         "@types/node": "26.6.6",
