@@ -59,6 +59,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/src/components/ui/too
 import { ThreadLabelsControl } from './ThreadLabelsControl';
 import { ThreadTitle } from './ThreadTitle';
 import { ThreadPullRequests } from './ThreadPullRequests';
+import { ThreadIntegrationLinks } from './ThreadIntegrationLinks';
 import type { MessageMentionRange, ProjectCommentMessage, ProjectCommentView } from '../../../lib/app/projectComments';
 import { MessageMarkdown } from './MessageMarkdown';
 import type { ActionState } from '../../../lib/app/actionResult';
@@ -69,7 +70,6 @@ import { CommentDevice } from './CommentDevice';
 import { SelectorCode } from './SelectorCode';
 import { updateNotificationAction } from './notificationActions';
 import { CopyIssueResult, CopyMenu, useCopyIssue } from './CopyIssue';
-import { integrationLabels } from './commentLabels';
 import { savedReply, useCommentUpdate, type SentReply } from './CommentUpdates';
 import { useReadWhenShown } from './useReadWhenShown';
 import { VerificationControl } from './VerificationControl';
@@ -715,6 +715,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                     <dt className={detailLabelClass}>{t('Labels')}</dt>
                     <dd className={detailValueClass}><ThreadLabelsControl projectId={projectId} commentId={comment.id} labels={comment.labels ?? []} available={comment.availableLabels ?? []} canEdit={permissions.triage} /></dd>
                     <ThreadPullRequests projectId={projectId} comment={comment} />
+                    <ThreadIntegrationLinks links={comment.integrationLinks} />
                 </dl>
 
                 <VerificationControl projectId={projectId} userId={userId} comment={comment}
@@ -754,17 +755,6 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                         <ReplyIcon data-icon="inline-start" />{t("Reply")}
                     </Button>)}
 
-                {/* The issues it is linked to, quiet as in the toolbar */}
-                {comment.integrationLinks?.length ? (
-                    <div className="-ml-2 flex flex-wrap items-center gap-x-1 gap-y-1">
-                        {comment.integrationLinks.map(link => (
-                            <a key={link.provider} href={link.url} target="_blank" rel="noopener noreferrer"
-                                className="inline-flex min-h-6 items-center px-2 text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground pointer-coarse:min-h-11">
-                                {t("Open in ")}{integrationLabels[link.provider] ?? link.provider}
-                            </a>
-                        ))}
-                    </div>
-                ) : null}
             </div>
 
             {/* Activity is the card's footer, under its divider */}
