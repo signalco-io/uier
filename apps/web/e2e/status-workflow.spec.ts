@@ -17,6 +17,8 @@ async function save(section: Locator) {
 async function addStatus(section: Locator, category: string, name: string) {
     await section.getByRole('button', { name: `Add status to ${category}`, exact: true }).click();
     const group = section.getByRole('group', { name: category, exact: true });
+    // Add status moves the focus into the new row's name
+    await expect(group.getByLabel('Status name', { exact: true }).last()).toBeFocused();
     await group.getByLabel('Status name', { exact: true }).last().fill(name);
     await group.getByLabel('Description', { exact: true }).last().fill(`${name} workflow description`);
 }
@@ -34,7 +36,8 @@ test('workspace statuses inherit, project overrides save/discard, and board/menu
         await hydrated(workspace.locator('form'));
         for (const [category, name] of [['Open', 'Approved'], ['In progress', 'Merging'], ['Ready to verify', 'QA'], ['Done', 'Production'], ['Archive', 'Rejected']])
             await addStatus(workspace, category!, name!);
-        await workspace.getByRole('button', { name: 'Move up Merging', exact: true }).click();
+        await workspace.getByRole('button', { name: 'More actions for Merging', exact: true }).click();
+        await page.getByRole('menuitem', { name: 'Move up', exact: true }).click();
         await choose(page, workspace.getByRole('combobox', { name: 'New comments start in' }), 'Approved');
         await choose(page, workspace.getByRole('combobox', { name: 'Done action uses' }), 'Production');
         await choose(page, workspace.getByRole('combobox', { name: 'Archive action uses' }), 'Rejected');
@@ -102,6 +105,33 @@ test('workspace statuses inherit, project overrides save/discard, and board/menu
         await expectNoAxeViolations(page);
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     } finally { await site.close(); }
+});
+
+test('the statuses editor adds, moves and removes a status in its row and returns the defaults it used', async ({ page }) => {
+    await signIn(page, uniqueEmail('status-editor'));
+    await page.goto('/app/workspace/settings');
+    const workspace = page.getByRole('region', { name: 'Statuses', exact: true });
+    await hydrated(workspace.locator('form'));
+    // A category's only status has nothing to move or remove
+    await expect(workspace.getByRole('button', { name: /^More actions for/ })).toHaveCount(0);
+    const done = workspace.getByRole('group', { name: 'Done', exact: true });
+    await addStatus(workspace, 'Done', 'Shipped');
+    const doneAction = workspace.getByRole('combobox', { name: 'Done action uses' });
+    await choose(page, doneAction, 'Shipped');
+    await done.getByRole('button', { name: 'More actions for Shipped', exact: true }).click();
+    const menu = page.getByRole('menu');
+    await expect(menu.getByRole('menuitem', { name: 'Move down', exact: true })).toBeDisabled();
+    await menu.getByRole('menuitem', { name: 'Move up', exact: true }).click();
+    await expect(done.getByLabel('Status name', { exact: true }).first()).toHaveValue('Shipped');
+    await done.getByRole('button', { name: 'More actions for Shipped', exact: true }).click();
+    await menu.getByRole('menuitem', { name: 'Remove', exact: true }).click();
+    // The focus stays in the category, and Done returns to the status that is left
+    await expect(done.getByLabel('Status name', { exact: true })).toHaveCount(1);
+    await expect(done.getByLabel('Status name', { exact: true })).toBeFocused();
+    await expect(doneAction).toHaveText(/^Done/);
+    await expect(workspace.getByText('Unsaved changes', { exact: true })).toBeHidden();
+    await expectNoAxeViolations(page, { include: ['#statuses'] });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
 test('toolbar custom status menu groups descriptions and persists moves within a category and into archive', async ({ page, baseURL }) => {
