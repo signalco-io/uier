@@ -12,6 +12,7 @@ import { McpRequestLog, type McpRequestEvent } from '@/src/lib/mcp/telemetry';
 import { ApiError, apiErrors, errorResponse, parseJsonBody } from '@/src/lib/comments/http';
 import { keyedHash } from '@/src/lib/comments/environment';
 import { getCommentsStore } from '@/src/lib/repo/commentsStore';
+import { withCosmosRequestUsage } from '@/src/lib/db/diagnostics';
 
 /*
  * The MCP endpoint serves two protocol eras from one server definition. A request that carries the
@@ -73,14 +74,21 @@ function whenSent(response: Response, done: () => void) {
 }
 
 export async function handleMcp(request: Request, allowedOrigin: string, { deadlineMs = 25_000, emit, stream }: McpOptions = {}) {
-    const log = new McpRequestLog(request, emit);
-    /** What an open stream still holds; runs when it ends */
-    const held: (() => void)[] = [];
-    const response = await respond(request, allowedOrigin, deadlineMs, log, held, stream);
-    // A stream is answered over its lifetime: its server closes and its event is written when it ends.
-    if (isStream(response)) return whenSent(response, () => { for (const release of held) release(); void log.finish(response); });
-    await log.finish(response);
-    return response;
+    const database = { requestCharge: 0, operations: 0 };
+    return withCosmosRequestUsage(database, async () => {
+        const log = new McpRequestLog(request, emit);
+        log.databaseUsage = database;
+        /** What an open stream still holds; runs when it ends */
+        const held: (() => void)[] = [];
+        const response = await respond(request, allowedOrigin, deadlineMs, log, held, stream);
+        // A stream is answered over its lifetime: its server closes and its event is written when it ends.
+        if (isStream(response)) return whenSent(response, () => { for (const release of held) release(); void log.finish(response); });
+        // Only the two bounded monitor read tools have fully instrumented storage paths. Other tools,
+        // streaming and post-response work must not look like complete per-request database billing.
+        if (log.isMonitorRead()) response.headers.set('x-uier-database-ru', database.requestCharge.toFixed(4));
+        await log.finish(response);
+        return response;
+    });
 }
 
 async function respond(request: Request, allowedOrigin: string, deadlineMs: number, log: McpRequestLog, held: (() => void)[], stream?: StreamOptions) {

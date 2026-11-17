@@ -177,7 +177,11 @@ before registering anything, so every tool, prompt and resource is logged by nam
 and the answers are seen on whichever transport the server is connected to (`watch` wraps `connect`);
 a request the SDK entry refuses before any handler is logged by its JSON-RPC code (`log.refused`);
 handler catch blocks call `noteMcpError(error)` before mapping the error. Events carry names, codes,
-counts, sizes and keyed connection/account references. Argument values are kept only for booleans,
+counts, sizes and keyed connection/account references. The two bounded monitor read tools also
+record numeric database RU and SDK operation counts, including the HTTP quota counter; the same
+RU is returned in `x-uier-database-ru`. Request-local accumulation runs independently of sampled
+diagnostic logs. Other tools, streams and interrupted requests omit this billing header. This
+excludes TTL cleanup, storage, transfer and hosting, and stores no additional identifiers. Argument values are kept only for booleans,
 `null`, numeric fields and options the schema declares; never log content, ids, names, tokens, URLs or
 error messages, and never let logging change or fail a response. `e2e/mcpTelemetry.api.spec.ts` covers
 it; the other MCP specs pass `{ emit: quiet }` to `handleMcp`. The privacy policy's "Coding tool access"

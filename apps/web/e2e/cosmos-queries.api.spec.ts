@@ -3,12 +3,59 @@ import type { Container, QueryIterator } from '@azure/cosmos';
 import { expect, test } from '@playwright/test';
 import type { AppDoc } from '../src/lib/app/model';
 import { createCosmosAppStore, createMemoryAppStore } from '../src/lib/app/store';
-import { cosmosPoint, cosmosQueryAll } from '../src/lib/db/diagnostics';
+import { cosmosPoint, cosmosQueryAll, withCosmosRequestUsage } from '../src/lib/db/diagnostics';
 import { runIntegrationWorker } from '../src/lib/integrations/worker';
 import { runNotificationWorker, type NotificationDelivery } from '../src/lib/notifications/delivery';
 import { getMemoryCommentsStore } from '../src/lib/repo/memoryCommentsStore';
+import { createCosmosCommentsStore } from '../src/lib/repo/cosmosCommentsStore';
 
 test.beforeAll(() => { process.env.UIER_LOCAL = '1'; });
+
+test('request accounting isolates concurrent calls, includes failed SDK charges and needs no diagnostic sampling', async () => {
+    const previous = process.env.UIER_COSMOS_DIAGNOSTICS_SAMPLE_RATE;
+    process.env.UIER_COSMOS_DIAGNOSTICS_SAMPLE_RATE = '0';
+    const first = { requestCharge: 0, operations: 0 }, second = { requestCharge: 0, operations: 0 };
+    let unblock!: () => void;
+    const blocked = new Promise<void>(resolve => { unblock = resolve; });
+    const label = { operation: 'app.get.user', container: 'app', partition: 'single' as const };
+    try {
+        await Promise.all([
+            withCosmosRequestUsage(first, async () => {
+                await cosmosPoint(async () => { await blocked; return { requestCharge: 4, resource: { id: 'private' } }; }, label);
+                await expect(cosmosPoint(async () => { throw { code: 429, headers: { 'x-ms-request-charge': '2.5' } }; }, label)).rejects.toMatchObject({ code: 429 });
+            }),
+            withCosmosRequestUsage(second, async () => {
+                await cosmosPoint(async () => ({ requestCharge: 9 }), label);
+                unblock();
+            })
+        ]);
+        expect(first).toEqual({ requestCharge: 6.5, operations: 2 });
+        expect(second).toEqual({ requestCharge: 9, operations: 1 });
+        await cosmosPoint(async () => ({ requestCharge: 100 }), label);
+        expect(first.requestCharge).toBe(6.5);
+        expect(second.requestCharge).toBe(9);
+    } finally {
+        if (previous === undefined) delete process.env.UIER_COSMOS_DIAGNOSTICS_SAMPLE_RATE;
+        else process.env.UIER_COSMOS_DIAGNOSTICS_SAMPLE_RATE = previous;
+    }
+});
+
+test('quota accounting includes a missing counter patch and its initial create, without changing limits', async () => {
+    const usage = { requestCharge: 0, operations: 0 };
+    let patches = 0, creates = 0;
+    const container = { id: 'comments', item() { return { async patch(input: unknown) {
+        expect(input).toMatchObject({ condition: 'FROM c WHERE c.count < 120' });
+        if (++patches === 1) throw { code: 404, headers: { 'x-ms-request-charge': '1' } };
+        return { requestCharge: 5 };
+    } }; }, items: { async create() { creates++; return { requestCharge: 6 }; } } } as unknown as Container;
+    const store = createCosmosCommentsStore(() => container);
+    await withCosmosRequestUsage(usage, async () => {
+        expect(await store.incrementCounter('$mcp', 'private-counter', 120, 120)).toBe(true);
+        expect(await store.incrementCounter('$mcp', 'private-counter', 120, 120)).toBe(true);
+    });
+    expect({ patches, creates }).toEqual({ patches: 2, creates: 1 });
+    expect(usage).toEqual({ requestCharge: 12, operations: 3 });
+});
 
 test('complete queries drain empty continuation pages and accumulate safe diagnostics once', async () => {
     const previous = process.env.UIER_COSMOS_DIAGNOSTICS_SAMPLE_RATE;

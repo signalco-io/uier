@@ -86,3 +86,18 @@
 watcher finds, each wake and take, and each change of a group's `state` or an item's `decision` or
 `stage` made through `M patch` or by the watcher. Only the helper writes it; the dashboard reads it
 for its feed and for how long a group has been in its state. Never read it on a wake.
+
+- `watch.idleMinutes`: minutes without visible activity before slower event polling (default 15).
+  `watch.idleIntervalSeconds`: idle event-read interval (default 300, bounded to 60–900 seconds).
+  Active sessions/deploys and working leases keep the active cadence. Local controls, hold timers,
+  wake retries and lease/release checks run at least every minute regardless of event backoff.
+- `watch.json.eventCheckedAt`, `lastActivityAt` and `eventIntervalSeconds`: event read cadence,
+  separate from the every-minute process heartbeat.
+
+`usage.json` holds only numeric counters in at most 31 UTC day buckets, under its own lock.
+It records actual HTTP attempts (including retries), consumed body bytes, elapsed request time,
+measured database RU and coverage, delivery failures, wakes and idle model wakes. It contains no
+feedback, tokens, endpoints or identity values. `M usage` optionally prices observed RU at a
+supplied rate; it never guesses missing costs. Old servers without the metering header leave
+those requests unmeasured. The two bounded monitor read tools report database charges including
+the HTTP rate-limit counter; later TTL deletion, storage, egress and hosting are excluded.

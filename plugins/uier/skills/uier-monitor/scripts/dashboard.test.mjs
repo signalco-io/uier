@@ -105,6 +105,24 @@ test('a snapshot carries a fixed set of fields: no secrets, no unknown fields, n
     assert.deepEqual([shown.metrics.closed.length, shown.metrics.closed24h, shown.metrics.done, shown.metrics.cycleMinutes], [2, 1, 2, 60]);
 });
 
+test('usage is numeric, bounded to 31 UTC days and distinguishes unknown database cost from zero', () => {
+    const today = new Date(now).toISOString().slice(0, 10);
+    const dir = stateDir({ project: { id: 'p1', name: 'Fixture' } }, { 'usage.json': {
+        since: new Date(now).toISOString(), secret: 'never-send', days: {
+            [today]: { requests: 4, meteredRequests: 2, databaseRu: 12.5, responseBytes: 1024, idleWakes: 1, secret: 'never-send' },
+            '2020-01-01': { requests: 999 }, 'private-key': { requests: 999 }
+        }
+    } });
+    const shown = snapshot(dir, now);
+    assert.equal(shown.usage.requests, 4);
+    assert.equal(shown.usage.databaseRu, 12.5);
+    assert.equal(shown.usage.meteredRequests, 2);
+    assert.ok(shown.health.some(item => /idle model wakes/.test(item.text)));
+    assert.ok(!JSON.stringify(shown).includes('never-send'));
+    writeFileSync(join(dir, 'usage.json'), JSON.stringify({ days: { [today]: { requests: 4 } } }));
+    assert.equal(snapshot(dir, now).usage.databaseRu, null);
+});
+
 test('GitLab dashboard links keep self-managed hosts and nested project paths', () => {
     const state = { repo: { provider: 'gitlab', host: 'git.podravka.io', slug: 'team/subgroup/project' },
         groups: { g4: { state: 'pr', pr: 4 } }, deploys: { pending: [{ pr: 4 }] } };

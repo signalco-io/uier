@@ -5,7 +5,7 @@ description: Recreate monitor.mjs, the watcher and state helper of the uier-moni
 
 # Recreate the uier monitor helper
 
-This skill carries `monitor.mjs` version 1.6.1, sha256 `d878d4555ebc166c631422648fc8c0eb09b6ef3e278bd8262c6c51dff0fb7ec9`. It needs Node 18 or later
+This skill carries `monitor.mjs` version 1.7.0, sha256 `5e45c595a3f7b37b7e5a0f18b3220889ad844338739468b75db571115dc193f2`. It needs Node 18 or later
 and has no dependencies. The uier-monitor skill runs it as `ROOT/monitor.mjs`, where `ROOT` is
 `$(git rev-parse --path-format=absolute --git-common-dir)/uier-monitor`.
 
@@ -19,8 +19,8 @@ and has no dependencies. The uier-monitor skill runs it as `ROOT/monitor.mjs`, w
    ```
 
 2. Only when this file isn't on disk, write the code below to `$ROOT/monitor.mjs` exactly as shown.
-3. Check it: `node "$ROOT/monitor.mjs" version` must print version 1.6.1 and sha256
-   `d878d4555ebc166c631422648fc8c0eb09b6ef3e278bd8262c6c51dff0fb7ec9`. If the hash differs, write the file again; never patch it by hand.
+3. Check it: `node "$ROOT/monitor.mjs" version` must print version 1.7.0 and sha256
+   `5e45c595a3f7b37b7e5a0f18b3220889ad844338739468b75db571115dc193f2`. If the hash differs, write the file again; never patch it by hand.
 
 Don't edit the code here. Its source is `.claude/skills/uier-monitor/scripts/monitor.mjs` in the uier
 repository, and `build-script-skill.mjs` next to it writes this file.
@@ -45,10 +45,10 @@ import { dirname, join, resolve } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 
-const VERSION = '1.6.1';
+const VERSION = '1.7.0';
 const DEFAULT_ENDPOINT = 'https://uier.io/api/mcp';
 const KEYCHAIN_SERVICE = 'uier-mcp';
-const BOOLEAN_FLAGS = new Set(['replace', 'screenshots', 'help', 'persistent', 'take', 'detach', 'apply']);
+const BOOLEAN_FLAGS = new Set(['replace', 'screenshots', 'help', 'persistent', 'take', 'detach', 'apply', 'allow-model-polling', 'worker']);
 const SLOT_STATES = new Set(['building', 'fixing', 'reviewing']);
 const FAILED = new Set(['failure', 'timed_out', 'startup_failure', 'action_required', 'error']);
 const DAY = 86_400_000;
@@ -77,6 +77,10 @@ Options may come before or after the command.
                           FILE holds its HTTPS URL, with mode 0600. No idle heartbeat
                           invokes the model; failed delivery retries the same durable batch.
                           Add --detach to run independently of the terminal/harness lifetime.
+                          Saved T3 monitors automatically use persistent detached delivery.
+                          --allow-model-polling explicitly permits the costly timer fallback.
+                          After 15 quiet minutes, event reads slow to every five minutes.
+                          Leases, delivery retries, timers and release checks stay fast.
                           Records merges itself, closes comments after their deploy when the
                           group has a closing draft, and wakes only for what needs a decision.
   take                    Print and clear inbox.json.
@@ -85,6 +89,9 @@ Options may come before or after the command.
   detail SECTION ID...     Read selected items, groups or PRs, or a named top-level field.
   status                  Compact view of sessions, leases, queue, PRs, deploys, open questions,
                           wake delivery and free disk space.
+  usage                   Per-monitor requests, bytes, time, measured database RU and idle wakes.
+                          Optional --ru-price-per-million N --currency CODE estimates RU cost
+                          only; missing server measurements remain unknown.
   patch '<json>' | -      Apply a JSON merge patch (RFC 7386) to state.json.
   packet ID... [--out DIR] [--screenshots]
                           Save feedback packets (and original/reply images) for fix sessions.
@@ -105,7 +112,7 @@ project id, its workspace id or "default"). UIER_MCP_URL overrides ${DEFAULT_END
 `;
 
 const { command, opts } = parseArgs(process.argv.slice(2));
-const commands = { help: () => print(HELP), version, check, watch, take, context: contextCommand, detail, status, patch, packet, call, token, cleanup, stop };
+const commands = { help: () => print(HELP), version, check, watch, take, context: contextCommand, detail, status, usage, patch, packet, call, token, cleanup, stop };
 
 // ---------------------------------------------------------------- arguments and files
 
@@ -223,6 +230,60 @@ function journal(dir, entries) {
         appendFileSync(file, entries.map(({ foundAt, at: eventAt, message, ...entry }) => `${JSON.stringify({ at, ...entry,
             ...(eventAt ? { eventAt } : {}), ...(message ? { message: String(message).slice(0, 200) } : {}) })}\n`).join(''));
     } catch { /* best effort */ }
+}
+
+// Numeric counters only. A separate lock/file avoids overwriting orchestrator or watcher state.
+// Keep 31 UTC days, independent of journal rotation. Unknown metering is never reported as zero.
+const USAGE_FIELDS = ['requests', 'eventRequests', 'reconcileRequests', 'errors', 'retries', 'requestBytes',
+    'responseBytes', 'durationMs', 'meteredRequests', 'databaseRu', 'wakes', 'idleWakes', 'deliveryFailures'];
+
+function usageTotals(value = {}) {
+    return Object.fromEntries(USAGE_FIELDS.map(key => [key, Number.isFinite(value[key]) && value[key] >= 0 ? value[key] : 0]));
+}
+
+async function recordUsage(dir, delta, now = Date.now()) {
+    if (!dir) return;
+    try {
+        await withLock(dir, 'usage', () => {
+            const file = join(dir, 'usage.json');
+            const before = readJson(file, {});
+            const today = new Date(now).toISOString().slice(0, 10);
+            const cutoff = new Date(now - 30 * DAY).toISOString().slice(0, 10);
+            const days = Object.fromEntries(Object.entries(before.days ?? {})
+                .filter(([day]) => /^\d{4}-\d{2}-\d{2}$/.test(day) && day >= cutoff && day <= today)
+                .map(([day, counts]) => [day, usageTotals(counts)]));
+            const counts = days[today] ??= usageTotals();
+            for (const key of USAGE_FIELDS) if (Number.isFinite(delta[key]) && delta[key] >= 0) counts[key] += delta[key];
+            writeJson(file, { version: 1, since: before.since ?? new Date(now).toISOString(), days });
+        });
+    } catch { /* Accounting must never fail feedback delivery. */ }
+}
+
+function usageSnapshot(dir, now = Date.now()) {
+    const saved = readJson(join(dir, 'usage.json'), {});
+    const cutoff = new Date(now - 30 * DAY).toISOString().slice(0, 10);
+    const today = new Date(now).toISOString().slice(0, 10);
+    const days = Object.entries(saved.days ?? {}).filter(([day]) => day >= cutoff && day <= today);
+    const totals = usageTotals();
+    for (const [, counts] of days) for (const [key, value] of Object.entries(usageTotals(counts))) totals[key] += value;
+    return { since: saved.since ?? null, days: days.length, totals, today: usageTotals(saved.days?.[today]),
+        databaseRu: totals.meteredRequests ? totals.databaseRu : null,
+        unmeteredRequests: Math.max(0, totals.requests - totals.meteredRequests) };
+}
+
+function usage(options) {
+    const dir = stateDir(options);
+    const result = usageSnapshot(dir);
+    const configured = options['ru-price-per-million'];
+    if (configured !== undefined) {
+        const price = Number(configured);
+        if (!Number.isFinite(price) || price < 0 || !/^[A-Z]{3}$/.test(options.currency ?? ''))
+            throw new Error('Pass a nonnegative --ru-price-per-million and a three-letter --currency code.');
+        result.estimatedDatabaseCost = { amount: result.databaseRu === null ? null : result.databaseRu * price / 1_000_000,
+            currency: options.currency, pricePerMillionRu: price, complete: result.unmeteredRequests === 0 && result.totals.meteredRequests > 0 };
+    }
+    print({ ...result, excludes: ['AI tokens', 'hosting CPU and memory', 'storage and transfer'],
+        warning: result.totals.idleWakes ? 'Idle model wakes detected; use persistent watching with a valid token.' : null });
 }
 
 // Group state and item decision or stage changes between two states, for the journal.
@@ -427,14 +488,14 @@ function storeToken(account, value) {
     return 'Secret Service';
 }
 
-function connection(state, account) {
+function connection(state, account, usageDir) {
     const value = readToken(state, account);
     if (!value) return null;
     const endpoint = process.env.UIER_MCP_URL || state?.project?.endpoint || DEFAULT_ENDPOINT;
     // Share only retry timing across watchers and one-off calls using this connection. Never write
     // the token, endpoint, reply or idempotency key to the cooldown file.
     const key = createHash('sha256').update(endpoint).update('\0').update(value).digest('hex');
-    return { endpoint, token: value, id: 0,
+    return { endpoint, token: value, id: 0, usageDir,
         replyCooldownFile: join(process.env.UIER_MONITOR_HOME || join(homedir(), '.uier-monitor'), 'cooldowns', `${key}.json`) };
 }
 
@@ -466,32 +527,51 @@ async function rememberReplyCooldown(ctx, seconds) {
 async function rpc(ctx, method, params) {
     for (let attempt = 0; ; attempt++) {
         let response;
+        let body, completedAt, failed = true;
+        const started = Date.now();
+        const requestBody = JSON.stringify({ jsonrpc: '2.0', id: ++ctx.id, method, params });
         try {
-            response = await fetch(ctx.endpoint, {
-                method: 'POST',
-                headers: { Authorization: `Bearer ${ctx.token}`, 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream' },
-                body: JSON.stringify({ jsonrpc: '2.0', id: ++ctx.id, method, params }),
-                signal: AbortSignal.timeout(40_000)
-            });
-        } catch (error) {
-            if (attempt < 2) { await sleep(3000 * (attempt + 1)); continue; }
-            throw new UierError('network', `uier is unreachable: ${error.message}`);
+            try {
+                response = await fetch(ctx.endpoint, {
+                    method: 'POST',
+                    headers: { Authorization: `Bearer ${ctx.token}`, 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream' },
+                    body: requestBody,
+                    signal: AbortSignal.timeout(40_000)
+                });
+            } catch (error) {
+                completedAt = Date.now();
+                if (attempt < 2) { await sleep(3000 * (attempt + 1)); continue; }
+                throw new UierError('network', `uier is unreachable: ${error.message}`);
+            }
+            if (response.status === 401 || response.status === 403) throw new UierError('auth', `uier refused the token (HTTP ${response.status}).`);
+            if (response.status === 429) {
+                const header = response.headers.get('retry-after');
+                const seconds = retrySeconds(header) ?? retrySeconds((Date.parse(header ?? '') - Date.now()) / 1000) ?? 60;
+                throw Object.assign(new UierError('server', `uier answered HTTP 429. Try again in ${seconds} seconds.`),
+                    { code: 'rate_limited', retryAfterSeconds: seconds });
+            }
+            if (response.status >= 500) {
+                completedAt = Date.now();
+                if (attempt < 3) { await sleep(Math.min(Number(response.headers.get('retry-after')) || 5 * (attempt + 1), 60) * 1000); continue; }
+                throw new UierError('server', `uier answered HTTP ${response.status}.`);
+            }
+            body = await response.text();
+            const message = parseRpc(body);
+            if (!message) throw new UierError('protocol', `Unexpected answer from uier (HTTP ${response.status}).`);
+            if (message.error) throw Object.assign(new UierError('rpc', message.error.message ?? 'JSON-RPC error'), { rpcCode: message.error.code });
+            failed = Boolean(message.result?.isError);
+            return message.result;
+        } finally {
+            const header = response?.headers?.get('x-uier-database-ru');
+            const charge = header === null || header === undefined || header.trim() === '' ? null : Number(header);
+            const metered = charge !== null && Number.isFinite(charge) && charge >= 0;
+            await response?.body?.cancel().catch(() => {});
+            await recordUsage(ctx.usageDir, { requests: 1, errors: failed ? 1 : 0, retries: attempt ? 1 : 0,
+                eventRequests: method === 'tools/call' && params?.name === 'list_feedback_events' ? 1 : 0,
+                reconcileRequests: method === 'tools/call' && params?.name === 'list_feedback' ? 1 : 0,
+                requestBytes: Buffer.byteLength(requestBody), responseBytes: body === undefined ? 0 : Buffer.byteLength(body),
+                durationMs: Math.max(0, (completedAt ?? Date.now()) - started), meteredRequests: metered ? 1 : 0, databaseRu: metered ? charge : 0 });
         }
-        if (response.status === 401 || response.status === 403) throw new UierError('auth', `uier refused the token (HTTP ${response.status}).`);
-        if (response.status === 429) {
-            const header = response.headers.get('retry-after');
-            const seconds = retrySeconds(header) ?? retrySeconds((Date.parse(header ?? '') - Date.now()) / 1000) ?? 60;
-            throw Object.assign(new UierError('server', `uier answered HTTP 429. Try again in ${seconds} seconds.`),
-                { code: 'rate_limited', retryAfterSeconds: seconds });
-        }
-        if (response.status >= 500) {
-            if (attempt < 3) { await sleep(Math.min(Number(response.headers.get('retry-after')) || 5 * (attempt + 1), 60) * 1000); continue; }
-            throw new UierError('server', `uier answered HTTP ${response.status}.`);
-        }
-        const message = parseRpc(await response.text());
-        if (!message) throw new UierError('protocol', `Unexpected answer from uier (HTTP ${response.status}).`);
-        if (message.error) throw Object.assign(new UierError('rpc', message.error.message ?? 'JSON-RPC error'), { rpcCode: message.error.code });
-        return message.result;
     }
 }
 
@@ -563,7 +643,7 @@ async function check(options) {
     const state = readJson(join(dir, 'state.json'), {});
     const projectId = typeof options.project === 'string' ? options.project : state.project?.id;
     if (!projectId) fail('state.json has no project.id yet. Patch it first, or pass --project ID.');
-    const ctx = connection(state, projectId);
+    const ctx = connection(state, projectId, dir);
     if (!ctx) { print({ ok: false, reason: 'no-token', version: VERSION }); return; }
     try {
         const projects = await allPages(ctx, 'list_projects', {}, 4);
@@ -622,7 +702,7 @@ async function call(options) {
     try { args = JSON.parse(raw || '{}'); } catch (error) { fail(`The arguments are not JSON: ${error.message}`); }
     if (args === null || typeof args !== 'object' || Array.isArray(args)) fail('The arguments must be a JSON object.');
     if (!args.projectId && state.project?.id) args.projectId = state.project.id;
-    const ctx = connection(state, args.projectId);
+    const ctx = connection(state, args.projectId, dir);
     if (!ctx) { print({ ok: false, tool: name, code: 'no-token' }); process.exitCode = 1; return; }
     try { print({ ok: true, tool: name, result: await tool(ctx, name, args) }); }
     catch (error) {
@@ -635,7 +715,7 @@ async function call(options) {
 async function packet(options) {
     const dir = stateDir(options);
     const state = readJson(join(dir, 'state.json'), {});
-    const ctx = connection(state);
+    const ctx = connection(state, undefined, dir);
     if (!ctx) fail('No uier token. Read the threads with get_feedback_batch and write the packets yourself.');
     const outDir = resolve(typeof options.out === 'string' ? options.out : join(dir, 'briefs'));
     mkdirSync(outDir, { recursive: true });
@@ -710,11 +790,13 @@ function urgentEvents(events) {
         || (event.type === 'status' && ['progress_stopped', 'verification_rejected', 'reopened'].includes(event.change)));
 }
 
-async function enqueue(dir, events) {
+async function enqueue(dir, events, suppressPolling = false) {
     return withLock(dir, 'inbox', () => {
-        const before = readJson(join(dir, 'inbox.json'), []);
+        const original = readJson(join(dir, 'inbox.json'), []);
+        // Retire old one-shot heartbeat markers during an upgrade, keeping every real event.
+        const before = suppressPolling ? original.filter(event => !['heartbeat', 'poll-uier'].includes(event.type)) : original;
         const next = coalesceEvents([...before, ...events]);
-        if (next.length !== before.length) {
+        if (next.length !== original.length || before.length !== original.length) {
             writeJson(join(dir, 'inbox.json'), next);
             // Only what is new: an event found again on every cycle is one line in the history.
             journal(dir, next.slice(before.length));
@@ -787,20 +869,56 @@ async function notifyInbox(dir, state, events, target, now = Date.now()) {
     catch { /* Fetch errors can contain the bearer URL. Never print them or copy them into state. */ }
     if (!delivered) {
         writeJson(path, { ...pending, failingSince: health.failingSince ?? now, failures: (health.failures ?? 0) + 1 });
+        await recordUsage(dir, { deliveryFailures: 1 }, now);
         return { delivered: false };
     }
     const { failingSince, failures, ...rest } = pending;
     writeJson(path, { ...rest, deliveredAt: now, ...(failingSince ? { lastOutage: {
         since: new Date(failingSince).toISOString(), until: new Date(now).toISOString(), failures } } : {}) });
+    await recordWake(dir, events, now);
     return { delivered: true };
+}
+
+async function recordWake(dir, events, now = Date.now()) {
+    const loud = events.filter(event => !event.quiet);
+    const idle = loud.length > 0 && loud.every(event => ['heartbeat', 'poll-uier'].includes(event.type));
+    await recordUsage(dir, { wakes: 1, idleWakes: idle ? 1 : 0 }, now);
+    if (idle) journal(dir, [{ type: 'idle-wake', reason: 'model-polling' }]);
+}
+
+function watchOptions(options, state) {
+    if (options['allow-model-polling'] && options.persistent) return options;
+    if (options['notify-file'] !== undefined) return options;
+    if (state.harness?.kind === 't3' && !options['allow-model-polling']) {
+        const thread = options.thread ?? state.harness.threadId;
+        if (!thread) throw new Error('T3 watching needs its saved thread id; timer polling requires --allow-model-polling.');
+        return { ...options, persistent: true, detach: !options.worker,
+            thread, 't3-cli': options['t3-cli'] ?? state.harness.t3Cli };
+    }
+    return options;
+}
+
+function eventInterval(state, seen, now, activeMs = 60_000) {
+    const working = Object.values(state.groups ?? {}).some(group => SLOT_STATES.has(group.state)
+        || ['queued', 'pr', 'approved', 'merging'].includes(group.state));
+    const active = working || (state.deploys?.pending ?? []).length > 0 || leasesLive(state, seen);
+    const lastActivity = Math.max(Date.parse(seen.lastActivityAt ?? '') || now, Date.parse(state.updatedAt ?? '') || 0);
+    const idleAfter = Math.max(1, Number(state.watch?.idleMinutes) || 15) * 60_000;
+    return active || now - lastActivity < idleAfter ? activeMs
+        : Math.max(activeMs, Math.min(900, Math.max(60, Number(state.watch?.idleIntervalSeconds) || 300)) * 1000);
 }
 
 async function watch(options) {
     const dir = stateDir(options);
     mkdirSync(dir, { recursive: true });
     const log = logger(dir);
+    const initial = readJson(join(dir, 'state.json'), {});
+    options = watchOptions(options, initial);
     if (options.persistent) validateWakeTarget(options);
     if (options.detach && !options.persistent) throw new Error('--detach requires --persistent and a wake target.');
+    let ctx = connection(initial, undefined, dir);
+    if (!ctx && !options['allow-model-polling'])
+        throw new Error('A watcher token is required. Timer polling costs model tokens; opt in with --allow-model-polling.');
     const started = await withLock(dir, 'watcher', async () => {
         const existing = watcherPid(dir);
         if (existing && existing !== process.pid) {
@@ -810,10 +928,11 @@ async function watch(options) {
             if (watcherPid(dir)) throw new Error('The previous watcher did not stop; no second watcher was started.');
         }
         if (options.detach) {
-            const args = ['watch', '--state', dir, '--persistent'];
+            const args = ['watch', '--state', dir, '--persistent', '--worker'];
             if (options.thread) args.push('--thread', options.thread);
             else args.push('--notify-file', resolve(options['notify-file']));
             for (const key of ['interval', 'batch-seconds', 't3-cli']) if (options[key] !== undefined) args.push(`--${key}`, String(options[key]));
+            if (options['allow-model-polling']) args.push('--allow-model-polling');
             const child = spawn(process.execPath, [fileURLToPath(import.meta.url), ...args], { detached: true, stdio: 'ignore' });
             // Report startup, not readiness. status/watch.json proves the child entered its loop.
             await new Promise((resolve, reject) => { child.once('spawn', resolve); child.once('error', reject); });
@@ -822,7 +941,7 @@ async function watch(options) {
             return false;
         }
         writeJson(join(dir, 'watch.pid'), { pid: process.pid, startedAt: new Date().toISOString(), version: VERSION,
-            persistent: Boolean(options.persistent), ...(options.thread ? { thread: options.thread } : {}) });
+            persistent: Boolean(options.persistent), modelPolling: Boolean(options['allow-model-polling']), ...(options.thread ? { thread: options.thread } : {}) });
         return true;
     });
     if (!started) return;
@@ -832,7 +951,6 @@ async function watch(options) {
     const startedAt = Date.now();
     const intervalMs = Math.max(30, Number(options.interval) || 60) * 1000;
     const batchMs = options['batch-seconds'] === undefined ? 10_000 : Math.min(30, Math.max(0, Number(options['batch-seconds']) || 0)) * 1000;
-    let ctx;
     let failures = 0;
     let lastGithub = 0;
     let batchStarted = null;
@@ -853,11 +971,18 @@ async function watch(options) {
         // Bookkeeping the watcher does itself (merges, closings, its own stage changes), applied to
         // fresh state under the state lock at the end of the cycle.
         const updates = [];
-        if (ctx === undefined) ctx = connection(state);
+        seen.lastActivityAt ??= new Date(startedAt).toISOString();
+        const reconcileMs = Math.max(5, Number(settings.reconcileMinutes) || 15) * 60_000;
+        const eventMs = eventInterval(state, seen, Date.now(), intervalMs);
         // Lease trouble never blocks the rest of the cycle.
         if (ctx && state.project?.id) await keepLeases(ctx, state, seen, found, log).catch(error => log(`lease error: ${error.message}`));
         try {
-            if (ctx && state.project?.id) await pollUier(ctx, state, seen, found, Math.max(5, Number(settings.reconcileMinutes) || 15) * 60_000, updates);
+            if (ctx && state.project?.id && (seen.forceReconcile || !seen.reconciledAt
+                || Date.now() - Date.parse(seen.reconciledAt) >= reconcileMs || !seen.eventCheckedAt
+                || Date.now() - Date.parse(seen.eventCheckedAt) >= eventMs || (batchStarted !== null && Date.now() - batchStarted < batchMs))) {
+                await pollUier(ctx, state, seen, found, reconcileMs, updates);
+                seen.eventCheckedAt = new Date().toISOString();
+            }
             if (Date.now() - lastGithub >= 55_000) {
                 lastGithub = Date.now();
                 const deployed = pollDeploys(state, seen, found, updates) ?? [];
@@ -880,7 +1005,7 @@ async function watch(options) {
             const wakeAt = Date.parse(settings.wakeAt ?? '');
             const maxMinutes = Number(options['max-minutes']) || Number(settings.maxMinutes) || 110;
             const fallbackAt = seen.lastFallbackAt ?? startedAt;
-            if (!ctx && now - fallbackAt >= Math.max(5, Number(settings.fallbackMinutes) || 15) * 60_000) {
+            if (!ctx && options['allow-model-polling'] && now - fallbackAt >= Math.max(5, Number(settings.fallbackMinutes) || 15) * 60_000) {
                 found.push({ type: 'poll-uier' }); seen.lastFallbackAt = now;
             }
             else if (wakeAt <= now && settings.wakeAt !== seen.firedWakeAt) { found.push({ type: 'timer', at: settings.wakeAt }); seen.firedWakeAt = settings.wakeAt; }
@@ -888,12 +1013,14 @@ async function watch(options) {
         }
         prune(seen, now);
         const stamped = found.map(item => ({ ...item, foundAt: new Date(now).toISOString() }));
-        const inbox = await enqueue(dir, stamped);
+        if (found.some(event => !['heartbeat', 'poll-uier'].includes(event.type))) seen.lastActivityAt = new Date(now).toISOString();
+        const inbox = await enqueue(dir, stamped, options.persistent && !options['allow-model-polling']);
         // Quiet events (merges and closings the watcher handled) ride along with the next wake.
         const loud = inbox.filter(item => !item.quiet);
         if (loud.length && batchStarted === null) batchStarted = now;
         if (!loud.length) batchStarted = null;
         seen.heartbeatAt = new Date(now).toISOString();
+        seen.eventIntervalSeconds = eventInterval(state, seen, now, intervalMs) / 1000;
         writeJson(join(dir, 'watch.json'), seen);
         if (loud.length && (urgentEvents(loud) || now - batchStarted >= batchMs)) {
             if (options.persistent) {
@@ -906,13 +1033,15 @@ async function watch(options) {
                 const brief = inbox.map(({ type, number, pr, sha, change }) => ({ type, ...(number ? { number } : {}), ...(pr ? { pr } : {}), ...(sha ? { sha: sha.slice(0, 7) } : {}), ...(change ? { change } : {}) }));
                 log(`wake ${JSON.stringify(brief)}`);
                 journal(dir, [{ type: 'wake', delivered: true, events: inbox.length }]);
+                await recordWake(dir, inbox, now);
                 release();
                 print({ wake: brief, inbox: join(dir, 'inbox.json'), next: 'Run: node monitor.mjs context --take' });
                 return;
             }
         }
         if (options.persistent && !loud.length) await notifyInbox(dir, state, [], options, now);
-        const interval = ctx && leasesLive(state, seen) ? Math.min(intervalMs, LEASE_CYCLE_MS) : intervalMs;
+        // Only event-feed reads back off. Local controls, leases, releases and wake retries never do.
+        const interval = Math.min(intervalMs, LEASE_CYCLE_MS);
         await sleep(batchStarted === null || now - batchStarted >= batchMs ? interval : Math.min(interval, batchMs - (now - batchStarted)));
     }
 }
@@ -947,6 +1076,7 @@ async function pollUier(ctx, state, seen, found, reconcileMs, updates = []) {
             return;
         }
         seen.cursor = result.cursor ?? seen.cursor;
+        if (result.items?.length) seen.lastActivityAt = new Date().toISOString();
         if (result.truncated) seen.forceReconcile = true;
         for (const event of result.items ?? []) {
             const hit = classify(event, state, seen);
@@ -1688,6 +1818,11 @@ function status(options) {
         `watcher ${pid ? `running (pid ${pid}, ${watcher.persistent ? 'persistent' : 'one-shot'}, v${watcher.version ?? '?'})` : 'stopped'} · heartbeat ${seen.heartbeatAt ?? 'never'} · uier ${connection(state) ? 'token' : 'no token (fallback)'} · inbox ${inbox.length} · reconciled ${seen.reconciledAt ?? 'never'} · wakes ${state.watch?.wakes ?? 0}${state.watch?.wakeAt ? ` · timer ${state.watch.wakeAt}` : ''}`,
         `sessions ${groups.filter(([, group]) => SLOT_STATES.has(group.state)).length}/${state.max ?? 6}${free === null ? '' : ` · disk ${free} GiB free${free < 15 ? ' (low: run cleanup --apply)' : ''}`}`
     ];
+    const measured = usageSnapshot(dir);
+    if (measured.since) lines.push(`usage (up to 31 UTC days): ${measured.totals.requests} requests · ${measured.totals.responseBytes} response bytes · ${measured.databaseRu === null ? 'database RU unknown' : `${measured.databaseRu.toFixed(2)} database RU (${measured.totals.meteredRequests}/${measured.totals.requests} requests measured)`} · ${measured.totals.idleWakes} idle model wakes`);
+    if (measured.totals.idleWakes) lines.push('idle model wakes detected: use persistent watching with a valid token; run usage for details');
+    if (watcher.modelPolling) lines.push('model polling explicitly enabled: timer wakes can consume model tokens');
+    if (seen.eventIntervalSeconds) lines.push(`uier event reads every ${seen.eventIntervalSeconds}s; lease, timer and delivery checks stay fast`);
     if (notification.failingSince) lines.push(`wake delivery failing since ${since(notification.failingSince)} UTC (${notification.failures ?? 1} tries); the inbox is kept`);
     else if (notification.deliveredAt && inbox.some(item => !item.quiet) && Date.now() - notification.deliveredAt > 10 * 60_000)
         lines.push(`wake delivered ${Math.round((Date.now() - notification.deliveredAt) / 60_000)} min ago but not taken yet (a busy or stopped thread, or a usage limit); it is sent again after 30 min`);

@@ -186,7 +186,7 @@ After `M check`:
 
 ## Waiting
 
-- **T3 with the local `t3 thread send` CLI** (preferred):
+- **T3 with the local `t3 thread send` CLI** (required when available):
   `M watch --persistent --detach --thread <this thread id> --replace` (pass `--t3-cli <absolute path>`
   if needed). The detached script checks uier, PRs and deploys before sending a model message; it
   sends no idle heartbeats. A busy thread queues the message without interruption, using its
@@ -194,6 +194,9 @@ After `M check`:
   heartbeat. Only then disable an old interval fallback with `schedule_task enabled: false`, and
   record its id in `watch.scheduledTaskId` and `watch.mode: "persistent"`. Keep an existing
   persistent watcher when its target thread is still correct; don't replace it on routine wakes.
+  The helper also selects this mode automatically for a saved T3 thread, including when an old
+  prompt calls `M watch --replace`. It detaches rather than returning an idle completion to the model.
+  Never choose a one-shot or interval model fallback while this transport is available.
 - **A harness webhook**: create its event-triggered task with a fixed resume prompt bound to this
   thread, and use `M watch --persistent --detach --notify-file STATE/wake-url --replace`. Store the
   returned bearer URL directly in that `0600` file from creation (`umask 077`); never echo it, place
@@ -209,7 +212,11 @@ After `M check`:
   above 10 minutes, handle what it returns, and run it again.
 
 How the watcher behaves:
-- It reads `state.json` every cycle, so new pending deploys, PRs, the hold timer (`watch.wakeAt`),
+- Event reads run every minute during work and for 15 minutes after visible activity, then every
+  five minutes while idle. A new event restores the fast cadence. Safety reconciliation still
+  runs every 15 minutes, with compact state and every returned page. `watch.idleMinutes` and
+  `watch.idleIntervalSeconds` adjust the idle thresholds (five minutes by default, capped at 15).
+- It reads `state.json` at least every minute, so new pending deploys, PRs, the hold timer (`watch.wakeAt`),
   agent leases and closing drafts need only `M patch`, not a restart. While a lease is working it
   runs a cycle at least every 60 seconds.
 - Ordinary events collect for ten seconds (`--batch-seconds`, at most thirty); duplicates coalesce,
@@ -224,7 +231,10 @@ How the watcher behaves:
 
 ## Fallback mode
 
-Without a watcher token, `M watch` still follows deploys and PRs and exits with `poll-uier` every 15
+Without a watcher token, the helper refuses to start instead of silently spending model tokens.
+Only when no event transport/token can be used, explicitly pass `--allow-model-polling` and tell
+the person this mode costs model usage. With that opt-in, `M watch` still follows deploys and PRs
+and exits with `poll-uier` every 15
 minutes. Attach agents yourself (`SKILL.md`, Starting one, step 4); there is no working spinner, and
 you close comments yourself after deploys. On `poll-uier`: call `list_feedback_events` with
 `watch.mcpCursor` (null the first time, then the cursor it returns), skip events made by a connector
@@ -235,3 +245,13 @@ more tokens. An interval task starts a model before its prompt runs, so a no-cha
 prompt saves nothing. Never run interval ticks while a healthy watcher runs. If a watcher dies,
 restart it on manual resume or under an existing OS process supervisor; this skill doesn't install a
 system service or claim that a detached process survives an OS restart.
+
+## Usage accounting
+
+`M usage` reports requests, retries, failures, JSON request/consumed response bytes, elapsed HTTP
+time, database RU coverage and idle model wakes over up to 31 UTC days. Optional
+`--ru-price-per-million N --currency EUR` estimates only measured RU at the supplied rate.
+Unknown charges stay unknown; this is not hosting, transfer, AI token accounting or an invoice.
+The dashboard and `M status` call out idle wakes and one-shot watching. Do not start a model
+to check this telemetry. An authentication error wakes once; persistent watching never changes
+to periodic model polling unless the costly fallback was explicitly enabled.
