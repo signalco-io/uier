@@ -178,7 +178,7 @@
         "@types/react": "19.3.0",
         "@types/react-dom": "19.3.0",
         "@uier/brand": "workspace:*",
-        "browserslist": "4.29.5",
+        "browserslist": "4.29.6",
         "postcss": "8.5.33",
         "react": "19.3.1",
         "react-dom": "19.3.1",
