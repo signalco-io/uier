@@ -306,7 +306,7 @@ const messages: Record<keyof typeof en, string> = {
     "Label for {value0}": "Oznaka za {value0}",
     "Landmark": "Orijentir",
     "Last comment": "Zadnji komentar",
-    "Later changes": "Kasnije promjene",
+    "Older changes": "Starije promjene",
     "Leaf": "List",
     "Loading activity": "Aktivnost učitavanja",
     "Loading clients": "Učitavanje klijenata",

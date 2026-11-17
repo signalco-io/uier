@@ -13,12 +13,12 @@ const sentence = (text: string) => `${text.charAt(0).toUpperCase()}${text.slice(
 
 /**
  * Access history as sentences, one change per row: who did what ("Maya invited client@example.com to
- * Acme shop"), the details of a changed grant under it, and when. Admins only; kept 180 days.
+ * Acme shop"), the details of a changed grant under it, and when, newest first. Admins only; kept 180 days.
  */
 export async function AccessActivity({ events, names, next }: {
     events: DbAccessEvent[];
     names: ActivityNames;
-    /** The page of later changes */
+    /** The page of older changes; newest come first */
     next?: string;
 }) {
     const { t, language } = await getAppI18n();
@@ -51,7 +51,7 @@ export async function AccessActivity({ events, names, next }: {
                     );
                 })}
             </ol>
-            {next && <Link href={next} className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'self-center')}>{t("Later changes")}</Link>}
+            {next && <Link href={next} className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'self-center')}>{t("Older changes")}</Link>}
         </div>
     );
 }

@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
+import type { Container } from '@azure/cosmos';
 import { getAppStore, createCosmosAppStore, createMemoryAppStore, type AppStore } from '../src/lib/app/store';
 import { findOrCreateUser } from '../src/lib/app/users';
 import { ensureOwnWorkspace, getMember, getWorkspace } from '../src/lib/app/workspaces';
@@ -10,6 +11,7 @@ import {
     changeTeamState,
     getTeam,
     removeAllProjectMemberAccess,
+    listAccessEvents,
     saveTeam,
     setTeamProjects,
     updateMemberAccess
@@ -426,6 +428,36 @@ async function transactionContract(store: AppStore) {
         for (const id of ['grant', 'created', 'failed', 'updated', 'deleted']) await store.delete(pk, id);
     }
 }
+test('access activity lists the newest changes first and pages to older ones', async () => {
+    const workspaceId = `ws_order_${randomUUID()}`, pk = workspacePk(workspaceId), store = getAppStore();
+    const ids = Array.from({ length: 25 }, (_, index) => `access_${1_700_000_000_000 + index * 1000}_${randomUUID()}`);
+    for (const [index, id] of ids.entries()) await store.create({
+        type: 'access-event', id, pk, workspaceId, actorId: 'user_order', at: new Date(1_700_000_000_000 + index * 1000).toISOString(),
+        action: 'team.created', targetIds: [index % 2 ? 'team_odd' : 'team_even']
+    } as DbAccessEvent);
+    const newestFirst = [...ids].reverse();
+    const first = await listAccessEvents(workspaceId);
+    expect(first.events.map(event => event.id)).toEqual(newestFirst.slice(0, 20));
+    const older = await listAccessEvents(workspaceId, first.next);
+    expect(older.events.map(event => event.id)).toEqual(newestFirst.slice(20));
+    expect(older.next).toBeUndefined();
+    // A team's activity uses the same order
+    const team = await listAccessEvents(workspaceId, undefined, 'team_odd');
+    expect(team.events.map(event => event.id)).toEqual(newestFirst.filter(id => ids.indexOf(id) % 2).slice(0, 20));
+});
+
+test('Cosmos descending id queries page below the cursor', async () => {
+    const captured: { query: string; parameters: unknown[] }[] = [];
+    const container = { id: 'app-preview', items: { query(input: { query: string; parameters: unknown[] }) {
+        captured.push(input);
+        let pending = true;
+        return { hasMoreResults: () => pending, async fetchNext() { pending = false; return { resources: [], requestCharge: 1 }; } };
+    } } } as unknown as Container;
+    await createCosmosAppStore(() => container).query({ type: 'access-event', pk: 'ws:x', orderBy: 'id', descending: true, afterId: 'access_2', limit: 21 });
+    expect(captured[0]?.query).toBe('SELECT TOP @limit * FROM c WHERE c.type = @type AND c.pk = @pk AND c.id < @afterId ORDER BY c.id DESC');
+    await expect(createMemoryAppStore().query({ type: 'access-event', orderBy: 'nextAttemptAt', descending: true })).rejects.toThrow('Invalid document query order');
+});
+
 test('memory conditional batch rolls back grant and audit together', async () => {
     await transactionContract(createMemoryAppStore());
 });
