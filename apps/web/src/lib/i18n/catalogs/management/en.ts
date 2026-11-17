@@ -517,7 +517,6 @@ const messages = {
     "Sent and not accepted yet.": "Sent and not accepted yet.",
     "Sent to Anthropic with each rewrite request. Workspace changes apply whenever this project follows or adds to them.": "Sent to Anthropic with each rewrite request. Workspace changes apply whenever this project follows or adds to them.",
     "Settings": "Settings",
-    "Settings for everyone in this workspace.": "Settings for everyone in this workspace.",
     "Share": "Share",
     "Share feedback only between copies of one site, such as example.com and www.example.com: their comments show on the same pages. Removing an address keeps its comments.": "Share feedback only between copies of one site, such as example.com and www.example.com: their comments show on the same pages. Removing an address keeps its comments.",
     "Share selected projects with a group of people. Archived teams grant no access.": "Share selected projects with a group of people. Archived teams grant no access.",

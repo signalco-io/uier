@@ -518,7 +518,6 @@ const messages: Record<keyof typeof en, string> = {
     "Sent and not accepted yet.": "Poslano i još nije prihvaćeno.",
     "Sent to Anthropic with each rewrite request. Workspace changes apply whenever this project follows or adds to them.": "Šalje se Anthropicu sa svakim zahtjevom za prepisivanjem. Promjene radnog prostora primjenjuju se svaki put kada ih ovaj projekt prati ili dodaje.",
     "Settings": "Postavke",
-    "Settings for everyone in this workspace.": "Postavke za sve u ovom radnom prostoru.",
     "Share": "Podijelite",
     "Share feedback only between copies of one site, such as example.com and www.example.com: their comments show on the same pages. Removing an address keeps its comments.": "Podijelite povratne informacije samo između kopija jedne stranice, kao što su example.com i www.example.com: njihovi se komentari prikazuju na istim stranicama. Uklanjanje adrese zadržava njezine komentare.",
     "Share selected projects with a group of people. Archived teams grant no access.": "Dijelite odabrane projekte s grupom ljudi. Arhivirani timovi ne dopuštaju pristup.",
