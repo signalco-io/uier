@@ -39,6 +39,16 @@ container width; narrower cards keep the wrapping item row. Keep new row content
   Read the workspace before counting admins and repeat both on a conflict; never undo a removal
   by recreating its member document. `replaceAndDelete` remains available for older callers.
 
+- A person's access form also changes their existing Admin or Commenter role, in the same review and
+  confirmation as teams, direct grants and relationship. The preview uses the proposed role to show
+  effective project access and names both roles when changing them. `updateMemberAccess` validates
+  roles again, reads the current actor/target on every guarded retry, and refuses to demote the last
+  admin, including concurrent demotions or member removals. Role changes preserve explicit grants;
+  demoting an admin with an all-project grant keeps that grant unless it is also changed. The atomic
+  `member.access` event records both roles and Activity translates the transition. Stale confirmations
+  require a new preview; unchanged current saves add no event. `member-roles.api.spec.ts` covers these
+  authorization and conflict rules; `member-roles.spec.ts` covers confirmation and live access.
+
 ## Email domains
 
 `src/lib/app/workspaceDomains.ts`; Settings → Email domains (`workspace/(tabs)/settings/WorkspaceDomains*.tsx`,

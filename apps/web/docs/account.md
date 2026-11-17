@@ -67,6 +67,10 @@ workspaces on desktop, mobile and tablet with the production-build navigation lo
 
 Account controls, profile messages, appearance choices, workspace access and section labels use the [app language](localization.md). App language and Toolbar language are separate saved preferences; native language names remain readable in every language.
 
+Workspace access shows the member's current stored role. Workspace admins change Admin or Commenter
+on Workspace → People → Manage access, using the access preview and confirmation; Account's access
+summary reflects the saved role and effective grants after refresh.
+
 Project and review links automatically select the only signed-in browser account with live access
 to the destination, including its private comment or admin settings permissions. Several eligible
 accounts use the existing picker. The switch POST rechecks session expiry, workspace membership

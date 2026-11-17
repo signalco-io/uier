@@ -21,6 +21,7 @@ import {
     type DbProject,
     type DbMember,
     type DbAccessEvent,
+    type MemberRole,
     type MemberRelationship,
     type ProjectsAccess
 } from './model';
@@ -268,7 +269,7 @@ export async function changeTeamState(
     );
 }
 
-export type MemberAccessUpdate = { teamIds: string[]; projects: ProjectsAccess; relationship?: MemberRelationship };
+export type MemberAccessUpdate = { role?: MemberRole; teamIds: string[]; projects: ProjectsAccess; relationship?: MemberRelationship };
 export async function updateMemberAccess(
     context: AppContext,
     userId: string,
@@ -280,8 +281,18 @@ export async function updateMemberAccess(
         context.user.id,
         async (store) => {
             const old = await store.get<DbMember>(workspacePk(context.workspace.id), memberId(userId));
-            if (!old || old.doc.type !== 'member' || old.doc.workspaceId !== context.workspace.id)
+            if (!old || old.doc.type !== 'member' || old.doc.workspaceId !== context.workspace.id || old.doc.userId !== userId)
                 throw new UserFacingError('This person is no longer in the workspace.');
+            const role = z.enum(['admin', 'commenter']).optional().parse(update.role) ?? old.doc.role;
+            if (old.doc.role === 'admin' && role === 'commenter') {
+                const admins = await store.query<DbMember>({
+                    type: 'member',
+                    pk: workspacePk(context.workspace.id),
+                    where: { role: 'admin' }
+                });
+                if (!admins.some((member) => member.workspaceId === context.workspace.id && member.userId !== userId))
+                    throw new UserFacingError('A workspace needs at least one admin.');
+            }
             const teamIds = teamIdsSchema.parse(update.teamIds);
             await validateTeamIds(
                 context.workspace.id,
@@ -294,14 +305,15 @@ export async function updateMemberAccess(
                     : await validateProjectIds(context.workspace.id, update.projects, store);
             const relationship = relationshipSchema.parse(update.relationship);
             const before = {
+                role: old.doc.role,
                 teamIds: old.doc.teamIds ?? [],
                 projects: old.doc.projects,
                 relationship: old.doc.relationship ?? null
             };
-            const after = { teamIds, projects, relationship: relationship ?? null };
+            const after = { role, teamIds, projects, relationship: relationship ?? null };
             if (JSON.stringify(before) === JSON.stringify(after)) return null;
             return {
-                operations: [{ kind: 'replace', doc: { ...old.doc, teamIds, projects, relationship }, etag: old.etag }],
+                operations: [{ kind: 'replace', doc: { ...old.doc, role, teamIds, projects, relationship }, etag: old.etag }],
                 action: 'member.access',
                 targetIds: [...new Set([old.doc.id, ...(old.doc.teamIds ?? []), ...teamIds])],
                 before,

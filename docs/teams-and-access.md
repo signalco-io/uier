@@ -22,6 +22,12 @@ keeps the relationship under **More options**, because it is a label without per
 grants, teams and every effective project source. Older memberships display Unspecified; no
 email-domain inference is made. The relationship is per workspace and grants no permissions.
 
+The person's role can be changed between **Admin** and **Commenter** in that same review-and-confirm
+flow. The preview names the role transition and applies it to the project access shown. Only a current
+stored admin can confirm, and guarded retries with member removal or another demotion must keep at
+least one admin. Existing team and direct grants remain unless explicitly changed alongside the role;
+an all-project grant still gives a commenter every project. Activity records the translated transition.
+
 Project settings keep **Who can comment** separate from **People and teams**, which has **Invite**
 with the project already chosen. Share with or
 remove a team without copying people into direct access. A person with several grants appears
