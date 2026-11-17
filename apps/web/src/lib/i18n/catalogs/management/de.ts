@@ -518,7 +518,6 @@ const messages: Record<keyof typeof en, string> = {
     "Sent and not accepted yet.": "Gesendet und noch nicht akzeptiert.",
     "Sent to Anthropic with each rewrite request. Workspace changes apply whenever this project follows or adds to them.": "Wird mit jeder Umschreibungsanfrage an Anthropic gesendet. Änderungen am Arbeitsbereich gelten immer dann, wenn dieses Projekt ihnen folgt oder sie ergänzt.",
     "Settings": "Einstellungen",
-    "Settings for everyone in this workspace.": "Einstellungen für alle in diesem Arbeitsbereich.",
     "Share": "Teilen",
     "Share feedback only between copies of one site, such as example.com and www.example.com: their comments show on the same pages. Removing an address keeps its comments.": "Teilen Sie Feedback nur zwischen Kopien einer Website, z. B. example.com und www.example.com: Ihre Kommentare werden auf denselben Seiten angezeigt. Beim Entfernen einer Adresse bleiben deren Kommentare erhalten.",
     "Share selected projects with a group of people. Archived teams grant no access.": "Teilen Sie ausgewählte Projekte mit einer Gruppe von Menschen. Archivierte Teams gewähren keinen Zugriff.",

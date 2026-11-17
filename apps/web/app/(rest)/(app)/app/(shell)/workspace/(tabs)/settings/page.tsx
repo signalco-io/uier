@@ -11,7 +11,6 @@ import { Suspense } from 'react';
 import { workspaceFeedbackTypes } from '@/src/lib/app/feedbackTypes';
 import { WorkspaceFeedbackTypesForm } from './WorkspaceFeedbackTypesForm';
 import type { Metadata } from 'next';
-import { WorkspaceTabHeader } from '@/src/components/app/workspace/WorkspaceTabHeader';
 import { requireAdminContext } from '@/src/lib/app/context';
 import { PUBLIC_WORKSPACE_ID } from '@/src/lib/comments/publicProjectPolicy';
 import { workspaceAiTitles } from '@/src/lib/titles/settings';
@@ -30,15 +29,13 @@ export async function generateMetadata(): Promise<Metadata> {
 
 /** The current workspace's own settings, for its admins (the uier workspace is managed by uier) */
 async function WorkspaceSettingsPageContent({ searchParams }: PageProps<'/app/workspace/settings'>) {
-    const { t } = await getAppI18n();
     const context = await requireAdminContext();
     if (context.workspace.id === PUBLIC_WORKSPACE_ID)
-        return <div className="flex max-w-3xl flex-col"><WorkspaceTabHeader description={t("Settings for everyone in this workspace.")} /><WorkspaceThreadLabelsForm labels={workspaceThreadLabels(context.workspace)} /></div>;
+        return <div className="flex max-w-3xl flex-col"><WorkspaceThreadLabelsForm labels={workspaceThreadLabels(context.workspace)} /></div>;
 
     const [notion, query] = await Promise.all([getNotionProjectsSettings(context.workspace.id, context.user.id), searchParams]);
     return (
         <div className="flex max-w-3xl flex-col">
-            <WorkspaceTabHeader description={t("Settings for everyone in this workspace.")} />
             <div className="flex flex-col gap-6">
                 <WorkspaceNameForm name={context.workspace.name} />
                 <WorkspaceToolbarLanguageForm language={workspaceToolbarLanguage(context.workspace)} />
