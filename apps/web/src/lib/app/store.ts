@@ -36,7 +36,9 @@ export type DocQuery<TType extends string> = {
     /** Bounded worker scans; absent preserves existing callers' complete-list behavior. */
     limit?: number;
     orderBy?: 'id' | 'nextAttemptAt';
-    /** Exclusive cursor for ascending id order. */
+    /** Newest first for time-prefixed ids such as access events; only with `orderBy: 'id'`. */
+    descending?: boolean;
+    /** Exclusive cursor in the query's id order (ids below it when `descending`). */
     afterId?: string;
     nameContains?: string;
     targetId?: string;
@@ -96,11 +98,12 @@ function withoutSystemProperties<T>(resource: Record<string, unknown>): T {
 
 const fieldPattern = /^[A-Za-z][A-Za-z0-9]*$/;
 
-function validateQueryBounds(input: { limit?: number; orderBy?: string; dueBefore?: string; afterId?: string }) {
+function validateQueryBounds(input: { limit?: number; orderBy?: string; dueBefore?: string; afterId?: string; descending?: boolean }) {
     if (input.limit !== undefined && (!Number.isSafeInteger(input.limit) || input.limit < 1 || input.limit > 1000))
         throw new Error('Invalid document query limit');
     if (input.orderBy !== undefined && input.orderBy !== 'id' && input.orderBy !== 'nextAttemptAt')
         throw new Error('Invalid document query order');
+    if (input.descending && input.orderBy !== 'id') throw new Error('Invalid document query order');
     if (input.dueBefore !== undefined && !Number.isFinite(Date.parse(input.dueBefore))) throw new Error('Invalid document query deadline');
     if (input.afterId !== undefined && (input.orderBy !== 'id' || typeof input.afterId !== 'string'
         || input.afterId.length < 1 || input.afterId.length > 256 || /[\p{Cc}]/u.test(input.afterId))) throw new Error('Invalid document query cursor');
@@ -109,12 +112,12 @@ function validateQueryBounds(input: { limit?: number; orderBy?: string; dueBefor
 function appQueryOperation(kind: 'query' | 'count', input: DocQuery<string>) {
     return `app.${kind}.${input.type}.${[...Object.keys(input.where ?? {}).sort(),
         ...(input.dueBefore ? ['due'] : []), ...(input.missingTtl ? ['missingTtl'] : []),
-        ...(input.afterId ? ['afterId'] : []), ...(input.nameContains !== undefined ? ['nameContains'] : []),
+        ...(input.afterId ? ['afterId'] : []), ...(input.descending ? ['descending'] : []), ...(input.nameContains !== undefined ? ['nameContains'] : []),
         ...(input.targetId !== undefined ? ['targetId'] : [])].join('-') || 'all'}`;
 }
 
-function appQuerySpec({ type, pk, where = {}, limit, orderBy, dueBefore, afterId, missingTtl, nameContains, targetId }: DocQuery<string>, count = false) {
-    validateQueryBounds({ limit, orderBy, dueBefore, afterId });
+function appQuerySpec({ type, pk, where = {}, limit, orderBy, descending, dueBefore, afterId, missingTtl, nameContains, targetId }: DocQuery<string>, count = false) {
+    validateQueryBounds({ limit, orderBy, dueBefore, afterId, descending });
     const conditions = ['c.type = @type'];
     if (missingTtl) conditions.push('NOT IS_DEFINED(c.ttl)');
     const parameters: SqlParameter[] = [{ name: '@type', value: type }];
@@ -133,7 +136,7 @@ function appQuerySpec({ type, pk, where = {}, limit, orderBy, dueBefore, afterId
         parameters.push({ name: '@dueBefore', value: dueBefore });
     }
     if (afterId !== undefined) {
-        conditions.push('c.id > @afterId');
+        conditions.push(descending ? 'c.id < @afterId' : 'c.id > @afterId');
         parameters.push({ name: '@afterId', value: afterId });
     }
     if (targetId !== undefined) {
@@ -146,7 +149,7 @@ function appQuerySpec({ type, pk, where = {}, limit, orderBy, dueBefore, afterId
     }
     if (limit !== undefined) parameters.push({ name: '@limit', value: limit });
     return {
-        query: `SELECT ${count ? 'VALUE COUNT(1)' : `${limit === undefined ? '' : 'TOP @limit '}*`} FROM c WHERE ${conditions.join(' AND ')}${!count && orderBy ? ` ORDER BY c.${orderBy} ASC` : ''}`,
+        query: `SELECT ${count ? 'VALUE COUNT(1)' : `${limit === undefined ? '' : 'TOP @limit '}*`} FROM c WHERE ${conditions.join(' AND ')}${!count && orderBy ? ` ORDER BY c.${orderBy} ${descending ? 'DESC' : 'ASC'}` : ''}`,
         parameters
     };
 }
@@ -387,12 +390,12 @@ export function createMemoryAppStore(): AppStore {
             return partition(pk).delete(id);
         },
         async count(input) { return (await this.query(input)).length; },
-        async query<T extends AppDoc>({ type, pk, where = {}, limit, orderBy, dueBefore, afterId, missingTtl, nameContains, targetId }: DocQuery<T['type']>) {
-            validateQueryBounds({ limit, orderBy, dueBefore, afterId });
+        async query<T extends AppDoc>({ type, pk, where = {}, limit, orderBy, descending, dueBefore, afterId, missingTtl, nameContains, targetId }: DocQuery<T['type']>) {
+            validateQueryBounds({ limit, orderBy, dueBefore, afterId, descending });
             const pks = pk ? [pk] : [...memoryState().partitions.keys()];
             let docs = pks
                 .flatMap(key => [...partition(key).values()].map(entry => entry.doc))
-                .filter(doc => doc.type === type && (!missingTtl || doc.ttl === undefined) && (afterId === undefined || doc.id > afterId)
+                .filter(doc => doc.type === type && (!missingTtl || doc.ttl === undefined) && (afterId === undefined || (descending ? doc.id < afterId : doc.id > afterId))
                     && (targetId === undefined || (Array.isArray((doc as Record<string, unknown>).targetIds) && ((doc as Record<string, unknown>).targetIds as string[]).includes(targetId)))
                     && (nameContains === undefined || String((doc as Record<string, unknown>).nameKey ?? '').includes(nameContains.slice(0, 80).toLowerCase()))
                     && Object.entries(where).every(([field, value]) => (doc as Record<string, unknown>)[field] === value)
@@ -403,6 +406,7 @@ export function createMemoryAppStore(): AppStore {
                 const right = String((b as Record<string, unknown>)[orderBy] ?? '');
                 return orderBy === 'id' ? (left < right ? -1 : left > right ? 1 : 0) : left.localeCompare(right);
             });
+            if (descending) docs.reverse();
             return (limit === undefined ? docs : docs.slice(0, limit)).map(doc => structuredClone(doc) as T);
         }
     };

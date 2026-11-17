@@ -88,7 +88,9 @@ export async function listAccessEvents(workspaceId: string, after?: string, targ
     const events = await getAppStore().query<DbAccessEvent>({
         type: 'access-event',
         pk: workspacePk(workspaceId),
+        // Ids start with the time, so newest first; `after` pages to older changes
         orderBy: 'id',
+        descending: true,
         afterId: after,
         targetId,
         limit: 21

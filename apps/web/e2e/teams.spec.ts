@@ -55,6 +55,8 @@ test('admins manage team-only external access, preview overlapping grants and ar
     await expect(changes).toContainText('changed the projects of Product review.');
     await expect(changes).toContainText('Added Alpha team project.');
     await expect(changes).toContainText(`invited ${email} to the Product review team.`);
+    // Newest first: the invitation was the last change
+    await expect(changes.getByRole('listitem').first()).toContainText(`invited ${email} to the Product review team.`);
     await expect(changes).not.toContainText('invitation.created');
     await expect(changes).not.toContainText('invitation_');
     await expect(page.getByRole('navigation', { name: 'Workspace' }).getByRole('link', { name: 'Activity' })).toHaveAttribute('aria-current', 'page');

@@ -305,7 +305,7 @@ const messages = {
     "Label for {value0}": "Label for {value0}",
     "Landmark": "Landmark",
     "Last comment": "Last comment",
-    "Later changes": "Later changes",
+    "Older changes": "Older changes",
     "Leaf": "Leaf",
     "Loading activity": "Loading activity",
     "Loading clients": "Loading clients",

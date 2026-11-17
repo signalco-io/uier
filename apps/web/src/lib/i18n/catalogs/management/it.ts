@@ -306,7 +306,7 @@ const messages: Record<keyof typeof en, string> = {
     "Label for {value0}": "Etichetta per {value0}",
     "Landmark": "Punto di riferimento",
     "Last comment": "Ultimo commento",
-    "Later changes": "Modifiche successive",
+    "Older changes": "Modifiche precedenti",
     "Leaf": "Foglia",
     "Loading activity": "Attività di caricamento",
     "Loading clients": "Caricamento dei client",
