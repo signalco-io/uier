@@ -233,7 +233,7 @@ In T3 with both Claude and OpenAI (Codex) providers:
 
 - Newest means the highest version in the id: `claude-opus-<major>-<minor>`,
   `claude-fable-<major>-<minor>`, `gpt-<major>.<minor>-sol`. In November 2026 that is
-  `claude-opus-5-5`, `claude-fable-5-2` and `gpt-6.1-sol`.
+  `claude-opus-5-5`, `claude-fable-5-2` and `gpt-6.2-sol`.
 - Fable isn't on every Claude plan. Use it only when `orchestrator_capabilities` lists a
   `claude-fable-*` model for the Claude instance you route to (`harness.fable`); otherwise use Opus.
 - Effort by size: XS and S `medium`, M `high`, L `xhigh`. A group uses its largest item.
