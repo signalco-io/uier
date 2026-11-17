@@ -192,7 +192,7 @@
         "react": "^19.0.0"
     },
     "dependencies": {
-        "axe-core": "4.14.0",
+        "axe-core": "4.14.1",
         "modern-screenshot": "4.7.0",
         "prosemirror-commands": "1.7.2",
         "prosemirror-history": "1.5.1",
