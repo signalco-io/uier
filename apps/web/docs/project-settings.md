@@ -208,6 +208,15 @@ Each status has a stable ID, a distinct name (40 characters), an optional descri
 characters), and its position within its category. Move up/down changes that order. Categories
 retain their semantic order and colour. Names and descriptions are plain text, never instructions.
 
+`StatusWorkflowEditor.tsx` is the same compact editor in Workspace settings → Statuses and Project
+settings → Review (uier #467): per category a short list of rows, each with the category's dot
+(Archive's icon), the name and an optional description on one line where the editor is wide enough
+(the description under the name below that), and a More actions menu (Move up, Move down, Remove)
+while the category has more than one status. Add status inserts a row after the category's last
+status and moves the focus into its name; Remove moves it to the status that took its place. The
+three action defaults sit beside their labels. Save stays in the section's footer, as in the other
+settings sections.
+
 `statusWorkflow.ts` owns the browser-safe model and fallback projection; `statusWorkflowSchema.ts`
 validates writes and `statusWorkflows.ts` resolves live workspace defaults. Missing/invalid legacy
 settings use the five built-ins. `DbProject.statusWorkflow` is either absent (live inheritance) or

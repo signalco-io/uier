@@ -201,7 +201,7 @@ export function ProjectReviewForm({ projectId, access, brief, policy, suggestion
                             <FieldLabel htmlFor={`${formId}-workflow`}>{t('Status defaults')}</FieldLabel>
                             <Select value={draft.workflowMode} items={[{ value: 'workspace', label: t('Workspace defaults') }, { value: 'replace', label: t('Project override') }]}
                                 onValueChange={mode => { if (mode) update(current => ({ ...current, workflowMode: mode })); }}>
-                                <SelectTrigger id={`${formId}-workflow`} className="w-full"><SelectValue /></SelectTrigger>
+                                <SelectTrigger id={`${formId}-workflow`} className="w-full max-w-md pointer-coarse:min-h-11"><SelectValue /></SelectTrigger>
                                 <SelectContent><SelectGroup><SelectItem value="workspace">{t('Workspace defaults')}</SelectItem><SelectItem value="replace">{t('Project override')}</SelectItem></SelectGroup></SelectContent>
                             </Select>
                         </Field>
