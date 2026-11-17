@@ -71,6 +71,12 @@ export function describeAccessEvent(event: DbAccessEvent, names: ActivityNames, 
             const teams = changed(strings(before.teamIds), strings(after.teamIds), team);
             const relationship = before.relationship !== after.relationship ? text(after.relationship) : undefined;
             return done(t('changed the access of {person}', { person: person(first) }), [
+                (before.role === 'admin' || before.role === 'commenter') &&
+                (after.role === 'admin' || after.role === 'commenter') && before.role !== after.role
+                    ? t('Role: {before} → {after}', {
+                        before: before.role === 'admin' ? t('Admin') : t('Commenter'),
+                        after: after.role === 'admin' ? t('Admin') : t('Commenter')
+                    }) : '',
                 projects && t('Projects: {items}', { items: projects }),
                 teams && t('Teams: {items}', { items: teams }),
                 relationship ? t('Relationship: {value}', { value: relationship === 'internal' ? t('Internal') : t('External') }) : ''

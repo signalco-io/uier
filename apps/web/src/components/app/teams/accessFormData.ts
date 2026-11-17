@@ -7,6 +7,7 @@ export type AccessPerson = { member: DbMember; name: string; avatarUrl?: string 
 export type AccessData = { access: AccessSnapshot; projects: DbProject[]; people: AccessPerson[]; revision: number };
 
 export const currentUpdate = (member: DbMember): MemberAccessUpdate => ({
+    role: member.role,
     projects: member.projects,
     teamIds: member.teamIds ?? [],
     relationship: member.relationship

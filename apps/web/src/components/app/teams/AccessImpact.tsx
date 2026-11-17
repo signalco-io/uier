@@ -21,6 +21,12 @@ export function Impact({
     return (
         <div className="flex flex-col gap-2">
             <p className="m-0 text-sm font-medium">{person.name}</p>
+            {next.role && next.role !== person.member.role && (
+                <p className="m-0 text-sm">{t("Role: {before} → {after}", {
+                    before: person.member.role === 'admin' ? t("Admin") : t("Commenter"),
+                    after: next.role === 'admin' ? t("Admin") : t("Commenter")
+                })}</p>
+            )}
             <ul className="m-0 flex list-none flex-col gap-2 p-0">
                 {data.projects.flatMap((project) => {
                     const before = projectAccessSources(data.access, person.member, project, t),

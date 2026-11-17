@@ -17,6 +17,7 @@ export const memberAccessActionSchema = z.object({
     userId: userIdSchema,
     revision,
     update: z.object({
+        role: z.enum(['admin', 'commenter']).optional(),
         teamIds,
         projects: z.union([z.literal('all'), z.array(projectIdSchema)]),
         relationship: z.enum(['internal', 'external']).optional()
