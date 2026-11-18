@@ -30,10 +30,11 @@ export const extensionRelease = {
     minimumBrowserVersion: 120
 } as const;
 
-/** Native Firefox acceptance passed; Mozilla review and signed-store rollout remain pending. */
+/** The signed desktop add-on distributed by Mozilla. */
 export const firefoxExtensionRelease = {
     minimumBrowserVersion: 153,
-    availabilityMessage: 'Firefox support is awaiting Mozilla review. Public installation is not available yet.'
+    storeLabel: 'Get for Firefox',
+    storeUrl: 'https://addons.mozilla.org/en-US/firefox/addon/uier/'
 } as const;
 
 /**

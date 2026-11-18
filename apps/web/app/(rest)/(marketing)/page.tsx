@@ -21,7 +21,7 @@ import {
 } from '../../../src/components/marketing/LandingSpecimens';
 import { ChecksSpecimen } from '../../../src/components/marketing/ChecksSpecimens';
 import { KnownPages } from '../../../src/knownPages';
-import { extensionStoreUrl } from '../../../src/lib/extension/release';
+import { extensionStoreUrl, firefoxExtensionRelease } from '../../../src/lib/extension/release';
 
 export const metadata = {
     ...publicPageMetadata('/', {
@@ -139,11 +139,11 @@ const details: { title: string; text: ReactNode; icon: ReactNode }[] = [
 const platforms = ['HTML', 'Next.js', 'React', 'WordPress', 'Webflow', 'Shopify'];
 
 // The desktop browser extension's browsers (docs/browser-extension.md): Chrome and Edge install from
-// the Chrome Web Store; Firefox gets a link only once Mozilla approves the add-on.
-const extensionBrowsers: { name: string; href?: string; note?: string }[] = [
+// the Chrome Web Store, and Firefox installs from Firefox Browser Add-ons.
+const extensionBrowsers = [
     { name: 'Chrome', href: extensionStoreUrl },
     { name: 'Edge', href: extensionStoreUrl },
-    { name: 'Firefox', note: 'in review' }
+    { name: 'Firefox', href: firefoxExtensionRelease.storeUrl }
 ];
 
 const chip = 'inline-flex h-7 items-center gap-1.5 rounded-full border px-3 text-xs font-medium';
@@ -265,9 +265,7 @@ export default function LandingPage() {
                             <ul aria-label="Browser extension" className="flex flex-wrap gap-2">
                                 {extensionBrowsers.map(browser => (
                                     <li key={browser.name}>
-                                        {browser.href
-                                            ? <a href={browser.href} className={cx(chip, 'transition-colors hover:border-foreground/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2')}>{browser.name}</a>
-                                            : <span className={chip}>{browser.name}<span className="font-normal text-muted-foreground">{browser.note}</span></span>}
+                                        <a href={browser.href} className={cx(chip, 'transition-colors hover:border-foreground/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2')}>{browser.name}</a>
                                     </li>
                                 ))}
                             </ul>

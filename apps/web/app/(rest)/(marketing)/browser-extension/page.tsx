@@ -1,7 +1,7 @@
 import { Button } from '@signalco/ui-primitives/Button';
 import { brand } from '@uier/brand';
 import { CheckList, Chip, InlineLink, PageHeader, PageSection, Panel, Tile } from '../../../../src/components/marketing/ContentPage';
-import { ExtensionStoreButton, FirefoxExtensionNotice, extensionPage } from '../../../../src/components/marketing/BrowserExtension';
+import { ExtensionStoreButton, FirefoxExtensionStoreButton, extensionPage } from '../../../../src/components/marketing/BrowserExtension';
 import { ExtensionSpecimens } from '../../../../src/components/marketing/ExtensionSpecimens';
 import { KnownPages } from '../../../../src/knownPages';
 import { extensionRelease, firefoxExtensionRelease } from '../../../../src/lib/extension/release';
@@ -19,7 +19,11 @@ export const metadata = publicPageMetadata(extensionPage.path, extensionPage);
 const { labels, minimumBrowserVersion } = extensionRelease;
 
 /** What the manifest supports: desktop Chromium from `minimum_chrome_version`; Edge installs from the Chrome Web Store */
-const browsers = ['Chrome', 'Microsoft Edge'];
+const browsers = [
+    { name: 'Chrome', minimumVersion: minimumBrowserVersion },
+    { name: 'Microsoft Edge', minimumVersion: minimumBrowserVersion },
+    { name: 'Firefox', minimumVersion: firefoxExtensionRelease.minimumBrowserVersion }
+];
 
 export default function BrowserExtensionPage() {
     return (
@@ -30,13 +34,13 @@ export default function BrowserExtensionPage() {
                     lead="Review your project’s sites without adding the script or changing the site’s security headers.">
                     <div className="flex flex-wrap items-center gap-2.5">
                         <ExtensionStoreButton />
+                        <FirefoxExtensionStoreButton />
                         <Button variant="outlined" size="lg" href={guides.browserExtension.path}>Read the setup guide</Button>
                     </div>
-                    <FirefoxExtensionNotice />
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-muted-foreground">
                         <span id="supported-browsers">Supported browsers, on desktop:</span>
                         <ul aria-labelledby="supported-browsers" className="flex flex-wrap gap-2">
-                            {browsers.map(name => <li key={name}><Chip>{name} {minimumBrowserVersion} or later</Chip></li>)}
+                            {browsers.map(({ name, minimumVersion }) => <li key={name}><Chip>{name} {minimumVersion} or later</Chip></li>)}
                         </ul>
                     </div>
                 </PageHeader>
@@ -68,7 +72,7 @@ export default function BrowserExtensionPage() {
             <PageSection id="requirements" title="Where it works" lead="Only where the project already allows a review.">
                 <CheckList items={[
                     `Chrome or Microsoft Edge ${minimumBrowserVersion} or later, on a desktop computer. Edge installs it from the Chrome Web Store.`,
-                    `The Firefox build requires desktop Firefox ${firefoxExtensionRelease.minimumBrowserVersion} or later.`,
+                    `Desktop Firefox ${firefoxExtensionRelease.minimumBrowserVersion} or later, from Firefox Browser Add-ons.`,
                     'A site whose exact address, scheme and port included, is one of the project’s site addresses.',
                     'A signed-in project member or invited reviewer, with comments on for the project.',
                     'Strict Content-Security-Policy and blocked third-party cookies are fine.'

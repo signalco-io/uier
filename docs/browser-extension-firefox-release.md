@@ -44,10 +44,13 @@ resumed the confirmed original upload without uploading a second package. Native
 reconciliation evidence, store receipt and listing screenshots are retained on the draft
 `extension-v0.1.5` GitHub release.
 
-The website and app installation guide show Firefox as awaiting review. Once Mozilla approves the
-[listing](https://addons.mozilla.org/en-US/firefox/addon/uier/), verify native signed-store installation
-and record the remaining update/rollout gates before enabling its download link. Temporary add-on
-acceptance does not establish store installation or automatic updates.
+## Public listing — 18 November 2026
+
+The [public Firefox listing](https://addons.mozilla.org/en-US/firefox/addon/uier/) offers signed
+version **0.1.9** for desktop Firefox 153 or later. Native Firefox 159.0.1 on macOS installed the
+public XPI as an active, signed, permanent add-on in a clean profile. The publisher profile
+displays **uier**, the uier app icon, a short bio and the uier.io homepage. The stable add-on ID
+remains `uier@signalco.io`.
 
 ## Firefox setup
 
