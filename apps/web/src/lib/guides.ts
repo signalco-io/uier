@@ -46,7 +46,7 @@ export const guides = {
     },
     browserExtension: {
         title: 'Set up the browser extension',
-        description: 'Set up the uier extension, check Firefox availability, and review a project site without adding the script.',
+        description: 'Set up the uier extension in Chrome, Edge or Firefox and review a project site without adding the script.',
         path: '/guides/browser-extension',
         section: 'Guides'
     },

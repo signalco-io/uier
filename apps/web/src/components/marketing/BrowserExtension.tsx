@@ -11,7 +11,7 @@ export const extensionPage = {
     path: KnownPages.BrowserExtension,
     section: 'Desktop browsers',
     title: 'Browser extension',
-    description: `Review your project’s sites without adding the ${brand.name} script. ${firefoxExtensionRelease.availabilityMessage}`
+    description: `Review your project’s sites in Chrome, Edge or Firefox without adding the ${brand.name} script.`
 } satisfies PageCard;
 
 /** The Chrome Web Store listing, labelled like the app's store link */
@@ -19,6 +19,6 @@ export function ExtensionStoreButton() {
     return <Button variant="solid" size="lg" href={extensionStoreUrl}>{extensionRelease.storeLabel}</Button>;
 }
 
-export function FirefoxExtensionNotice() {
-    return <p className="text-sm leading-relaxed text-muted-foreground">{firefoxExtensionRelease.availabilityMessage}</p>;
+export function FirefoxExtensionStoreButton() {
+    return <Button variant="outlined" size="lg" href={firefoxExtensionRelease.storeUrl}>{firefoxExtensionRelease.storeLabel}</Button>;
 }

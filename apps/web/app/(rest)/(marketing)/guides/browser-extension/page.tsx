@@ -2,7 +2,7 @@ import { ArrowRightLeftIcon, BanIcon, CircleStopIcon, GlobeIcon, LayersIcon, Log
 import { brand } from '@uier/brand';
 import { Button } from '@signalco/ui-primitives/Button';
 import { CheckList, InlineLink, PageSection, Panel, Tile } from '@/src/components/marketing/ContentPage';
-import { ExtensionStoreButton, FirefoxExtensionNotice } from '@/src/components/marketing/BrowserExtension';
+import { ExtensionStoreButton, FirefoxExtensionStoreButton } from '@/src/components/marketing/BrowserExtension';
 import { GuideCard, GuideHeader, GuidePicture, GuideStep, GuideSteps, StepNumber, StepText, Tips, UiLabel as Label, type Tip } from '@/src/components/marketing/guides/GuideLayout';
 import { ExtensionHeadersSpecimen, ExtensionReviewSpecimen, ExtensionSignInSpecimen, ScreenshotSpecimen } from '@/src/components/marketing/guides/GuideSpecimens';
 import { KnownPages } from '@/src/knownPages';
@@ -33,9 +33,9 @@ const sections = {
 
 const requirements: Tip[] = [
     {
-        title: `Chrome or Edge ${extensionRelease.minimumBrowserVersion} or later`,
+        title: 'Desktop browser',
         icon: MonitorIcon,
-        text: 'Chrome or Microsoft Edge, on a desktop computer.'
+        text: `Chrome or Edge ${extensionRelease.minimumBrowserVersion} or later, or Firefox ${firefoxExtensionRelease.minimumBrowserVersion} or later.`
     },
     {
         title: 'Access to the project',
@@ -132,6 +132,7 @@ export default function BrowserExtensionGuide() {
             <GuideHeader title={guides.browserExtension.title} lead={guides.browserExtension.description} outline={Object.values(sections)}>
                 <div className="flex flex-wrap items-center gap-2.5">
                     <ExtensionStoreButton />
+                    <FirefoxExtensionStoreButton />
                     <Button variant="outlined" size="lg" href={KnownPages.BrowserExtension}>About the extension</Button>
                 </div>
             </GuideHeader>
@@ -140,7 +141,6 @@ export default function BrowserExtensionGuide() {
                 <GuideStep {...sections.before} lead="The extension reviews only sites your project already includes.">
                     <Tips columns={4} tips={requirements} />
                     <div className="flex max-w-[720px] flex-col gap-2">
-                        <FirefoxExtensionNotice />
                         <p className="text-sm leading-relaxed text-muted-foreground">Safari, mobile browsers and anonymous guests use the script and a review link.</p>
                     </div>
                 </GuideStep>
@@ -154,7 +154,7 @@ export default function BrowserExtensionGuide() {
                             <p>Add {brand.name} from the Chrome Web Store. In Edge, allow extensions from other stores when it asks.</p>
                         </Tile>
                         <Tile title="Firefox">
-                            <p>Requires desktop Firefox {firefoxExtensionRelease.minimumBrowserVersion} or later. Once its public release is available, add {brand.name} from Firefox Browser Add-ons, then follow the same steps.</p>
+                            <p>Requires desktop Firefox {firefoxExtensionRelease.minimumBrowserVersion} or later. Add {brand.name} from Firefox Browser Add-ons, then follow the same steps.</p>
                         </Tile>
                     </Panel>
                     <ol className="flex flex-col gap-4">

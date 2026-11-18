@@ -55,8 +55,8 @@ Installation uses the script/extension tabs in InstallGuide. Keep Check installa
 script tab; comment activity does not prove embed installation. BrowserExtensionGuide reads the
 server-only distribution gate (UIER_EXTENSION_AVAILABLE=1, valid STORE_ID also in CLIENT_IDS).
 Never invent a store URL or enable it without hosted/store acceptance. Its current button says
-**Get for Chrome or Edge**. Both the gated and available states also show the shared Firefox
-availability notice; the Chrome distribution gate does not enable Firefox installation.
+**Get for Chrome or Edge**. Both states offer **Get for Firefox** from the verified Mozilla
+listing. The setup steps apply to both stores.
 
 `public/extension-demo.html` is an unindexed, deliberately plain reviewer fixture without the
 marketing layout, embed, scripts or styles. Its exact-path proxy policy denies all page resource
@@ -68,8 +68,9 @@ The public `/browser-extension` page and the `/guides/browser-extension` setup g
 shared runtime and each browser's release status. Their copy follows BrowserExtensionGuide, the
 listing worksheet, the popup (`packages/extension/src/popup.tsx`) and the receipts in
 `docs/browser-extension.md`. Popup labels, the published Chrome store ID, store button label and
-Firefox notice live in `src/lib/extension/release.ts` (static pages build without the hosted
-`UIER_EXTENSION_*` settings). The store button uses the same `chromeWebStoreUrl` as the app's link.
+Firefox store URL and label live in `src/lib/extension/release.ts` (static pages build without the
+hosted `UIER_EXTENSION_*` settings). The Chrome and Firefox buttons use the same store URLs as the
+app installation guide.
 Recheck both pages, and the legal pages' extension sections, when a release changes labels,
 permissions, sign-in or capture, and the setup guide's pictures of the popup and the comment box
 (`GuideSpecimens`, [guides](guides.md)). `browser-extension.api.spec.ts` checks the store link and
@@ -77,19 +78,13 @@ permissions, sign-in or capture, and the setup guide's pictures of the popup and
 
 `/browser-extension`'s cover (`BrowserExtensionCover`, beside the header on wide screens and under it
 on narrow ones, like the security page's) shows Chrome, Microsoft Edge and Firefox as their official
-logos on bordered tiles over a dot grid, names written under them and Firefox's tile dashed and marked
-"In review" until Mozilla approves it. Its height is fixed per breakpoint. The logos are unchanged copies in
-`public/browsers` of the `@browser-logos` packages (github.com/alrra/browser-logos), decorative and in
-their own colours. Other Chromium browsers (Brave, Vivaldi, Opera, Arc) stay off until a release is
-tested in them; no receipt covers them yet. The page then lists the supported browsers under the hero: desktop Chrome and Microsoft Edge
-from `minimumBrowserVersion`. Firefox's shared build requires version 153 or later; its 0.1.5 native
-hosted acceptance passed and its submission is awaiting Mozilla review. The FAQ, public pages and
-app installation guide show the same notice. The homepage's "Review your own site" card lists the
-browsers as chips beside the install guides: Chrome and Edge link the store item, Firefox is marked
-"in review" without a link until Mozilla approves it. The setup guide describes Firefox Browser
-Add-ons installation for when the release is available, then shares the sign-in/review steps.
-No Firefox download link is offered before approval and store acceptance. Safari and mobile use the
-script. The "Where it works" section keeps the unsupported browsers and pages. Its pictures
+logos on bordered tiles over a dot grid, with names written under them and fixed height per
+breakpoint. The logos are unchanged copies in `public/browsers` of the `@browser-logos` packages
+(github.com/alrra/browser-logos), decorative and in their own colours. Other Chromium browsers
+(Brave, Vivaldi, Opera, Arc) stay off until a release is tested in them. The page lists desktop
+Chrome, Microsoft Edge and Firefox with their minimum versions. The homepage's "Review your own
+site" card links each browser to its official store. The setup guide shares sign-in and review
+steps across desktop browsers. Safari and mobile use the script. The "Where it works" section keeps the unsupported browsers and pages. Its pictures
 (`ExtensionSpecimens`) are the popup
 in its "Review this site" state and the expanded review toolbar on the landing page's example site,
 built from the tokens and hidden from assistive technologies, never screenshots or generated

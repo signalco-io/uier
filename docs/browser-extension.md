@@ -151,8 +151,9 @@ drafts and bindings; nothing falls back to persistent storage. Chrome/Firefox us
 sign-in with shared state/PKCE validation.
 
 A Firefox build is not a store publication. Native hosted BotID, screenshot and navigation checks
-passed for the exact 0.1.5 CI ZIP. Mozilla approval, signed-store installation and a later automatic
-update remain separate gates. Chrome/Edge receipts below apply to those published versions only.
+passed for the exact 0.1.5 CI ZIP. See the [Firefox release receipt](browser-extension-firefox-release.md#public-listing--18-november-2026)
+for the signed Mozilla package and native installation. Chrome/Edge receipts below apply to those
+published versions only.
 
 ## Accounts and projects
 
@@ -244,9 +245,8 @@ records acceptance of the published 0.1.1 package. The later automatic-upgrade r
 the real store-delivered 0.1.2 upgrade and post-update acceptance in both browsers.
 
 The app offers script and extension setup in Settings → Installation, with a line in onboarding.
-The extension tab links to the verified official store item; until then it is one line and a link to
-the setup guide. The script remains the default.
-A store link appears only when `UIER_EXTENSION_AVAILABLE=1`, the valid
+The extension tab links to Firefox Browser Add-ons and to the Chrome Web Store when configured.
+The script remains the default. The Chrome link requires `UIER_EXTENSION_AVAILABLE=1`, the valid
 `UIER_EXTENSION_STORE_ID` also occurs in `UIER_EXTENSION_CLIENT_IDS`, and owners have completed
 the hosted and publication gates. Feedback activity is labelled as feedback, never embed-installation proof.
 
@@ -259,12 +259,9 @@ the shared runtime and each browser's release status in the words of the app's s
 The footer, the `/guides` index, the homepage's
 get-started card and two FAQ answers link them. They are static, and deploys build without the
 hosted settings, so `apps/web/src/lib/extension/release.ts` names the published Chrome store ID,
-store button label, popup labels and Firefox availability notice. The homepage, FAQ, extension
-pages and app installation guide share that notice. The current store button says **Get for Chrome
-or Edge** and uses the same `chromeWebStoreUrl` as the app. Firefox is described as awaiting Mozilla
-review, with its minimum version and future store setup steps; no Firefox download is offered yet.
-After approval and the store acceptance gates, update this shared release data and both public and
-app distribution links together. When a release changes
+store button label, popup labels, and Mozilla listing URL. **Get for Chrome or Edge** uses the same
+`chromeWebStoreUrl` as the app. **Get for Firefox** links to Firefox Browser Add-ons. The homepage
+and setup pages use the same store URLs and describe Firefox 153 or later. When a release changes
 the store item, labels, permissions, sign-in or capture, update both pages and the privacy policy,
 cookie policy and security page's extension sections together; changed legal wording needs owner
 review and a new effective date. The setup guide lives with the other guides until the docs hub

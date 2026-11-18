@@ -19,7 +19,7 @@ test('browser extension pages link the store item the app links', async ({ reque
         const html = await response.text();
         expect(html, path).toContain(`href="${extensionStoreUrl}"`);
         expect(html, path).toContain(extensionRelease.storeLabel);
-        expect(html, path).toContain(firefoxExtensionRelease.availabilityMessage);
-        expect(html, path).not.toMatch(/href="https:\/\/addons\.mozilla\.org/);
+        expect(html, path).toContain(`href="${firefoxExtensionRelease.storeUrl}"`);
+        expect(html, path).toContain(firefoxExtensionRelease.storeLabel);
     }
 });

@@ -7,15 +7,14 @@ metadata does not update either live listing. Account, reviewer access and discl
 is recorded in the [release runbook](browser-extension-release.md).
 
 Firefox uses the same runtime with separate [Mozilla metadata](../apps/extension-firefox/amo-metadata.json)
-and [release controls](browser-extension-firefox-release.md). Version 0.1.5 is submitted and awaiting
-review as of 10 November 2026; this does not make it publicly installable. Its category is **Web
-Development**, language **English (US)**, prepared support email **contact@uier.io**, and homepage/privacy
-addresses match the table below. The production icon and a native Firefox screenshot from the
+and [release controls](browser-extension-firefox-release.md). The [public Firefox listing](https://addons.mozilla.org/en-US/firefox/addon/uier/)
+offers version 0.1.9. Its category is **Web Development**, language **English (US)**, prepared support
+email **contact@uier.io**, and homepage/privacy addresses match the table below. The production icon and a native Firefox screenshot from the
 isolated fictional demo project are saved in Developer Hub. The release receipt retains the exact
 ZIP and reviewer source, AGPL license, screenshot and native acceptance evidence.
 
 The common sign-in, project selection, review and screenshot instructions below also apply to
-desktop Firefox 153 or later once its store release is available. Firefox keeps the refresh
+desktop Firefox 153 or later. Firefox keeps the refresh
 credential in private extension-origin IndexedDB; Chrome and Edge use restricted extension local
 storage. Both keep access tokens, proofs, bindings and drafts in private session storage.
 
@@ -99,7 +98,10 @@ card's lockup, tagline, address and pin/toolbar motif) in `listing/`; the persis
 1280×800 runtime screenshot in `test-results/`. Extension icons are 16/32/48/128 px. CI retains these
 as artifacts; check the dashboard's current required sizes and visually review them before upload.
 Screenshots use a local fictional project, never customer pages. Take popup imagery from the
-verified build being published, so it matches the released copy.
+verified build being published, so it matches the released copy. On 18 November 2026, Chrome
+accepted a listing update for review with a 1280 × 800 screenshot of an actual extension review on
+the fictional Fieldwork Studio site. The draft replaces the localhost test screenshot and is set
+to publish automatically after approval.
 
 The controlled HTTPS reviewer page is `https://uier.io/extension-demo.html`: plain fictional content
 with no embed or executable page code, and a CSP that denies page resource loads. Reviewers sign

@@ -372,19 +372,17 @@ test('onboarding creates a project with its addresses and sets up reviews one st
     await expect(page.getByRole('region', { name: 'Check installation' })).toBeVisible();
     await expect(progress).toHaveCount(0);
     await expect(reviewerStep).toHaveCount(0);
-    // Installation methods are keyboard accessible; checking the embed is script-specific. Until the
-    // configured store link is available, the tab keeps its status and the setup guide.
+    // Installation methods are keyboard accessible. The Firefox link works independently of the
+    // configured Chrome store link, and the embed check belongs to the script tab.
     const scriptTab = page.getByRole('tab', { name: 'Install the script', exact: true });
     await scriptTab.focus(); await page.keyboard.press('ArrowRight');
     const extensionTab = page.getByRole('tab', { name: 'Use browser extension', exact: true });
     await expect(extensionTab).toBeFocused(); await page.keyboard.press('Enter');
     const extensionGuide = page.getByRole('region', { name: 'Browser extension setup' });
-    await expect(extensionGuide).toContainText('The browser extension is not available yet. Use the script to review your site.');
-    await expect(extensionGuide).toContainText(firefoxExtensionRelease.availabilityMessage);
-    await expect(extensionGuide.locator('p, li')).toHaveCount(2);
+    await expect(extensionGuide.getByRole('heading', { name: 'Review without adding a script' })).toBeVisible();
+    await expect(extensionGuide.getByRole('link', { name: firefoxExtensionRelease.storeLabel })).toHaveAttribute('href', firefoxExtensionRelease.storeUrl);
     await expect(extensionGuide.getByRole('link', { name: 'Read the extension setup guide' })).toHaveAttribute('href', '/guides/browser-extension');
     await expect(page.getByRole('link', { name: extensionRelease.storeLabel })).toHaveCount(0);
-    await expect(extensionGuide.locator('a[href*="addons.mozilla.org"]')).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Check installation', exact: true })).toBeHidden();
     await expectNoAxeViolations(page);
     await extensionTab.focus(); await page.keyboard.press('ArrowLeft'); await page.keyboard.press('Enter');
