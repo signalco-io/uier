@@ -123,7 +123,7 @@ test('a modal menu stays open while the toolbar is used, pinned into and typed a
     await page.mouse.click(5, 5);
     await expect(menu).toBeHidden();
     await expect(page.locator('body > #uier-toolbar')).toHaveCount(1);
-    expect(await page.locator('#uier-toolbar').getAttribute('popover')).toBeNull();
+    await expect(page.locator('body > #uier-toolbar:popover-open')).toHaveCount(1);
     await expect(page.getByRole('navigation', { name: 'uier feedback' })).toBeVisible();
 
     // While the menu is closed, the pin is beside the button that opens it, and its thread says so
@@ -200,6 +200,7 @@ test('point mode keeps popovers and hover menus open, and pins what is in them a
     await expect(pointInstruction(page)).toBeVisible();
     await pointAt(page, contact);
     await expect(newComment(page)).toBeVisible();
+    await expect(contact).toBeVisible();
     // The link was not followed
     expect(new URL(page.url()).hash).toBe('');
     const hoverComment = await postNewComment(page, project, 'Link the help centre too.');

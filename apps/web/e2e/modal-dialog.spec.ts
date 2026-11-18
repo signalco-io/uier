@@ -157,7 +157,7 @@ test('pages without a modal and non-modal dialogs keep the toolbar in the body',
     await page.goto(`${origin}/${project}/checkout?review=true&host-dialog`);
     await expect(addComment(page)).toBeVisible();
     await expect(page.locator('body > #uier-toolbar')).toHaveCount(1);
-    expect(await page.locator('#uier-toolbar').getAttribute('popover')).toBeNull();
+    await expect(page.locator('body > #uier-toolbar:popover-open')).toHaveCount(1);
 
     // `show()` is not modal: the page stays interactive and the toolbar stays where it was
     await page.locator('#host-dialog').evaluate((dialog: HTMLDialogElement) => dialog.show());

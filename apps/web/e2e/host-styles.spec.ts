@@ -1,7 +1,7 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { createProject, signIn, uniqueEmail } from './support/app';
 import { startReviewedSite } from './support/reviewedSite';
-import { animationsFinished, toolbar } from './support/toolbar';
+import { animationsFinished, inboxSearch, pageChecksButton, toolbar } from './support/toolbar';
 
 // The toolbar looks the same on every site (packages/toolbar/docs/host-styles.md): on a project's page whose styles
 // reach its shadow root every way they can (`fixture-host-styles`, e2e/support/fixtures/hostStyles.ts) the pill and a
@@ -40,6 +40,9 @@ function looks(locator: Locator) {
 async function reviewPill(page: Page, project: string, hostile: boolean) {
     await page.goto(`/app/review/${project}?url=${encodeURIComponent(`${fixtureOrigin()}/${project}/pricing${hostile ? '?hostile' : ''}`)}`);
     await expect(toolbar(page)).toBeVisible();
+    // On wide screens, the preview checks add the attention dot asynchronously on this fixture.
+    const checks = pageChecksButton(page);
+    if (await checks.isVisible()) await expect(checks).toHaveAccessibleName(/^Page checks, \d+ to look at$/);
     await page.mouse.move(0, 0);
     return looks(toolbar(page));
 }
@@ -68,6 +71,35 @@ test('the toolbar looks the same on a page whose styles reach into it', async ({
     if (testInfo.project.use.hasTouch) return;
     await page.getByRole('button', { name: 'Add comment', exact: true }).click();
     await expectOutlined(page, page.getByRole('heading', { name: 'Pricing' }));
+});
+
+test('a high-z-index page header cannot cover the inbox controls', async ({ page }) => {
+    await signIn(page, uniqueEmail('host-styles-stacking'));
+    const project = await createProject(page, { urls: [fixtureOrigin()] });
+    await reviewPill(page, project, false);
+
+    // Headers and banners can mount after the toolbar and use the largest z-index the browser accepts.
+    await page.evaluate(() => {
+        document.body.style.minHeight = '200vh';
+        const header = document.createElement('button');
+        header.textContent = 'Page header action';
+        header.style.cssText = 'position: fixed; inset: 0 0 auto; height: 160px; z-index: 2147483647';
+        header.addEventListener('click', () => { header.textContent = 'Page header clicked'; });
+        document.body.appendChild(header);
+        window.scrollTo(0, 300);
+    });
+
+    await toolbar(page).getByRole('button', { name: /^Inbox/ }).click();
+    const inbox = page.getByRole('complementary', { name: 'Comments' });
+    await expect(inbox).toBeVisible();
+    await inboxSearch(inbox);
+    await page.keyboard.press('Escape');
+    await inbox.getByRole('button', { name: 'Close sidebar' }).click();
+    await expect(inbox).toBeHidden();
+    expect(await page.evaluate(() => window.scrollY)).toBe(300);
+
+    await page.getByRole('button', { name: 'Page header action' }).click();
+    await expect(page.getByRole('button', { name: 'Page header clicked' })).toBeVisible();
 });
 
 /** Point mode outlines the element under the pointer where the page draws it */

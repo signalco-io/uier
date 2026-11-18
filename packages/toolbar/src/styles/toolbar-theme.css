@@ -110,9 +110,9 @@
     display: block !important;
 }
 
-/* In the page's open modal dialog, popover, menu or dialog the host is a manual popover in the top
-   layer (src/modalLayer.ts). Without a box of its own, at the page's origin like in <body>, and clear
-   of the page's styles for dialogs, popovers and backdrops, so positions and the layer's look stay the same. */
+/* The toolbar's manual popover sits in the top layer (src/modalLayer.ts). Give it no box of its own
+   and keep its origin at the start of the document, so the toolbar's document and viewport positions
+   still line up. Page styles for popovers and backdrops stay out. */
 :host([popover]) {
     display: block !important;
     position: absolute !important;

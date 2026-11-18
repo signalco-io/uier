@@ -2,11 +2,11 @@ import { getToolbarHost } from './mount';
 import { isLetterKeyTarget } from './keyboard';
 import { matchPageZoom } from './pageZoom';
 
-// The review host follows the page's topmost open layer: a native modal dialog, an open popover,
-// the popup of an expanded menu or select button, or a script dialog (`aria-modal`). It moves into
-// the layer, as its last child (stored anchors count only earlier siblings, as in `<body>`), and is
-// shown as a manual popover: in the top layer above it, clear of the layer's overflow and transforms
-// (`:host([popover])` in styles/toolbar-theme.css). When the layer closes the host returns to `<body>`.
+// The review host is a manual popover so its controls paint above page stacking contexts. It also
+// follows the page's topmost open layer: a native modal dialog, a light-dismiss popover, the popup of
+// an expanded menu or select button, or a script dialog (`aria-modal`). It moves into that layer as
+// the last child (stored anchors count only earlier siblings) and shows above it in the top layer,
+// clear of its overflow and transforms. When the layer closes the host returns to `<body>`.
 //
 // A native modal makes everything outside it inert, and a top-layer popover outside the modal is
 // inert as well, so only from inside it is the toolbar usable at all. For the other layers, being
@@ -217,6 +217,7 @@ export function followPageLayers(host: HTMLElement) {
     const closing = new Set<Element>();
     // The review layer's focused element, given back when moving the host took it away
     let lastFocused: Element | undefined;
+    let stopped = false;
 
     // Capture before page handlers (including pointerdown menus and keyboard-only triggers).
     // Only layers that actually open during this activation are associated with the trigger.
@@ -252,6 +253,7 @@ export function followPageLayers(host: HTMLElement) {
     for (const type of ['pointerdown', 'click', 'keydown']) window.addEventListener(type, rememberOpener, true);
 
     const sync = (raise: boolean) => {
+        if (stopped) return;
         rememberOpenedLayers();
         openedModals = openedModals.filter(isModal);
         for (const dialog of document.querySelectorAll('dialog[open]')) {
@@ -269,27 +271,20 @@ export function followPageLayers(host: HTMLElement) {
         activeModal = modal;
         activeLayer = layer;
         if (changed) watchLayer(layer);
+
+        const parent = layer ?? document.body;
+        const moving = host.parentNode !== parent;
+        if (host.getAttribute('popover') !== 'manual') host.setAttribute('popover', 'manual');
+        if (moving) {
+            parent.appendChild(host);
+            matchPageZoom(host);
+        }
+        // Reparenting closes the popover. In a followed layer, reopening also restores the top-layer order.
+        if (moving || (layer && (changed || raise)) || !host.matches(':popover-open')) showOnTop(host);
         if (layer) {
-            if (host.getAttribute('popover') !== 'manual') host.setAttribute('popover', 'manual');
-            // Moving the host hides its popover; showing it again puts it above this layer.
-            // The same layer opened again, or another one above it, is above the popover now.
-            if (host.parentNode !== layer) {
-                layer.appendChild(host);
-                matchPageZoom(host);
-                showOnTop(host);
-            } else if (changed || raise || !host.matches(':popover-open')) {
-                showOnTop(host);
-            }
             // Set on the host by the page for what is outside its layer, while the host was outside
             host.removeAttribute('inert');
             host.removeAttribute('aria-hidden');
-        } else if (changed || disconnected || host.parentNode !== document.body) {
-            if (host.matches(':popover-open')) host.hidePopover();
-            host.removeAttribute('popover');
-            if (host.parentNode !== document.body) {
-                document.body.appendChild(host);
-                matchPageZoom(host);
-            }
         }
         // Moving or hiding the host took the focus (to the page, or nowhere): give it back
         if (focused?.isConnected && host.shadowRoot?.activeElement !== focused
@@ -407,6 +402,7 @@ export function followPageLayers(host: HTMLElement) {
     sync(false);
 
     return () => {
+        stopped = true;
         for (const type of ['pointerdown', 'click', 'keydown']) window.removeEventListener(type, rememberOpener, true);
         observer.disconnect();
         hostObserver.disconnect();
@@ -418,10 +414,8 @@ export function followPageLayers(host: HTMLElement) {
         host.shadowRoot?.removeEventListener('focusout', forgetFocus);
         for (const type of keptEventTypes) host.removeEventListener(type, keep);
         host.removeEventListener('keydown', keepEscape);
-        if (activeLayer) {
-            activeModal = undefined;
-            activeLayer = undefined;
-            host.removeAttribute('popover');
-        }
+        activeModal = undefined;
+        activeLayer = undefined;
+        host.removeAttribute('popover');
     };
 }
