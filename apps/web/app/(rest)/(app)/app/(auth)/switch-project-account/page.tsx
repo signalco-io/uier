@@ -5,7 +5,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { cn } from 'cn';
 import { AuthCard } from '@/src/components/app/AuthCard';
-import { PageLoading } from '@/src/components/app/PageLoading';
+import { AuthCardLoading } from '@/src/components/app/AuthFrame';
 import { buttonVariants } from '@/src/components/ui/button';
 import { KnownPages } from '@/src/knownPages';
 import { projectLinkAccounts } from '@/src/lib/app/projectLinkAccounts';
@@ -51,5 +51,5 @@ async function Content({ searchParams }: PageProps<'/app/switch-project-account'
     );
 }
 export default function Page(props: PageProps<'/app/switch-project-account'>) {
-    return <Suspense fallback={<PageLoading />}><Content {...props} /></Suspense>;
+    return <Suspense fallback={<AuthCardLoading label="Loading account" actions={2} />}><Content {...props} /></Suspense>;
 }

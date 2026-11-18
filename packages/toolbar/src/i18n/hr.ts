@@ -95,7 +95,7 @@ export const hr: Messages = {
         viewProject: 'Otvori projekt',
         closeToolbar: 'Zatvori traku',
         exitReview: 'Završi pregled',
-        signOutMenu: 'Odjava...',
+        signOutMenu: 'Odjava…',
         poweredBy: 'Pokreće uier',
         language: 'Jezik',
         languageDefault: (name: string) => `Zadano (${name})`,
@@ -229,7 +229,7 @@ export const hr: Messages = {
         commentEdited: 'Komentar je uređen',
         replyEdited: 'Odgovor je uređen',
         replyDeleted: 'Odgovor je izbrisan',
-        replyPlaceholder: 'Odgovorite...',
+        replyPlaceholder: 'Odgovorite…',
         postReply: 'Objavi odgovor',
         replyPosted: 'Odgovor je objavljen',
         deleteLastReply: 'Izbrisati ovaj odgovor? To je zadnja poruka pa se briše i rasprava.',
@@ -245,7 +245,7 @@ export const hr: Messages = {
             ? `Više mogućnosti za ${own ? 'vaš' : 'ovaj'} komentar`
             : `Više mogućnosti za ${own ? 'vaš' : 'ovaj'} odgovor`,
         reattach: 'Ponovno pričvrsti komentar',
-        deleteMenu: 'Izbriši...'
+        deleteMenu: 'Izbriši…'
     },
     agents: {
         generic: 'AI agent',
@@ -261,7 +261,7 @@ export const hr: Messages = {
         details: 'Detalji dodjele',
         openIn: (app: string) => `Otvori u aplikaciji ${app}`,
         assignThread: 'Dodijeli raspravu',
-        loadingPeople: 'Učitavanje osoba...',
+        loadingPeople: 'Učitavanje osoba…',
         unassign: 'Ukloni dodjelu'
     },
     reactions: {
@@ -401,8 +401,8 @@ export const hr: Messages = {
         draftKept: 'Vaša skica je sačuvana. Pokušajte je ponovno poslati.',
         recoveryKept: 'Raniji neposlani tekst čuva se zasebno jer obje skice premašuju ograničenje znakova.',
         restoreUnsent: 'Vrati neposlani tekst',
-        sending: 'Slanje...',
-        saving: 'Spremanje...',
+        sending: 'Slanje…',
+        saving: 'Spremanje…',
         keysSend: 'Enter za slanje. Shift+Enter za novi redak.',
         keysSave: 'Enter za spremanje. Shift+Enter za novi redak.',
         collapseTip: 'Natrag na manji obrazac',
@@ -440,9 +440,9 @@ export const hr: Messages = {
     attachments: {
         imageLimits: 'PNG, JPEG ili WebP, do 512 KB i 4096 piksela po stranici.',
         imageInstead: (name: string) => `Vaša slika ${name} bit će priložena umjesto snimke zaslona.`,
-        reading: 'Čitanje vaše slike...',
+        reading: 'Čitanje vaše slike…',
         noScreenshot: 'Snimka zaslona neće biti priložena.',
-        capturing: 'Snimanje zaslona...',
+        capturing: 'Snimanje zaslona…',
         captureFailed: 'Snimka zaslona nije uspjela. Komentar svejedno možete poslati.',
         pageScreenshot: 'Bit će priložena snimka vidljivog dijela stranice.',
         regionScreenshot: 'Bit će priložena snimka ovog dijela stranice.',
@@ -481,8 +481,8 @@ export const hr: Messages = {
         suggestedText: 'Predloženi tekst',
         comment: 'Komentar',
         reply: 'Odgovor',
-        suggestionPlaceholder: 'Vaša verzija teksta...',
-        commentPlaceholder: 'Ostavite povratnu informaciju...',
+        suggestionPlaceholder: 'Vaša verzija teksta…',
+        commentPlaceholder: 'Ostavite povratnu informaciju…',
         postSuggestion: 'Objavi prijedlog',
         postComment: 'Objavi komentar',
         participants: (people: string) => `U ovoj raspravi: ${people}`,
@@ -544,7 +544,7 @@ export const hr: Messages = {
         upload: 'Prenesi sliku',
         pasteTip: (limits: string) => `Zalijepi sliku. ${limits}`,
         paste: 'Zalijepi sliku',
-        savingReplacement: 'Spremanje zamjene...',
+        savingReplacement: 'Spremanje zamjene…',
         evidence: 'Snimka zaslona kao dokaz',
         none: 'Nema snimke zaslona',
         unavailable: 'Snimka zaslona više nije dostupna.',
@@ -575,7 +575,7 @@ export const hr: Messages = {
         noneVisible: 'Nema prijedloga za ovaj tekst.',
         tooLong: (max: number) => `Prijedlozi rade za odabir od najviše ${max} znakova.`,
         instruction: 'Uputa za prijedloge',
-        instructionPlaceholder: 'Kraće, ljubaznije...',
+        instructionPlaceholder: 'Kraće, ljubaznije…',
         suggest: 'Predloži',
         limited: (retry: string) => `Zasad nema više prijedloga. Pokušajte ponovno ${retry}. I dalje možete napisati svoj.`,
         suggestions: 'Prijedlozi'
@@ -681,7 +681,7 @@ export const hr: Messages = {
         reply: 'Odgovori',
         closeReply: 'Zatvori odgovor',
         openOn: 'Otvori na ',
-        loading: 'Učitavanje komentara...',
+        loading: 'Učitavanje komentara…',
         showOnOtherPages: (count: number) => `Prikaži ${count} na drugim stranicama`,
         commentNumber: (number: number) => `Komentar #${number}`,
         comment: 'Komentar',
@@ -864,7 +864,7 @@ export const hr: Messages = {
         notAnIssue: 'Nije problem',
         postedAs: (label: string, number: number | undefined) => `${label}${number !== undefined ? ` kao #${number}` : ''}`,
         show: 'Prikaži',
-        posting: 'Objavljivanje...',
+        posting: 'Objavljivanje…',
         comment: 'Komentiraj',
         restore: 'Vrati',
         dismissed: 'Odbačeno',
@@ -883,7 +883,7 @@ export const hr: Messages = {
         checkAgain: 'Provjeri ponovno',
         closePanel: 'Zatvori ploču',
         closeNamed: (title: string) => `Zatvori ploču ${title}`,
-        checking: 'Provjera...',
+        checking: 'Provjera…',
         notChecked: 'Provjera nije uspjela. Provjerite ponovno kako biste pokušali opet.',
         unknownCheck: (kind: string, id: string) => `Provjera ${kind}: ${id}`,
         attentionIssues: (panel: string, count: number) => `${panel}, ${p(count, 'pronađen je', 'pronađena su', 'pronađeno je')} ${count} ${p(count, 'problem', 'problema', 'problema')}`,
@@ -920,7 +920,7 @@ export const hr: Messages = {
             opensNewTab: (help: string) => ` ${help} (otvara se u novoj kartici)`,
             elements: (help: string) => `Elementi: ${help}`,
             bestPractice: 'Dobra praksa',
-            checkingPage: 'Provjera ove stranice...',
+            checkingPage: 'Provjera ove stranice…',
             couldNotRun: 'Provjera pristupačnosti nije pokrenuta.',
             noIssues: 'Nema pronađenih problema.',
             automatedNote: 'Automatske provjere pronalaze samo dio problema. Isprobajte i tipkovnicu i čitač zaslona.',
@@ -959,7 +959,7 @@ export const hr: Messages = {
         }
     },
     sections: {
-        checkingPage: 'Provjera ove stranice...',
+        checkingPage: 'Provjera ove stranice…',
         notChecked: 'Provjera nije uspjela. Provjerite ponovno kako biste pokušali opet.',
         aiSearch: {
             title: 'AI pretraživanje',
@@ -1009,7 +1009,7 @@ export const hr: Messages = {
             showOrder: 'Prikaži redoslijed tabulatora',
             focusNote: 'Pomiče fokus kroz kontrole stranice, pokreće njihove rukovatelje fokusom i navodi one koji ne pokazuju vidljivu promjenu.',
             checkFocus: 'Provjeri pokazatelje fokusa',
-            moving: 'Pomicanje fokusa kroz stranicu...',
+            moving: 'Pomicanje fokusa kroz stranicu…',
             focusFailed: 'Provjera fokusa nije pokrenuta.'
         },
         motion: { title: 'Kretanje' },
@@ -1018,7 +1018,7 @@ export const hr: Messages = {
             spacing: 'Razmak teksta',
             spacingNote: 'Primjenjuje razmak teksta iz WCAG 1.4.12 na stranicu i navodi tekst koji više ne stane. Ostaje uključeno dok gledate.',
             applied: (value: string) => `Razmak teksta je primijenjen. ${value}`,
-            applying: 'Primjena razmaka teksta...',
+            applying: 'Primjena razmaka teksta…',
             apply: 'Primijeni razmak teksta'
         },
         screenReader: {
@@ -1030,7 +1030,7 @@ export const hr: Messages = {
         sharing: {
             title: 'Dijeljenje',
             imageSize: 'Veličina slike',
-            loadingImage: 'Učitavanje slike...',
+            loadingImage: 'Učitavanje slike…',
             imageNotShown: 'Slika se ovdje ne prikazuje',
             noDescription: 'Nema opisa',
             searchCaption: 'Otprilike ovako izgleda rezultat pretraživanja',
@@ -1039,9 +1039,9 @@ export const hr: Messages = {
         },
         structuredData: { title: 'Strukturirani podaci' },
         pageExtras: {
-            checkingImages: 'Provjera slika...',
+            checkingImages: 'Provjera slika…',
             checkedOf: (checked: number, total: number) => `Provjereno ${checked} od ${total}`,
-            checkingLinks: 'Provjera poveznica...',
+            checkingLinks: 'Provjera poveznica…',
             linksFailed: 'Poveznice nisu provjerene.',
             notChecked: 'Nije provjereno.',
             noLinks: 'Na ovoj stranici nema poveznica za provjeru.',

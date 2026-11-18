@@ -33,7 +33,7 @@ async function openSeoPanel(page: Page) {
     const sharing = panel.locator('[data-uier-section="sharing"]');
     await expect(sharing).toHaveAttribute('data-uier-section-status', 'done', { timeout: 20_000 });
     await expect(panel.locator('[data-uier-section="structuredData"]')).toHaveAttribute('data-uier-section-status', 'done');
-    await expect(sharing).not.toContainText('Loading the image...', { timeout: 15_000 });
+    await expect(sharing).not.toContainText('Loading the image…', { timeout: 15_000 });
     await showChecksTab(panel, 'sharing');
     return panel;
 }

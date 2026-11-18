@@ -69,13 +69,15 @@ function GroupLabel({ children }: { children: ReactNode }) {
  * project has several), this page, all pages and the sections with several pages (`/blog/…`, from `@uier/toolbar/page-sections`,
  * as in the app); on the right the single pages and their search. A typed path lists every page under it.
  */
-export function LocationPicker({ value, pages, currentPath, currentCount, otherCount, environment, onChange }: {
+export function LocationPicker({ value, pages, currentPath, currentCount, otherCount, loaded = { current: true, others: true }, environment, onChange }: {
     value: CommentsPageFilter;
     /** The site's other pages (newest activity first), each with its comments that match the search and status */
     pages: InboxPage[];
     currentPath: string;
     currentCount: number;
     otherCount: number;
+    /** Whether this page's and the other pages' lists have loaded: a count shows only once its lists have */
+    loaded?: { current: boolean; others: boolean };
     /** The environment filter of a project review, when it has one */
     environment?: { value?: string; options: { id: string; label: string }[]; onChange: (value: string) => void };
     onChange: (value: CommentsPageFilter) => void;
@@ -175,9 +177,9 @@ export function LocationPicker({ value, pages, currentPath, currentCount, otherC
                         {environment && <span className="min-w-0 truncate text-xs text-muted-foreground">{environmentLabel ?? t.locations.allEnvironments}</span>}
                     </div>
                     <Option selected={value === 'current'} icon={<File size={14} aria-hidden="true" className="shrink-0 text-muted-foreground" />}
-                        label={t.locations.thisPage} title={currentPath} detail={currentCount} onSelect={() => choose('current')} />
+                        label={t.locations.thisPage} title={currentPath} detail={loaded.current ? currentCount : undefined} onSelect={() => choose('current')} />
                     <Option selected={value === 'all'} icon={<Globe size={14} aria-hidden="true" className="shrink-0 text-muted-foreground" />}
-                        label={t.locations.allPages} detail={currentCount + otherCount} onSelect={() => choose('all')} />
+                        label={t.locations.allPages} detail={loaded.current && loaded.others ? currentCount + otherCount : undefined} onSelect={() => choose('all')} />
                 </div>
                 {sections.length > 0 && (
                     <div role="group" aria-label={t.locations.sections} className="flex flex-col">

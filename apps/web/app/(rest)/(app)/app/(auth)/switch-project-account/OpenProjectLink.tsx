@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { AuthCard } from '@/src/components/app/AuthCard';
-import { PageLoading } from '@/src/components/app/PageLoading';
+import { AuthCardLoading } from '@/src/components/app/AuthFrame';
 import { Alert, AlertDescription } from '@/src/components/ui/alert';
 import { Button, buttonVariants } from '@/src/components/ui/button';
 import { changeAccount } from '@/src/components/app/shell/accountSessions';
@@ -20,7 +20,8 @@ export function OpenProjectLink({ next }: { next: string }) {
         started.current = next;
         void changeAccount({ action: 'open-project-link', next }).catch(() => setError(true));
     }, [next]);
-    if (!error) return <PageLoading />;
+    // The page's own loading state, kept until the browser leaves for the project
+    if (!error) return <AuthCardLoading label="Loading account" actions={2} />;
     return <AuthCard title={t('Switch account or workspace')}>
         <div className="flex flex-col gap-4">
             <Alert variant="destructive"><AlertDescription>{t('Something went wrong. Try again.')}</AlertDescription></Alert>

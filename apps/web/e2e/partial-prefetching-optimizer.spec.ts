@@ -91,7 +91,9 @@ test('Projects card → Project reads a changed private name at navigation', asy
         await expect(page).toHaveURL(url => url.pathname === `/app/projects/${project}` && url.search === '');
         await expect(page.getByRole('button', { name: 'Toggle sidebar' }).last()).toBeVisible();
         await expect(page.getByRole('status', { name: 'Loading project', exact: true })).toBeVisible();
-        await expect(page.getByRole('heading', { level: 1, name: 'Before navigation', exact: true })).toHaveCount(0);
+        // The header starts with the name this page already shows in its sidebar (the shell's, read before the rename):
+        // nothing private is read for it, so the new name is not there until the navigation's own read
+        await expect(page.getByRole('heading', { level: 1, name: 'Before navigation', exact: true })).toBeVisible();
         await expect(page.getByRole('heading', { level: 1, name: 'After navigation', exact: true })).toHaveCount(0);
         // The tabs every project has are its real tabs before anything private is read (uier #439); Install depends on
         // the project (until its first comment), so it waits for it

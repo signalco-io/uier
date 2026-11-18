@@ -1,7 +1,6 @@
-import { PageLoading } from '@/src/components/app/PageLoading';
 import { Suspense } from 'react';
 import { AccountFrame } from '@/src/components/app/account/AccountFrame';
-import { Skeleton } from '@/src/components/ui/skeleton';
+import { Bar } from '@/src/components/app/loading/outlines';
 import { requireAppContext } from '@/src/lib/app/context';
 
 async function AccountEmail() {
@@ -9,15 +8,19 @@ async function AccountEmail() {
     return <span className="font-mono text-[13px]">{user.email}</span>;
 }
 
-/** The sections stay available on client navigation; private account data still authorizes per request. */
+/**
+ * The heading and the section links read nothing (`AccountFrame`: the language the shell resolved and the address),
+ * so the layout has no boundary around them: they are there the moment Account opens and stay while a section
+ * loads. Only the email waits, in its own line; private account data still authorizes per request.
+ */
 export default function AccountLayout({ children }: LayoutProps<'/app/account'>) {
-    return <Suspense fallback={<PageLoading title="Loading account" />}>
+    return (
         <AccountFrame email={
-            <Suspense fallback={<Skeleton className="h-5 w-64 max-w-full animate-none" />}>
+            <Suspense fallback={<Bar className="h-5 w-64 max-w-full" />}>
                 <AccountEmail />
             </Suspense>
         }>
             {children}
         </AccountFrame>
-    </Suspense>;
+    );
 }

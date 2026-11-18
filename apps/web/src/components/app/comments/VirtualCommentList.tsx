@@ -5,9 +5,12 @@ import { cn } from '@/src/lib/utils';
 import { Button } from '@/src/components/ui/button';
 import { Spinner } from '@/src/components/ui/spinner';
 import { useAppI18n } from '@/src/lib/i18n/client';
+import { RowSkeleton } from './CommentsLoading';
 
 export type CommentPageControl = { total: number; hasMore: boolean; loading: boolean; loadMore: () => void; error?: boolean };
 export type CommentListPosition = Pick<AriaAttributes, 'aria-setsize' | 'aria-posinset'>;
+/** The inbox list's next page while it loads: its first rows, outlined and pulsing (`RowSkeleton`) */
+const nextRows = ['w-2/3', 'w-1/2', 'w-3/4'].map(width => <RowSkeleton key={width} pulse title={width} />);
 const revealEvent = 'uier-reveal-comment';
 export function revealVirtualComment(id: string) { document.dispatchEvent(new CustomEvent(revealEvent, { detail: id })); }
 
@@ -25,10 +28,16 @@ function pageScroller(element: HTMLElement) {
  *   the page (the window, or the app's panel from lg), so the whole board scrolls together (uier #400).
  * - `documentScroll` (the inbox): below lg it follows the document; from lg it scrolls itself and reaches the bottom of
  *   the page's scroller (`--list-room`, measured), less the page's padding there (uier #401).
+ *
+ * While the next page loads, outlines of its first rows stand in above Load more (`nextPage`), never more than the rows
+ * still to come: a presentation item of its own, hidden from assistive technology and without the item attribute, so
+ * it is no row to the measurements, the positions (`aria-setsize`, `aria-posinset`), the sentinel or the keys.
  */
-export function VirtualCommentList<T extends { id: string }>({ items, label, render, control, focusedId, className, onFocus, listRef, footer, gap = 8, itemAttribute = 'data-board-card', documentScroll = false, pageScroll = false }: {
+export function VirtualCommentList<T extends { id: string }>({ items, label, render, control, focusedId, className, onFocus, listRef, footer, gap = 8, itemAttribute = 'data-board-card', documentScroll = false, pageScroll = false, nextPage = nextRows }: {
     items: T[]; label: string; render: (item: T, index: number, position: CommentListPosition) => ReactNode; control?: CommentPageControl;
     documentScroll?: boolean; pageScroll?: boolean;
+    /** The outlines that stand in for the next page while it loads, shaped like its items: the list's rows unless given (the board's cards) */
+    nextPage?: ReactNode[];
     focusedId?: string; className?: string; onFocus?: React.FocusEventHandler<HTMLUListElement>; itemAttribute?: string; listRef?: RefObject<HTMLUListElement | null>; footer?: ReactNode; gap?: number;
 }) {
     const { t } = useAppI18n();
@@ -135,11 +144,18 @@ export function VirtualCommentList<T extends { id: string }>({ items, label, ren
         return () => document.removeEventListener(revealEvent, reveal);
     });
     const hasMore = control?.hasMore, loading = control?.loading, failed = control?.error;
+    // The next page was asked for here, by the sentinel or Load more, and is on its way. `control.loading` alone does
+    // not say so: it is also true while the loaded window is read again (a filter, a saved change), which brings no
+    // rows after the last one. Forgotten as soon as nothing loads: the page arrived, failed, or was not asked for after all.
+    const [asked, setAsked] = useState(false);
+    if (asked && !loading) setAsked(false);
+    const loadMore = () => { if (!loading) setAsked(true); control?.loadMore(); };
+    const remaining = (control?.total ?? 0) - items.length;
     useEffect(() => {
         const marker = sentinel.current, list = root.current;
         if (!marker || !list || !hasMore || loading || failed) return;
         const observer = new IntersectionObserver(entries => {
-            if (entries.some(entry => entry.isIntersecting) && list.checkVisibility()) control?.loadMore();
+            if (entries.some(entry => entry.isIntersecting) && list.checkVisibility()) loadMore();
         }, { root: pageScroll || (documentScroll && window.matchMedia('(max-width: 1023px)').matches) ? null : list, rootMargin: '0px 0px 100px 0px' });
         observer.observe(marker); return () => observer.disconnect();
     }, [hasMore, loading, failed, items.length, control?.loadMore, windowScroll, documentScroll, pageScroll]);
@@ -156,9 +172,13 @@ export function VirtualCommentList<T extends { id: string }>({ items, label, ren
         className={cn('m-0 flex list-none flex-col gap-2 p-0 [&>li]:shrink-0', control && !pageScroll && 'scrollbar-subtle max-h-[max(20rem,calc(var(--list-room,100svh_-_22rem)_-_var(--selection-bar,0px)))] overflow-y-auto overscroll-y-contain [overflow-anchor:none]', control && documentScroll && 'max-lg:max-h-none max-lg:overflow-x-clip max-lg:overflow-y-visible max-lg:overscroll-auto', className)}>
         {children}
         {footer}
+        {/* The next page's first rows, as far apart as the rows (`gap`); the count is the total's, where it says fewer remain */}
+        {control?.hasMore && asked && loading && <li role="presentation" aria-hidden="true" data-next-page="" className="flex flex-col" style={{ gap }}>
+            {nextPage.slice(0, remaining > 0 ? remaining : nextPage.length)}
+        </li>}
         {control?.hasMore && <li ref={sentinel} role="presentation" className="flex shrink-0 flex-col items-center justify-center p-2">
             {control.error && <p role="status" className="m-0 text-sm text-muted-foreground">{t('More comments could not be loaded.')}</p>}
-            <Button variant="ghost" size="sm" className="pointer-coarse:min-h-11" disabled={control.loading} onClick={control.loadMore}>
+            <Button variant="ghost" size="sm" className="pointer-coarse:min-h-11" disabled={control.loading} onClick={loadMore}>
                 {control.loading && <Spinner />}{t(control.error ? 'Try again' : 'Load more')}
             </Button>
         </li>}

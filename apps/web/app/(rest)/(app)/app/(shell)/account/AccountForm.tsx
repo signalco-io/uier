@@ -13,6 +13,7 @@ import { Input } from '@/src/components/ui/input';
 import { ToggleGroup, ToggleGroupItem } from '@/src/components/ui/toggle-group';
 import { dropTargetClassName, EditablePicture, usePictureUpload } from '@/src/components/app/EditablePicture';
 import { Section } from '@/src/components/app/PageHeader';
+import { accountTitles } from '@/src/components/app/account/accountSections';
 import { PersonAvatar } from '@/src/components/app/PersonAvatar';
 import { SaveFooter, useSettingsDraft } from '@/src/components/app/SettingsSave';
 import { themeOptions } from '@/src/components/app/shell/AccountMenu';
@@ -77,7 +78,7 @@ export function AccountForm({ name, avatarUrl }: { name: string; avatarUrl?: str
     return (
         <Section
             id="profile"
-            title={t("Profile")}
+            title={t(accountTitles.profile)}
             footer={<SaveFooter formId={formId} state={state} pending={pending} dirty={dirty} onDiscard={discard} />}>
             <div className="flex flex-col gap-3">
                 {/* The picture on the left, the name on the right (the label's row is the avatar's top) */}
@@ -114,7 +115,7 @@ export function AppearanceSection() {
     useEffect(() => setMounted(true), []);
 
     return (
-        <Section id="appearance" title={t("Appearance")} description={t("How uier looks in this browser.")}>
+        <Section id="appearance" title={t(accountTitles.appearance)} description={t("How uier looks in this browser.")}>
             <ToggleGroup
                 variant="outline"
                 aria-label={t("Theme")}

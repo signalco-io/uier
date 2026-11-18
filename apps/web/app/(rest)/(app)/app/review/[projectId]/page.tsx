@@ -1,4 +1,4 @@
-import { PageLoading } from '@/src/components/app/PageLoading';
+import { StatusPageOutline } from '@/src/components/StatusPage';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
@@ -35,5 +35,6 @@ async function ReviewLinkPageContent({ params, searchParams }: PageProps<'/app/r
 }
 
 export default function ReviewLinkPage(props: Parameters<typeof ReviewLinkPageContent>[0]) {
-    return <Suspense fallback={<PageLoading title="Loading project" />}><ReviewLinkPageContent {...props} /></Suspense>;
+    // Nothing of its own to show: it redirects to the site, or to the page that says the link cannot open
+    return <Suspense fallback={<StatusPageOutline />}><ReviewLinkPageContent {...props} /></Suspense>;
 }

@@ -205,7 +205,7 @@ export function Message({ author, agent, avatarName, avatarUrl, createdAt, statu
     /** Their profile picture, when they have one */
     avatarUrl?: string;
     createdAt?: string;
-    /** Right of the time: "Sending..." while a reply is not saved yet (uier #377) */
+    /** Right of the time: "Sending…" while a reply is not saved yet (uier #377) */
     status?: ReactNode;
     /** After the time: the screen and browser the comment was left from */
     meta?: ReactNode;
@@ -511,7 +511,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
         const target = !item.deleted && !item.pending ? { projectId, commentId: comment.id, itemId: item.id, reactions: item.reactions } : undefined;
         return (
             <Message author={name} agent={!item.deleted && <MessageAgent author={item.author} />} avatarName={item.author.name} avatarUrl={item.author.avatarUrl} createdAt={item.createdAt}
-                status={item.pending && <span role="status" className="shrink-0 text-xs whitespace-nowrap text-muted-foreground [text-box:trim-both_cap_alphabetic]">{t("Sending...")}</span>}
+                status={item.pending && <span role="status" className="shrink-0 text-xs whitespace-nowrap text-muted-foreground [text-box:trim-both_cap_alphabetic]">{t("Sending…")}</span>}
                 actions={!item.deleted && !edit && (<div className="flex shrink-0 items-center gap-0.5">
                     {target && permissions.react && <ReactionPicker target={target} disabled={pending} />}
                     {(item.canDelete || item.canFilterAuthor || editable) && (

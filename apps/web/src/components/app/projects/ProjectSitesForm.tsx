@@ -10,6 +10,7 @@ import { Input } from '@/src/components/ui/input';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select';
 import { Section } from '../PageHeader';
 import { SaveFooter, useSettingsDraft } from '../SettingsSave';
+import { projectSettingsTitles } from './projectSettingsSections';
 import { MAX_PROJECT_URLS } from '../../../lib/app/limits';
 import type { ProjectEnvironment } from '../../../lib/app/environments';
 import { displayUrl } from './projectLabels';
@@ -43,7 +44,7 @@ export function ProjectSitesForm({ projectId, urls, environments }: { projectId:
     return (
         <Section
             id="addresses"
-            title={t("Site addresses")}
+            title={t(projectSettingsTitles.addresses)}
             description={t("The toolbar works only on these addresses, the main site first. Each site keeps its own feedback unless it shares it.")}
             stickyFooter
             footer={<SaveFooter formId={formId} state={state} pending={pending} dirty={dirty} onDiscard={discard} />}>

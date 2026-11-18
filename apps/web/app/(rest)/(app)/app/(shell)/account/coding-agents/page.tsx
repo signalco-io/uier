@@ -1,5 +1,5 @@
 import { getAppI18n } from '@/src/lib/i18n/server';
-import { PageLoading } from '@/src/components/app/PageLoading';
+import { AccountCodingAgentsLoading } from '@/src/components/app/account/AccountLoading';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { requireAppContext } from '@/src/lib/app/context';
@@ -48,5 +48,5 @@ async function AccountCodingAgentsPageContent() {
 }
 
 export default function AccountCodingAgentsPage() {
-    return <Suspense fallback={<PageLoading title="Loading coding agents" />}><AccountCodingAgentsPageContent /></Suspense>;
+    return <Suspense fallback={<AccountCodingAgentsLoading />}><AccountCodingAgentsPageContent /></Suspense>;
 }

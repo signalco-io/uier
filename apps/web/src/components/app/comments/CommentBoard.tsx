@@ -36,6 +36,7 @@ import { VirtualCommentList, revealVirtualComment, type CommentPageControl, type
 import { Spinner } from '@/src/components/ui/spinner';
 import { PagedCommentCard } from './PagedCommentCard';
 import { useCollapsedColumns } from './boardCollapse';
+import { CardSkeleton } from './CommentsLoading';
 
 /** The board's columns: every status, in order (`commentStatuses`); drag and drop and Move follow this list */
 const statuses = commentStatuses;
@@ -202,6 +203,8 @@ function fromCardSurface(listeners: DraggableSyntheticListeners) {
 
 const noMoves = (allowed: Record<CommentStatus, boolean>) => Object.fromEntries(Object.keys(allowed).map(status => [status, false])) as Record<CommentStatus, boolean>;
 const moveIcon = (moving: boolean) => moving ? <Spinner /> : <ArrowRightLeftIcon />;
+/** A column's next page while it loads, above its Load more (`VirtualCommentList`): its first cards, outlined and pulsing */
+const nextCards = ['w-3/4', 'w-1/2'].map(width => <CardSkeleton key={width} pulse title={width} />);
 /** The key that opens Move on a focused card */
 const moveKey = 'm';
 /**
@@ -719,7 +722,7 @@ export function CommentBoard({ projectOf, columns: categoryColumns, workflow, ve
                             <BoardColumn loading={paging?.[status]?.loading} key={status} status={categoryOf(status)} definition={definition(status)} columnIds={statuses} count={paging?.[status]?.total ?? cards.length} state={state} sort={sorts[categoryOf(status)]} onSort={onSort} archiveAll={archiveAll}
                                 collapsed={collapsed(status)} onCollapsedChange={collapsible ? next => setCollapsed(status, next) : undefined}>
                                 {collapsed(status) ? null : cards.length || placeholder >= 0 ? (
-                                    <VirtualCommentList pageScroll items={cards} control={paging?.[status]} focusedId={focusId ?? tabStop?.id}
+                                    <VirtualCommentList pageScroll items={cards} control={paging?.[status]} nextPage={nextCards} focusedId={focusId ?? tabStop?.id}
                                         label={t("{value0} comments list", { value0: workflowStatusLabel(definition(status), t) })}
                                         footer={placeholder === cards.length ? slot : undefined}
                                         render={(comment, index, position) => <Fragment key={comment.id}>
@@ -738,7 +741,7 @@ export function CommentBoard({ projectOf, columns: categoryColumns, workflow, ve
                     })}
                     {archive && archiveDefinitions.map(archiveStatus => <ArchiveColumn loading={paging?.[archiveStatus.id]?.loading} key={archiveStatus.id} label={workflowStatusLabel(archiveStatus, t)} count={paging?.[archiveStatus.id]?.total ?? archiveCards(archiveStatus).length} sort={sorts.archive} onSort={onSort} expanded={archive.expanded} dimmed={Boolean(drag)} onExpandedChange={archive.onExpandedChange}>
                         {archiveCards(archiveStatus).length ? (
-                            <VirtualCommentList pageScroll items={archiveCards(archiveStatus)} control={paging?.[archiveStatus.id]} focusedId={focusId ?? tabStop?.id}
+                            <VirtualCommentList pageScroll items={archiveCards(archiveStatus)} control={paging?.[archiveStatus.id]} nextPage={nextCards} focusedId={focusId ?? tabStop?.id}
                                 label={t("Archived comments list")} render={(comment, _index, position) => (
                                     <BoardCard position={position} key={comment.id} project={projectOf(comment)} comment={comment} href={hrefFor(comment.id)} opened={comment.id === openId}
                                         moving={false} tabbable={comment.id === tabStop?.id}

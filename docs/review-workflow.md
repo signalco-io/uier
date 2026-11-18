@@ -487,7 +487,7 @@ by signing in. Account sign-out remains in the app's account menu.
 Every new element/text comment, rewrite, feedback and bug report starts a screenshot automatically
 ([#81](https://github.com/signalco-io/uier/issues/81)). There is no capture button or image preview in the composer.
 In the text box's bottom-left corner, after Attach, `ComposerScreenshotToggle` is a compact camera toggle ([uier #239](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2F5uauxu25b2es&comment=comment_gSOfyys4qR6CVHQEaaf4q), [uier #391](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_napwWAvckuKEmZr-J0GGQ)) with a tooltip. Its
-tooltip and read-out status (its description) say what will happen: "Taking a screenshot...", then "A screenshot of this
+tooltip and read-out status (its description) say what will happen: "Taking a screenshot…", then "A screenshot of this
 part of the page will be attached." ("of the visible page" for feedback and bug reports), or "The screenshot could not
 be taken. Only the text will be sent." The **Attach screenshot** toggle ([#323](https://github.com/signalco-io/uier/issues/323),
 a button with `aria-pressed`) is pressed, ink with a check, while the screenshot will be sent; turned off, it sends that

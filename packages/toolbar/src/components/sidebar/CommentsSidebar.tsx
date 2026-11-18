@@ -103,6 +103,7 @@ export function CommentsSidebar({ filter, onFilterChange: setFilter, onClose, on
                             currentPath={inbox.currentPath}
                             currentCount={inbox.currentCount}
                             otherCount={inbox.otherCount}
+                            loaded={inbox.locationsLoaded}
                             environment={setEnvironment && { value: environment, options: environmentOptions ?? [], onChange: setEnvironment }}
                             onChange={(page) => setFilter({ ...filter, page })} />
                         {/* Unread threads can be done ones and on any page (the pill counts the whole site): "N unread"
@@ -114,6 +115,7 @@ export function CommentsSidebar({ filter, onFilterChange: setFilter, onClose, on
                                 </FilterChip>
                             )}
                             <MarkAllRead comments={inbox.state.error ? [] : inbox.comments ?? []}
+                                loading={inbox.state.isPending}
                                 unreadTotal={unread}
                                 filtering={Boolean(filter.unread)}
                                 narrowed={Boolean(filter.keywords?.trim() || filter.assignedToMe)}
@@ -122,6 +124,7 @@ export function CommentsSidebar({ filter, onFilterChange: setFilter, onClose, on
                         </Stack>
                         <CommentsStatusTabs
                             counts={inbox.counts}
+                            countsLoaded={inbox.countsLoaded}
                             unread={inbox.unread}
                             status={verificationEnabled !== true && filter.status === 'ready' ? 'unresolved' : filter.status}
                             onStatusChange={(status) => setFilter({ ...filter, status })} />

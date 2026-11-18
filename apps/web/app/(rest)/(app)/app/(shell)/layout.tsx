@@ -1,7 +1,8 @@
 import { getAppI18n } from '@/src/lib/i18n/server';
-import { ShellLoading } from '@/src/components/app/PageLoading';
-import { Suspense } from 'react';
 import type { PropsWithChildren } from 'react';
+import { AppBoundary } from '@/src/components/app/AppBoundary';
+import { ShellFrame, shellColumnClassName, shellInsetClassName, shellTopBarClassName } from '@/src/components/app/shell/ShellFrame';
+import { ShellInfoProvider, type ShellInfo } from '@/src/components/app/shell/ShellInfo';
 import { Separator } from '@/src/components/ui/separator';
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/src/components/ui/sidebar';
 import { requireAppContext } from '@/src/lib/app/context';
@@ -18,6 +19,8 @@ import { PUBLIC_WORKSPACE_ID } from '@/src/lib/comments/publicProjectPolicy';
 import { loadWorkspaceAccessForRender } from '@/src/lib/app/access';
 import { InviteProvider } from '@/src/components/app/users/InviteDialog';
 import { AppShortcuts } from '@/src/components/app/keyboard/AppShortcuts';
+import { isGoogleSignInConfigured } from '@/src/lib/app/google/config';
+import { isMicrosoftSignInConfigured } from '@/src/lib/app/microsoft/config';
 
 /** The signed-in app: the sidebar, a top bar with the breadcrumbs (and a project's Open review at its right end), and the page in an inset panel, with the keyboard shortcuts */
 async function AppShellLayoutContent({ children }: PropsWithChildren) {
@@ -33,6 +36,18 @@ async function AppShellLayoutContent({ children }: PropsWithChildren) {
         getBrowserAccounts()
     ]);
     const teams = access?.teams.map(({ id, name }) => ({ id, name })) ?? [];
+    // What the pages' loading states may show at once, since the sidebar beside them already does
+    const listed = new Map(sidebarProjects.map(project => [project.id, project]));
+    const shellInfo: ShellInfo = {
+        workspace: { name: context.workspace.name, admin: context.isAdmin, feedback: context.workspace.id === PUBLIC_WORKSPACE_ID, teams: access && access.teams.length > 0, clients: projects.some(project => project.clientId) },
+        signIn: { google: isGoogleSignInConfigured(), microsoft: isMicrosoftSignInConfigured() },
+        projects: Object.fromEntries(projects.map(project => [project.id, {
+            name: project.name, url: project.urls[0], status: project.status === 'done' ? 'done' as const : 'active' as const,
+            open: listed.get(project.id)?.openCount,
+            // Activity after its creation is a thread the person can see (read only when the projects are ordered by it)
+            feedback: (listed.get(project.id)?.activityAt ?? '') > project.createdAt || undefined
+        }]))
+    };
 
     return (
         <SidebarProvider>
@@ -61,8 +76,8 @@ async function AppShellLayoutContent({ children }: PropsWithChildren) {
                     hasClients={projects.some(project => project.clientId)} />
                 {/* Where the sidebar is docked (lg) the panel keeps its frame and scrolls inside it, like a desktop app.
                     Narrower (phones, tablets in portrait) the sidebar is a sheet and the page scrolls under a sticky top bar. */}
-                <SidebarInset className="min-w-0 lg:h-[calc(100svh-1rem)] lg:overflow-hidden">
-                    <header className="sticky top-0 z-10 flex h-12 shrink-0 items-center gap-2 border-b bg-background px-3 lg:static">
+                <SidebarInset className={shellInsetClassName}>
+                    <header className={shellTopBarClassName}>
                         <SidebarTrigger />
                         <Separator orientation="vertical" className="mr-1 data-vertical:h-4 data-vertical:self-center" />
                         <AppBreadcrumbs projects={Object.fromEntries(projects.map(project => [project.id, { name: project.name, url: project.urls[0] }]))} />
@@ -79,8 +94,8 @@ async function AppShellLayoutContent({ children }: PropsWithChildren) {
                                 board) breaks out of it to the panel's width with `page-wide` (less the gutters, `--page-gutter`) or `page-bleed`
                                 (edge to edge, padded by them); the rest of its page stays. The space above the page header
                                 is the 24px under it (PageHeader's pb-6, the gap to the comments' search), at every width (uier #181) */}
-                            <div className="mx-auto flex w-full max-w-5xl flex-col px-4 py-6 [--page-gutter:1rem] [--page-wide:calc(100cqw-2rem)] md:px-8 md:pt-6 md:pb-10 md:[--page-gutter:2rem] md:[--page-wide:calc(100cqw-4rem)]">
-                                {children}
+                            <div className={shellColumnClassName}>
+                                <ShellInfoProvider value={shellInfo}>{children}</ShellInfoProvider>
                             </div>
                         </div>
                     </div>
@@ -91,6 +106,10 @@ async function AppShellLayoutContent({ children }: PropsWithChildren) {
     );
 }
 
+/**
+ * The frame first (`ShellFrame`, the static shell of every page here), then the language and the workspace together:
+ * one step from the first bytes to the app, with nothing that moves between them.
+ */
 export default function AppShellLayout(props: Parameters<typeof AppShellLayoutContent>[0]) {
-    return <Suspense fallback={<ShellLoading />}><AppShellLayoutContent {...props} /></Suspense>;
+    return <AppBoundary fallback={<ShellFrame />}><AppShellLayoutContent {...props} /></AppBoundary>;
 }

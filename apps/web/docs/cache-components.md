@@ -7,43 +7,89 @@ The version-matched migration and API docs ship in `node_modules/next/dist/docs/
 
 ## Rendering and data
 
-Public content, navigation, footer and social cards prerender. `/status` keeps its header and
-explanation static and streams the live summary and service checks. Both readers wait for a request
+Public content, navigation, footer and social cards prerender. `/status` keeps its header,
+explanation and service rows (each "Checking…") static and streams the live summary and each
+row's result. Both readers wait for a request
 before using the existing 30-second status snapshot. `/api/status` does the same and retains its
 200/503 contract and `no-store`. `/notifications` streams token inspection and its form beneath a
 static header; neither tokens nor preferences enter a shared cache.
 
-App layouts and pages put their request reads beneath explicit Suspense boundaries. Auth pages keep
-their logo, card and legal links in the shell. The signed-in shell initially shows its sidebar and
-inset-panel placeholders; personalized navigation and page content replace them. Nested project,
-workspace and account segments have their own boundaries, so an existing layout can remain visible
-while the destination loads. `PageLoading` uses the UI kit's skeletons with fixed dimensions and an
-accessible status label; a project's layout, Comments and Page checks have skeletons shaped like their pages
-([app shell](app-shell.md), `ProjectLoading`, `CommentsLoading`, `PageChecksLoading`). No private names, permissions, comments or form values are prerendered.
+App layouts and pages put their request reads beneath explicit Suspense boundaries. No private names,
+permissions, comments or form values are prerendered.
+
+**The frame first** ([loading states](../../../docs/design/loading-states/README.md)). Nothing above a group's
+layout waits for the request (`(app)/layout.tsx` only mounts providers), so each group's own frame is the static
+shell of its pages and the first bytes of a full load draw it. `AppBoundary` (`src/components/app/AppBoundary.tsx`)
+is the group's Suspense boundary with the app's language, tooltips and toaster under it; its fallback is the frame:
+
+- `ShellFrame` for the sidebar layout: the real sidebar components at their sizes, with what is the same for
+  everyone and in every language drawn for real (the app icon, the icons of Projects, My work and Give feedback,
+  the sidebar toggle). Labels are bars because text needs the language; the workspace, the projects, the account,
+  the breadcrumbs and the page are data. Workspace is not drawn: only some roles have it. The sidebar's bars use
+  `bg-sidebar-accent` (the default skeleton is the sidebar's own grey).
+- `AuthFrame` with `loading` for the sign-in card's pages and a coding tool's consent: the logo and the card with an
+  outline of its content (`AuthCardOutline`, inside the card's padding). Each page's own fallback is the same
+  outline with that page's number of lines and controls (`AuthCardLoading`), so the card keeps its size as the form
+  arrives. The frame's own outline is the sign-in card's (`signInOutline.ts`: two lines and four controls, the form
+  with every sign-in option; a deployment with fewer gives a control back). The logo sits in a box like the home
+  link's, so it does not move when the link replaces it.
+- `StatusPageOutline` for review links and the internal error entries: the logo and the browser-frame picture, bars
+  for the text.
+
+The language and the workspace then arrive together and replace the frame in place: one step from the first bytes
+to the app, and nothing moves. The app's error page (`app/error.tsx`) replaces a whole group, so it sits above the
+group's language boundary and speaks the language the document last rendered (`LastAppLanguage`).
+
+Nested project, workspace and account segments have their own boundaries, so an existing layout can remain visible
+while the destination loads. Inside the shell a loading page may show at once what the sidebar beside it already
+shows (`useShellInfo`: the workspace's name and the person's role in it, each project's name, favicon and open
+count), for loading states and navigation only: pages and actions still read and authorize for themselves. Where
+data goes, a page draws an outline in the shape of what replaces it (`src/components/app/loading/outlines.tsx`:
+section cards with their real titles, list rows, tables, card grids), still for a shell a navigation shows at once
+and pulsing only inside a loaded page; a project's layout, Comments and Page checks have their own
+([app shell](app-shell.md), `ProjectLoading`, `CommentsLoading`, `PageChecksLoading`).
 
 **Static shell first, skeletons for data** ([uier #439](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_K_yAq5Ee4WzEjnCBNx_2z)). This is the direction for every app page:
 what a page shows without its data (its frame, tabs, toolbars, view controls and the containers that always exist) renders
 as real UI in the static shell, and skeletons, rich ones included, fill only the places data goes. A control or
 container that depends on the data or on the person's permissions is never drawn while loading, so nothing appears
 and then goes away. Prefer moving such UI out of the data boundary over drawing it in a fallback; where it stays in a
-fallback, reuse the loaded page's component (`ProjectLoadingTabs` renders `ProjectTabs`) or its shared class names
+fallback, reuse the loaded page's component (`ProjectLoadingTabs` renders `ProjectTabs`, `PageChecksLoading` the Page checks headings) or its shared class names
 (`CommentsLoading`'s search row), never a skeleton of it. The project comments follow it: the comments region is
 outside the page's data boundary, the project's tabs every project has are real links while its layout loads, and
-the comments' loading state draws only the controls and board columns every project has. The project header and its
+the comments' loading state draws only the controls and board columns every project has. The workspace area follows
+it too ([app shell](app-shell.md)): its name and tabs come from `useShellInfo` in a layout with no boundary of its
+own (`WorkspaceHeader`), Teams' toolbar and Activity's line sit outside their lists' boundaries because they follow
+the address or nothing at all, and the other tabs' fallbacks reuse `WorkspaceTabHeader` with the controls that need
+no data. A part that streams apart from its page shares the page's read through React `cache()` (Teams'
+`workspaceManagement`), never a second read or a promise started in the shell. The project header and its
 page still reveal together: the header's height follows the project's name, so revealing it on its own could move the
 content under it ([CLS](project-comments-cls.md)). The next steps are the comments' search row and the project's tabs
 outside their data boundaries, keeping one mounted instance across the reveal (focus included), which needs the
 inbox's URL state and the Install tab's flag to reach them without remounting.
 
 Two client-navigation shells reuse the already-resolved app language instead of waiting for another
-server language read. Projects → Create project shows the heading, instructions and onboarding
-progress before the authorized form and client suggestions stream. Projects → Account shows the
+server language read. Projects → Create project shows the heading, instructions, onboarding
+progress and the form itself (`NewProjectForm`, whose addresses and name need no data); the client field's control
+and the enabled Create project button stream into it once the page has authorized the person and read the client
+suggestions ([onboarding](onboarding.md)). Projects → Account shows the
 Account heading and all five section links before its email and section forms stream independently.
 `NewProjectHeader` and `AccountFrame` use the existing language provider; they import no catalogs or
 account services. `OnboardingSteps` uses that same provider on creation and installation pages.
 The completed markup, responsive containers and data sources stay the same. Account navigation and
-focus survive the email/form reveal. These are soft-navigation improvements: initial signed-in
-documents still wait at the outer request-language and personalized-shell boundaries.
+focus survive the email/form reveal. Neither the account's layout nor a project's settings layout has a boundary
+of its own: `AccountFrame` and `ProjectSettingsNav` read only what the shell resolved and the address, so the
+section links are mounted once and each section loads under them in its own shape
+([account](account.md), [project settings](project-settings.md)). These show on client navigations; an initial signed-in document
+starts from the sidebar frame (`ShellFrame`) and shows them once the language and the workspace are read.
+
+Projects, My work and onboarding's install steps follow the same rule ([app shell](app-shell.md), [onboarding](onboarding.md)).
+My work's title (`MyWorkHeader`) and onboarding's step list (`InstallFrame`, from `useParams` and `useSearchParams`) are
+outside their pages' data boundaries: one mounted instance, there at once. The projects list's header stays inside its
+boundary, because Create project, the tabs' counts and links and the client filter all follow the lists that request
+reads; its fallback (`ProjectsLoading`) draws the page's own `PageHeader`, `CreateProjectLink` and `ProjectStatusTabs`
+(inert) from what the shell already read (`useShellInfo`: the role, the projects by status) and outlines only the cards.
+`/app` itself only redirects and keeps the frame's title outline meanwhile.
 
 `pageAccess.ts`, called by Proxy for document requests, completes session, project, author-filter,
 team/person and settings access decisions before streaming. Redirect-only entries, including workspace,
@@ -106,8 +152,8 @@ artifact with the opt-in testing API and runs all 15 `@next/playwright` assertio
 mobile and tablet. Empty and populated workspaces use the real local sign-in and project actions.
 The tests require headings/navigation plus their existing loading states, with private content absent
 under the lock and present after release. Account links retain keyboard focus through the stream.
-The unchanged `/status` hard-load contract checks both independently suspended live regions; it
-already meets its useful-shell contract and needs no optimization.
+The `/status` hard-load contract checks both independently suspended live regions and the service
+rows its shell draws ([status page](status-page.md#loading)); it needed no optimization.
 
 `playwright.instant.config.ts` rejects an artifact without the testing API and opts in the test server
 as well as the build. Ordinary builds exclude the API; VERCEL, VERCEL_ENV or UIER_DEPLOYMENT_ENV also
@@ -125,7 +171,8 @@ the baseline scaffold is not shipped. Test runs attach locked and completed PNGs
 This is a content-readiness guarantee, not a measured latency claim.
 
 Other reviewed candidates stay request-scoped: project/workspace headings and tabs depend on private
-names or permissions (the project tabs every project has show while the project loads, the Install tab with it); My work reads fresh assignments; auth pages
+names or permissions (the project tabs every project has show while the project loads, the Install tab with it unless the page being opened is that tab; the
+workspace's name and tabs are never prerendered either, they come from the shell that already read them); My work reads fresh assignments under its fixed title; auth pages
 already expose their card and legal shell. No new shared cache was introduced. Partial Prefetching
 is now enabled; [its navigation inventory](partial-prefetching.md) records the separate adoption
 and URL-specific prefetch decisions.

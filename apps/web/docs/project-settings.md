@@ -4,7 +4,11 @@
   settings page itself), Review, Environments, Installation, People and teams, Integrations, Notifications and
   Danger zone, listed by `projectSettingsSections` and linked with `KnownPageLinks.projectSettings(id, section)`.
   The layout shows them with `SettingsLayout` (`LinkTabs` `side`: a column beside the section, a row above it on
-  small screens; while that row scrolls, an edge fades out as long as more sections are hidden past it) and the breadcrumbs end with the section. `settingsContext.ts` loads the viewer and project once per request;
+  small screens; while that row scrolls, an edge fades out as long as more sections are hidden past it) and the breadcrumbs end with the section. The links are
+  `ProjectSettingsNav`, a client component: which sections a person sees depends only on their role, which the shell
+  already knows (`useShellInfo`, `canConfigureProjects`), and the project comes from the address, so the layout reads
+  nothing and has no Suspense boundary. The links are there the moment Settings opens and keep the focus while a
+  section loads. They are navigation only: every page authorizes itself. `settingsContext.ts` loads the viewer and project once per request;
   admin-only sections call `configurableProject` (404 for commenters and the uier workspace). Commenters see
   Installation and Notifications, and the settings page redirects them to Notifications. Integrations lists the
   connected services first, each a row with its destination and status badge, then a grid of the services not
@@ -14,6 +18,21 @@
   show. Connect/callback routes return to the provider's page (`?github=connected`); actions revalidate it and the
   overview (`revalidateIntegration`). The settings tabs keep Integrations current on those pages (`nested`). `install` without
   `?onboarding=1` redirects to Settings → Installation (the toolbar still links there).
+- **Loading** ([loading states](../../../docs/design/loading-states/README.md), 11 to 13 and 26). Each section loads
+  in its own shape (`projects/ProjectSettingsLoading.tsx`): its cards with their real titles (`projectSettingsTitles`
+  in `projectSettingsSections.ts`, which the loaded cards read too) on `SectionOutline`, outlines where the
+  project's data goes, and one status per section ("Loading settings", "Loading review", "Loading environments",
+  "Loading installation", "Loading people", "Loading integrations", "Loading integration", "Loading notifications",
+  "Loading danger zone"). What only some projects or people have is not drawn, unless the shell already knows it:
+  Email content only for those who configure the project, Labels instead of Review in uier's own workspace, Mark as
+  done or Reopen project from the project's status, and General as Notifications for a commenter (who is sent there).
+  Integrations draws Available integrations with a card's outline per service; the connected ones arrive with the
+  page. A service's page keeps All integrations outside its boundary (`AllIntegrationsLink`, one link before and
+  after) and draws the service's card, named from the address, and What it does. Installation is one row's outline:
+  whether the page is the Feedback received row or the guide is the project's own. General's Usage is a second
+  boundary inside the loaded page, with the same card (`ProjectUsageLoading`: its title over six cells, "Loading
+  usage"). While the whole project still loads, `ProjectSettingsLoading` draws the section links and the section the
+  address names (`ProjectLoading`).
 - **One save per settings page.** General (name, client, [thread titles](ai-titles.md) and rewrite instructions), Review (who can comment, `#who-can-comment`, where the project header's access label leads, with the project's `GuestReviewLinks` under it while the saved access is Anyone with the link and the project has an address, so touch and keyboard users reach them without the hover popover; the brief and, in a collapsed
   Advanced section, the page state) and Environments (the site addresses table) are each one form in one card
   (`ProjectGeneralForm.tsx`, `ProjectReviewForm.tsx`, `ProjectSitesForm.tsx`) with one server action (`updateProjectGeneralAction`, `updateProjectReviewAction`,

@@ -37,7 +37,7 @@ test('a signed-in member starts reviewing in the background, and sign-out and ex
     await page.goto(`${url}?toolbar-code=${project}`);
     await expect(page.getByRole('button', { name: 'Add comment', exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Options', exact: true }).click();
-    await page.getByRole('button', { name: 'Sign out...', exact: true }).click();
+    await page.getByRole('button', { name: 'Sign out…', exact: true }).click();
     await page.getByRole('button', { name: 'Sign out', exact: true }).click();
     await expect(toolbar(page)).toContainText('Sign in to see and leave comments.');
     await page.reload();

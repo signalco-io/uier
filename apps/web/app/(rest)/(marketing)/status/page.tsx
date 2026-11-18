@@ -4,10 +4,14 @@ import { connection } from 'next/server';
 import { cx } from '@signalco/ui-primitives/cx';
 import { brand } from '@uier/brand';
 import { InlineLink, PageHeader, PageSection, Panel } from '../../../../src/components/marketing/ContentPage';
-import { getServiceStatus, STATUS_CACHE_SECONDS, type ServiceState } from '../../../../src/lib/status/serviceStatus';
+import { getServiceStatus, serviceDefinitions, STATUS_CACHE_SECONDS, type ServiceDefinition, type ServiceState } from '../../../../src/lib/status/serviceStatus';
 
 // Shows only what the live checks in src/lib/status measure, when the page is requested. No uptime
 // percentages or history: nothing records them.
+//
+// Which services are checked is fixed, so their rows are part of the static shell, each one
+// "Checking…". Only a row's state and the time under the panel wait for the request; the shell and
+// the loaded panel share `ServiceRow` and `checkedLine`, so nothing moves when the results arrive.
 
 
 export const metadata = publicPageMetadata('/status', {
@@ -15,21 +19,52 @@ export const metadata = publicPageMetadata('/status', {
     description: `Live checks of ${brand.name}'s website and comments.`
 });
 
-const stateLabels: Record<ServiceState, string> = {
+/** What a row shows where its result goes: `checking` in the static shell, before any check has answered */
+type RowState = ServiceState | 'checking';
+
+const stateLabels: Record<RowState, string> = {
+    checking: 'Checking…',
     operational: 'Operational',
     down: 'Not responding'
 };
 
-function StateDot({ state }: { state: ServiceState; }) {
+// Checking is neutral: no result is implied until a check has answered
+const stateDots: Record<RowState, string> = {
+    checking: 'bg-muted-foreground',
+    operational: 'bg-[hsl(var(--brand-success))]',
+    down: 'bg-destructive'
+};
+
+function StateDot({ state }: { state: RowState; }) {
+    return <span aria-hidden="true" className={cx('inline-block size-1.5 shrink-0 rounded-full', stateDots[state])} />;
+}
+
+/**
+ * One service of the Services panel, in the shell and in the loaded panel. From `sm` the state keeps
+ * the width of the longest label ("Not responding"), so no result changes where the description wraps;
+ * below `sm` it has a line of its own.
+ */
+function ServiceRow({ service, state }: { service: ServiceDefinition; state: RowState; }) {
     return (
-        <span
-            aria-hidden="true"
-            className={cx(
-                'inline-block size-1.5 shrink-0 rounded-full',
-                state === 'operational' ? 'bg-[hsl(var(--brand-success))]' : 'bg-destructive'
-            )} />
+        <li className="flex flex-col gap-1 p-6 sm:flex-row sm:items-baseline sm:justify-between sm:gap-6">
+            <div className="flex flex-col gap-1">
+                <span className="font-medium">{service.name}</span>
+                <span className="text-sm text-muted-foreground">{service.description}</span>
+            </div>
+            <span
+                className={cx(
+                    'flex shrink-0 items-center gap-2 text-sm sm:min-w-[8.5em] sm:justify-end',
+                    state === 'checking' ? 'text-muted-foreground' : 'font-medium'
+                )}
+                data-state={state}>
+                <StateDot state={state} />{stateLabels[state]}
+            </span>
+        </li>
     );
 }
+
+/** The line under the panel: when the checks ran. One line of text, with its height kept while they run */
+const checkedLine = 'min-h-5 text-sm text-muted-foreground';
 
 /** e.g. 2026-10-24 18:03:12 UTC */
 function formatUtc(iso: string) {
@@ -48,7 +83,7 @@ export default function StatusPage() {
             </PageHeader>
 
             <PageSection id="services" title="Services">
-                <Suspense fallback={<Panel className="min-h-56 p-6"><p role="status" className="text-muted-foreground">Loading service checks…</p></Panel>}>
+                <Suspense fallback={<ServiceChecksLoading />}>
                     <ServiceChecks />
                 </Suspense>
             </PageSection>
@@ -79,23 +114,27 @@ async function StatusSummary() {
     </p>;
 }
 
+/**
+ * The Services panel in the static shell: the rows the checks will fill, each one "Checking…". It
+ * reads the fixed definitions only, never a check or the request, so it prerenders with the page.
+ */
+function ServiceChecksLoading() {
+    return <>
+        <Panel as="ul">
+            {serviceDefinitions.map(service => <ServiceRow key={service.id} service={service} state="checking" />)}
+        </Panel>
+        {/* The panel's one status, read out and not drawn: every row already says "Checking…" */}
+        <p className={checkedLine} role="status"><span className="sr-only">Loading service checks…</span></p>
+    </>;
+}
+
 async function ServiceChecks() {
     const report = await liveReport();
     return <>
         <Panel as="ul">
-            {report.services.map(service => (
-                <li key={service.id} className="flex flex-col gap-1 p-6 sm:flex-row sm:items-baseline sm:justify-between sm:gap-6">
-                    <div className="flex flex-col gap-1">
-                        <span className="font-medium">{service.name}</span>
-                        <span className="text-sm text-muted-foreground">{service.description}</span>
-                    </div>
-                    <span className="flex shrink-0 items-center gap-2 text-sm font-medium" data-state={service.state}>
-                        <StateDot state={service.state} />{stateLabels[service.state]}
-                    </span>
-                </li>
-            ))}
+            {report.services.map(service => <ServiceRow key={service.id} service={service} state={service.state} />)}
         </Panel>
-        <p className="text-sm text-muted-foreground">
+        <p className={checkedLine}>
             Checked <time dateTime={report.checkedAt} className="font-mono tabular-nums">{formatUtc(report.checkedAt)}</time>
         </p>
     </>;

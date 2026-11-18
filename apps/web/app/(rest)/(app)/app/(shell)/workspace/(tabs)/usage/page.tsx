@@ -1,6 +1,5 @@
 
 import { getAppI18n } from '@/src/lib/i18n/server';
-import { PageLoading } from '@/src/components/app/PageLoading';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -10,6 +9,7 @@ import { Button } from '@/src/components/ui/button';
 import { Card } from '@/src/components/ui/card';
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/src/components/ui/empty';
 import { KnownPageLinks, projectUsageAnchor } from '@/src/knownPages';
+import { UsageLoading } from '@/src/components/app/workspace/WorkspaceLoading';
 import { WorkspaceTabHeader } from '@/src/components/app/workspace/WorkspaceTabHeader';
 import { ProjectMark } from '@/src/components/app/projects/ProjectMark';
 import { UsageMeter } from '@/src/components/app/usage/UsageMeter';
@@ -93,5 +93,5 @@ async function WorkspaceUsagePageContent({ searchParams }: PageProps<'/app/works
 }
 
 export default function WorkspaceUsagePage(props: Parameters<typeof WorkspaceUsagePageContent>[0]) {
-    return <Suspense fallback={<PageLoading title="Loading usage" />}><WorkspaceUsagePageContent {...props} /></Suspense>;
+    return <Suspense fallback={<UsageLoading />}><WorkspaceUsagePageContent {...props} /></Suspense>;
 }

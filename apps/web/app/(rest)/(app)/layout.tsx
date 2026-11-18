@@ -1,24 +1,14 @@
 import { ClientProvider } from '@/src/components/providers/ClientProvider';
-import { Suspense, type PropsWithChildren } from 'react';
+import type { PropsWithChildren } from 'react';
 import type { Metadata } from 'next';
-import { Toaster } from '@/src/components/ui/sonner';
-import { TooltipProvider } from '@/src/components/ui/tooltip';
-import { PageLoading } from '@/src/components/app/PageLoading';
-import { AppLanguage } from '@/src/components/app/AppLanguage';
 
 export const metadata: Metadata = { robots: { index: false, follow: false } };
 
+/**
+ * The app's pages. Nothing here waits for the request: the language, tooltips and toaster start in each group's own
+ * layout (`AppBoundary`), whose fallback is that group's frame, so a full load's first bytes draw the frame of the
+ * page being opened (the sidebar layout, or the sign-in card) instead of a placeholder that fits neither.
+ */
 export default function AppLayout({ children }: PropsWithChildren) {
-    return (
-        <ClientProvider>
-            <Suspense fallback={<div aria-hidden="true"><PageLoading /></div>}>
-                <AppLanguage>
-                    <TooltipProvider delay={300}>
-                        {children}
-                        <Toaster position="bottom-right" />
-                    </TooltipProvider>
-                </AppLanguage>
-            </Suspense>
-        </ClientProvider>
-    );
+    return <ClientProvider>{children}</ClientProvider>;
 }

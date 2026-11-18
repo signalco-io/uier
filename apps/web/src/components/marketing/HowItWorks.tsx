@@ -359,7 +359,7 @@ function Composer({ visible, typed, style }: { visible: boolean; typed: number; 
             <span className="rounded-r-md border-l-2 border-tertiary bg-muted px-2.5 py-0.5 text-[13px] text-muted-foreground">every day.</span>
             <div className="flex items-end gap-2 rounded-md border py-1.5 pl-2.5 pr-1.5">
                 <span className="min-h-5 flex-1 text-[13px] leading-5">
-                    {typed > 0 ? comment.slice(0, typed) : <span className="text-muted-foreground">Leave feedback...</span>}
+                    {typed > 0 ? comment.slice(0, typed) : <span className="text-muted-foreground">Leave feedback…</span>}
                     <span className="ml-px inline-block h-4 w-px translate-y-[3px] bg-foreground" />
                 </span>
                 <span className="inline-flex size-6 shrink-0 items-center justify-center text-muted-foreground">

@@ -3,6 +3,7 @@ import { ReactNode, RefObject, useContext, useEffect, useLayoutEffect, useRef, u
 import { defaultRangeExtractor, useVirtualizer } from '@tanstack/react-virtual';
 import { Stack } from '@signalco/ui-primitives/Stack';
 import { Button } from '@signalco/ui-primitives/Button';
+import { cx } from '@signalco/ui-primitives/cx';
 import { ArrowUpRight, File, MapPin } from '@signalco/ui-icons';
 import { CommentThread } from '../CommentThread';
 import { CommentErrorBoundary } from '../CommentErrorBoundary';
@@ -78,6 +79,48 @@ function ShowOnPage({ comment, onShowOnPage }: { comment: CommentItem; onShowOnP
 
 function CardFooter({ children }: { children: ReactNode }) {
     return <div className="flex min-w-0 items-center border-t px-2 py-1">{children}</div>;
+}
+
+/** A line of an outline: the avatars' grey, which shows on the card (the muted surface does not) */
+const outlineLineClassName = 'h-3 rounded-sm bg-accent';
+
+/**
+ * A card's outline where a card is loading, with the card's own rows and their heights (the touch ones too): the
+ * header (the status pill and the number), the author beside the avatar, two lines of text and Reply, which starts
+ * where the text does. Nothing that depends on the comment or on what the person may do with it. It pulses, and is
+ * still with reduced motion. Decorative: the list's status says what is loading.
+ */
+function CardOutline() {
+    return (
+        <div data-slot="skeleton" className="rounded-xl border bg-card motion-safe:animate-pulse">
+            <div className="flex flex-col gap-2 px-4 py-3">
+                <div className="flex min-h-7 items-center gap-2 pointer-coarse:min-h-11">
+                    <span className="h-6 w-16 rounded-full border pointer-coarse:h-11" />
+                    <span className={cx(outlineLineClassName, 'w-6')} />
+                </div>
+                <div className="flex gap-2">
+                    <span className="size-6 shrink-0 rounded-full border bg-accent" />
+                    <div className="flex min-w-0 flex-1 flex-col gap-2">
+                        <div className="flex h-6 items-center pointer-coarse:h-11"><span className={cx(outlineLineClassName, 'w-28')} /></div>
+                        <span className={cx(outlineLineClassName, 'w-full')} />
+                        <span className={cx(outlineLineClassName, 'w-3/5')} />
+                    </div>
+                </div>
+            </div>
+            <div className="pb-2 pl-12">
+                <div className="flex h-9 items-center pointer-coarse:h-11"><span className={cx(outlineLineClassName, 'w-14')} /></div>
+            </div>
+        </div>
+    );
+}
+
+/** Card outlines where the cards go while they load: the first load, or one under the list for its next page */
+function LoadingCards({ count }: { count: number }) {
+    return (
+        <div aria-hidden="true" data-uier-inbox-loading="" className="flex flex-col gap-2">
+            {Array.from({ length: count }, (_, index) => <CardOutline key={index} />)}
+        </div>
+    );
 }
 
 /** Share the target page's draft and send lock with its pin, even from another page. */
@@ -297,9 +340,13 @@ export function CommentsSidebarCommentsList({ inbox, filter, scrollRef, onShowOn
         return () => window.clearTimeout(timeout);
     }, [countMessage, filter.keywords, loading]);
 
+    // Cards on their way: the first load and the older pages of a list with nothing yet, or the next page under the list
+    const firstLoading = state.isPending || (empty && more.hasMore && !more.error);
+    const moreLoading = Boolean(comments?.length) && more.loading;
+
     let content: ReactNode;
-    if (state.isPending) {
-        content = <div className="p-1 text-sm text-muted-foreground">{t.inbox.loading}</div>;
+    if (firstLoading) {
+        content = <LoadingCards count={3} />;
     } else if (state.error && !comments) {
         content = (
             <Stack spacing={1} alignItems="start" className="p-1 text-sm">
@@ -307,8 +354,6 @@ export function CommentsSidebarCommentsList({ inbox, filter, scrollRef, onShowOn
                 <Button variant="outlined" size="sm" onClick={() => state.refetch()}>{t.common.retry}</Button>
             </Stack>
         );
-    } else if (!comments?.length && more.hasMore && !more.error) {
-        content = <div className="p-1 text-sm text-muted-foreground">{t.inbox.loading}</div>;
     } else if (!comments?.length) {
         content = (
             <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
@@ -343,7 +388,7 @@ export function CommentsSidebarCommentsList({ inbox, filter, scrollRef, onShowOn
             <Stack spacing={2}>
                 {content}
                 {/* The next page on its way, or why it did not come */}
-                {Boolean(comments?.length) && more.loading && <div className="p-1 text-sm text-muted-foreground">{t.inbox.loading}</div>}
+                {moreLoading && <LoadingCards count={1} />}
                 {more.error && (
                     <Stack spacing={1} alignItems="start" className="p-1 text-sm">
                         <CommentsErrorMessage error={more.error} />
@@ -352,6 +397,10 @@ export function CommentsSidebarCommentsList({ inbox, filter, scrollRef, onShowOn
                 )}
                 {siteCapped && <div className="px-1 text-xs text-muted-foreground">{t.inbox.olderNotListed}</div>}
             </Stack>
+            {/* What is loading, once for all the outlines; always there, so the next page is announced too */}
+            <div role="status" className="sr-only">
+                {firstLoading || moreLoading ? t.inbox.loading : ''}
+            </div>
             {/* Always there, so screen readers announce the count when a search changes it */}
             <div role="status" className="sr-only">
                 {announcedCount}

@@ -84,7 +84,7 @@ export function MessageRecording({ recording, projectId, commentId, itemId }: {
                 retried.current = true;
                 void load();
             }} />}
-        {loading && location && <p role="status" className="m-0 text-xs text-muted-foreground">{t('Loading recording...')}</p>}
+        {loading && location && <p role="status" className="m-0 text-xs text-muted-foreground">{t('Loading recording…')}</p>}
         {error && <p role="alert" className="m-0 text-xs text-destructive">{t('This recording could not be loaded. Try again.')}</p>}
     </div>;
 }

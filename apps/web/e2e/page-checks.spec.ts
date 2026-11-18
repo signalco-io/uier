@@ -628,7 +628,7 @@ test('a panel that stays open shows the page it reached, never the previous one,
     await page.goto(`${site.origin()}/${project}/pricing?review=true&page-checks`);
     await openPageCheck(page, /^Accessibility/);
     const accessibility = page.getByRole('complementary', { name: 'Accessibility' });
-    await expect(accessibility.getByRole('status')).toHaveText('Checking this page...');
+    await expect(accessibility.getByRole('status')).toHaveText('Checking this page…');
     await page.evaluate(() => history.pushState({}, '', `${location.pathname.replace(/\/pricing$/, '/team')}${location.search}`));
     await expect(accessibility.getByRole('status')).toHaveText(/^\d+ issues? found\.$/, { timeout: 20_000 });
     await expect(accessibility).not.toContainText('These results are for');

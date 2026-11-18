@@ -54,6 +54,10 @@ pass); a transfer keeps it, since it is keyed by the project.
 - Full width like Comments (uier #214): the view breaks out of the reading column to the panel's width less the
   gutters, from the left with no cap ([uier #363](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_bqLvicXdinxKaoz_A8cT0); `page-wide`, `data-header-wide="list"` for the project header, [app shell](app-shell.md)).
   It loads the same width, in a skeleton of Across pages, Pages and the table (`PageChecksLoading`, [uier #344](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_iO2SPR02hm0K7M1qE9GlP)).
+  The two headings need no data, so the skeleton draws the loaded view's own (`PageChecksHeadings.tsx`: `AcrossPagesHeading`,
+  and `PagesHeading` with an outline where its count goes): one component each, so the words, the element and the classes
+  cannot drift. Outlines stand only where data goes. The skeleton's root is its one status ("Loading page checks"); what it
+  draws, the headings too, is `aria-hidden`, so they are headings to assistive technology only once the page has loaded.
 - No heading of its own: the project's Page checks tab above names it (uier #255), and the section keeps it as
   its accessible name (`aria-label`); Across pages and Pages are `h2` under the project's `h1`, a finding's title `h3`. No
   intro paragraph above the results (uier #273).

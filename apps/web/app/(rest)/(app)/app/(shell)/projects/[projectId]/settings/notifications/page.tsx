@@ -1,6 +1,7 @@
 
 import { getAppI18n } from '@/src/lib/i18n/server';
-import { PageLoading } from '@/src/components/app/PageLoading';
+import { ProjectNotificationsLoading } from '@/src/components/app/projects/ProjectSettingsLoading';
+import { projectSettingsTitles } from '@/src/components/app/projects/projectSettingsSections';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -28,7 +29,7 @@ async function ProjectNotificationSettingsPageContent({ params }: PageProps<'/ap
         <>
             <Section
                 id="emails"
-                title={t("Email notifications")}
+                title={t(projectSettingsTitles.emails)}
                 description={<>{t("Off stops every email from this project, also for threads you follow.")}{' '}<Link href={KnownPageLinks.account('notifications')} className="underline underline-offset-4 hover:text-foreground">{t("Manage all your projects")}</Link>.</>}>
                 <div className="flex flex-col gap-3">
                     <ProjectEmailsSwitch projectId={project.id} muted={muted} label={t("Emails from this project")} />
@@ -37,7 +38,7 @@ async function ProjectNotificationSettingsPageContent({ params }: PageProps<'/ap
                 </div>
             </Section>
             {canConfigure && (
-                <Section id="excerpts" title={t("Email content")}>
+                <Section id="excerpts" title={t(projectSettingsTitles.emailContent)}>
                     <ProjectEmailExcerptsSwitch projectId={project.id} enabled={project.emailCommentExcerpts === true} />
                 </Section>
             )}
@@ -46,5 +47,5 @@ async function ProjectNotificationSettingsPageContent({ params }: PageProps<'/ap
 }
 
 export default function ProjectNotificationSettingsPage(props: Parameters<typeof ProjectNotificationSettingsPageContent>[0]) {
-    return <Suspense fallback={<PageLoading title="Loading notifications" />}><ProjectNotificationSettingsPageContent {...props} /></Suspense>;
+    return <Suspense fallback={<ProjectNotificationsLoading />}><ProjectNotificationSettingsPageContent {...props} /></Suspense>;
 }

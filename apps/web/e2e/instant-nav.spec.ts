@@ -28,13 +28,23 @@ for (const populated of [false, true]) {
             await capture(page, info, 'locked');
             await expect(page.getByTestId('new-project-heading')).toBeVisible();
             await expect(page.getByRole('list', { name: 'Onboarding progress' })).toBeVisible();
-            await expect(page.getByRole('status', { name: 'Loading new', exact: true })).toBeVisible();
-            await expect(page.getByLabel('Main site address')).toHaveCount(0);
             await expect(page.getByText('Tell uier which site you want to review. Then add the script and invite a reviewer.', { exact: true })).toBeVisible();
             await expect(page.getByRole('list', { name: 'Onboarding progress' }).getByRole('listitem')).toHaveCount(4);
+            // The form is the shell too: its addresses and name need no data, so they can be typed at once
+            await page.getByLabel('Main site address').fill('typed-early.example.com');
+            await expect(page.getByLabel('Project name', { exact: true })).toBeVisible();
+            // What reads the request streams into it: the client field's control (it suggests the workspace's clients) is
+            // an outline behind the form's one status, and Create project stays off until the page has authorized the person
+            await expect(page.getByRole('status', { name: 'Loading the form', exact: true })).toBeVisible();
+            await expect(page.getByLabel('Client name (optional)')).toHaveCount(0);
+            await expect(page.getByRole('button', { name: 'Create project', exact: true })).toBeDisabled();
         });
-        await expect(page.getByLabel('Main site address')).toBeVisible();
+        // The same form: what was typed is still there when the rest of it arrives
+        await expect(page.getByRole('button', { name: 'Create project', exact: true })).toBeEnabled();
+        await expect(page.getByRole('status', { name: 'Loading the form', exact: true })).toHaveCount(0);
+        await expect(page.getByLabel('Main site address')).toHaveValue('typed-early.example.com');
         await expect(page.getByLabel('Project name', { exact: true })).toBeVisible();
+        await expect(page.getByLabel('Client name (optional)')).toBeVisible();
         if (populated) {
             const client = page.getByLabel('Client name (optional)');
             await client.fill('Existing');
@@ -79,11 +89,18 @@ for (const populated of [false, true]) {
 }
 
 test('Status initial load already provides its useful shell', async ({ page, baseURL }, info) => {
+    const services = page.getByRole('region', { name: 'Services' }).getByRole('listitem');
     await instant(page, async () => {
         await page.goto('/status', { waitUntil: 'domcontentloaded' });
         await expect(page.getByRole('heading', { level: 1, name: 'Status', exact: true })).toBeVisible();
         await expect(page.getByRole('heading', { name: 'How this works', exact: true })).toBeVisible();
         await expect(page.getByRole('status').filter({ hasText: 'Checking services…' })).toBeVisible();
+        // The services are fixed, so the shell draws their rows; only each row's state waits for its check
+        await expect(services).toHaveCount(2);
+        await expect(services.getByText('Website', { exact: true })).toBeVisible();
+        await expect(services.getByText('Comments', { exact: true })).toBeVisible();
+        await expect(services.locator('[data-state]')).toHaveText(['Checking…', 'Checking…']);
+        // One status for the panel, read out and not drawn, where the time of the checks goes
         await expect(page.getByRole('status').filter({ hasText: 'Loading service checks…' })).toBeVisible();
         await expect(page.locator('time')).toHaveCount(0);
         await expect(page.locator('[data-state="operational"]')).toHaveCount(0);
@@ -91,6 +108,8 @@ test('Status initial load already provides its useful shell', async ({ page, bas
     }, { baseURL });
     await expect(page.locator('time')).toBeVisible();
     await expect(page.getByRole('status').filter({ hasText: 'All services are operational.' })).toBeVisible();
+    await expect(services.locator('[data-state]')).toHaveText(['Operational', 'Operational']);
+    await expect(page.getByRole('status').filter({ hasText: 'Loading service checks…' })).toHaveCount(0);
 });
 
 test('A project\'s Comments and Page checks tabs load as wide as they will be, shaped like each page', async ({ page, request, baseURL }, info) => {
@@ -166,7 +185,11 @@ test('A project\'s Comments and Page checks tabs load as wide as they will be, s
         await hydrated(checks);
         await instant(page, async () => {
             await checks.click();
-            await expect(page.getByRole('status', { name: 'Loading page checks', exact: true })).toBeVisible();
+            const checksLoading = page.getByRole('status', { name: 'Loading page checks', exact: true });
+            await expect(checksLoading).toBeVisible();
+            // Its two headings need no data: the loaded view's own, drawn for real; the status stays the one thing read out
+            await expect(checksLoading.locator('h2')).toHaveText(['Across pages', 'Pages']);
+            await expect(checksLoading.getByRole('heading')).toHaveCount(0);
             await capture(page, info, 'page-checks-loading');
             loading = await width();
         });

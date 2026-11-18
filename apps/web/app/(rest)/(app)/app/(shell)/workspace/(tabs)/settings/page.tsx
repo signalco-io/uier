@@ -6,7 +6,7 @@ import { workspaceStatusWorkflow } from '@/src/lib/app/statusWorkflows';
 import { WorkspaceStatusWorkflowForm } from './WorkspaceStatusWorkflowForm';
 
 import { getAppI18n } from '@/src/lib/i18n/server';
-import { PageLoading } from '@/src/components/app/PageLoading';
+import { WorkspaceSettingsLoading } from '@/src/components/app/workspace/WorkspaceLoading';
 import { Suspense } from 'react';
 import { workspaceFeedbackTypes } from '@/src/lib/app/feedbackTypes';
 import { WorkspaceFeedbackTypesForm } from './WorkspaceFeedbackTypesForm';
@@ -52,5 +52,5 @@ async function WorkspaceSettingsPageContent({ searchParams }: PageProps<'/app/wo
 }
 
 export default function WorkspaceSettingsPage(props: PageProps<'/app/workspace/settings'>) {
-    return <Suspense fallback={<PageLoading title="Loading settings" />}><WorkspaceSettingsPageContent {...props} /></Suspense>;
+    return <Suspense fallback={<WorkspaceSettingsLoading />}><WorkspaceSettingsPageContent {...props} /></Suspense>;
 }

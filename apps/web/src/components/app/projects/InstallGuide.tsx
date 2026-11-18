@@ -10,6 +10,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/src/components/ui/ta
 import { CopyBlock } from '../CopyBlock';
 import { cspSnippet, embedScript, nextJsSnippet, type EmbedVersion } from '../../../lib/app/integration';
 import { InstallationCheck } from './InstallationCheck';
+import { ScriptDescription } from './ScriptDescription';
+
+export { ScriptDescription };
 
 type Platform = {
     id: string;
@@ -152,12 +155,6 @@ export async function PlatformSteps({ baseUrl, publicId }: { baseUrl: string; pu
             ))}
         </Tabs>
     );
-}
-
-/** What the script does, said once wherever it is offered */
-export async function ScriptDescription() {
-    const { t } = await getAppI18n();
-    return <>{t("Paste it before the closing")}{' '}<code className="font-mono">&lt;/body&gt;</code>{' '}{t("tag on every page you want to review. The toolbar opens through a review link, or automatically for signed-in project members when background sign-in is available.")}</>;
 }
 
 /**

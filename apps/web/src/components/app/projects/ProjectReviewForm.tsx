@@ -25,6 +25,7 @@ import { KnownPages, projectAccessAnchor } from '../../../knownPages';
 import { ChoiceCard } from '../ChoiceCard';
 import { Section } from '../PageHeader';
 import { SaveFooter, useSettingsDraft } from '../SettingsSave';
+import { projectSettingsTitles } from './projectSettingsSections';
 import { MAX_PROJECT_BRIEF_LENGTH } from '../../../lib/app/limits';
 import type { ProjectAccess } from '../../../lib/app/model';
 import { AccessIcon, projectAccessLabels } from './projectLabels';
@@ -90,7 +91,7 @@ export function ProjectReviewForm({ projectId, access, brief, policy, suggestion
     return (
         <Section
             id="review"
-            title={t("Review")}
+            title={t(projectSettingsTitles.review)}
             stickyFooter
             footer={<SaveFooter formId={formId} state={state} pending={pending} dirty={dirty} onDiscard={discard} />}>
             <form id={formId} action={formAction} onResetCapture={keepValues}>
@@ -250,7 +251,7 @@ export function ProjectLabelsForm({ projectId, threadLabels, workspaceLabels }: 
     const formId = useId();
     const [state, action, pending] = useActionState(updateProjectLabelsAction, null);
     const { draft, update, dirty, discard } = useSettingsDraft({ labelsMode: threadLabels ? 'replace' as const : 'workspace' as const, labels: threadLabels?.value ?? workspaceLabels }, state);
-    return <Section title={t('Labels')} stickyFooter footer={<SaveFooter formId={formId} state={state} pending={pending} dirty={dirty} onDiscard={discard} />}>
+    return <Section title={t(projectSettingsTitles.labels)} stickyFooter footer={<SaveFooter formId={formId} state={state} pending={pending} dirty={dirty} onDiscard={discard} />}>
         <form id={formId} action={action} onResetCapture={keepValues}>
             <input type="hidden" name="projectId" value={projectId} />
             <input type="hidden" name="threadLabels" value={draft.labelsMode === 'workspace' ? 'workspace' : JSON.stringify({ mode: 'replace', value: draft.labels })} />

@@ -7,6 +7,7 @@ import { Field, FieldDescription, FieldLabel } from '@/src/components/ui/field';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select';
 import { SaveFooter, useSettingsDraft } from '@/src/components/app/SettingsSave';
 import { Section } from '@/src/components/app/PageHeader';
+import { accountTitles } from '@/src/components/app/account/accountSections';
 import { setAppLanguageAction } from './actions';
 
 type Choice = 'browser' | AppLanguage;
@@ -22,7 +23,7 @@ export function AppLanguageForm({ language }: { language: AppLanguage | null }) 
         ...appLanguages.map(value => ({ value, label: appLanguageNames[value] }))
     ];
     return (
-        <Section id="app-language" title={t('App language')}
+        <Section id="app-language" title={t(accountTitles.appLanguage)}
             footer={<SaveFooter formId={formId} state={state} pending={pending} dirty={dirty} onDiscard={discard} />}>
             <form id={formId} action={formAction}>
                 <input type="hidden" name="appLanguage" value={draft.language} />

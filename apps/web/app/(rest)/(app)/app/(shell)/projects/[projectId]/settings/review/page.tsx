@@ -4,7 +4,7 @@ import { workspaceThreadLabels } from '@/src/lib/app/threadLabels';
 import { workspaceStatusWorkflow } from '@/src/lib/app/statusWorkflows';
 
 import { getAppI18n } from '@/src/lib/i18n/server';
-import { PageLoading } from '@/src/components/app/PageLoading';
+import { ProjectReviewLoading } from '@/src/components/app/projects/ProjectSettingsLoading';
 import { Suspense } from 'react';
 import { workspaceFeedbackTypes } from '@/src/lib/app/feedbackTypes';
 import type { Metadata } from 'next';
@@ -36,5 +36,5 @@ async function ProjectReviewSettingsPageContent({ params }: PageProps<'/app/proj
 }
 
 export default function ProjectReviewSettingsPage(props: Parameters<typeof ProjectReviewSettingsPageContent>[0]) {
-    return <Suspense fallback={<PageLoading title="Loading review" />}><ProjectReviewSettingsPageContent {...props} /></Suspense>;
+    return <Suspense fallback={<ProjectReviewLoading />}><ProjectReviewSettingsPageContent {...props} /></Suspense>;
 }

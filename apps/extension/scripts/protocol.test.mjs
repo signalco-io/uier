@@ -13,12 +13,14 @@ test('broker envelopes reject unknown operations, credentials, headers and malfo
         { type: 'helper-job', nonce: 'forged' },
         { type: 'verified', nonce: 'a'.repeat(43), proof: { token: 'proof', expiresAt: NaN } },
         { type: 'sign-out', token: 'secret' }, { type: 'state', tabId: 1 },
+        // The worker alone picks the tab the popup's frame describes: no tab, URL or origin from the sender.
+        { type: 'tab', tabId: 1 }, { type: 'tab', url: 'https://example.test' }, { type: 'tab', origin: 'https://example.test' },
         { type: 'update', version: '9.9.9' }, { type: 'install-update', url: 'https://example.test/uier.crx' },
         // The worker alone picks the packaged audit file and the bound document: no file, URL, world or tab from content.
         { type: 'audit', file: 'https://example.test/axe.js' }, { type: 'audit', files: ['content.js'] }, { type: 'audit', world: 'MAIN' }, { type: 'audit', tabId: 2 }]) {
         assert.throws(() => parseWorkerMessage(value), 'Unsupported extension message');
     }
-    for (const value of [{ type: 'state' }, { type: 'update' }, { type: 'install-update' }, { type: 'audit' }, { type: 'exit' }, { type: 'exit', tabId: 2 },
+    for (const value of [{ type: 'state' }, { type: 'tab' }, { type: 'update' }, { type: 'install-update' }, { type: 'audit' }, { type: 'exit' }, { type: 'exit', tabId: 2 },
         { type: 'start', tabId: 2, projectId: 'a', publicId: 'b' },
         { type: 'draft', key: 'uier:draft:v1:scoped', value: null },
         { type: 'request', url: 'https://uier.io/api/review/a/comments', method: 'POST', body: { text: 'feedback' } },

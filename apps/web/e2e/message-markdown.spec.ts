@@ -109,7 +109,7 @@ test('Markdown in thread messages reads as formatted text in the app and the too
     await expect(own.locator('[data-mention]')).toHaveText(`@${name}`);
     await expect(own.locator('strong')).toHaveText('Thanks');
     await expect(own.locator('code')).toHaveText('#12');
-    await expect(own).not.toContainText('Sending...');
+    await expect(own).not.toContainText('Sending…');
     await expectNoAxeViolations(page);
     await page.screenshot({ path: testInfo.outputPath('markdown-app.png'), fullPage: true });
 

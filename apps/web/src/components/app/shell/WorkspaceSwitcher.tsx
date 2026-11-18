@@ -39,7 +39,7 @@ export type WorkspaceOption = {
 };
 
 /** The app icon: the mark on an ink plate (BRAND.md "App icon") */
-function AppIcon() {
+export function AppIcon() {
     return (
         <span aria-hidden="true" className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
             <Mark size={15} />

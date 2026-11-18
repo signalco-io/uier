@@ -14,8 +14,10 @@ import { messages, useMessages } from '../../i18n';
  * unread (uier #372). Renders nothing when nothing is unread (unless the filter is on, so it can be
  * turned off) and nothing failed.
  */
-export function MarkAllRead({ comments, unreadTotal, filtering, narrowed, onFilterChange }: {
+export function MarkAllRead({ comments, loading = false, unreadTotal, filtering, narrowed, onFilterChange }: {
     comments: CommentItem[];
+    /** The inbox's lists are still loading: `comments` is empty because of that, not because nothing is listed */
+    loading?: boolean;
     /** The site's unread threads */
     unreadTotal: number;
     /** Only unread threads are listed */
@@ -30,8 +32,12 @@ export function MarkAllRead({ comments, unreadTotal, filtering, narrowed, onFilt
     const failed = read.data?.failed ?? [];
     const shown = comments.filter(comment => comment.activity?.unread && !comment.pending);
     // The site's unread list (the unread filter's), loaded only when the shown list has none of the unread threads
-    const site = useSiteComments(unreadTotal > 0 && !shown.length && !narrowed, true);
+    const fromSite = unreadTotal > 0 && !shown.length && !narrowed;
+    const site = useSiteComments(fromSite, true);
     const unread = shown.length || narrowed ? shown : (site.data ?? []).filter(comment => comment.activity?.unread && !comment.pending);
+    // Something is unread and the threads to read are on their way: the button takes its place at once, off until
+    // they are here, so the row (and the tabs under it) does not move when the lists arrive
+    const arriving = !unread.length && unreadTotal > 0 && !narrowed && (loading || (fromSite && site.isPending));
     const run = (snapshot: CommentItem[]) => read.mutate(snapshot, {
         onSuccess: result => announce(messages().inbox.markedRead(result.reads.length))
     });
@@ -44,8 +50,8 @@ export function MarkAllRead({ comments, unreadTotal, filtering, narrowed, onFilt
                     {t.inbox.unreadCount(unreadTotal)}
                 </Button>
             )}
-            {unread.length > 0 && <>
-                <Button size="xs" disabled={read.isPending} onClick={() => run(unread)}
+            {(unread.length > 0 || arriving) && <>
+                <Button size="xs" disabled={read.isPending || arriving} onClick={() => run(unread)}
                     startDecorator={<CheckCheck size={16} aria-hidden="true" className="text-[hsl(var(--brand-accent-text))]" />}
                     className="rounded-md bg-secondary text-secondary-foreground hover:bg-secondary/80 active:bg-secondary/80 pointer-coarse:min-h-11">
                     {t.inbox.markAllRead}

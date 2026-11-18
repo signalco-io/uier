@@ -283,6 +283,25 @@ async function contentBinding(sender: chrome.runtime.MessageSender) {
 async function serialize(response: Response): Promise<Result> {
     return { status: response.status, headers: [...response.headers], body: await response.text() };
 }
+/** Whether a sign-in is stored: unexpired access, or the refresh credential that renews it. No request, no renewal. */
+async function storedSignIn() {
+    const access = (await browser.storage.session.get(sessionKey))[sessionKey] as Session | undefined;
+    if (access && access.expiresAt > Date.now()) return true;
+    const retained = (await credentialStorage.get(refreshKey))[refreshKey] as RefreshSession | undefined;
+    return Boolean(retained && retained.refreshExpiresAt > Date.now());
+}
+type ActiveTab = { signedIn: boolean; restricted: boolean }
+    | { signedIn: boolean; tabId: number; origin: string; binding: boolean; reviewing: string | undefined };
+/**
+ * The local half of the popup's state: the active tab, whether it can be reviewed and, signed in, its site and the
+ * review that is on in it. Read from this browser only; the projects and the account come from uier (`state`).
+ */
+async function activeTab(signedIn: boolean): Promise<ActiveTab> {
+    const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
+    if (!signedIn || !tab?.id || !reviewable(tab.url)) return { signedIn, restricted: !reviewable(tab?.url) };
+    const binding = await getBinding(tab.id);
+    return { signedIn, tabId: tab.id, origin: new URL(tab.url!).origin, binding: Boolean(binding), reviewing: binding?.projectId };
+}
 async function handle(input: unknown, sender: chrome.runtime.MessageSender) {
     const msg = parseWorkerMessage(input);
     await ready;
@@ -293,6 +312,9 @@ async function handle(input: unknown, sender: chrome.runtime.MessageSender) {
         if (msg.type === 'sign-out') return signOut();
         if (msg.type === 'update') return updateState();
         if (msg.type === 'install-update') return installUpdate();
+        // The popup's frame, answered at once: what `state` will say of the sign-in and the tab, before uier
+        // confirms it. Nothing here asks uier or renews access, and the answer holds no credential.
+        if (msg.type === 'tab') return activeTab(await storedSignIn());
         if (msg.type === 'state') {
             let signedIn = false;
             try { await session(); signedIn = true; } catch (error) {
@@ -300,12 +322,12 @@ async function handle(input: unknown, sender: chrome.runtime.MessageSender) {
                 const retained = (await credentialStorage.get(refreshKey))[refreshKey] as RefreshSession | undefined;
                 if (retained && retained.refreshExpiresAt > Date.now()) throw error;
             }
-            const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
-            if (!signedIn || !tab?.id || !reviewable(tab.url)) return { signedIn, restricted: !reviewable(tab?.url) };
-            const origin = new URL(tab.url!).origin;
-            const result = await json<any>(await api(`projects?${new URLSearchParams({ origin })}`, (await session()).token));
-            const binding = await getBinding(tab.id);
-            return { ...result, signedIn, tabId: tab.id, origin, binding: Boolean(binding), reviewing: binding?.projectId };
+            const tab = await activeTab(signedIn);
+            if (!('origin' in tab)) return tab;
+            const result = await json<any>(await api(`projects?${new URLSearchParams({ origin: tab.origin })}`, (await session()).token));
+            // The review can end while uier answers: read it again.
+            const binding = await getBinding(tab.tabId);
+            return { ...result, ...tab, binding: Boolean(binding), reviewing: binding?.projectId };
         }
         if (msg.type === 'start' && Number.isInteger(msg.tabId) && typeof msg.projectId === 'string' && typeof msg.publicId === 'string') return start(msg.tabId, msg.projectId, msg.publicId);
         if (msg.type === 'exit' && msg.tabId !== undefined) { await clearBinding(msg.tabId); await browser.tabs.sendMessage(msg.tabId, { type: 'dispose' }).catch(() => {}); return; }

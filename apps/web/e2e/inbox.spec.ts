@@ -559,7 +559,7 @@ test('a late inbox reply response cannot restore the signed-out reviewer cache o
         // A fresh viewer's authorized list stays empty. The old mutation result must not refill it.
         await visitor.page.route('**/api/comments?*', route => route.fulfill({ json: [] }));
         await visitor.page.getByRole('button', { name: 'Options', exact: true }).click();
-        await visitor.page.getByRole('button', { name: 'Sign out...', exact: true }).click();
+        await visitor.page.getByRole('button', { name: 'Sign out…', exact: true }).click();
         await visitor.page.getByRole('button', { name: 'Sign out', exact: true }).click();
         await expect(visitor.page.getByRole('dialog', { name: 'Options', exact: true })).toBeHidden();
         release();

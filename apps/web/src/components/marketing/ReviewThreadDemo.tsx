@@ -43,7 +43,7 @@ export function ReviewThreadDemo() {
                 </div>
                 {/* The reply box: one bordered box with the send button, a plain icon since Enter sends */}
                 <div className="mx-3 mb-3 flex items-center gap-2 rounded-md border py-1.5 pl-3 pr-1.5">
-                    <span className="flex-1 text-sm text-muted-foreground">Reply...</span>
+                    <span className="flex-1 text-sm text-muted-foreground">Reply…</span>
                     <span aria-hidden="true" className="inline-flex size-7 items-center justify-center text-muted-foreground">
                         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="m22 2-7 20-4-9-9-4Z" /><path d="M22 2 11 13" /></svg>
                     </span>

@@ -177,7 +177,7 @@ test('visitors leave public feedback; only the author resolves or deletes it', a
     const options = author.getByRole('dialog', { name: 'Comment options' });
     // Asks first: deleting a comment deletes its replies as well
     await expect(options.getByRole('button', { name: 'Edit', exact: true })).toBeFocused();
-    await options.getByRole('button', { name: 'Delete...' }).click();
+    await options.getByRole('button', { name: 'Delete…' }).click();
     await expect(options).toContainText('Delete this comment?');
     await options.getByRole('button', { name: 'Delete', exact: true }).click();
     await expect(commentBubbles(author)).toHaveCount(0);
@@ -328,7 +328,7 @@ test('deleting a comment others replied to keeps their replies', async ({ browse
     await openThread(author).getByRole('button', { name: 'More options for your comment' }).click();
     const options = author.getByRole('dialog', { name: 'Comment options' });
     await expect(options.getByRole('button', { name: 'Edit', exact: true })).toBeFocused();
-    await options.getByRole('button', { name: 'Delete...' }).click();
+    await options.getByRole('button', { name: 'Delete…' }).click();
     await expect(options).toContainText('Delete this comment? Its text is removed. The replies stay.');
     await expect(options.getByRole('button', { name: 'Delete', exact: true })).toBeFocused();
     await expectNoAxeViolations(author);
@@ -355,7 +355,7 @@ test('deleting a comment others replied to keeps their replies', async ({ browse
     await expect(visitorThread.getByText('You', { exact: true })).toBeVisible();
     await visitorThread.getByRole('button', { name: 'More options for your reply' }).click();
     const replyOptions = visitor.getByRole('dialog', { name: 'Reply options' });
-    await replyOptions.getByRole('button', { name: 'Delete...' }).click();
+    await replyOptions.getByRole('button', { name: 'Delete…' }).click();
     await expect(replyOptions).toContainText('Delete this reply? It is the last message, so the thread is removed too.');
     await replyOptions.getByRole('button', { name: 'Delete', exact: true }).click();
     await expect(commentBubbles(visitor)).toHaveCount(0);

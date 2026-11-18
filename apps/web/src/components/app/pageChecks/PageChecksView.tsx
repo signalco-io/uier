@@ -1,6 +1,8 @@
 'use client';
 
 import { useAppI18n } from '@/src/lib/i18n/client';
+import { rememberPageChecks } from './pageChecksSeen';
+import { useEffect } from 'react';
 
 import {
     AccessibilityIcon,
@@ -45,6 +47,7 @@ import { filterIconButton } from '../comments/CommentsViewToggle';
 import { RelativeTime } from '../comments/DateTime';
 import { AcrossPages } from './AcrossPages';
 import { AccessibilityResult, ChangeResult, PageCell, SeoResult, VitalsResult, type PageEnvironment } from './PageCheckParts';
+import { PagesHeading } from './PageChecksHeadings';
 import { useVirtualRows } from './useVirtualRows';
 
 /** Each order's and filter's icon in their menus and in the chip of the one in effect (uier #417) */
@@ -220,6 +223,8 @@ export function PageChecksView({ projectId, pages, environments }: {
     const sorted = sortPageChecks(filterPageChecks(pages, filter), order);
     const showAll = () => setUrlSearchParams({ show: undefined });
     const links = { projectId, environments };
+    // For this project's next loading state in this browser: the shape of what it will show (`pageChecksSeen`)
+    useEffect(() => rememberPageChecks(projectId, pages.length === 0), [projectId, pages.length]);
     const sortedBy = sortedColumn[order];
     const ariaSort = (column: string) => sortedBy?.column === column ? sortedBy.direction : undefined;
 
@@ -249,11 +254,9 @@ export function PageChecksView({ projectId, pages, environments }: {
                             line; what is in effect sits between them, or on a phone on its own line under them, like the
                             comments' filters in effect */}
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-                            <h2 id="checked-pages-title" className="m-0 mr-auto text-base font-semibold tracking-[-0.01em]">
-                                {t("Pages ")}<span className="font-normal text-muted-foreground tabular-nums">
-                                    {filter === 'all' ? pages.length : t("{shown} of {total}", { shown: sorted.length, total: pages.length })}
-                                </span>
-                            </h2>
+                            <PagesHeading id="checked-pages-title">
+                                {filter === 'all' ? pages.length : t("{shown} of {total}", { shown: sorted.length, total: pages.length })}
+                            </PagesHeading>
                             {(filter !== 'all' || order !== 'attention') && <div className="flex max-w-full min-w-0 flex-wrap items-center justify-end gap-2 max-sm:order-last max-sm:w-full max-sm:justify-start">
                                 {/* What is in effect beside the actions, each with its own clear, like the comments' filters */}
                                 {filter !== 'all' && (

@@ -12,7 +12,9 @@ test('status page shows the live checks', async ({ page }) => {
     await expect(page.getByRole('status').filter({ hasText: 'All services are operational.' })).toBeVisible();
     const services = page.getByRole('region', { name: 'Services' }).getByRole('listitem');
     await expect(services).toHaveCount(2);
+    // The rows are in the static shell as "Checking…"; each result replaces only its row's state
     await expect(services.filter({ hasText: 'Comments' }).locator('[data-state]')).toHaveAttribute('data-state', 'operational');
+    await expect(services.locator('[data-state]')).toHaveText(['Operational', 'Operational']);
     await expect(page.locator('time')).toHaveAttribute('datetime', /^\d{4}-\d{2}-\d{2}T/);
 });
 

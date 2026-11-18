@@ -1,6 +1,7 @@
 
 import { getAppI18n } from '@/src/lib/i18n/server';
-import { PageLoading } from '@/src/components/app/PageLoading';
+import { ProjectIntegrationsLoading } from '@/src/components/app/projects/ProjectSettingsLoading';
+import { projectSettingsTitles } from '@/src/components/app/projects/projectSettingsSections';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -83,8 +84,8 @@ async function ProjectIntegrationsSettingsPageContent({ params }: PageProps<'/ap
             </section>}
             <section aria-labelledby="available-integrations-title" className="@container flex flex-col gap-4">
                 <div className="flex flex-col gap-1">
-                    <h2 id="available-integrations-title" className="m-0 text-base leading-6 font-semibold tracking-[-0.01em]">{t("Available integrations")}</h2>
-                    <p className="m-0 text-sm text-muted-foreground">{t("Copy shared feedback to the tools your team works in. Private feedback is never sent.")}</p>
+                    <h2 id="available-integrations-title" className="m-0 text-base leading-6 font-semibold tracking-[-0.01em]">{t(projectSettingsTitles.availableIntegrations)}</h2>
+                    <p className="m-0 text-sm text-muted-foreground">{t(projectSettingsTitles.availableIntegrationsDescription)}</p>
                 </div>
                 {available.length
                     ? <ul aria-label={t("Available integrations")} className="m-0 grid list-none gap-3 p-0 @lg:grid-cols-2 @2xl:grid-cols-3">
@@ -119,5 +120,5 @@ async function ProjectIntegrationsSettingsPageContent({ params }: PageProps<'/ap
 }
 
 export default function ProjectIntegrationsSettingsPage(props: Parameters<typeof ProjectIntegrationsSettingsPageContent>[0]) {
-    return <Suspense fallback={<PageLoading title="Loading integrations" />}><ProjectIntegrationsSettingsPageContent {...props} /></Suspense>;
+    return <Suspense fallback={<ProjectIntegrationsLoading />}><ProjectIntegrationsSettingsPageContent {...props} /></Suspense>;
 }

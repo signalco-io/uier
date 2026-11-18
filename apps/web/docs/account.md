@@ -43,11 +43,25 @@
 Account section links use Next.js navigation and preserve the document and feedback toolbar pill
 (`e2e/app-navigation.spec.ts`). Google/Microsoft account linking still uses provider redirects.
 On navigation from Projects, `AccountFrame` renders the title and section links using the shared
-layout's current language before the email and forms arrive. The email has its own Suspense boundary
-with a one-line UI-kit skeleton; each section retains its existing `PageLoading`. The frame and a
+layout's current language before the email and forms arrive. The frame reads nothing from the request
+(the language the shell resolved, and the address through the router), so the layout has no boundary
+around it. The email has its own Suspense boundary with a one-line bar. The frame and a
 focused section link stay mounted as both regions resolve. Initial document loads keep the outer
 request-language and signed-in shell boundaries. `e2e/instant-nav.spec.ts` guards empty/populated
 workspaces on desktop, mobile and tablet with the production-build navigation lock.
+
+- **Loading** ([loading states](../../../docs/design/loading-states/README.md), 14 and 15). Each section loads in
+  its own shape (`components/app/account/AccountLoading.tsx`): its cards with their real titles (`accountTitles`
+  in `accountSections.ts`, which the loaded cards read too) on `SectionOutline`, with outlines where the account's
+  data goes, and one status per section ("Loading account", "Loading sign-in", "Loading notifications", "Loading
+  usage", "Loading coding agents"). General draws its five cards. Sign-in draws Google, Microsoft and Passkeys;
+  Sign out needs nothing from the account, so `SignOutSection` is outside the page's boundary and is the real card
+  and button from the start. A deployment without Google or Microsoft sign-in has no such card, so there that
+  outline goes away when the page arrives (the fallback cannot read the configuration: the shell is built before
+  the server's environment is known). Notifications lists the workspace's projects with their marks and names at
+  once, as the sidebar has them (`useShellInfo`), and outlines only the switches. Usage draws two projects' meters
+  as outlines (the page lists every workspace's projects, which the shell does not know); "Your network" shows only
+  while a connection's limit is in use and arrives with the page. Coding agents draws its five cards.
 
 - **Several signed-in accounts.** The sidebar account menu switches accounts independently of the
   workspace switcher. Add account supports every sign-in method and retains existing accounts,

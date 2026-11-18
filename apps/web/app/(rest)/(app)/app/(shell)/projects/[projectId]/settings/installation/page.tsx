@@ -1,6 +1,6 @@
 
 import { getAppI18n } from '@/src/lib/i18n/server';
-import { PageLoading } from '@/src/components/app/PageLoading';
+import { ProjectInstallationLoading } from '@/src/components/app/projects/ProjectSettingsLoading';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { ProjectInstallGuide } from '@/src/components/app/projects/ProjectInstallGuide';
@@ -19,5 +19,5 @@ async function ProjectInstallationSettingsPageContent({ params }: PageProps<'/ap
 }
 
 export default function ProjectInstallationSettingsPage(props: Parameters<typeof ProjectInstallationSettingsPageContent>[0]) {
-    return <Suspense fallback={<PageLoading title="Loading installation" />}><ProjectInstallationSettingsPageContent {...props} /></Suspense>;
+    return <Suspense fallback={<ProjectInstallationLoading />}><ProjectInstallationSettingsPageContent {...props} /></Suspense>;
 }

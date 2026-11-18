@@ -56,7 +56,7 @@ automatically re-check a thread: consent timing requires another reviewer-contro
   as many as fit in 1000 characters with "and N more" after them, then the rule's standard and page.
 - The request's check carries `count` (`CommentCheck.count`, 2 to 10,000; [the API](../../../docs/api.md#comments-api)),
   so it is one request: the API's limits (`too_fast`, `page_full`) apply to it as to one comment, and a
-  failure shows the usual toast and brings the button back. While it posts the button says "Posting..."
+  failure shows the usual toast and brings the button back. While it posts the button says "Posting…"
   (`aria-disabled`); then it is Show, with "Comment posted for N elements as #12" beside it, so the focus
   stays where it was. It is described by its list's name.
 - Afterwards every element it covered is reported (`reportedComment`): an open thread with the same

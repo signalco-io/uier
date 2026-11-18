@@ -12,7 +12,7 @@ How the page looks when its link is shared or shown in search results.
 - **Two definitions.** `sharing` reads the tags (`when: 'background'`: a few
   `querySelectorAll` calls, no request). `sharing-image` loads the shared image (`when: 'panel'`: a request).
   The view puts the image's row (**Image size**) right after the image's tag row, says "Loading the
-  image..." meanwhile, and renders both previews as the section's own rows.
+  image…" meanwhile, and renders both previews as the section's own rows.
 - **Tags.** Open Graph (`og:title`, `og:description`, `og:image` with `:secure_url`, `:width`, `:height`,
   `:alt`, `og:url`, `og:type`, `og:site_name`) and X (`twitter:card`, `twitter:title`, `twitter:description`,
   `twitter:image`), read from `property` or `name`. Empty tags count as missing.

@@ -260,7 +260,7 @@ test('the profile shows the guest name; signing out forgets it', async ({ browse
 
     // Sign out asks first
     const signOutOptions = await openOptions(page);
-    await signOutOptions.getByRole('button', { name: 'Sign out...' }).click();
+    await signOutOptions.getByRole('button', { name: 'Sign out…' }).click();
     await expect(signOutOptions).toContainText(`can no longer resolve or delete the comments you left as ${name}.`);
     await expect(signOutOptions.getByRole('button', { name: 'Sign out', exact: true })).toBeFocused();
     await signOutOptions.getByRole('button', { name: 'Sign out', exact: true }).click();
@@ -270,7 +270,7 @@ test('the profile shows the guest name; signing out forgets it', async ({ browse
     // The comment stays, but this browser can no longer resolve it
     expect((await context.cookies()).map(cookie => cookie.name)).not.toContain('uier_visitor');
     const signedOutOptions = await openOptions(page);
-    await expect(signedOutOptions.getByRole('button', { name: 'Sign out...' })).toHaveCount(0);
+    await expect(signedOutOptions.getByRole('button', { name: 'Sign out…' })).toHaveCount(0);
     await page.keyboard.press('Escape');
     await expect(signedOutOptions).toBeHidden();
     await commentBubble(page, 1).click();

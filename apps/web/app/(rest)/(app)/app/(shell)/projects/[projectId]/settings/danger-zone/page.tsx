@@ -1,6 +1,7 @@
 
 import { getAppI18n } from '@/src/lib/i18n/server';
-import { PageLoading } from '@/src/components/app/PageLoading';
+import { ProjectDangerZoneLoading } from '@/src/components/app/projects/ProjectSettingsLoading';
+import { projectSettingsTitles } from '@/src/components/app/projects/projectSettingsSections';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { Section } from '@/src/components/app/PageHeader';
@@ -22,11 +23,11 @@ async function ProjectDangerZonePageContent({ params }: PageProps<'/app/projects
     const preview = targets.length ? await projectTransferPreview(project, context.user.id) : null;
 
     return (
-        <Section id="danger-zone" title={t("Danger zone")} className="border-destructive/40">
+        <Section id="danger-zone" title={t(projectSettingsTitles.dangerZone)} className="border-destructive/40">
             <div className="flex flex-col gap-6">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="flex min-w-0 flex-1 flex-col gap-1">
-                        <h3 className="m-0 text-sm font-medium">{project.status === 'done' ? t("Reopen project") : t("Mark as done")}</h3>
+                        <h3 className="m-0 text-sm font-medium">{t(project.status === 'done' ? projectSettingsTitles.reopenProject : projectSettingsTitles.markAsDone)}</h3>
                         <p className="m-0 text-sm text-muted-foreground">
                             {project.status === 'done'
                                 ? t("This project is done. Reopen it to move it back to the active projects.")
@@ -37,7 +38,7 @@ async function ProjectDangerZonePageContent({ params }: PageProps<'/app/projects
                 </div>
                 <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-6">
                     <div className="flex min-w-0 flex-1 flex-col gap-1">
-                        <h3 className="m-0 text-sm font-medium">{t("Transfer project")}</h3>
+                        <h3 className="m-0 text-sm font-medium">{t(projectSettingsTitles.transferProject)}</h3>
                         <p className="m-0 text-sm text-muted-foreground">
                             {preview
                                 ? t("Moves the project with its comments and settings to another workspace where you are an admin. Connected services and access given here stay behind.")
@@ -49,7 +50,7 @@ async function ProjectDangerZonePageContent({ params }: PageProps<'/app/projects
                 </div>
                 <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-6">
                     <div className="flex min-w-0 flex-1 flex-col gap-1">
-                        <h3 className="m-0 text-sm font-medium">{t("Delete project")}</h3>
+                        <h3 className="m-0 text-sm font-medium">{t(projectSettingsTitles.deleteProject)}</h3>
                         <p className="m-0 text-sm text-muted-foreground">{t("Deletes the project with its comments, screenshots, review links and integration settings. This can't be undone.")}</p>
                     </div>
                     <DeleteProjectButton projectId={project.id} name={project.name} />
@@ -60,5 +61,5 @@ async function ProjectDangerZonePageContent({ params }: PageProps<'/app/projects
 }
 
 export default function ProjectDangerZonePage(props: Parameters<typeof ProjectDangerZonePageContent>[0]) {
-    return <Suspense fallback={<PageLoading title="Loading danger zone" />}><ProjectDangerZonePageContent {...props} /></Suspense>;
+    return <Suspense fallback={<ProjectDangerZoneLoading />}><ProjectDangerZonePageContent {...props} /></Suspense>;
 }

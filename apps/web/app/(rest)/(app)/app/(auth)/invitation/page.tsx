@@ -1,5 +1,5 @@
 import { getAppI18n } from '@/src/lib/i18n/server';
-import { PageLoading } from '@/src/components/app/PageLoading';
+import { AuthCardLoading } from '@/src/components/app/AuthFrame';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -68,5 +68,5 @@ async function InvitationPageContent({ searchParams }: PageProps<'/app/invitatio
 }
 
 export default function InvitationPage(props: Parameters<typeof InvitationPageContent>[0]) {
-    return <Suspense fallback={<PageLoading title="Loading invitation" />}><InvitationPageContent {...props} /></Suspense>;
+    return <Suspense fallback={<AuthCardLoading label="Loading invitation" actions={1} lines={1} />}><InvitationPageContent {...props} /></Suspense>;
 }

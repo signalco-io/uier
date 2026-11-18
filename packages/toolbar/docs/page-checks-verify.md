@@ -11,7 +11,7 @@ own look. It never changes the thread's status: the reviewer still confirms or r
   open on the page (and environment) it was posted on: a pin's popover, an inline thread, or the inbox
   card of a comment of this page. Not for another page's comments, and not in the app (it is not on the
   reviewed page).
-- One compact line with **Check again**: "Accessibility check: image-alt" until it runs, "Checking..."
+- One compact line with **Check again**: "Accessibility check: image-alt" until it runs, "Checking…"
   while it runs, then the result: "Still found on this page." with the short reason (axe-core's first
   failure line, the SEO check's reason or the element's summary), "No longer found on this page.", or for
   a comment about several elements (an optional `check.count` of 2 or more) "3 elements still fail this

@@ -1,5 +1,5 @@
 import { getAppI18n } from '@/src/lib/i18n/server';
-import { PageLoading } from '@/src/components/app/PageLoading';
+import { AuthCardLoading } from '@/src/components/app/AuthFrame';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
@@ -42,5 +42,5 @@ async function WelcomePageContent() {
 }
 
 export default function WelcomePage() {
-    return <Suspense fallback={<PageLoading title="Loading welcome" />}><WelcomePageContent /></Suspense>;
+    return <Suspense fallback={<AuthCardLoading label="Loading account" actions={2} />}><WelcomePageContent /></Suspense>;
 }

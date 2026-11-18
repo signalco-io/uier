@@ -14,6 +14,7 @@ import type { PageCheckRow } from '@/src/lib/pageChecks/model';
 import { pathTree, type PathNode } from '@/src/lib/pageChecks/pathTree';
 import { cn } from '@/src/lib/utils';
 import { noteIcon, PageLink, passIcon, warnIcon, type PageEnvironment } from './PageCheckParts';
+import { AcrossPagesHeading } from './PageChecksHeadings';
 
 type Links = { projectId: string; environments: readonly PageEnvironment[]; checkedPages: readonly PageCheckRow[] };
 
@@ -161,7 +162,7 @@ export function AcrossPages({ insights, ...links }: Links & { insights: PageChec
     const { t } = useAppI18n();
     return (
         <section aria-labelledby="across-pages-title" className="flex flex-col gap-3">
-            <h2 id="across-pages-title" className="m-0 text-base font-semibold tracking-[-0.01em]">{t("Across pages")}</h2>
+            <AcrossPagesHeading id="across-pages-title" />
             <div className="grid items-start gap-4 md:grid-cols-2">
                 <Finding id="shared-titles" kind="warning" title={t("Shared titles")} count={pagesIn(insights.sharedTitles)}
                     description={t("Indexable pages of one site address with the same title.")} empty={t("No pages share a title.")}>

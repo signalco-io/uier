@@ -1,6 +1,5 @@
 
 import { getAppI18n } from '@/src/lib/i18n/server';
-import { PageLoading } from '@/src/components/app/PageLoading';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -14,6 +13,7 @@ import { requireAppContext } from '@/src/lib/app/context';
 import { listVisibleProjects } from '@/src/lib/app/projects';
 import { loadClients, projectClient, projectClients } from '@/src/lib/app/clients';
 import { PUBLIC_WORKSPACE_ID } from '@/src/lib/comments/publicProjectPolicy';
+import { ClientsLoading } from '@/src/components/app/workspace/WorkspaceLoading';
 import { WorkspaceTabHeader } from '@/src/components/app/workspace/WorkspaceTabHeader';
 import { ClientEditDialog } from '@/src/components/app/clients/ClientEditDialog';
 import { ClientCreateDialog } from '@/src/components/app/clients/ClientCreateDialog';
@@ -115,5 +115,5 @@ async function ClientsPageContent() {
 }
 
 export default function ClientsPage() {
-    return <Suspense fallback={<PageLoading title="Loading clients" />}><ClientsPageContent /></Suspense>;
+    return <Suspense fallback={<ClientsLoading />}><ClientsPageContent /></Suspense>;
 }

@@ -1,5 +1,6 @@
 import { getAppI18n } from '@/src/lib/i18n/server';
-import { PageLoading } from '@/src/components/app/PageLoading';
+import { AccountGeneralLoading } from '@/src/components/app/account/AccountLoading';
+import { accountTitles } from '@/src/components/app/account/accountSections';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { Section } from '@/src/components/app/PageHeader';
@@ -42,7 +43,7 @@ async function AccountPageContent() {
             <AppLanguageForm language={userAppLanguage(context.user)} />
             <AppearanceSection />
             <ToolbarLanguageForm language={userToolbarLanguage(context.user)} />
-            <Section id="my-access" title={t("Your workspace access")} description={t("Your role, teams and projects in {value1}.", { value1: context.workspace.name })}>
+            <Section id="my-access" title={t(accountTitles.access)} description={t("Your role, teams and projects in {value1}.", { value1: context.workspace.name })}>
                 <dl className="m-0 grid grid-cols-[max-content_minmax(0,1fr)] gap-x-6 gap-y-2 text-sm">
                     {rows.map(row => (
                         <div key={row.label} className="contents">
@@ -57,5 +58,5 @@ async function AccountPageContent() {
 }
 
 export default function AccountPage() {
-    return <Suspense fallback={<PageLoading title="Loading account" />}><AccountPageContent /></Suspense>;
+    return <Suspense fallback={<AccountGeneralLoading />}><AccountPageContent /></Suspense>;
 }
