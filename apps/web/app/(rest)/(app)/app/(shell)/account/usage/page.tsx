@@ -1,5 +1,6 @@
 import { getAppI18n } from '@/src/lib/i18n/server';
-import { PageLoading } from '@/src/components/app/PageLoading';
+import { AccountUsageLoading } from '@/src/components/app/account/AccountLoading';
+import { accountTitles } from '@/src/components/app/account/accountSections';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -35,7 +36,7 @@ async function AccountUsagePageContent() {
         <>
             <Section
                 id="limits"
-                title={t("Your limits")}
+                title={t(accountTitles.limits)}
                 description={(
                     <>
                         {t("What you can send to each project in an hour. Counts start again on the hour,")}{' '}{reset}.
@@ -85,5 +86,5 @@ async function AccountUsagePageContent() {
 }
 
 export default function AccountUsagePage() {
-    return <Suspense fallback={<PageLoading title="Loading usage" />}><AccountUsagePageContent /></Suspense>;
+    return <Suspense fallback={<AccountUsageLoading />}><AccountUsagePageContent /></Suspense>;
 }

@@ -64,6 +64,7 @@ One store for the page, so the main root, inline threads and code outside React 
 - Every user-facing string goes through a catalog, in every language, in the same change. Sentence case, short
   sentences, no exclamation marks (BRAND.md). German, French and Croatian use the formal address (Sie, vous, vi);
   Spanish and Italian the informal (tú, tu).
+- An ellipsis is the one character "…" (as in the app), never three dots: "Loading comments…", "Delete…", "Reply…".
 - Brand and product names stay as they are: uier, axe-core, WCAG, Open Graph, robots.txt, HTML element and attribute
   names. Never translate stable machine values: status ids, feedback type ids, check ids and states, storage keys.
 - Feedback type names: the built-in names show translated only while the workspace has not renamed them

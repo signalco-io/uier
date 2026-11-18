@@ -94,7 +94,7 @@ export const de: Messages = {
         viewProject: 'Projekt öffnen',
         closeToolbar: 'Leiste schließen',
         exitReview: 'Review beenden',
-        signOutMenu: 'Abmelden...',
+        signOutMenu: 'Abmelden…',
         poweredBy: 'Bereitgestellt von uier',
         language: 'Sprache',
         languageDefault: (name: string) => `Standard (${name})`,
@@ -228,7 +228,7 @@ export const de: Messages = {
         commentEdited: 'Kommentar bearbeitet',
         replyEdited: 'Antwort bearbeitet',
         replyDeleted: 'Antwort gelöscht',
-        replyPlaceholder: 'Antworten...',
+        replyPlaceholder: 'Antworten…',
         postReply: 'Antwort senden',
         replyPosted: 'Antwort gesendet',
         deleteLastReply: 'Diese Antwort löschen? Sie ist die letzte Nachricht, daher wird auch die Diskussion entfernt.',
@@ -244,7 +244,7 @@ export const de: Messages = {
             ? `Weitere Optionen für ${own ? 'Ihren' : 'diesen'} Kommentar`
             : `Weitere Optionen für ${own ? 'Ihre' : 'diese'} Antwort`,
         reattach: 'Kommentar neu verankern',
-        deleteMenu: 'Löschen...'
+        deleteMenu: 'Löschen…'
     },
     agents: {
         generic: 'KI-Agent',
@@ -260,7 +260,7 @@ export const de: Messages = {
         details: 'Details zur Zuweisung',
         openIn: (app: string) => `In ${app} öffnen`,
         assignThread: 'Diskussion zuweisen',
-        loadingPeople: 'Personen werden geladen...',
+        loadingPeople: 'Personen werden geladen…',
         unassign: 'Zuweisung aufheben'
     },
     reactions: {
@@ -400,8 +400,8 @@ export const de: Messages = {
         draftKept: 'Ihr Entwurf bleibt erhalten. Versuchen Sie es erneut.',
         recoveryKept: 'Früher nicht gesendeter Text wird getrennt aufbewahrt, weil beide Entwürfe das Zeichenlimit überschreiten.',
         restoreUnsent: 'Nicht gesendeten Text wiederherstellen',
-        sending: 'Wird gesendet...',
-        saving: 'Wird gespeichert...',
+        sending: 'Wird gesendet…',
+        saving: 'Wird gespeichert…',
         keysSend: 'Enter zum Senden. Umschalt+Enter für eine neue Zeile.',
         keysSave: 'Enter zum Speichern. Umschalt+Enter für eine neue Zeile.',
         collapseTip: 'Zurück zum kleineren Formular',
@@ -439,9 +439,9 @@ export const de: Messages = {
     attachments: {
         imageLimits: 'PNG, JPEG oder WebP, bis 512 KB und 4096 Pixel pro Seite.',
         imageInstead: (name: string) => `Ihr Bild ${name} wird statt eines Screenshots angehängt.`,
-        reading: 'Ihr Bild wird gelesen...',
+        reading: 'Ihr Bild wird gelesen…',
         noScreenshot: 'Es wird kein Screenshot angehängt.',
-        capturing: 'Screenshot wird erstellt...',
+        capturing: 'Screenshot wird erstellt…',
         captureFailed: 'Der Screenshot konnte nicht erstellt werden. Sie können Ihren Kommentar trotzdem senden.',
         pageScreenshot: 'Ein Screenshot der sichtbaren Seite wird angehängt.',
         regionScreenshot: 'Ein Screenshot dieses Teils der Seite wird angehängt.',
@@ -480,8 +480,8 @@ export const de: Messages = {
         suggestedText: 'Vorgeschlagener Text',
         comment: 'Kommentar',
         reply: 'Antwort',
-        suggestionPlaceholder: 'Ihre Version des Textes...',
-        commentPlaceholder: 'Feedback geben...',
+        suggestionPlaceholder: 'Ihre Version des Textes…',
+        commentPlaceholder: 'Feedback geben…',
         postSuggestion: 'Vorschlag senden',
         postComment: 'Kommentar senden',
         participants: (people: string) => `In dieser Diskussion: ${people}`,
@@ -543,7 +543,7 @@ export const de: Messages = {
         upload: 'Bild hochladen',
         pasteTip: (limits: string) => `Bild einfügen. ${limits}`,
         paste: 'Bild einfügen',
-        savingReplacement: 'Ersatz wird gespeichert...',
+        savingReplacement: 'Ersatz wird gespeichert…',
         evidence: 'Screenshot als Beleg',
         none: 'Kein Screenshot',
         unavailable: 'Der Screenshot ist nicht mehr verfügbar.',
@@ -574,7 +574,7 @@ export const de: Messages = {
         noneVisible: 'Keine Vorschläge für diesen Text.',
         tooLong: (max: number) => `Vorschläge gibt es für Auswahlen mit bis zu ${max} Zeichen.`,
         instruction: 'Anweisung für Vorschläge',
-        instructionPlaceholder: 'Kürzer, freundlicher...',
+        instructionPlaceholder: 'Kürzer, freundlicher…',
         suggest: 'Vorschlagen',
         limited: (retry: string) => `Vorerst keine weiteren Vorschläge. Versuchen Sie es ${retry} erneut. Sie können weiterhin selbst schreiben.`,
         suggestions: 'Vorschläge'
@@ -680,7 +680,7 @@ export const de: Messages = {
         reply: 'Antworten',
         closeReply: 'Antwort schließen',
         openOn: 'Öffnen auf ',
-        loading: 'Kommentare werden geladen...',
+        loading: 'Kommentare werden geladen…',
         showOnOtherPages: (count: number) => `${count} auf anderen Seiten zeigen`,
         commentNumber: (number: number) => `Kommentar #${number}`,
         comment: 'Kommentar',
@@ -863,7 +863,7 @@ export const de: Messages = {
         notAnIssue: 'Kein Problem',
         postedAs: (label: string, number: number | undefined) => `${label}${number !== undefined ? ` als #${number}` : ''}`,
         show: 'Zeigen',
-        posting: 'Wird gesendet...',
+        posting: 'Wird gesendet…',
         comment: 'Kommentieren',
         restore: 'Wiederherstellen',
         dismissed: 'Ausgeblendet',
@@ -882,7 +882,7 @@ export const de: Messages = {
         checkAgain: 'Erneut prüfen',
         closePanel: 'Bereich schließen',
         closeNamed: (title: string) => `Bereich „${title}“ schließen`,
-        checking: 'Wird geprüft...',
+        checking: 'Wird geprüft…',
         notChecked: 'Das konnte nicht geprüft werden. Prüfen Sie erneut, um es noch einmal zu versuchen.',
         unknownCheck: (kind: string, id: string) => `Prüfung ${kind}: ${id}`,
         attentionIssues: (panel: string, count: number) => `${panel}, ${count} ${p(count, 'Problem', 'Probleme')} gefunden`,
@@ -919,7 +919,7 @@ export const de: Messages = {
             opensNewTab: (help: string) => ` ${help} (öffnet in einem neuen Tab)`,
             elements: (help: string) => `Elemente: ${help}`,
             bestPractice: 'Best Practice',
-            checkingPage: 'Diese Seite wird geprüft...',
+            checkingPage: 'Diese Seite wird geprüft…',
             couldNotRun: 'Die Prüfung der Barrierefreiheit konnte nicht laufen.',
             noIssues: 'Keine Probleme gefunden.',
             automatedNote: 'Automatische Prüfungen finden nur einen Teil der Probleme. Testen Sie auch mit Tastatur und Screenreader.',
@@ -958,7 +958,7 @@ export const de: Messages = {
         }
     },
     sections: {
-        checkingPage: 'Diese Seite wird geprüft...',
+        checkingPage: 'Diese Seite wird geprüft…',
         notChecked: 'Das konnte nicht geprüft werden. Prüfen Sie erneut, um es noch einmal zu versuchen.',
         aiSearch: {
             title: 'KI-Suche',
@@ -1008,7 +1008,7 @@ export const de: Messages = {
             showOrder: 'Tab-Reihenfolge zeigen',
             focusNote: 'Bewegt den Fokus durch die Bedienelemente der Seite, führt ihre Fokus-Handler aus und listet jene auf, die keine sichtbare Änderung zeigen.',
             checkFocus: 'Fokusanzeigen prüfen',
-            moving: 'Der Fokus wird durch die Seite bewegt...',
+            moving: 'Der Fokus wird durch die Seite bewegt…',
             focusFailed: 'Die Fokusprüfung konnte nicht laufen.'
         },
         motion: { title: 'Bewegung' },
@@ -1017,7 +1017,7 @@ export const de: Messages = {
             spacing: 'Textabstände',
             spacingNote: 'Wendet die Textabstände aus WCAG 1.4.12 auf die Seite an und listet Text, der nicht mehr passt. Sie bleiben aktiv, solange Sie hinsehen.',
             applied: (value: string) => `Textabstände angewendet. ${value}`,
-            applying: 'Textabstände werden angewendet...',
+            applying: 'Textabstände werden angewendet…',
             apply: 'Textabstände anwenden'
         },
         screenReader: {
@@ -1029,7 +1029,7 @@ export const de: Messages = {
         sharing: {
             title: 'Teilen',
             imageSize: 'Bildgröße',
-            loadingImage: 'Bild wird geladen...',
+            loadingImage: 'Bild wird geladen…',
             imageNotShown: 'Bild wird hier nicht gezeigt',
             noDescription: 'Keine Beschreibung',
             searchCaption: 'Ungefähr so sieht ein Suchergebnis aus',
@@ -1038,9 +1038,9 @@ export const de: Messages = {
         },
         structuredData: { title: 'Strukturierte Daten' },
         pageExtras: {
-            checkingImages: 'Bilder werden geprüft...',
+            checkingImages: 'Bilder werden geprüft…',
             checkedOf: (checked: number, total: number) => `${checked} von ${total} geprüft`,
-            checkingLinks: 'Links werden geprüft...',
+            checkingLinks: 'Links werden geprüft…',
             linksFailed: 'Die Links konnten nicht geprüft werden.',
             notChecked: 'Nicht geprüft.',
             noLinks: 'Keine Links auf dieser Website zum Prüfen.',

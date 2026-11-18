@@ -80,7 +80,9 @@ test('an opened thread shows a shell shaped like it until its detail arrives', a
     const shell = page.locator('[data-thread-shell="loading"]');
     await expect(shell).toBeVisible();
     await expect(shell).toHaveAttribute('aria-busy', 'true');
-    await expect(shell.getByText('Loading comments')).toBeAttached();
+    // Its status is one hidden line, not the card: a screen reader is not handed the whole thread as the announcement
+    await expect(shell).not.toHaveAttribute('role', 'status');
+    await expect(shell.getByRole('status').filter({ hasText: /^Loading thread$/ })).toBeAttached();
     await expect(page.getByRole('article')).toHaveCount(0);
     // What the summary knows is drawn as the thread draws it; the controls wait for the detail
     await expect(shell).toContainText(`#${held.number}`);

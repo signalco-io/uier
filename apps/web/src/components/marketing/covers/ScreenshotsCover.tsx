@@ -125,7 +125,7 @@ function Scene({ phase }: { phase: Phase }) {
                         </div>
                         {/* The toggle's status, as it is read out */}
                         <span className="grid text-[11px] text-muted-foreground">
-                            <span className={cx('col-start-1 row-start-1', appear(!is('capture')))}>Taking a screenshot...</span>
+                            <span className={cx('col-start-1 row-start-1', appear(!is('capture')))}>Taking a screenshot…</span>
                             <span className={cx('col-start-1 row-start-1', appear(is('capture')))}>A screenshot of this part of the page will be attached.</span>
                         </span>
                     </Card>

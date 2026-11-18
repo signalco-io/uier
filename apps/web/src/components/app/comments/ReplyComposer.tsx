@@ -81,7 +81,7 @@ export function ReplyComposer({ projectId, userId, userName, comment, fieldRef, 
         const idempotencyKey = drafts.attempt(key, JSON.stringify({ ...input, image: sentImage?.key, recording: sentRecording?.key }));
         const sendId = drafts.startSend(key, sentText, sentMentions);
         setError(undefined);
-        setAnnouncement(t("Sending reply..."));
+        setAnnouncement(t("Sending reply…"));
         attachment.remove();
         startTransition(async () => {
             let saved = false;
@@ -127,7 +127,7 @@ export function ReplyComposer({ projectId, userId, userName, comment, fieldRef, 
         });
     };
 
-    return <MessageComposer label={t("Reply")} formLabel={t("Reply to thread")} name="reply" placeholder={t("Reply...")}
+    return <MessageComposer label={t("Reply")} formLabel={t("Reply to thread")} name="reply" placeholder={t("Reply…")}
         value={text} mentions={mentions} onValueChange={setText} mentionsIn={{ projectId, commentId: comment.id }} maxLength={maxLength} fieldRef={fieldRef}
         attachments={<><ReplyAttachment attachment={attachment} /><ReplyRecordingActions recording={recording} disabled={pending} /></>}
         onPaste={attachment.handlePaste} onImageDrop={file => void attachment.attach(file)} holdSubmit={attachment.reading || recording.busy}

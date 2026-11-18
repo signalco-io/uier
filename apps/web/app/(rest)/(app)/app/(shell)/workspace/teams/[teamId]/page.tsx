@@ -1,6 +1,5 @@
 
 import { getAppI18n } from '@/src/lib/i18n/server';
-import { PageLoading } from '@/src/components/app/PageLoading';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -14,6 +13,7 @@ import { AccessActivity } from '@/src/components/app/teams/Activity';
 import { activityNames } from '@/src/components/app/teams/activityNames';
 import { requireTeamAdmin, managementData } from '@/src/components/app/teams/management';
 import { InviteButton } from '@/src/components/app/users/InviteDialog';
+import { TeamLoading } from '@/src/components/app/workspace/WorkspaceLoading';
 import { getTeam, listAccessEvents } from '@/src/lib/app/teams';
 import { listInvitations } from '@/src/lib/app/invitations';
 import { KnownPageLinks } from '@/src/knownPages';
@@ -107,5 +107,5 @@ async function TeamPageContent({ params, searchParams }: PageProps<'/app/workspa
 }
 
 export default function TeamPage(props: Parameters<typeof TeamPageContent>[0]) {
-    return <Suspense fallback={<PageLoading title="Loading team" />}><TeamPageContent {...props} /></Suspense>;
+    return <Suspense fallback={<TeamLoading />}><TeamPageContent {...props} /></Suspense>;
 }

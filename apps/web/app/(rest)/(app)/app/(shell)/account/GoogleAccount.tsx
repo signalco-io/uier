@@ -1,5 +1,6 @@
 import { getAppI18n } from '@/src/lib/i18n/server';
 import { Section } from '@/src/components/app/PageHeader';
+import { accountTitles } from '@/src/components/app/account/accountSections';
 import { GoogleLogo } from '@/src/components/app/SignInProviderLogos';
 import { isGoogleSignInConfigured } from '@/src/lib/app/google/config';
 import { getGoogleAccount } from '@/src/lib/app/google/identity';
@@ -18,7 +19,7 @@ export async function GoogleAccount({ userId }: { userId: string }) {
     const recentSignIn = session?.userId === userId
         && Date.now() - session.signedInAt * 1000 <= PASSKEY_RECENT_SIGN_IN_SECONDS * 1000;
     return (
-        <Section icon={<GoogleLogo />} id="google" title={t("Google account")} description={t("Sign in with Google instead of an email code. Email sign-in always stays available.")}>
+        <Section icon={<GoogleLogo />} id="google" title={t(accountTitles.google)} description={t("Sign in with Google instead of an email code. Email sign-in always stays available.")}>
             <GoogleAccountControls linkedEmail={account ? account.email : null} configured={configured} recentSignIn={recentSignIn} />
         </Section>
     );

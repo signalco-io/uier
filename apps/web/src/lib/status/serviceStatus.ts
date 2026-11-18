@@ -4,12 +4,33 @@ import { getCommentsStore } from '../repo/commentsStore';
 
 export type ServiceState = 'operational' | 'down';
 
-export type ServiceStatus = {
-    id: 'website' | 'comments';
+export type ServiceId = 'website' | 'comments';
+
+/** A service that is checked: what it is, without a result */
+export type ServiceDefinition = {
+    id: ServiceId;
     name: string;
     description: string;
-    state: ServiceState;
 };
+
+export type ServiceStatus = ServiceDefinition & { state: ServiceState; };
+
+/**
+ * The services that are checked, in the order they are reported. They are fixed, so a page can
+ * show them before any check has answered; `runChecks` gives each one its state.
+ */
+export const serviceDefinitions: readonly ServiceDefinition[] = [
+    {
+        id: 'website',
+        name: 'Website',
+        description: `${brand.domain}, its pages and /toolbar.js. If you can read this, it is up.`
+    },
+    {
+        id: 'comments',
+        name: 'Comments',
+        description: 'The comments API and its database, checked with a live read.'
+    }
+];
 
 export type StatusReport = {
     /** `operational` when every service is */
@@ -47,21 +68,12 @@ async function checkComments(): Promise<ServiceState> {
 }
 
 async function runChecks(): Promise<StatusReport> {
-    const comments = await checkComments();
-    const services: ServiceStatus[] = [
-        {
-            id: 'website',
-            name: 'Website',
-            description: `${brand.domain}, its pages and /toolbar.js. If you can read this, it is up.`,
-            state: 'operational'
-        },
-        {
-            id: 'comments',
-            name: 'Comments',
-            description: 'The comments API and its database, checked with a live read.',
-            state: comments
-        }
-    ];
+    // One state per defined service: a new definition does not compile until it has a check here
+    const states: Record<ServiceId, ServiceState> = {
+        website: 'operational',
+        comments: await checkComments()
+    };
+    const services = serviceDefinitions.map((service): ServiceStatus => ({ ...service, state: states[service.id] }));
 
     return {
         state: services.every(service => service.state === 'operational') ? 'operational' : 'down',

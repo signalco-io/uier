@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { KnownPages } from '../../../knownPages';
 import { Section } from '../PageHeader';
 import { SaveFooter, useSettingsDraft } from '../SettingsSave';
+import { projectSettingsTitles } from './projectSettingsSections';
 import { MAX_PROJECT_NAME_LENGTH } from '../../../lib/app/limits';
 import { ClientNameInput } from './ClientNameInput';
 import { updateProjectGeneralAction } from './actions';
@@ -47,7 +48,7 @@ export function ProjectGeneralForm({ projectId, name, clientName, clients, links
     return (
         <Section
             id="general"
-            title={t("General")}
+            title={t(projectSettingsTitles.general)}
             stickyFooter
             footer={<SaveFooter formId={formId} state={state} pending={pending} dirty={dirty} onDiscard={discard} />}>
             <form id={formId} action={formAction} onResetCapture={keepValues}>

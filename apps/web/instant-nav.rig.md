@@ -26,18 +26,30 @@
   completed destination before trusting locked failures. Local service status is operational.
 - CONTRACTS:
   - `/app/projects` → real Create project Link → `/app/projects/new`: heading,
-    explanation and four onboarding steps immediately; existing PageLoading for
-    the form; private client suggestions and form stream afterward. Empty/populated variants.
+    explanation, four onboarding steps and the form itself immediately: the addresses and
+    the name can be typed at once and stay as typed. The client field's control is an
+    outline ("Loading the form") and Create project is disabled until the authorization
+    and the private client suggestions stream in. Empty/populated variants.
   - `/app/projects` → sidebar Account menu's Next Link → `/app/account`: Account
     heading and five section links immediately; email and profile/access forms
-    remain request-scoped, with existing PageLoading. Empty/populated variants.
-  - Hard `/status`: existing Status heading, How this works explanation, summary
-    and service-check fallbacks immediately; independent live summary and checks
-    absent while locked and present after release. Already satisfied, no route change.
-  - Security footer Next Link → `/status`: Status heading, explanation and both live-check
-    fallbacks immediately; live timestamp and checks after release.
-  - Projects sidebar Next Link → `/app/my-work`: retained app navigation and loading status
-    immediately; authorized heading and empty-work result after release. Empty/populated workspaces.
+    remain request-scoped, with General's cards as outlines under their titles
+    ("Loading account"). Empty/populated variants.
+  - Hard `/status`: Status heading, How this works explanation, the summary fallback and both
+    service rows (name, description, "Checking…") immediately, with the panel's one hidden status;
+    no row operational and no timestamp while locked; live summary, row states and timestamp
+    after release. The rows come from the fixed definitions in src/lib/status: no check runs
+    and no request is read for the shell.
+  - Security footer Next Link → `/status`: Status heading, explanation, the summary fallback and
+    both "Checking…" service rows immediately; row states and live timestamp after release, with
+    the Services section at the same height.
+  - Projects sidebar Next Link → `/app/my-work`: retained app navigation, the My work heading
+    (fixed text, the page's shell) and the loading status immediately, without search, Filter or
+    List/Board (they exist only when something needs the person); the authorized empty-work result
+    after release. Empty/populated workspaces.
+  - My work sidebar Next Link → `/app/projects`: Projects heading, Create project (the role is the
+    shell's) and the Active/Done tabs immediately, the tabs inert with the sidebar's counts; card
+    outlines behind "Loading projects"; the lists, working tabs and the client filter after release,
+    with the heading, the button and the tabs where they were.
   - Adoption audit: zero effective full-prefetch Links and zero manual prefetch calls. The additional
     default-link shell checks in partial-prefetching.spec.ts passed flag-off before adoption.
   - Projects Active → Done: actual query-only Link → `/app/projects?status=done`, pointer click;
@@ -47,7 +59,8 @@
     Projects heading and Active list immediately, Done list hidden, link focus retained.
     Existing `prefetch={false}`; direct reload retains Active.
   - Projects card → its exact project URL: existing default viewport Link; retained app shell and
-    Loading project immediately, private heading absent. Rename through the real settings form
+    Loading project immediately, with the heading the shell already shows (the sidebar's name) and no
+    newer one. Rename through the real settings form
     in a second authenticated page after the source loads; fresh name appears after release and
     on direct reload (HTTP 200, no-store). No additional full-prefetch/server-invoking link policy.
 - CONSTRAINTS: hard signed-in loads retain the request-language and account shell

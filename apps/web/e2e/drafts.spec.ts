@@ -158,7 +158,7 @@ test('page feedback, bugs and edits keep separate drafts and sign-out clears eve
     await page.getByRole('button', { name: 'Cancel', exact: true }).click();
     await page.getByRole('button', { name: 'Close sidebar' }).click();
     await page.getByRole('button', { name: 'Options', exact: true }).click();
-    await page.getByRole('button', { name: 'Sign out...' }).click();
+    await page.getByRole('button', { name: 'Sign out…' }).click();
     await page.getByRole('button', { name: 'Sign out', exact: true }).click();
     await expect.poll(() => page.evaluate(() => Object.entries(localStorage).filter(([key]) => key.startsWith('uier:draft:v1:')))).toEqual([]);
     await page.goto(`${origin}/brand`);

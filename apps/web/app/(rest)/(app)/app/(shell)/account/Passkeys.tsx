@@ -15,6 +15,7 @@ import { Input } from '@/src/components/ui/input';
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from '@/src/components/ui/item';
 import { Spinner } from '@/src/components/ui/spinner';
 import { Section } from '@/src/components/app/PageHeader';
+import { accountTitles } from '@/src/components/app/account/accountSections';
 import { FormMessage } from '@/src/components/app/FormMessage';
 import { DateTime } from '@/src/components/app/comments/DateTime';
 import { forgetPasskey, passkeyPromptError } from '@/src/components/app/passkeyCeremony';
@@ -60,7 +61,7 @@ export function Passkeys({ passkeys, recentSignIn }: { passkeys: PasskeyView[]; 
         <Section
             id="passkeys"
             icon={<KeyRoundIcon />}
-            title={t("Passkeys")}
+            title={t(accountTitles.passkeys)}
             description={t("Sign in with your fingerprint, face or screen lock instead of an email code. Those never leave your device.")}
             actions={supported && !signInAgain ? (
                 <Button variant="outline" disabled={pending} onClick={() => void add()}>

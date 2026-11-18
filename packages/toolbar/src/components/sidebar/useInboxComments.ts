@@ -107,6 +107,8 @@ export function useInboxComments(filter: CommentsFilter) {
         all: withStatus(scoped, 'all')?.length ?? 0,
         archived: withStatus(scoped, 'archived')?.length ?? 0
     };
+    // Known once the scope's lists have loaded (or from the site's summary, below): until then the tabs show no count
+    let countsLoaded = scoped !== undefined;
 
     // Which tabs' listed comments include unread ones: each tab's unread dot, chosen or not (uier #346)
     const unread = Object.fromEntries((Object.keys(counts) as CommentsStatusFilter[])
@@ -114,6 +116,7 @@ export function useInboxComments(filter: CommentsFilter) {
 
     // Site-wide totals come from the full authorized projection, never the capped text window.
     if (scope === 'all' && activity && !filter.keywords?.trim() && !filter.unread && !filter.assignedToMe) {
+        countsLoaded = true;
         // `open` here is every status but Done: Active
         counts.unresolved = activity.open;
         // An API without the In progress count keeps the listed ones
@@ -170,11 +173,14 @@ export function useInboxComments(filter: CommentsFilter) {
         comments,
         state,
         counts,
+        countsLoaded,
         unread,
         pages: [...pages.values()],
         currentPath: path,
         currentCount,
         otherCount,
+        // Whether those counts are of loaded lists: the location picker shows none until they are, never a 0
+        locationsLoaded: { current: currentSearched !== undefined, others: othersSearched !== undefined },
         siteCapped,
         more,
         isCurrentPage,

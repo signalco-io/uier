@@ -251,6 +251,14 @@ test('packaged isolated runtime uses real sign-in, helper and worker under stric
     expect((await send({ type: 'request', url: `${apiBase}/api/review/${publicId}/comments` })).ok).toBe(false);
     expect((await send({ type: 'start', tabId, projectId, publicId })).ok).toBe(true);
     await expect(reviewed.locator('#uier-toolbar')).toHaveCount(1);
+    // The popup's frame is the local part of `state`: the same sign-in, tab and review, and nothing uier answers.
+    const frame = await send({ type: 'tab' });
+    const full = await send({ type: 'state' });
+    expect(frame.ok && full.ok).toBe(true);
+    expect(Object.keys(full.value)).toEqual(expect.arrayContaining(['projects', 'account']));
+    expect(frame.value).toEqual(Object.fromEntries(Object.entries(full.value).filter(([key]) => !['projects', 'canSetUp', 'account'].includes(key))));
+    expect(frame.value).toMatchObject({ signedIn: true, tabId, binding: true, reviewing: projectId });
+    expect((await send({ type: 'tab', tabId })).ok).toBe(false);
     // The popup's update check read uier's version without cookies. Nothing is downloaded, so a
     // restart is refused and the review keeps its toolbar.
     const version = await actionPopup.evaluate(() => chrome.runtime.getManifest().version);

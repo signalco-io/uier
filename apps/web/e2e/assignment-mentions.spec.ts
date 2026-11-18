@@ -90,7 +90,7 @@ test('signing out removes cached member suggestions and assignment controls in a
     await page.getByRole('textbox', { name: 'Feedback', exact: true }).fill('@');
     await expect(page.getByRole('listbox', { name: 'Mention people' })).toBeVisible();
     await page.getByRole('button', { name: 'Options', exact: true }).click();
-    await page.getByRole('dialog', { name: 'Options', exact: true }).getByRole('button', { name: 'Sign out...', exact: true }).click();
+    await page.getByRole('dialog', { name: 'Options', exact: true }).getByRole('button', { name: 'Sign out…', exact: true }).click();
     await page.getByRole('dialog', { name: 'Options', exact: true }).getByRole('button', { name: 'Sign out', exact: true }).click();
     await expect(page.getByRole('dialog', { name: 'Options', exact: true })).toBeHidden();
     await page.getByRole('button', { name: 'Send feedback', exact: true }).click();

@@ -44,8 +44,26 @@ The new-project steps, installation diagnostics and platform instructions follow
 
 On Projects → Create project, `NewProjectHeader` and `OnboardingSteps` reuse the already-selected
 client language, so the instructions and progress appear before the form's authorized workspace reads.
-`NewProjectFields` retains the admin/public-workspace checks and the existing project/client sources,
-behind the existing `PageLoading`; it does not cache suggestions. Completed form markup and the
+The form is in the page's shell too (`NewProjectForm`, one mounted instance): the addresses and the name need no
+data, so they can be typed at once and stay as typed. What reads the request streams into it through two slots, each
+behind its own boundary and both from one read (`loadNewProject`, React `cache()`), which keeps the admin and
+public-workspace checks and the existing project/client sources and caches no suggestions: the client field's control
+(`NewProjectClient`; a workspace with clients gets another control than one without, so until then it is an outline
+behind the form's one status, "Loading the form") and the button (`NewProjectSubmit`, disabled until the page has
+authorized the person; the action authorizes again). Completed form markup and the
 max-width container are unchanged. The production-build instant suite covers empty workspaces and
-existing client suggestions on desktop, mobile and tablet; ordinary onboarding tests still exercise
+existing client suggestions on desktop, mobile and tablet, typing an address under the lock and finding it after
+release; ordinary onboarding tests still exercise
 creation and all installation steps. Direct loads retain the outer request-language shell.
+
+The install steps load the same way ([loading states](../../../docs/design/loading-states/README.md), 10). The step
+list is the install page's shell (`InstallFrame`, outside its data boundary): it reads the project, `onboarding=1` and
+the step from the address (`useParams`, `useSearchParams`), so it is there at once, moves with the click and stays
+mounted when the step arrives. Each step loads as its own card (`InstallStepLoading`, "Loading this step"): the
+title, the explanation and Back, Skip setup and Next are real, working links, and outlines stand where the project
+goes (the script, the platforms' instructions, the site to check). The last step's explanation, its content and
+whether Finish is the primary button depend on who can comment, so those are outlines (`OnboardingStepCard` without
+`next`). `ScriptDescription` is a client component for this, shared with the install guide. `InstallLoading` is the
+frame and the step together, for a project entered on its install page (`ProjectLoading`), where the Install tab is
+current at once when the shell knows of no comment. Without `onboarding=1` the page only
+redirects, and shows one section outline meanwhile.

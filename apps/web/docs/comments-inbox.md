@@ -461,6 +461,16 @@ and private visibility; cursors never grant access. Responses are private/no-sto
 browser reads are rejected.
 
 The scroll sentinel and the keyboard-accessible Load more button share one request per column.
+While that request is on its way, outlines of the next page's first items stand in above Load more and pulse (still
+with reduced motion): three rows in the list, two cards in a board column, never more than the total says remain.
+They are `CommentsLoading`'s `RowSkeleton` and `CardSkeleton` with `pulse`; the route-level skeleton draws the same
+ones still. `VirtualCommentList` shows them only for a page it asked for itself (the sentinel or the button): a
+lane's `loading` is also true while its loaded window is read again (a filter, a saved change), which brings no rows
+after the last one, so outlines there would appear and go away. They sit in a presentation item of their own before
+the sentinel (`data-next-page`), `aria-hidden` and without the rows' item attribute, so they are no row to the measured
+sizes, `aria-setsize`/`aria-posinset`, the sentinel's observer, `LayoutMotion` or the keys; the list stays
+`aria-busy` meanwhile, as before. `e2e/project-comment-paging.spec.ts` holds a search, then the next page
+of a column and of the list, and checks that only the next pages are outlined.
 Failures keep the current rows, explain what failed and offer Try again; an expired cursor restarts
 the loaded window. Failed filters release `aria-busy`, so assistive technology can announce the
 retry message. An execution-budget failure on the server-rendered page keeps the environment and

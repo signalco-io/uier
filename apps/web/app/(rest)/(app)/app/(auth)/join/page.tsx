@@ -1,5 +1,5 @@
 import { getAppI18n } from '@/src/lib/i18n/server';
-import { PageLoading } from '@/src/components/app/PageLoading';
+import { AuthCardLoading } from '@/src/components/app/AuthFrame';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -94,5 +94,5 @@ async function JoinPageContent({ searchParams }: PageProps<'/app/join'>) {
 }
 
 export default function JoinPage(props: Parameters<typeof JoinPageContent>[0]) {
-    return <Suspense fallback={<PageLoading title="Loading join" />}><JoinPageContent {...props} /></Suspense>;
+    return <Suspense fallback={<AuthCardLoading label="Loading workspace" actions={1} lines={1} />}><JoinPageContent {...props} /></Suspense>;
 }

@@ -95,7 +95,7 @@ export const es: Messages = {
         viewProject: 'Ver proyecto',
         closeToolbar: 'Cerrar la barra',
         exitReview: 'Salir de la revisión',
-        signOutMenu: 'Cerrar sesión...',
+        signOutMenu: 'Cerrar sesión…',
         poweredBy: 'Con la tecnología de uier',
         language: 'Idioma',
         languageDefault: (name: string) => `Predeterminado (${name})`,
@@ -229,7 +229,7 @@ export const es: Messages = {
         commentEdited: 'Comentario editado',
         replyEdited: 'Respuesta editada',
         replyDeleted: 'Respuesta eliminada',
-        replyPlaceholder: 'Responder...',
+        replyPlaceholder: 'Responder…',
         postReply: 'Publicar respuesta',
         replyPosted: 'Respuesta publicada',
         deleteLastReply: '¿Eliminar esta respuesta? Es el último mensaje, así que también se elimina la conversación.',
@@ -245,7 +245,7 @@ export const es: Messages = {
             ? `Más opciones para ${own ? 'tu' : 'este'} comentario`
             : `Más opciones para ${own ? 'tu' : 'esta'} respuesta`,
         reattach: 'Volver a anclar el comentario',
-        deleteMenu: 'Eliminar...'
+        deleteMenu: 'Eliminar…'
     },
     agents: {
         generic: 'Agente de IA',
@@ -261,7 +261,7 @@ export const es: Messages = {
         details: 'Detalles de la asignación',
         openIn: (app: string) => `Abrir en ${app}`,
         assignThread: 'Asignar conversación',
-        loadingPeople: 'Cargando personas...',
+        loadingPeople: 'Cargando personas…',
         unassign: 'Quitar asignación'
     },
     reactions: {
@@ -401,8 +401,8 @@ export const es: Messages = {
         draftKept: 'Tu borrador se conserva. Intenta enviarlo de nuevo.',
         recoveryKept: 'Un texto anterior sin enviar se guarda aparte porque los dos borradores superan el límite de caracteres.',
         restoreUnsent: 'Recuperar el texto sin enviar',
-        sending: 'Enviando...',
-        saving: 'Guardando...',
+        sending: 'Enviando…',
+        saving: 'Guardando…',
         keysSend: 'Intro para enviar. Mayús+Intro para una línea nueva.',
         keysSave: 'Intro para guardar. Mayús+Intro para una línea nueva.',
         collapseTip: 'Volver al formulario pequeño',
@@ -440,9 +440,9 @@ export const es: Messages = {
     attachments: {
         imageLimits: 'PNG, JPEG o WebP, hasta 512 KB y 4096 píxeles por lado.',
         imageInstead: (name: string) => `Tu imagen ${name} se adjuntará en lugar de una captura de pantalla.`,
-        reading: 'Leyendo tu imagen...',
+        reading: 'Leyendo tu imagen…',
         noScreenshot: 'No se adjuntará ninguna captura de pantalla.',
-        capturing: 'Haciendo una captura de pantalla...',
+        capturing: 'Haciendo una captura de pantalla…',
         captureFailed: 'No se pudo hacer la captura de pantalla. Puedes enviar tu comentario.',
         pageScreenshot: 'Se adjuntará una captura de la página visible.',
         regionScreenshot: 'Se adjuntará una captura de esta parte de la página.',
@@ -481,8 +481,8 @@ export const es: Messages = {
         suggestedText: 'Texto sugerido',
         comment: 'Comentario',
         reply: 'Respuesta',
-        suggestionPlaceholder: 'Tu versión del texto...',
-        commentPlaceholder: 'Deja tu opinión...',
+        suggestionPlaceholder: 'Tu versión del texto…',
+        commentPlaceholder: 'Deja tu opinión…',
         postSuggestion: 'Publicar sugerencia',
         postComment: 'Publicar comentario',
         participants: (people: string) => `En esta conversación: ${people}`,
@@ -544,7 +544,7 @@ export const es: Messages = {
         upload: 'Subir imagen',
         pasteTip: (limits: string) => `Pegar imagen. ${limits}`,
         paste: 'Pegar imagen',
-        savingReplacement: 'Guardando la sustitución...',
+        savingReplacement: 'Guardando la sustitución…',
         evidence: 'Captura de pantalla como prueba',
         none: 'Sin captura de pantalla',
         unavailable: 'La captura de pantalla ya no está disponible.',
@@ -575,7 +575,7 @@ export const es: Messages = {
         noneVisible: 'No hay sugerencias para este texto.',
         tooLong: (max: number) => `Las sugerencias funcionan con selecciones de hasta ${max} caracteres.`,
         instruction: 'Instrucción para las sugerencias',
-        instructionPlaceholder: 'Más corto, más cercano...',
+        instructionPlaceholder: 'Más corto, más cercano…',
         suggest: 'Sugerir',
         limited: (retry: string) => `No hay más sugerencias por ahora. Inténtalo de nuevo ${retry}. Puedes escribir la tuya.`,
         suggestions: 'Sugerencias'
@@ -681,7 +681,7 @@ export const es: Messages = {
         reply: 'Responder',
         closeReply: 'Cerrar respuesta',
         openOn: 'Abrir en ',
-        loading: 'Cargando comentarios...',
+        loading: 'Cargando comentarios…',
         showOnOtherPages: (count: number) => `Mostrar ${count} en otras páginas`,
         commentNumber: (number: number) => `Comentario #${number}`,
         comment: 'Comentario',
@@ -864,7 +864,7 @@ export const es: Messages = {
         notAnIssue: 'No es un problema',
         postedAs: (label: string, number: number | undefined) => `${label}${number !== undefined ? ` como #${number}` : ''}`,
         show: 'Mostrar',
-        posting: 'Publicando...',
+        posting: 'Publicando…',
         comment: 'Comentar',
         restore: 'Recuperar',
         dismissed: 'Descartados',
@@ -883,7 +883,7 @@ export const es: Messages = {
         checkAgain: 'Volver a comprobar',
         closePanel: 'Cerrar el panel',
         closeNamed: (title: string) => `Cerrar el panel ${title}`,
-        checking: 'Comprobando...',
+        checking: 'Comprobando…',
         notChecked: 'No se pudo comprobar. Vuelve a comprobar para reintentarlo.',
         unknownCheck: (kind: string, id: string) => `Comprobación de ${kind}: ${id}`,
         attentionIssues: (panel: string, count: number) => `${panel}, ${count} ${p(count, 'problema encontrado', 'problemas encontrados')}`,
@@ -920,7 +920,7 @@ export const es: Messages = {
             opensNewTab: (help: string) => ` ${help} (se abre en una pestaña nueva)`,
             elements: (help: string) => `Elementos: ${help}`,
             bestPractice: 'Buena práctica',
-            checkingPage: 'Comprobando esta página...',
+            checkingPage: 'Comprobando esta página…',
             couldNotRun: 'No se pudo ejecutar la comprobación de accesibilidad.',
             noIssues: 'No se han encontrado problemas.',
             automatedNote: 'Las comprobaciones automáticas solo encuentran algunos problemas. Prueba también con teclado y lector de pantalla.',
@@ -959,7 +959,7 @@ export const es: Messages = {
         }
     },
     sections: {
-        checkingPage: 'Comprobando esta página...',
+        checkingPage: 'Comprobando esta página…',
         notChecked: 'No se pudo comprobar. Vuelve a comprobar para reintentarlo.',
         aiSearch: {
             title: 'Búsqueda con IA',
@@ -1009,7 +1009,7 @@ export const es: Messages = {
             showOrder: 'Mostrar el orden de tabulación',
             focusNote: 'Mueve el foco por los controles de la página, ejecutando sus manejadores de foco, y lista los que no muestran ningún cambio visible.',
             checkFocus: 'Comprobar los indicadores de foco',
-            moving: 'Moviendo el foco por la página...',
+            moving: 'Moviendo el foco por la página…',
             focusFailed: 'No se pudo ejecutar la comprobación del foco.'
         },
         motion: { title: 'Movimiento' },
@@ -1018,7 +1018,7 @@ export const es: Messages = {
             spacing: 'Espaciado del texto',
             spacingNote: 'Aplica a la página el espaciado de texto de WCAG 1.4.12 y lista el texto que ya no cabe. Se mantiene mientras miras.',
             applied: (value: string) => `Espaciado del texto aplicado. ${value}`,
-            applying: 'Aplicando el espaciado del texto...',
+            applying: 'Aplicando el espaciado del texto…',
             apply: 'Aplicar el espaciado del texto'
         },
         screenReader: {
@@ -1030,7 +1030,7 @@ export const es: Messages = {
         sharing: {
             title: 'Compartir',
             imageSize: 'Tamaño de la imagen',
-            loadingImage: 'Cargando la imagen...',
+            loadingImage: 'Cargando la imagen…',
             imageNotShown: 'La imagen no se muestra aquí',
             noDescription: 'Sin descripción',
             searchCaption: 'Así se ve aproximadamente un resultado de búsqueda',
@@ -1039,9 +1039,9 @@ export const es: Messages = {
         },
         structuredData: { title: 'Datos estructurados' },
         pageExtras: {
-            checkingImages: 'Comprobando las imágenes...',
+            checkingImages: 'Comprobando las imágenes…',
             checkedOf: (checked: number, total: number) => `${checked} de ${total} comprobados`,
-            checkingLinks: 'Comprobando los enlaces...',
+            checkingLinks: 'Comprobando los enlaces…',
             linksFailed: 'No se pudieron comprobar los enlaces.',
             notChecked: 'No comprobado.',
             noLinks: 'No hay enlaces que comprobar en este sitio.',

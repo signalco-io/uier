@@ -50,7 +50,9 @@ Checked in `apps/web/e2e/toolbar-thread.spec.ts`.
 - Then **Copy**: a menu with Copy issue ([feedback export](feedback-export.md)) and Copy link (`?uier-comment=`,
   `src/review.ts`), each described.
 - Then **Thread options** (`CommentThreadMenu.tsx`), with the triage and email controls each person may use:
-  assign (the people open under the line), priority, Request verification ([fix verification](fix-verification.md)),
+  assign (the people open under the line: Unassign, the people, Done; until the people load, two outlines of a
+  person's row hold their place, `aria-hidden`, and a visually hidden `role="status"` says "Loading people…"),
+  priority, Request verification ([fix verification](fix-verification.md)),
   Follow / Unfollow thread, Mute project emails and, once read, Mark as unread. No menu when there is none.
   Members (the project's viewer is a member, `useProjectViewer`) also get Open in app, last: a link to the thread in the
   app's inbox (`/app/projects/<code>?comment=<id>`, as in [the app's inbox](../../../apps/web/docs/comments-inbox.md)) in

@@ -103,7 +103,7 @@ person's way
   checks), and the audit only where the Accessibility button is (`auditAvailable()`). Where the browser
   asks to save data (`Save-Data`), the audit is not downloaded unasked; the panel still runs it.
 - A check a panel asked for meanwhile is not run twice (`auditedPath`, `seoPath`), and an open panel shows
-  "Checking this page..." until the background audit ends. A failed background audit is quiet (opening the
+  "Checking this page…" until the background audit ends. A failed background audit is quiet (opening the
   panel tries again, and says so if it fails then), unless the panel is open by then. One that ended
   without a report (too large a page, too slow a step) leaves the check to the panel, and an open panel
   checks the page then. It never clears a highlight.
@@ -220,7 +220,7 @@ An open inbox, Accessibility or SEO panel stays open on the next page and shows 
 - A restored checks panel checks the new page once it has rendered (`src/checks/pageSettled.ts`: no
   added, removed or edited nodes for 300 ms, at most 3 s), since a client-side router can change the
   address before the page. Two restored checks panels wait together. The Accessibility panel shows
-  "Checking this page..." meanwhile; Check again checks at once (and the other panel waiting with it). An audit still running from the previous page is not reused: the new one waits for
+  "Checking this page…" meanwhile; Check again checks at once (and the other panel waiting with it). An audit still running from the previous page is not reused: the new one waits for
   it and checks this page.
 
 ## Accessibility
@@ -247,7 +247,7 @@ An open inbox, Accessibility or SEO panel stays open on the next page and shows 
   review bundle. The panel lists only what axe-core finds
   ([uier #198](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fbrand&comment=comment_fCCTyY6zuzO3K_Kr-DALq)):
   the status ("3 issues found.", read out only: the tiles show the counts, [uier #226](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_rBu2-JZLowGgsaVmjl9o-);
-  "Checking this page...", a failure and "No issues found." show), a summary tile per impact with its
+  "Checking this page…", a failure and "No issues found." show), a summary tile per impact with its
   elements' count, when it was checked (not with what: the checks change, [uier #227](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_Im2uENyTKFmnJbPng8NWD)),
   then, in the Issues tab, a section per impact (critical, serious, moderate, minor); with nothing to fix
   or review, the tab has a placeholder instead, the empty inbox's dashed card with a green check

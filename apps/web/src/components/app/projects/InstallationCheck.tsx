@@ -92,7 +92,7 @@ export function InstallationCheck({ projectId, publicId, urls, bare = false, onR
         </Field>
         <div className="flex flex-wrap gap-2">
             {/* Once confirmed, checking again is no longer the main thing to do */}
-            <Button type="button" variant={result?.kind === 'success' ? 'outline' : 'default'} onClick={start} disabled={checking}>{checking && <Spinner data-icon="inline-start" />}{checking ? t("Checking installation...") : result ? t("Retry installation check") : t("Check installation")}</Button>
+            <Button type="button" variant={result?.kind === 'success' ? 'outline' : 'default'} onClick={start} disabled={checking}>{checking && <Spinner data-icon="inline-start" />}{checking ? t("Checking installation…") : result ? t("Retry installation check") : t("Check installation")}</Button>
             {checking && <Button type="button" variant="outline" onClick={() => {
                 popupRef.current?.close(); stop({ kind: 'inconclusive', message: t("Check canceled. Retry when the site is ready.") });
             }}>{t("Cancel check")}</Button>}

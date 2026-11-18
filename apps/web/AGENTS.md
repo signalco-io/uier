@@ -108,7 +108,8 @@ does, and the rules that apply only to it, live in [`docs/`](docs/README.md), on
   render them; `buttonVariants` returns `cn()`-merged classes; dialog and alert-dialog backdrops have
   `forceRender` (a dialog opened from the mobile sidebar sheet is nested); `sidebar` docks from `lg` (its `md:` classes
   are `lg:`, with `useIsMobile`'s 1024 px) and keeps its actions' larger hit area on touch screens
-  (`pointer-fine:after:hidden`, not `md:after:hidden`); `kbd` prints in `font-mono` (BRAND.md: mono means machine).
+  (`pointer-fine:after:hidden`, not `md:after:hidden`), and its `SidebarMenuSkeleton` is `bg-sidebar-accent` (the default
+  skeleton is the sidebar's own grey and would not show); `kbd` prints in `font-mono` (BRAND.md: mono means machine).
   In tests, single-choice toggle
   groups are `button`s with `aria-pressed` in a `group` (not radios), Base UI checkboxes are found by role
   (`getByLabel` also matches their hidden input), a tab panel is found by its tab's name (the outgoing

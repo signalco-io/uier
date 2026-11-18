@@ -101,7 +101,20 @@ export function CommentAssignee({ comment, className }: { comment: CommentItem; 
     </Popper>;
 }
 
-/** The people to assign the thread to, under its header while `CommentAssignee` is open; refreshed each time it opens */
+/**
+ * A person's outline while the people load: a row as tall as a person's button, with a line where the name goes (the
+ * rows have no avatar). It pulses, and is still with reduced motion. Decorative: the options' status says what is loading.
+ */
+function PersonOutline({ className }: { className: string }) {
+    return <div data-slot="skeleton" className="flex h-9 items-center px-3 motion-safe:animate-pulse pointer-coarse:h-11">
+        <span className={cx('h-3 rounded-sm bg-accent', className)} />
+    </div>;
+}
+
+/**
+ * The people to assign the thread to, under its header while `CommentAssignee` is open; refreshed each time it opens.
+ * Until they load, two outlines hold their place between Unassign and Done.
+ */
 export function CommentAssigneeOptions({ comment, autoFocus = false, onAssigned }: { comment: CommentItem; autoFocus?: boolean; onAssigned: () => void }) {
     const participants = useParticipants(comment.id);
     const { assign } = useComments();
@@ -109,13 +122,17 @@ export function CommentAssigneeOptions({ comment, autoFocus = false, onAssigned 
 
     // Like a menu: ↑ and ↓ move between the people; opened with A, the first has the focus
     return <div className="flex flex-col rounded-lg border p-1 text-xs text-muted-foreground" role="group" aria-label={t.assignment.assignThread} onKeyDown={moveFocusInMenu}>
-        {participants.isPending && <span role="status" className="px-2 py-1.5">{t.assignment.loadingPeople}</span>}
+        <span role="status" className="sr-only">{participants.isPending ? t.assignment.loadingPeople : ''}</span>
         <CommentsErrorMessage error={participants.error ?? assign.error} />
         <Button variant="plain" size="sm" className="justify-start" disabled={assign.isPending} autoFocus={autoFocus}
             onClick={async () => {
                 try { await assign.mutateAsync({ commentId: comment.id, assigneeId: null }); onAssigned(); }
                 catch { /* Keep the error available. */ }
             }}>{t.assignment.unassign}</Button>
+        {participants.isPending && <div aria-hidden="true" data-uier-people-loading="">
+            <PersonOutline className="w-28" />
+            <PersonOutline className="w-20" />
+        </div>}
         {(participants.data ?? []).map(person => {
             const checked = commentAssignees(comment).some(assignee => assignee.id === person.id);
             return <Button key={person.id} variant="plain" size="sm" className="justify-start gap-2" aria-pressed={checked} disabled={assign.isPending}

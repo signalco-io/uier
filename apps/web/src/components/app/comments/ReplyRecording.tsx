@@ -55,7 +55,7 @@ export function ReplyRecordingPreview({ recording, disabled }: { recording: Reco
         <FieldDescription role="status" className="min-w-0 flex-1">{t('Choose a tab, window or screen to record.')}</FieldDescription>
         {discard}
     </div>;
-    if (recording.phase === 'reading') return <FieldDescription role="status">{t('Preparing recording...')}</FieldDescription>;
+    if (recording.phase === 'reading') return <FieldDescription role="status">{t('Preparing recording…')}</FieldDescription>;
     if (recording.phase === 'recording') return <div className="mt-1 min-w-0 space-y-1.5 rounded-lg border p-2" data-recording-capture="">
         <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
             <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-destructive motion-safe:animate-pulse" />

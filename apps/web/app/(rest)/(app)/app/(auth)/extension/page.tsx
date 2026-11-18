@@ -1,5 +1,5 @@
 import { getAppI18n } from '@/src/lib/i18n/server';
-import { PageLoading } from '@/src/components/app/PageLoading';
+import { AuthCardLoading } from '@/src/components/app/AuthFrame';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { ClockIcon, MousePointerClickIcon } from 'lucide-react';
@@ -62,5 +62,5 @@ async function ExtensionConsentContent({ searchParams }: { searchParams: Promise
 }
 
 export default function ExtensionConsent(props: Parameters<typeof ExtensionConsentContent>[0]) {
-    return <Suspense fallback={<PageLoading title="Loading extension" />}><ExtensionConsentContent {...props} /></Suspense>;
+    return <Suspense fallback={<AuthCardLoading label="Loading sign-in" actions={2} lines={1} />}><ExtensionConsentContent {...props} /></Suspense>;
 }

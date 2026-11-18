@@ -1,4 +1,4 @@
-import { PageLoading } from '@/src/components/app/PageLoading';
+import { AuthCardLoading } from '@/src/components/app/AuthFrame';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
@@ -67,5 +67,5 @@ async function ConnectPageContent({ params }: PageProps<'/app/connect/[requestId
 }
 
 export default function ConnectPage(props: Parameters<typeof ConnectPageContent>[0]) {
-    return <Suspense fallback={<PageLoading title="Loading connection" />}><ConnectPageContent {...props} /></Suspense>;
+    return <Suspense fallback={<AuthCardLoading label="Loading connection" actions={2} lines={3} />}><ConnectPageContent {...props} /></Suspense>;
 }

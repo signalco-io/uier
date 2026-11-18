@@ -117,6 +117,7 @@ function ReplySkeleton({ reply, actions }: { reply: OutlineMessage; actions: boo
  * Text placeholders are filler words as long as each loaded line, so they wrap about where it does: a line can still
  * wrap one word sooner or later, and Markdown other than paragraphs is approximated. The drawn controls are inert
  * until the thread is ready; Back to comments works at once. A failed load says so in the messages' place, with Try again.
+ * The card is busy (`aria-busy`) and its status is one visually hidden line, "Loading thread".
  */
 export function CommentCardShell({ projectId, comment, reviewLink, assignees, userId, onBack, failed = false, onRetry, className }: {
     projectId: string;
@@ -148,8 +149,10 @@ export function CommentCardShell({ projectId, comment, reviewLink, assignees, us
     const author = comment.author.isMe ? t("You") : comment.author.name;
     const firstReactions = !comment.deleted && comment.messageId ? outline?.reactions ?? 0 : 0;
     return (
-        <Card role="status" aria-busy={!failed} data-thread-shell={failed ? 'failed' : 'loading'} className={cn('@container/comment gap-0 py-0', className)}>
-            <span className="sr-only">{t("Loading comments")}</span>
+        <Card aria-busy={!failed} data-thread-shell={failed ? 'failed' : 'loading'} className={cn('@container/comment gap-0 py-0', className)}>
+            {/* The status is this one line, not the card: a live region is read whole, and the card is the thread.
+                It stays mounted and empties when the load fails (the alert below says so), so Try again is announced */}
+            <span role="status" className="sr-only">{failed ? '' : t("Loading thread")}</span>
             <div className="flex flex-col gap-4 px-4 py-3">
                 <div className="flex items-center gap-2">
                     {onBack && (

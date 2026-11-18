@@ -1,5 +1,5 @@
 import { getAppI18n } from '@/src/lib/i18n/server';
-import { PageLoading } from '@/src/components/app/PageLoading';
+import { AuthCardLoading } from '@/src/components/app/AuthFrame';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -47,5 +47,5 @@ async function GoogleLinkPageContent() {
 }
 
 export default function GoogleLinkPage() {
-    return <Suspense fallback={<PageLoading title="Loading link" />}><GoogleLinkPageContent /></Suspense>;
+    return <Suspense fallback={<AuthCardLoading label="Loading sign-in" actions={1} lines={1} />}><GoogleLinkPageContent /></Suspense>;
 }

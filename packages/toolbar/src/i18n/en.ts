@@ -97,7 +97,7 @@ export const en = {
         viewProject: 'View project',
         closeToolbar: 'Close toolbar',
         exitReview: 'Exit review',
-        signOutMenu: 'Sign out...',
+        signOutMenu: 'Sign out…',
         poweredBy: 'Powered by uier',
         language: 'Language',
         /** The choice that follows the project: `name` is the default language's own name ("Deutsch") */
@@ -235,7 +235,7 @@ export const en = {
         commentEdited: 'Comment edited',
         replyEdited: 'Reply edited',
         replyDeleted: 'Reply deleted',
-        replyPlaceholder: 'Reply...',
+        replyPlaceholder: 'Reply…',
         postReply: 'Post reply',
         replyPosted: 'Reply posted',
         deleteLastReply: 'Delete this reply? It is the last message, so the thread is removed too.',
@@ -249,7 +249,7 @@ export const en = {
         replyOptions: 'Reply options',
         moreOptionsFor: (own: boolean, kind: 'comment' | 'reply') => `More options for ${own ? 'your' : 'this'} ${kind}`,
         reattach: 'Reattach comment',
-        deleteMenu: 'Delete...'
+        deleteMenu: 'Delete…'
     },
     agents: {
         /** The name of an agent uier can't tell (`agent`); named agents keep their product names */
@@ -267,7 +267,7 @@ export const en = {
         details: 'Assignee details',
         openIn: (app: string) => `Open in ${app}`,
         assignThread: 'Assign thread',
-        loadingPeople: 'Loading people...',
+        loadingPeople: 'Loading people…',
         unassign: 'Unassign'
     },
     reactions: {
@@ -413,8 +413,8 @@ export const en = {
         draftKept: 'Your draft is kept. Try sending again.',
         recoveryKept: 'Earlier unsent text is kept separately because both drafts exceed the character limit.',
         restoreUnsent: 'Restore unsent text',
-        sending: 'Sending...',
-        saving: 'Saving...',
+        sending: 'Sending…',
+        saving: 'Saving…',
         keysSend: 'Enter to send. Shift+Enter for a new line.',
         keysSave: 'Enter to save. Shift+Enter for a new line.',
         collapseTip: 'Back to the smaller form',
@@ -452,9 +452,9 @@ export const en = {
     attachments: {
         imageLimits: 'PNG, JPEG or WebP, up to 512 KB and 4096 pixels on each side.',
         imageInstead: (name: string) => `Your image ${name} will be attached instead of a screenshot.`,
-        reading: 'Reading your image...',
+        reading: 'Reading your image…',
         noScreenshot: 'No screenshot will be attached.',
-        capturing: 'Taking a screenshot...',
+        capturing: 'Taking a screenshot…',
         captureFailed: 'The screenshot could not be taken. You can still send your comment.',
         pageScreenshot: 'A screenshot of the visible page will be attached.',
         regionScreenshot: 'A screenshot of this part of the page will be attached.',
@@ -495,8 +495,8 @@ export const en = {
         suggestedText: 'Suggested text',
         comment: 'Comment',
         reply: 'Reply',
-        suggestionPlaceholder: 'Your version of the text...',
-        commentPlaceholder: 'Leave feedback...',
+        suggestionPlaceholder: 'Your version of the text…',
+        commentPlaceholder: 'Leave feedback…',
         postSuggestion: 'Post suggestion',
         postComment: 'Post comment',
         /** The pin's description: the people in its thread, a list ("Ana, Ben and you") */
@@ -562,7 +562,7 @@ export const en = {
         upload: 'Upload image',
         pasteTip: (limits: string) => `Paste image. ${limits}`,
         paste: 'Paste image',
-        savingReplacement: 'Saving replacement...',
+        savingReplacement: 'Saving replacement…',
         evidence: 'Screenshot evidence',
         none: 'No screenshot',
         unavailable: 'The screenshot is no longer available.',
@@ -593,7 +593,7 @@ export const en = {
         noneVisible: 'No suggestions for this text.',
         tooLong: (max: number) => `Suggestions work on selections of up to ${max} characters.`,
         instruction: 'Instruction for suggestions',
-        instructionPlaceholder: 'Shorter, friendlier...',
+        instructionPlaceholder: 'Shorter, friendlier…',
         suggest: 'Suggest',
         limited: (retry: string) => `No more suggestions for now. Try again ${retry}. You can still write your own.`,
         suggestions: 'Suggestions'
@@ -703,7 +703,7 @@ export const en = {
         reply: 'Reply',
         closeReply: 'Close reply',
         openOn: 'Open on ',
-        loading: 'Loading comments...',
+        loading: 'Loading comments…',
         showOnOtherPages: (count: number) => `Show ${count} on other pages`,
         commentNumber: (number: number) => `Comment #${number}`,
         comment: 'Comment',
@@ -894,7 +894,7 @@ export const en = {
         /** "Comment posted as #12" */
         postedAs: (label: string, number: number | undefined) => `${label}${number !== undefined ? ` as #${number}` : ''}`,
         show: 'Show',
-        posting: 'Posting...',
+        posting: 'Posting…',
         comment: 'Comment',
         restore: 'Restore',
         dismissed: 'Dismissed',
@@ -917,7 +917,7 @@ export const en = {
         checkAgain: 'Check again',
         closePanel: 'Close panel',
         closeNamed: (title: string) => `Close ${title} panel`,
-        checking: 'Checking...',
+        checking: 'Checking…',
         notChecked: 'This could not be checked. Check again to retry.',
         /** A check the toolbar can no longer name: its kind and id ("SEO check: canonical") */
         unknownCheck: (kind: string, id: string) => `${kind} check: ${id}`,
@@ -957,7 +957,7 @@ export const en = {
             opensNewTab: (help: string) => ` ${help} (opens in a new tab)`,
             elements: (help: string) => `Elements: ${help}`,
             bestPractice: 'Best practice',
-            checkingPage: 'Checking this page...',
+            checkingPage: 'Checking this page…',
             couldNotRun: 'The accessibility check could not run.',
             noIssues: 'No issues found.',
             automatedNote: 'Automated checks find only some issues. Also try a keyboard and a screen reader.',
@@ -999,7 +999,7 @@ export const en = {
         }
     },
     sections: {
-        checkingPage: 'Checking this page...',
+        checkingPage: 'Checking this page…',
         notChecked: 'This could not be checked. Check again to retry.',
         aiSearch: {
             title: 'AI search',
@@ -1050,7 +1050,7 @@ export const en = {
             showOrder: 'Show tab order',
             focusNote: "Moves the focus through the page's controls, running their focus handlers, and lists the ones that show no visible change.",
             checkFocus: 'Check focus indicators',
-            moving: 'Moving the focus through the page...',
+            moving: 'Moving the focus through the page…',
             focusFailed: 'The focus check could not run.'
         },
         motion: { title: 'Motion' },
@@ -1059,7 +1059,7 @@ export const en = {
             spacing: 'Text spacing',
             spacingNote: "Applies WCAG 1.4.12's text spacing to the page and lists text that no longer fits. It stays on while you look.",
             applied: (value: string) => `Text spacing applied. ${value}`,
-            applying: 'Applying text spacing...',
+            applying: 'Applying text spacing…',
             apply: 'Apply text spacing'
         },
         screenReader: {
@@ -1071,7 +1071,7 @@ export const en = {
         sharing: {
             title: 'Sharing',
             imageSize: 'Image size',
-            loadingImage: 'Loading the image...',
+            loadingImage: 'Loading the image…',
             imageNotShown: 'Image not shown here',
             noDescription: 'No description',
             searchCaption: 'About how a search result looks',
@@ -1080,9 +1080,9 @@ export const en = {
         },
         structuredData: { title: 'Structured data' },
         pageExtras: {
-            checkingImages: 'Checking the images...',
+            checkingImages: 'Checking the images…',
             checkedOf: (checked: number, total: number) => `Checked ${checked} of ${total}`,
-            checkingLinks: 'Checking the links...',
+            checkingLinks: 'Checking the links…',
             linksFailed: 'The links could not be checked.',
             notChecked: 'Not checked.',
             noLinks: 'No links to check on this site.',

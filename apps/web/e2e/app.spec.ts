@@ -1144,10 +1144,10 @@ test('reply from list and board with mentions, keyboard input and local drafts',
             await expect(input).toHaveText('', { useInnerText: true });
             await input.fill('New text while sending');
             await expect(card.getByRole('button', { name: 'Post reply' })).toBeDisabled();
-            // "Sending..." is in the reply's header (uier #377); the saved reply then takes the pending one's place in
+            // "Sending…" is in the reply's header (uier #377); the saved reply then takes the pending one's place in
             // the same list item, which never leaves the thread in between
             const sending = card.getByRole('listitem').filter({ hasText: text.trim() });
-            await expect(sending.getByRole('status')).toHaveText('Sending...');
+            await expect(sending.getByRole('status')).toHaveText('Sending…');
             await sending.evaluate(element => {
                 element.setAttribute('data-sent-reply', '');
                 const list = element.parentElement!;
@@ -1239,7 +1239,7 @@ test('app replies retry a lost response once and reject forged or unauthorized a
         await expect(card.getByText('Save once after response loss', { exact: true })).toHaveCount(1);
         await page.unroute(`**/app/projects/${project}*`);
         expect((await (await request.get(`/api/review/${project}/comments?scope=site`, { headers })).json()).find((item: { id: string }) => item.id === saved.id).thread.items).toHaveLength(2);
-        await expect(card.getByText('Sending...', { exact: true })).toHaveCount(0);
+        await expect(card.getByText('Sending…', { exact: true })).toHaveCount(0);
         // A fresh send with identical words is a separate message, not a receipt replay.
         await input.fill('Save once after response loss');
         await input.press('Enter');

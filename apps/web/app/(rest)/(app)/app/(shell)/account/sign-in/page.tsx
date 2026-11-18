@@ -1,10 +1,9 @@
 import { getAppI18n } from '@/src/lib/i18n/server';
-import { PageLoading } from '@/src/components/app/PageLoading';
+import { AccountSignInLoading } from '@/src/components/app/account/AccountLoading';
+import { SignOutSection } from '@/src/components/app/account/SignOutSection';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
-import { Section } from '@/src/components/app/PageHeader';
 import { requireAppContext } from '@/src/lib/app/context';
-import { SignOutButton } from '@/src/components/app/shell/SignOutButton';
 import { GoogleAccount } from '../GoogleAccount';
 import { MicrosoftAccount } from '../MicrosoftAccount';
 import { PasskeysSection } from '../PasskeysSection';
@@ -16,20 +15,24 @@ export async function generateMetadata(): Promise<Metadata> {
 };
 }
 
-/** How the person signs in: linked Google and Microsoft accounts, passkeys, and signing out of this browser */
+/** How the person signs in: linked Google and Microsoft accounts and passkeys */
 async function AccountSignInPageContent() {
-    const { t } = await getAppI18n();
     const { user } = await requireAppContext();
     return (
         <>
             <GoogleAccount userId={user.id} />
             <MicrosoftAccount userId={user.id} />
             <PasskeysSection userId={user.id} />
-            <Section id="session" title={t("Sign out")} description={t("Sign out of uier on this browser.")} actions={<SignOutButton />} />
         </>
     );
 }
 
+/** The sign-in methods load; signing out of this browser needs nothing from the account, so its card is there at once */
 export default function AccountSignInPage() {
-    return <Suspense fallback={<PageLoading title="Loading sign in" />}><AccountSignInPageContent /></Suspense>;
+    return (
+        <>
+            <Suspense fallback={<AccountSignInLoading />}><AccountSignInPageContent /></Suspense>
+            <SignOutSection />
+        </>
+    );
 }

@@ -226,7 +226,7 @@ test('screenshots: the composer says while one is taken, and turning off Attach 
             ? held.then(() => original(input, init)) : original(input, init);
     });
     const draft = await startComment(page, 'Send this without an image.', page.getByRole('heading', { level: 1 }));
-    await expect(draft.getByRole('status').filter({ hasText: 'Taking a screenshot...' })).toBeVisible();
+    await expect(draft.getByRole('status').filter({ hasText: 'Taking a screenshot…' })).toBeVisible();
     await page.evaluate(() => (window as unknown as { releaseCapture: () => void }).releaseCapture());
     const disclosure = draft.getByRole('status').filter({ hasText: 'A screenshot of this part of the page will be attached.' });
     await expect(disclosure).toBeVisible();
@@ -279,7 +279,7 @@ test('screenshots: turning off Attach screenshot stops one being taken, and turn
     });
     const capture = () => page.evaluate(() => (window as unknown as { capture: { release: () => void; encoded: number } }).capture);
     const draft = await startComment(page, 'Text only after all.', page.getByRole('heading', { level: 1 }));
-    await expect(draft.getByRole('status').filter({ hasText: 'Taking a screenshot...' })).toBeVisible();
+    await expect(draft.getByRole('status').filter({ hasText: 'Taking a screenshot…' })).toBeVisible();
     await draft.getByRole('button', { name: 'Attach screenshot' }).click();
     await expect(draft.getByRole('status').filter({ hasText: 'No screenshot will be attached.' })).toBeVisible();
     await page.evaluate(() => (window as unknown as { capture: { release: () => void } }).capture.release());
@@ -435,7 +435,7 @@ test('screenshots: nothing is sent while an attached image is still being read',
     const draft = await startComment(page, 'Wait for my picture.', page.getByRole('heading', { level: 1 }));
     let release = await holdImageReading(page);
     await draft.locator('input[type="file"][accept*="image/"]').setInputFiles({ name: 'evidence.png', mimeType: 'image/png', buffer: Buffer.from(pngImage.split(',')[1]!, 'base64') });
-    await expect(draft.getByRole('status').filter({ hasText: 'Reading your image...' })).toBeAttached();
+    await expect(draft.getByRole('status').filter({ hasText: 'Reading your image…' })).toBeAttached();
     await expect(draft.getByRole('button', { name: 'Post comment' })).toBeDisabled();
     await draft.getByRole('textbox', { name: 'Comment' }).press('Enter');
     await release();
@@ -455,7 +455,7 @@ test('screenshots: nothing is sent while an attached image is still being read',
     await textbox.fill('Wait for this one too.');
     release = await holdImageReading(page);
     await pasteImage(textbox, pngImage);
-    await expect(dialog.getByRole('status').filter({ hasText: 'Reading your image...' })).toBeAttached();
+    await expect(dialog.getByRole('status').filter({ hasText: 'Reading your image…' })).toBeAttached();
     await expect(dialog.getByRole('button', { name: 'Send feedback' })).toBeDisabled();
     await textbox.press('Enter');
     await release();

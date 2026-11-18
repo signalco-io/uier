@@ -1,13 +1,14 @@
 'use client';
 
 import { useLayoutEffect, useReducer, useSyncExternalStore } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { ArchiveIcon, ChevronDownIcon, KanbanIcon, ListFilterIcon, ListIcon, SearchIcon } from 'lucide-react';
 import { useAppI18n } from '@/src/lib/i18n/client';
 import { cn } from '@/src/lib/utils';
 import { Button } from '@/src/components/ui/button';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/src/components/ui/input-group';
 import { Skeleton } from '@/src/components/ui/skeleton';
+import { useShellInfo } from '../shell/ShellInfo';
 import { parseCommentsView } from '@/src/lib/app/commentsViewPreference';
 import { isActiveStatusFilter, isDoneStatusFilter, statusFilterLabels, type CommentsView, type StatusFilter } from './commentLabels';
 import { storedCommentsView } from './commentsView';
@@ -35,27 +36,62 @@ function openingView(params: URLSearchParams, remembered: CommentsView | undefin
 const guessedView = () => openingView(new URLSearchParams(window.location.search), storedCommentsView());
 const guessedStatus = () => addressStatus(new URLSearchParams(window.location.search));
 
+/**
+ * One rule for motion: an outline in a skeleton a navigation shows at once is still; one that stands in for rows inside
+ * a loaded page (`pulse`: the next page of a list or column) pulses, and is still with reduced motion
+ */
+const outlineMotion = (pulse: boolean) => pulse ? 'motion-reduce:animate-none' : 'animate-none';
+
 /** A row of the inbox list (`CommentRow`): the author's avatar, the title line and the meta line */
-function RowSkeleton({ title }: { title: string }) {
+export function RowSkeleton({ title, pulse = false }: { title: string; pulse?: boolean }) {
+    const motion = outlineMotion(pulse);
     return (
         <div className="flex gap-2.5 px-3 py-2.5">
             <div className="grid flex-1 grid-cols-[auto_minmax(0,1fr)] gap-x-2 gap-y-1">
-                <span className="flex h-5 items-center gap-2"><span className="w-2" /><Skeleton className="size-5 animate-none rounded-full" /></span>
-                <span className="flex h-5 items-center gap-2"><Skeleton className={cn('h-3.5 animate-none', title)} /><Skeleton className="ml-auto h-3 w-12 animate-none" /></span>
+                <span className="flex h-5 items-center gap-2"><span className="w-2" /><Skeleton className={cn('size-5 rounded-full', motion)} /></span>
+                <span className="flex h-5 items-center gap-2"><Skeleton className={cn('h-3.5', motion, title)} /><Skeleton className={cn('ml-auto h-3 w-12', motion)} /></span>
                 <span />
-                <span className="flex h-5 items-center gap-2"><Skeleton className="h-3 w-40 max-w-[60%] animate-none" /><Skeleton className="ml-auto h-3 w-14 animate-none" /></span>
+                <span className="flex h-5 items-center gap-2"><Skeleton className={cn('h-3 w-40 max-w-[60%]', motion)} /><Skeleton className={cn('ml-auto h-3 w-14', motion)} /></span>
             </div>
         </div>
     );
 }
 
 /** A board card (`CommentRow` as a card): a two-line title and the meta line */
-function CardSkeleton({ title }: { title: string }) {
+export function CardSkeleton({ title, pulse = false }: { title: string; pulse?: boolean }) {
+    const motion = outlineMotion(pulse);
     return (
         <div className="flex flex-col gap-2 rounded-lg border bg-card px-3 py-2.5 dark:bg-background">
-            <span className="flex items-center gap-2"><Skeleton className="size-5 animate-none rounded-full" /><Skeleton className={cn('h-3.5 animate-none', title)} /></span>
-            <Skeleton className="ml-7 h-3.5 w-1/2 animate-none" />
-            <Skeleton className="ml-7 h-3 w-2/3 animate-none" />
+            <span className="flex items-center gap-2"><Skeleton className={cn('size-5 rounded-full', motion)} /><Skeleton className={cn('h-3.5', motion, title)} /></span>
+            <Skeleton className={cn('ml-7 h-3.5 w-1/2', motion)} />
+            <Skeleton className={cn('ml-7 h-3 w-2/3', motion)} />
+        </div>
+    );
+}
+
+/**
+ * What the comments will show, as far as the shell beside them already knows (`useShellInfo`, docs/design/loading-states
+ * #7): `threads` (also when nothing is known), `none` for a project with comments but none in the tab being opened
+ * (the loaded page keeps its width and says so in one box), `empty` for a project without comments (the narrower
+ * "No comments yet"). Only the Active tab can be told: the sidebar counts what is not done. A project with nothing
+ * open and no thread the shell has seen is taken as empty; the shell reads threads only when the projects are
+ * ordered by activity, so in another order a project whose comments are all done loads as empty and then widens.
+ */
+type Expected = 'threads' | 'none' | 'empty';
+function useExpected(status: StatusFilter): Expected {
+    const { projectId } = useParams<{ projectId: string }>();
+    const project = useShellInfo()?.projects[projectId];
+    if (!project || project.open !== 0 || !isActiveStatusFilter(status)) return 'threads';
+    return project.feedback ? 'none' : 'empty';
+}
+
+/** The box an empty list or project shows (`Empty` with its border): the icon's tile, the title and a line */
+function EmptyOutline() {
+    return (
+        <div aria-hidden="true" data-comments-empty-loading="" className="flex w-full flex-col items-center gap-2 rounded-lg border border-dashed p-12">
+            <Skeleton className="mb-2 size-10 animate-none rounded-lg" />
+            <Skeleton className="h-5 w-40 animate-none" />
+            <Skeleton className="h-4 w-72 max-w-full animate-none" />
         </div>
     );
 }
@@ -127,16 +163,30 @@ function FiltersPlaceholder({ view, status }: { view: CommentsView; status: Stat
  */
 function CommentsSkeleton({ title, view, status }: { title: string; view: CommentsView; status: StatusFilter }) {
     const { t } = useAppI18n();
-    const board = view === 'board';
+    const expected = useExpected(status);
+    // A project without comments shows its empty state in the list's place, Board chosen or not, at the reading width
+    const board = view === 'board' && expected !== 'empty';
+    if (expected === 'empty') {
+        return (
+            <div role="status" aria-label={t(title)} data-comments-loading={view} data-comments-expected="empty" className="@container/comments flex flex-col gap-2">
+                <span className="sr-only">{t(title)}…</span>
+                <FiltersPlaceholder view={view} status={status} />
+                <EmptyOutline />
+            </div>
+        );
+    }
     return (
-        <div role="status" aria-label={t(title)} data-page-width="wide" data-comments-loading={view} className="@container/comments flex flex-col gap-2">
+        <div role="status" aria-label={t(title)} data-page-width="wide" data-comments-loading={view} data-comments-expected={expected} className="@container/comments flex flex-col gap-2">
             <span className="sr-only">{t(title)}…</span>
             <div data-header-wide={view} className="flex min-w-0 flex-col gap-2 page-wide">
                 <FiltersPlaceholder view={view} status={status} />
             </div>
             {/* The count line's own row, where it is not in the search row (`countLineInHeader`) */}
             <div aria-hidden="true" className="min-h-8 pointer-coarse:min-h-11 @4xl/comments:hidden" />
-            {board ? (
+            {expected === 'none' && !board ? (
+                // Comments, but none in this tab: the loaded list is one box that says so, as wide as the list and thread
+                <div className="page-wide"><EmptyOutline /></div>
+            ) : board ? (
                 // The columns every board has, as `CommentBoard` lays them out (uier #439): one per Open, In progress and Done
                 // with its status's dot, the name (a workflow can rename it) and the cards still loading. Ready to verify
                 // (verification on), a workflow's further statuses and the column actions (sort and Archive all, for
@@ -147,7 +197,8 @@ function CommentsSkeleton({ title, view, status }: { title: string; view: Commen
                     {boardColumns.map((status, column) => (
                         <div key={status} data-board-column-loading={status} className="flex min-h-24 flex-col gap-2 rounded-2xl border bg-muted/50 p-2">
                             <span className="flex items-center px-2 pt-1"><span className="flex h-5 items-center gap-2"><StateDot status={status} /><Skeleton className="h-3.5 w-24 animate-none" /></span></span>
-                            {Array.from({ length: boardCards[column]! }, (_, card) => <CardSkeleton key={card} title={rowTitles[(column + card) % rowTitles.length]!} />)}
+                            {/* Nothing open: only Done has cards */}
+                            {Array.from({ length: expected === 'none' && status !== 'done' ? 0 : boardCards[column]! }, (_, card) => <CardSkeleton key={card} title={rowTitles[(column + card) % rowTitles.length]!} />)}
                         </div>
                     ))}
                     {/* Its name and count run down the strip from md; narrower the 3rem strip keeps only its icon */}

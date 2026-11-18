@@ -64,10 +64,10 @@ assignee card, with Open in T3 Code or another desktop session link, at the top 
   filler words on pulsing bars, one per line of the loaded text and as long, so they wrap about where it does; a line
   can still wrap a word sooner or later than the loaded one (a line more or less), and Markdown other than paragraphs
   (lists, code, quotes) is approximated as paragraphs, so those can move a little when the thread loads; so can a
-  discussion past the outline's budget, whose later replies are drawn as typical lines sharing their line total. Its controls are `inert` (the card is `role="status"`, "Loading comments", `aria-busy`); Back to
+  discussion past the outline's budget, whose later replies are drawn as typical lines sharing their line total. Its controls are `inert` and the card is `aria-busy`. Its status is one visually hidden line, "Loading thread", not the card: a live region is read whole, and the card holds the thread. The line stays mounted and empties when the load fails, so Try again is announced. Back to
   comments works at once. A failed load says "This thread could not be loaded." with Try again in the messages' place.
   `e2e/thread-loading-shell.spec.ts` holds the detail of a thread with selected text, a reply of several lines and
-  paragraphs, a reply of a hundred one-character lines and eleven replies, and checks the shell and that the loaded thread keeps its layout.
+  paragraphs, a reply of a hundred one-character lines and eleven replies, and checks the shell, its one-line status and that the loaded thread keeps its layout.
 - Integrations (`comments/ThreadIntegrationLinks.tsx`) is the details row right below Pull requests when the thread
   was sent to a connected service (`integrationLinks`, [integrations](integrations.md)): one "Open in Slack" external
   link per service, each led by the provider's own mark at 14 px without a tile (Slack and Azure DevOps in their colours,
@@ -155,7 +155,7 @@ assignee card, with Open in T3 Code or another desktop session link, at the top 
 - Each message (`Message` in `CommentCard.tsx`) is a two-column grid: the 24px avatar is centred on its header row
   (name, via, time, device and the actions, 44px tall on touch screens), the text under the header (uier #281).
   The name and the time are trimmed to their cap height (`text-box: trim-both cap alphabetic`), so the smaller time
-  centres on the avatar like the name (uier #378). A reply that is not saved yet shows "Sending..." (`role="status"`)
+  centres on the avatar like the name (uier #378). A reply that is not saved yet shows "Sending…" (`role="status"`)
   in its header, right of the time (uier #377).
 - Reactions (`comments/MessageReactions.tsx`, kept apart from `Message`): Add reaction in each message's header actions
   (before a reply's More actions) and the reaction pills under the message, after its image. See [Message reactions](reactions.md).

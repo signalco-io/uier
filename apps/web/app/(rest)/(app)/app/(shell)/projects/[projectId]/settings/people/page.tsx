@@ -1,6 +1,6 @@
 
 import { getAppI18n } from '@/src/lib/i18n/server';
-import { PageLoading } from '@/src/components/app/PageLoading';
+import { ProjectPeopleLoading } from '@/src/components/app/projects/ProjectSettingsLoading';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { ProjectPeopleAndTeams } from '@/src/components/app/teams/ProjectAccess';
@@ -19,5 +19,5 @@ async function ProjectPeopleSettingsPageContent({ params }: PageProps<'/app/proj
 }
 
 export default function ProjectPeopleSettingsPage(props: Parameters<typeof ProjectPeopleSettingsPageContent>[0]) {
-    return <Suspense fallback={<PageLoading title="Loading people" />}><ProjectPeopleSettingsPageContent {...props} /></Suspense>;
+    return <Suspense fallback={<ProjectPeopleLoading />}><ProjectPeopleSettingsPageContent {...props} /></Suspense>;
 }

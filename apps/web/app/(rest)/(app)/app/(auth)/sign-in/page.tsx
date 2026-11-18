@@ -1,5 +1,6 @@
 import { getAppI18n } from '@/src/lib/i18n/server';
-import { PageLoading } from '@/src/components/app/PageLoading';
+import { AuthCardLoading } from '@/src/components/app/AuthFrame';
+import { signInOutline } from '@/src/components/app/signInOutline';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
@@ -51,5 +52,5 @@ async function SignInPageContent({ searchParams }: PageProps<'/app/sign-in'>) {
 }
 
 export default function SignInPage(props: Parameters<typeof SignInPageContent>[0]) {
-    return <Suspense fallback={<PageLoading title="Loading sign in" />}><SignInPageContent {...props} /></Suspense>;
+    return <Suspense fallback={<AuthCardLoading label="Loading sign-in" {...signInOutline} />}><SignInPageContent {...props} /></Suspense>;
 }

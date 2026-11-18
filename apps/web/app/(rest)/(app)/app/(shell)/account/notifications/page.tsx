@@ -1,5 +1,6 @@
 import { getAppI18n } from '@/src/lib/i18n/server';
-import { PageLoading } from '@/src/components/app/PageLoading';
+import { AccountNotificationsLoading } from '@/src/components/app/account/AccountLoading';
+import { accountTitles } from '@/src/components/app/account/accountSections';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -28,7 +29,7 @@ async function AccountNotificationsPageContent() {
     return (
         <Section
             id="project-emails"
-            title={t("Project emails")}
+            title={t(accountTitles.projectEmails)}
             description={t("Your emails from each project in {value1}. Off stops every email from that project, also for threads you follow.", { value1: context.workspace.name })}>
             {projects.length > 0
                 ? (
@@ -50,5 +51,5 @@ async function AccountNotificationsPageContent() {
 }
 
 export default function AccountNotificationsPage() {
-    return <Suspense fallback={<PageLoading title="Loading notifications" />}><AccountNotificationsPageContent /></Suspense>;
+    return <Suspense fallback={<AccountNotificationsLoading />}><AccountNotificationsPageContent /></Suspense>;
 }

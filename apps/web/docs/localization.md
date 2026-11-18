@@ -24,9 +24,12 @@ field through the user document's etag. Inputs stay disabled while saving; a fai
 - `src/lib/i18n/languages.ts` shares the supported codes with `@uier/toolbar/languages`; negotiation is pure.
 - `getAppI18n()` in `src/lib/i18n/server.ts` resolves the active account and request language. React `cache()`
   deduplicates reads within that render. Locale, account data and request headers have no shared data cache.
-- Keep language reads beneath the [Cache Components](cache-components.md) Suspense boundaries. The app's
-  static layout streams an `AppLanguage` child which supplies the resolved language and selected catalog.
-  The shared component is `src/components/app/AppLanguage.tsx`. Dedicated internal error entries in
+- Keep language reads beneath the [Cache Components](cache-components.md) Suspense boundaries. Each group of app
+  pages (the sidebar layout, the sign-in card, a coding tool's consent, review links) starts with `AppBoundary`,
+  whose `AppLanguage` child supplies the resolved language and selected catalog below that group's static frame.
+  The frame itself is drawn before the language is known, so it has no text. The shared component is
+  `src/components/app/AppLanguage.tsx`. The app's error page sits above the groups and speaks the language the
+  document last rendered (`LastAppLanguage`), English when the failure came before any page. Dedicated internal error entries in
   `(rest)/(app-errors)` use it inside their not-found content, after the synchronous HTTP 404 decision,
   so language resolution cannot start a successful document response for a denied route.
 - `useAppI18n()` supplies `{ t, language }` in client components. Shared public specimens default to English
@@ -50,7 +53,8 @@ field through the user document's etag. Inputs stay disabled while saving; a fai
 
 When adding app text, add it to all five translations in the same change. Keep machine identifiers, routes,
 form field names, schema enums, CSS classes and keyboard keys unchanged. Use formal address in German,
-French and Croatian, informal in Spanish and Italian, matching the toolbar's voice.
+French and Croatian, informal in Spanish and Italian, matching the toolbar's voice. An ellipsis is one character
+(`…`), never three dots, in the source phrase and in every translation, as in the toolbar.
 
 ## Verification
 

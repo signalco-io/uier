@@ -102,14 +102,23 @@ the separately bundled review toolbar owns its own query cache.
   navigation does not draw the page being left, and the remembered view; the server draws the list), then, under its
   own request-scoped boundary, the request's answer (`AddressCommentsLoading`: the router's `useSearchParams` and the
   view cookie), which streams before any comment is read.
-  `PageChecksLoading` (pageChecks/) draws Across pages' two cards, Pages with its filter and order, and the table (the
-  cards under 48rem). While the project layout itself loads, `ProjectLoading` (projects/) draws the header's skeleton (its
-  favicon, name and access are the project's, at the loaded header's 58 px) over the real `ProjectTabs`
-  (`ProjectLoadingTabs`: working links to Comments, Page checks and Settings, the project read from the address), then
-  the loading state of the page being opened (`ProjectLoadingPage`: the comments in their region, the page checks, or the
-  generic one). The project page renders its comments region (`CommentsSection`) outside its data boundary, so the
-  region and its `#comments` anchor are there while the comments load. A project with no comments yet loads wide and then shows its narrower empty state; the
-  skeleton cannot know. `e2e/instant-nav.spec.ts` holds each tab switch in its loading state (`instant()`) and checks
+  `PageChecksLoading` (pageChecks/) draws the Across pages and Pages headings for real (the loaded view's own
+  components, [page checks](page-checks.md)), and outlines for Across pages' two cards, Pages' count, filter and order,
+  and the table (the cards under 48rem). While the project layout itself loads, `ProjectLoading` (projects/) draws the header with the project's
+  favicon and name as the sidebar already has them (`ProjectLoadingHeader`, from `useShellInfo`; the line under the
+  name is the project's own data, one bar; a project the shell does not list is all outline) over the real `ProjectTabs`
+  (`ProjectLoadingTabs`: working links to Comments, Page checks and Settings, the project read from the address; the
+  Install tab too, current, where the page being opened is that tab and the shell knows of no comment, and otherwise with
+  the loaded layout, at the end of the row), then
+  the loading state of the page being opened (`ProjectLoadingPage`: the comments in their region, the page checks, a
+  settings section or onboarding's install step, `InstallLoading`). The project page renders its comments region (`CommentsSection`) outside its data boundary, so the
+  region and its `#comments` anchor are there while the comments load. The skeleton takes the shape of what will show as far as the
+  shell beside it knows (`useShellInfo`, the sidebar's open count; `useExpected` in `CommentsLoading`): on the Active tab a
+  project with nothing open loads as the one box an empty list shows, at the comments' width when the shell has seen a
+  thread of it and at the reading width, like "No comments yet", when it has not (the shell reads threads only when the
+  projects are ordered by recent activity; in another order a project whose comments are all done loads as empty and
+  then widens). Page checks, which the shell knows nothing about, remember in this browser whether the project had a
+  checked page (`pageChecksSeen`): one that had none loads as its one box, without headings to take away again. `e2e/instant-nav.spec.ts` holds each tab switch in its loading state (`instant()`) and checks
   that the header and the project's name do not move when the page arrives (`pnpm test:instant`).
 - **Sidebar project order.** `ProjectOrderMenu` has two labelled radio groups: Sort (Recent activity, Recently
   created, Name) and Group (None, Client once an active project has one, Status). Only Group → Status lists the done
@@ -136,9 +145,22 @@ the separately bundled review toolbar owns its own query cache.
   partition-scoped `COUNT(1)` with at most four count queries in flight. Only authorized projects from
   `listVisibleProjects` reach this loader.
 - **Workspace area** (`workspace/`): the workspace's name above `LinkTabs` (`workspace/(tabs)/layout.tsx`,
-  `workspaceTabs`): Users, Teams, Clients, Usage, Activity and Settings for admins, Clients and Usage for everyone
+  `WorkspaceHeader`, `workspaceTabs`): Users, Teams, Clients, Usage, Activity and Settings for admins, Clients and Usage for everyone
   else and in the uier workspace ([Usage](usage.md)). `/app/workspace` opens the first tab. A team's and a person's own pages (`workspace/teams/[teamId]`,
-  `workspace/users/[userId]`) are outside the `(tabs)` group, with their own header. The old addresses
+  `workspace/users/[userId]`) are outside the `(tabs)` group, with their own header. The area's header reads
+  nothing: `WorkspaceHeader` takes the name and the role from the shell (`useShellInfo`; `workspaceTabs` takes that
+  role), so the layout has no boundary and the name and tabs are there at once and stay mounted, focus included,
+  while a tab loads. `/app/workspace` shows that header, its first tab current, over the tab's loading state until
+  it redirects. Each page's loading state is in its own shape (`workspace/WorkspaceLoading.tsx`,
+  [loading states](../../../docs/design/loading-states/README.md)): Users keeps its line and Invite and outlines the
+  people and the invitations under their headings; Teams' toolbar (`TeamsToolbar`: the actions, Active and Archived,
+  the search) follows the address alone, so it is outside the list's boundary, and the body of Group existing people
+  streams in a boundary of its own from the same read (`workspaceManagement`, React `cache()`); Clients keeps its
+  line, and the place of Add client where the shell knows it will come; Usage lists the projects the shell already
+  has by name, with bars for their meters; Activity's line is outside its boundary (`WorkspaceTabIntro`); Settings
+  draws every section under its real title; a team and a person get an outline of their header and their sections
+  by title. A control that needs the page's data (Team membership, the Users filters, Add client, Edit team) is not
+  drawn while loading. The old addresses
   (`/app/users`, `/app/teams`, `/app/clients`, `/app/settings` and the team and person pages) redirect there
   (`next.config.ts`). Each page keeps its own authorization: Users, Teams, Activity and Settings are admin-only.
   Settings has General (the name) and Email domains ([access and membership](access-and-membership.md#email-domains)).
@@ -190,6 +212,17 @@ the separately bundled review toolbar owns its own query cache.
   from `loadProjectUsage` for every listed project. `ClientFilter` sits at the right end of the tabs' row ([uier #423](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects&comment=comment_UgreCvXX844P085P2y67j)) and still navigates (server filter) and keeps
   the status from the current address. Its menu and trigger show each client's `ClientMark` beside the name; All
   clients and No client get an empty dashed tile of the same size so the names line up.
+  While the lists load ([loading states](../../../docs/design/loading-states/README.md), 4; `ProjectsLoading`, the
+  page's fallback) the page's own header is drawn for real: the title, Create project by the role the shell already
+  read (`useShellInfo`; the link only opens the page, which authorizes for itself) under the loaded page's rule that an
+  empty active list has its own, and `ProjectStatusTabs`, inert, with the address's tab current and the sidebar's
+  projects by status as counts (no counts with a client filter in the address: only the page knows how many match).
+  The client filter exists only when a project has a client: the shell knows whether one does (`useShellInfo`,
+  `workspace.clients`), so its place is kept with an outline of its size then, and which clients it lists comes with
+  the lists. Under the header, one card
+  outline per project the status lists (up to nine, in the grid's columns), or the empty state's outline when it
+  lists none. The header stays inside the page's data boundary, and the loaded page mounts its own: Create project,
+  the tabs' counts and links and the filter all follow the lists that request reads.
 - The project's Open review (in the top bar) is a menu with Review and Visit site for every address; the header does not
   repeat the addresses. On the comments page the header is as wide as the comments' filters header, the list
   with its thread or the board's columns ([comments inbox](comments-inbox.md)); the project's other pages keep the
@@ -220,6 +253,12 @@ the separately bundled review toolbar owns its own query cache.
   on its own (`commentsView.ts`, scope `my-work`): choosing Board for a project's triage leaves My work's grouped lists alone,
   and the other way round. On the board the page header and the filters take the columns' width (`--board-width`, `data-header-wide`);
   a project's board does not (uier #363: full width from the left).
+  The title is the page's shell (`MyWorkHeader`, outside the data boundary): one mounted heading, there before the
+  threads ([loading states](../../../docs/design/loading-states/README.md), 5). Search, Filter and List/Board exist only
+  when something needs the person, so the loading state (`MyWorkLoading`) does not draw them: it keeps their row free and
+  outlines one list (its heading's line and rows like the comments list's, `RowSkeleton`), or, when the address or the
+  remembered choice says Board, the board's columns under `data-header-wide="board"`, so the title is already where the
+  board puts it. Nothing needing the person replaces all of it with the empty state.
 - **My work's search, filters and sorts** ([uier #341](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fmy-work&comment=comment_CiCbLz-eGLRCCw2eBhTDk), `MyWorkViews` in `MyWorkBoard.tsx`):
   under the page header, in the lists and on the board, the comments' own filter row (`CommentFilters`): search (`/` goes there),
   Filter and List/Board. Filter has a Project filter first (`projects`/`project`: the projects with a thread here, by name, each

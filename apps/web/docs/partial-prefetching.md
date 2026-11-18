@@ -40,9 +40,18 @@ mutable-data cache, cache lifetime, provider activation or additional full-prefe
 A project's loading state (`ProjectLoading`, the project layout's fallback in the App Shell) renders the real project
 tabs every project has. They read the project from the address with `useParams`/`usePathname`, which the router
 resolves on a client navigation without a server read, so the shell stays URL-independent and private-data free; the
-Install tab and the header wait for the navigation's authorized read
+Install tab (except where the address is that tab and the shell knows of no comment) and the header's line under the name wait for the navigation's authorized read
 ([uier #439](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_K_yAq5Ee4WzEjnCBNx_2z)).
 No Link policy changed; `partial-prefetching-optimizer.spec.ts` checks the tabs under the lock.
+
+The projects list's loading state (`ProjectsLoading`, the page's fallback in the App Shell) draws the Projects heading,
+Create project and the Active and Done tabs before the lists are read. The tabs are the loaded page's
+`ProjectStatusTabs`, inert there: their counts and the role behind Create project come from what the shell already
+read (`useShellInfo`), the current tab from the address, and nothing private is read for them. The loaded page mounts
+its own tabs, so the query-only contracts below are unchanged: both lists are still local, and a tab only writes the
+address. `partial-prefetching.spec.ts` checks My work → Projects under the lock, and that the heading, the button and
+the tabs are where they were once the lists arrive. My work → its heading is the page's shell; onboarding's step list
+too ([Cache Components](cache-components.md)).
 
 ## Verification
 
@@ -98,8 +107,9 @@ differential was appropriate. The final tests retain the real Links and their ex
 - Projects **project card → Project**: keep the default viewport-prefetched shell and loading
   status. Private project data waits for navigation. After the source page loads, another page
   renames the project through its settings form; the destination and direct reload show that fresh
-  name, with HTTP 200 and no-store. The lock hides the name and release reveals it, independently
-  proving that the production testing API is engaged.
+  name, with HTTP 200 and no-store. Under the lock the header shows the name this page already had
+  (the sidebar's, through `useShellInfo`; nothing is read for it) and release replaces it with the
+  renamed one, independently proving that the production testing API is engaged.
 
 Other candidates were checked and left with their existing policy:
 

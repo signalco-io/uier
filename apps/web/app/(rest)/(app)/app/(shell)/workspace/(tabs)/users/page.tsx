@@ -1,6 +1,5 @@
 
 import { getAppI18n } from '@/src/lib/i18n/server';
-import { PageLoading } from '@/src/components/app/PageLoading';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -22,6 +21,8 @@ import { hasProjectAccess, loadWorkspaceAccess } from '@/src/lib/app/access';
 import { BulkTeamForm } from '@/src/components/app/teams/BulkTeamForm';
 import { UsersFilters } from '@/src/components/app/teams/UsersFilters';
 import type { ProjectsAccess } from '@/src/lib/app/model';
+import { ListSection } from '@/src/components/app/workspace/ListSection';
+import { UsersLoading } from '@/src/components/app/workspace/WorkspaceLoading';
 import { WorkspaceTabHeader } from '@/src/components/app/workspace/WorkspaceTabHeader';
 import { RelativeTime } from '@/src/components/app/comments/DateTime';
 import { PersonAvatar } from '@/src/components/app/PersonAvatar';
@@ -68,28 +69,6 @@ const relationshipLabels = { internal: 'Internal', external: 'External' } as con
 async function RoleBadge({ role }: { role: 'admin' | 'commenter' }) {
     const { t } = await getAppI18n();
     return <Badge variant={role === 'admin' ? 'default' : 'secondary'}>{role === 'admin' ? t("Admin") : t("Commenter")}</Badge>;
-}
-
-/** A titled list of a page (people, invitations) */
-function ListSection({ id, title, count, description, children }: {
-    id: string;
-    title: string;
-    count: number;
-    description: string;
-    children: React.ReactNode;
-}) {
-    return (
-        <section aria-labelledby={`${id}-title`} className="flex flex-col gap-3">
-            <div className="flex flex-col gap-0.5">
-                <h2 id={`${id}-title`} className="m-0 flex items-center gap-2 text-base leading-6 font-semibold tracking-[-0.01em]">
-                    {title}
-                    <span className="text-sm font-normal text-muted-foreground tabular-nums">{count}</span>
-                </h2>
-                <p className="m-0 text-sm text-muted-foreground">{description}</p>
-            </div>
-            {children}
-        </section>
-    );
 }
 
 /** More people and invitations than this together, and the list shows its filters */
@@ -239,5 +218,5 @@ async function UsersPageContent({ searchParams }: PageProps<'/app/workspace/user
 }
 
 export default function UsersPage(props: Parameters<typeof UsersPageContent>[0]) {
-    return <Suspense fallback={<PageLoading title="Loading users" />}><UsersPageContent {...props} /></Suspense>;
+    return <Suspense fallback={<UsersLoading />}><UsersPageContent {...props} /></Suspense>;
 }

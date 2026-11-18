@@ -1,6 +1,5 @@
 
 import { getAppI18n } from '@/src/lib/i18n/server';
-import { PageLoading } from '@/src/components/app/PageLoading';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -14,6 +13,7 @@ import { MemberAccessForm } from '@/src/components/app/teams/MemberAccessForm';
 import { ProjectMark } from '@/src/components/app/projects/ProjectMark';
 import { RelativeTime } from '@/src/components/app/comments/DateTime';
 import { PersonAvatar } from '@/src/components/app/PersonAvatar';
+import { PersonLoading } from '@/src/components/app/workspace/WorkspaceLoading';
 import { projectAccessSources } from '@/src/lib/app/access';
 import { KnownPageLinks } from '@/src/knownPages';
 
@@ -94,5 +94,5 @@ async function PersonPageContent({ params }: PageProps<'/app/workspace/users/[us
 }
 
 export default function PersonPage(props: Parameters<typeof PersonPageContent>[0]) {
-    return <Suspense fallback={<PageLoading title="Loading person" />}><PersonPageContent {...props} /></Suspense>;
+    return <Suspense fallback={<PersonLoading />}><PersonPageContent {...props} /></Suspense>;
 }

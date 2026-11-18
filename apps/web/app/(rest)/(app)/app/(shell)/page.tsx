@@ -1,7 +1,7 @@
-import { PageLoading } from '@/src/components/app/PageLoading';
 import { Suspense } from 'react';
 import { redirect } from 'next/navigation';
 import { KnownPages } from '@/src/knownPages';
+import { HeaderOutline, Loading } from '@/src/components/app/loading/outlines';
 import { requireAppContext } from '@/src/lib/app/context';
 import { listVisibleProjects } from '@/src/lib/app/projects';
 
@@ -14,6 +14,7 @@ async function AppHomePageContent() {
     return redirect(!projects.length && context.isAdmin ? KnownPages.AppNewProject : KnownPages.AppProjects);
 }
 
+/** It only redirects: meanwhile it keeps what the shell's frame drew, the place of the next page's title */
 export default function AppHomePage() {
-    return <Suspense fallback={<PageLoading title="Loading workspace" />}><AppHomePageContent /></Suspense>;
+    return <Suspense fallback={<Loading label="Loading workspace"><HeaderOutline /></Loading>}><AppHomePageContent /></Suspense>;
 }

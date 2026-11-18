@@ -21,7 +21,14 @@ The popup and verification helper are extension pages: their stylesheet (`src/po
 compiled from the toolbar's Tailwind setup and brand tokens, and Geist ships in the package
 (`fonts/`, with its license), so they load nothing remote. They follow the system theme. The popup
 shows the active tab's site, the matching projects, an active review with Exit review, and Open uier
-and Sign out. The 16/32/48 px icons are the rounded app icon; the 128 px icon keeps 16 px padding.
+and Sign out. It opens in two steps. The worker answers `tab` from the browser alone (the stored
+sign-in, the active tab and the review that is on in it; no request to uier and no access renewal), and
+the popup draws that frame at once: the sign-in view, the page that cannot be reviewed, or the site's
+heading and address with its account controls, and outlines only where the projects and the account's
+email go. `state` asks uier and stays the authority: it confirms the sign-in, renews access and brings
+the projects and the account, and only its failure shows that uier is not reachable. Before the first
+answer the popup holds the height of its usual view under "Connecting to uier.", so it resizes at most
+once. The 16/32/48 px icons are the rounded app icon; the 128 px icon keeps 16 px padding.
 While a review is on in a tab, that tab's toolbar icon shows the popup's green dot (`icons/active-*.png`,
 the brand success colour with a paper ring). The worker sets it after each mount and resets it whenever
 the binding ends: Exit review, a different site, sign-out, an update restart or a closed tab.

@@ -2,11 +2,11 @@ import { Suspense } from 'react';
 import { connection } from 'next/server';
 import { AppNotFound } from '@/src/components/app/AppNotFound';
 import { AppLanguage } from '@/src/components/app/AppLanguage';
-import { PageLoading } from '@/src/components/app/PageLoading';
+import { StatusPageOutline } from '@/src/components/StatusPage';
 
 export default function UnavailableContent() {
     return <>
-        <Suspense fallback={<PageLoading />}><AppLanguage><AppNotFound /></AppLanguage></Suspense>
+        <Suspense fallback={<StatusPageOutline />}><AppLanguage><AppNotFound /></AppLanguage></Suspense>
         <Suspense><RequestScripts /></Suspense>
     </>;
 }

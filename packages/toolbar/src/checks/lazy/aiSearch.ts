@@ -522,7 +522,7 @@ function facts(root: Element, path: string): PageCheck[] {
         hosts.add(url.hostname.replace(/^www\./, ''));
     }
     const sources = links
-        ? pageCheck('ai-sources', t.sourcesLabel, state(true), t.links(links), { value: [...hosts].slice(0, 3).join(', ') + (hosts.size > 3 ? ', ...' : '') })
+        ? pageCheck('ai-sources', t.sourcesLabel, state(true), t.links(links), { value: [...hosts].slice(0, 3).join(', ') + (hosts.size > 3 ? ', …' : '') })
         : pageCheck('ai-sources', t.sourcesLabel, 'none', t.noLinks);
 
     return [type, author, dates, publisher, sources];

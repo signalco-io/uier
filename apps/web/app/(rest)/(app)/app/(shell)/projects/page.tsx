@@ -1,13 +1,11 @@
 
 import { getAppI18n } from '@/src/lib/i18n/server';
-import { PageLoading } from '@/src/components/app/PageLoading';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { PUBLIC_WORKSPACE_ID } from '@/src/lib/comments/publicProjectPolicy';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { FolderOpenIcon, PlusIcon } from 'lucide-react';
-import { buttonVariants } from '@/src/components/ui/button';
+import { FolderOpenIcon } from 'lucide-react';
 import { Card, CardDescription, CardHeader, CardTitle } from '@/src/components/ui/card';
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/src/components/ui/empty';
 import { KnownPageLinks, KnownPages } from '@/src/knownPages';
@@ -22,6 +20,7 @@ import { ProjectMark } from '@/src/components/app/projects/ProjectMark';
 import { ClientMark } from '@/src/components/app/clients/ClientMark';
 import { ClientFilter } from '@/src/components/app/projects/ClientFilter';
 import { ProjectStatusPanel, ProjectStatusTabs } from '@/src/components/app/projects/ProjectStatusTabs';
+import { CreateProjectLink, ProjectsLoading } from '@/src/components/app/projects/ProjectsLoading';
 import { CommentCount } from '@/src/components/app/projects/CommentCount';
 import { ReviewLinksMenu } from '@/src/components/app/projects/ReviewLinksMenu';
 import { AccessIcon, projectAccessLabels } from '@/src/components/app/projects/projectLabels';
@@ -64,10 +63,7 @@ async function ProjectsPageContent({ searchParams }: PageProps<'/app/projects'>)
     // Open comments per project, as the person sees them (private comments only for admins and authors)
     const openCounts = new Map(await Promise.all(matching.map(async project =>
         [project.id, (await loadProjectUsage(context, project)).open] as const)));
-    const createProject = canManageProjects && (
-        <Link href={KnownPages.AppNewProject} className={buttonVariants()}>
-            <PlusIcon data-icon="inline-start" />{t("Create project")}</Link>
-    );
+    const createProject = canManageProjects && <CreateProjectLink />;
 
     // One status's list, or its empty state
     const statusPanel = (listStatus: ProjectStatus, shown = lists[listStatus]) => (
@@ -141,8 +137,7 @@ async function ProjectsPageContent({ searchParams }: PageProps<'/app/projects'>)
                     </EmptyHeader>
                     {listStatus === 'active' && canManageProjects && (
                         <EmptyContent>
-                            <Link href={KnownPages.AppNewProject} className={buttonVariants()}>
-                                <PlusIcon data-icon="inline-start" />{t("Create project")}</Link>
+                            <CreateProjectLink />
                         </EmptyContent>
                     )}
                 </Empty>
@@ -170,6 +165,11 @@ async function ProjectsPageContent({ searchParams }: PageProps<'/app/projects'>)
     );
 }
 
+/**
+ * The header, Create project and the Active and Done tabs need no data, so the loading state draws them for real
+ * (`ProjectsLoading`) and outlines only the projects. They stay inside the boundary: the header's Create project, the
+ * tabs' counts and links and the client filter all follow the lists this request reads.
+ */
 export default function ProjectsPage(props: Parameters<typeof ProjectsPageContent>[0]) {
-    return <Suspense fallback={<PageLoading title="Loading projects" />}><ProjectsPageContent {...props} /></Suspense>;
+    return <Suspense fallback={<ProjectsLoading />}><ProjectsPageContent {...props} /></Suspense>;
 }

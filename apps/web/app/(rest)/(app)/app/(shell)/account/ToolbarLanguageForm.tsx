@@ -8,6 +8,7 @@ import { Field, FieldDescription, FieldLabel } from '@/src/components/ui/field';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select';
 import { SaveFooter, useSettingsDraft } from '@/src/components/app/SettingsSave';
 import { Section } from '@/src/components/app/PageHeader';
+import { accountTitles } from '@/src/components/app/account/accountSections';
 import { setToolbarLanguageAction } from './actions';
 
 /** The account's choice, or `default`: each project's language (the project's, else its workspace's) */
@@ -31,7 +32,7 @@ export function ToolbarLanguageForm({ language }: { language: ToolbarLanguage | 
     return (
         <Section
             id="toolbar-language"
-            title={t("Toolbar language")}
+            title={t(accountTitles.toolbarLanguage)}
             footer={<SaveFooter formId={formId} state={state} pending={pending} dirty={dirty} onDiscard={discard} />}>
             <form id={formId} action={formAction}>
                 <input type="hidden" name="toolbarLanguage" value={draft.language} />

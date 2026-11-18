@@ -1,6 +1,6 @@
 
 import { getAppI18n } from '@/src/lib/i18n/server';
-import { PageLoading } from '@/src/components/app/PageLoading';
+import { ProjectEnvironmentsLoading } from '@/src/components/app/projects/ProjectSettingsLoading';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { ProjectSitesForm } from '@/src/components/app/projects/ProjectSitesForm';
@@ -22,5 +22,5 @@ async function ProjectEnvironmentsSettingsPageContent({ params }: PageProps<'/ap
 }
 
 export default function ProjectEnvironmentsSettingsPage(props: Parameters<typeof ProjectEnvironmentsSettingsPageContent>[0]) {
-    return <Suspense fallback={<PageLoading title="Loading environments" />}><ProjectEnvironmentsSettingsPageContent {...props} /></Suspense>;
+    return <Suspense fallback={<ProjectEnvironmentsLoading />}><ProjectEnvironmentsSettingsPageContent {...props} /></Suspense>;
 }

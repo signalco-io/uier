@@ -1,12 +1,9 @@
 
 import { getAppI18n } from '@/src/lib/i18n/server';
-import { PageLoading } from '@/src/components/app/PageLoading';
+import { AllIntegrationsLink, ProjectIntegrationLoading } from '@/src/components/app/projects/ProjectSettingsLoading';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ArrowLeft } from 'lucide-react';
-import { KnownPageLinks } from '@/src/knownPages';
 import type { DbProject } from '@/src/lib/app/model';
 import { isUierFeedbackProject } from '@/src/lib/comments/publicProject';
 import { getAzureDevOpsSettings } from '@/src/lib/integrations/azure-devops';
@@ -15,8 +12,6 @@ import { getLinearSettings } from '@/src/lib/integrations/linear';
 import { integrationLabels, isIntegrationProvider, type IntegrationProviderId } from '@/src/lib/integrations/model';
 import { getNotionSettings } from '@/src/lib/integrations/notion';
 import { getSlackSettings } from '@/src/lib/integrations/slack/settings';
-import { cn } from 'cn';
-import { buttonVariants } from '@/src/components/ui/button';
 import { AzureDevOpsSection } from '@/src/components/app/azure-devops/AzureDevOpsSection';
 import { GitHubSection } from '@/src/components/app/github/GitHubSection';
 import { LinearSection } from '@/src/components/app/linear/LinearSection';
@@ -45,7 +40,6 @@ export async function generateMetadata({ params }: PageProps<'/app/projects/[pro
  * features of its public page). The connect and callback routes come back here with their outcome (`?github=connected`).
  */
 async function ProjectIntegrationSettingsPageContent({ params, searchParams }: PageProps<'/app/projects/[projectId]/settings/integrations/[provider]'>) {
-    const { t } = await getAppI18n();
     const { projectId, provider } = await params;
     if (!isIntegrationProvider(provider))
         notFound();
@@ -64,7 +58,6 @@ async function ProjectIntegrationSettingsPageContent({ params, searchParams }: P
 
     return (
         <>
-            <Link href={KnownPageLinks.projectSettings(project.id, 'integrations')} className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), '-mb-2 -ml-2.5 w-fit')}><ArrowLeft data-icon="inline-start" />{t("All integrations")}</Link>
             <IntegrationSection provider={provider} project={project} userId={context.user.id} outcome={value(provider)} githubSetup={value('githubSetup')} />
             {connection && adapter?.supportsStatusSync && <TwoWaySync key={connection.id} projectId={project.id} provider={provider}
                 enabled={connection.twoWaySync === true} canEnable={adapter!.isConfigured() && connection.status === 'connected' && !needsMapping}
@@ -102,5 +95,11 @@ async function IntegrationSection({ provider, project, userId, outcome, githubSe
 }
 
 export default function ProjectIntegrationSettingsPage(props: Parameters<typeof ProjectIntegrationSettingsPageContent>[0]) {
-    return <Suspense fallback={<PageLoading title="Loading integration" />}><ProjectIntegrationSettingsPageContent {...props} /></Suspense>;
+    // The way back to the list needs nothing from the project, so it is outside the boundary: one link, before and after
+    return (
+        <>
+            <AllIntegrationsLink />
+            <Suspense fallback={<ProjectIntegrationLoading />}><ProjectIntegrationSettingsPageContent {...props} /></Suspense>
+        </>
+    );
 }

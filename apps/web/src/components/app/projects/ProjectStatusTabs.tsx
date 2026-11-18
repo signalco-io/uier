@@ -14,8 +14,9 @@ export function useProjectStatus(): ProjectStatus {
 /**
  * The projects list's Active and Done. The page holds both lists, so a tab only changes the address:
  * the other list shows at once, with no request and no spinner, and Back, Forward and reload keep it.
+ * Without `counts` the tabs show only their names: the list's loading state, where a client filter hides how many match.
  */
-export function ProjectStatusTabs({ hrefs, counts }: { hrefs: Record<ProjectStatus, string>; counts: Record<ProjectStatus, number> }) {
+export function ProjectStatusTabs({ hrefs, counts }: { hrefs: Record<ProjectStatus, string>; counts?: Record<ProjectStatus, number> }) {
     const { t } = useAppI18n();
     const status = useProjectStatus();
     return (
@@ -23,8 +24,8 @@ export function ProjectStatusTabs({ hrefs, counts }: { hrefs: Record<ProjectStat
             label={t("Project status")}
             variant="segmented"
             tabs={[
-                { href: hrefs.active, label: t("Active"), count: counts.active, current: status === 'active', query: { status: undefined } },
-                { href: hrefs.done, label: t("Done"), count: counts.done, current: status === 'done', query: { status: 'done' } }
+                { href: hrefs.active, label: t("Active"), count: counts?.active, current: status === 'active', query: { status: undefined } },
+                { href: hrefs.done, label: t("Done"), count: counts?.done, current: status === 'done', query: { status: 'done' } }
             ]} />
     );
 }

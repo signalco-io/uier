@@ -1,10 +1,10 @@
 import { ManagedProject } from '@/src/components/app/integrations/notion-projects/ManagedProject';
 
 import { getAppI18n } from '@/src/lib/i18n/server';
-import { PageLoading } from '@/src/components/app/PageLoading';
+import { ProjectGeneralLoading, ProjectUsageLoading } from '@/src/components/app/projects/ProjectSettingsLoading';
+import { projectSettingsTitles } from '@/src/components/app/projects/projectSettingsSections';
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
-import { AppPageLoading } from '@/src/components/app/AppPageLoading';
 import type { AppContext } from '@/src/lib/app/context';
 import type { DbProject } from '@/src/lib/app/model';
 import { redirect } from 'next/navigation';
@@ -44,7 +44,7 @@ async function ProjectSettingsPageContent({ params }: PageProps<'/app/projects/[
                 links={projectLinks(project)}
                 aiTitles={projectAiTitleMode(project)} workspaceAiTitles={workspaceAiTitles(context.workspace)}
                 rewriteInstructions={projectRewriteInstructions(project)} workspaceRewriteInstructions={workspaceRewriteInstructions(context.workspace)} />
-            <Suspense fallback={<AppPageLoading />}>
+            <Suspense fallback={<ProjectUsageLoading />}>
                 <ProjectUsageSection context={context} project={project} />
             </Suspense>
         </>
@@ -66,7 +66,7 @@ async function ProjectUsageSection({ context, project }: { context: AppContext; 
     return (
         <Section
             id="usage"
-            title={t("Usage")}
+            title={t(projectSettingsTitles.usage)}
             description={usage.lastCommentAt
                 ? <>{t("Nothing here is limited by a plan. Last comment")}{' '}<DateTime value={usage.lastCommentAt} />.</>
                 : t("Nothing here is limited by a plan.")}>
@@ -85,5 +85,5 @@ async function ProjectUsageSection({ context, project }: { context: AppContext; 
 }
 
 export default function ProjectSettingsPage(props: Parameters<typeof ProjectSettingsPageContent>[0]) {
-    return <Suspense fallback={<PageLoading title="Loading settings" />}><ProjectSettingsPageContent {...props} /></Suspense>;
+    return <Suspense fallback={<ProjectGeneralLoading />}><ProjectSettingsPageContent {...props} /></Suspense>;
 }

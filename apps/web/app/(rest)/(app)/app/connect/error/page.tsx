@@ -1,5 +1,5 @@
 import { getAppI18n } from '@/src/lib/i18n/server';
-import { PageLoading } from '@/src/components/app/PageLoading';
+import { AuthCardLoading } from '@/src/components/app/AuthFrame';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { AuthCard } from '@/src/components/app/AuthCard';
@@ -43,5 +43,5 @@ async function ConnectErrorPageContent({ searchParams }: PageProps<'/app/connect
 }
 
 export default function ConnectErrorPage(props: Parameters<typeof ConnectErrorPageContent>[0]) {
-    return <Suspense fallback={<PageLoading title="Loading error" />}><ConnectErrorPageContent {...props} /></Suspense>;
+    return <Suspense fallback={<AuthCardLoading label="Loading page" actions={1} lines={1} />}><ConnectErrorPageContent {...props} /></Suspense>;
 }

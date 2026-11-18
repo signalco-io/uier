@@ -1,5 +1,6 @@
 import { getAppI18n } from '@/src/lib/i18n/server';
 import { Section } from '@/src/components/app/PageHeader';
+import { accountTitles } from '@/src/components/app/account/accountSections';
 import { MicrosoftLogo } from '@/src/components/app/SignInProviderLogos';
 import { isMicrosoftSignInConfigured } from '@/src/lib/app/microsoft/config';
 import { getMicrosoftAccount } from '@/src/lib/app/microsoft/identity';
@@ -18,7 +19,7 @@ export async function MicrosoftAccount({ userId }: { userId: string }) {
     const recentSignIn = session?.userId === userId
         && Date.now() - session.signedInAt * 1000 <= PASSKEY_RECENT_SIGN_IN_SECONDS * 1000;
     return (
-        <Section icon={<MicrosoftLogo />} id="microsoft" title={t("Microsoft account")} description={t("Sign in with Microsoft instead of an email code. Email sign-in always stays available.")}>
+        <Section icon={<MicrosoftLogo />} id="microsoft" title={t(accountTitles.microsoft)} description={t("Sign in with Microsoft instead of an email code. Email sign-in always stays available.")}>
             <MicrosoftAccountControls linkedEmail={account ? account.email : null} configured={configured} recentSignIn={recentSignIn} />
         </Section>
     );
