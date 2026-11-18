@@ -164,12 +164,13 @@ comment's screenshot. The app shares the reader, with its own shadcn controls an
 
 ## Where the pin and its popover go
 
-A pin sits 16 px below and right of its anchor (`bubbleLeft`, `bubbleTop` in `CommentBubble`), kept inside
-the window sideways. When that place leaves the bottom of the window, or goes under the toolbar pill at the
-bottom edge, while the anchor's bottom is still in the window (an element or area that ends at the bottom
+A pin's centre sits 17 px below and 16 px right of its anchor (`bubbleTop`, `bubbleLeft` in `CommentBubble`),
+kept inside the window sideways. The extra vertical pixel lets a mouse stay over a page's hover-menu item
+when a pin appears at the clicked point. When that place leaves the bottom of the window, or goes under the
+toolbar pill at the bottom edge, while the anchor's bottom is still in the window (an element or area that ends at the bottom
 edge, [uier #166](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects&comment=comment_H_TrIieqwg6OA4Px0efJx)),
-the pin goes above that point upside down (`<Pin upsideDown />`, `data-uier-upside-down`), its sharp corner
-still on the point, inside the window and above the pill. An anchor below the window keeps its pin below
+the pin goes above that point upside down (`<Pin upsideDown />`, `data-uier-upside-down`), with its sharp corner
+marking the point, inside the window and above the pill. An anchor below the window keeps its pin below
 it, off-screen until scrolled to. The pin's button has the pin's shape (round, with no radius on the sharp
 corner: top-left, or bottom-left upside down), so its focus ring follows the pin, not a circle
 ([uier #286](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_1z_xazrZorbfQTPCYKfJ2)).

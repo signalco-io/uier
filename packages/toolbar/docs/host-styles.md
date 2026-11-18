@@ -19,6 +19,17 @@ the toolbar, and what keeps each one out.
 | The page's direction and language | `<html dir="rtl" lang="ja">` | `direction: ltr` and the root's `dir` (the six languages are left to right), its `lang` from the toolbar's language ([languages](localization.md)) |
 | The page's `::selection` | `::selection { background: magenta }` | Nothing more needed: the UI kit's theme sets the toolbar's own selection colours on every element |
 
+## Stacking above the page
+
+The toolbar host is a manual popover. The browser paints its pill, panels and pins in the top layer,
+above ordinary page content even when a sticky header, ad or banner uses the maximum `z-index`.
+The host has zero size and no backdrop, so clicks outside the toolbar still reach the page.
+
+The host normally lives in `<body>`. When the toolbar follows a page dialog, menu or light-dismiss
+popover, it moves inside that layer and opens above it. This keeps it usable inside native modals
+and lets the page treat toolbar interactions as inside its layer. When the layer closes, the toolbar
+returns to `<body>` and stays in the top layer.
+
 ## `--uier-rem`
 
 - It is the person's default font size, the browser's setting: `prepareToolbarRoot` (`src/stylesheet.ts`)
@@ -36,8 +47,8 @@ the toolbar, and what keeps each one out.
   `pointer-events: auto` against a modal's `body { pointer-events: none }`). Add a property there, not on the
   host, when it has to be the same everywhere.
 - The host reset is only for the toolbar's own host. An inline thread's slot is the page's own element, laid out
-  by the page; its root still resets what it inherits. `:where` keeps the reset below `:host([popover])`, the host
-  in a page layer ([page layers](../AGENTS.md#how-it-is-built)).
+  by the page; its root still resets what it inherits. `:where` keeps the reset below `:host([popover])`,
+  which styles the toolbar's top-layer host.
 - The page's zoom is undone only for the toolbar's host: an inline thread is part of the page's layout and zooms with it.
   The zoom sheet is adopted only once a page zooms, and updates on resize, on `class` and `style` changes of any of the
   host's ancestors (`<html>`, `<body>`, a dialog it is in and that dialog's parents; the chain is watched again
@@ -51,4 +62,7 @@ the toolbar, and what keeps each one out.
 above (`fixture-host-styles`, `e2e/support/fixtures/hostStyles.ts`), and expects the pill and the Profile popover
 to have the same boxes, text styles and selection colours, and point mode to outline the page's heading where it
 is, inside the page's zoom. In a second test the toolbar follows the page's modal dialog, which the page then zooms
-with a class and with a style: the pill keeps its boxes and point mode outlines the dialog's heading. `e2e/embed.spec.ts` checks the other direction: the toolbar leaves the page's styles alone.
+with a class and with a style: the pill keeps its boxes and point mode outlines the dialog's heading.
+The stacking test adds a fixed header at the maximum `z-index` after the toolbar mounts, then uses the
+inbox's search and close controls and clicks the page header. `e2e/embed.spec.ts` checks the other
+direction: the toolbar leaves the page's styles alone.

@@ -267,12 +267,25 @@ test('a failed project comments load is visible and can be retried', async ({ pa
     const projectId = await createProject(page, { urls: [reviewedSiteOrigin] });
     await setProjectAccess(page, projectId, 'Anyone with the link');
     const endpoint = `**/api/review/${projectId}/comments?*`;
-    await page.route(endpoint, route => route.abort());
+    // Initial refreshes can overlap the failed load. Keep failing until the retry button is pressed.
+    await page.addInitScript(() => {
+        document.addEventListener('click', event => {
+            if (event.composedPath().some(node => node instanceof HTMLButtonElement && node.textContent?.trim() === 'Try again')) {
+                document.documentElement.dataset.retryPressed = 'true';
+            }
+        }, true);
+    });
+    await page.route(endpoint, async route => {
+        if (await page.locator('html').getAttribute('data-retry-pressed')) await route.continue();
+        else await route.abort();
+    });
     await page.goto(`${reviewedSiteOrigin}/pricing?project=${projectId}&review=true`);
     await expect(page.getByText('Comments could not be loaded.')).toBeVisible({ timeout: 15_000 });
     await expect(page.getByRole('link', { name: 'Open install guide' })).toHaveCount(0);
-    await page.unroute(endpoint);
+    const reloaded = page.waitForResponse(response => response.ok()
+        && new URL(response.url()).pathname === `/api/review/${projectId}/comments`);
     await page.getByRole('button', { name: 'Try again', exact: true }).click();
+    await reloaded;
     await expect(page.getByText('Comments could not be loaded.')).toBeHidden();
 });
 

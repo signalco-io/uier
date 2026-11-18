@@ -64,7 +64,7 @@ function bubbleHalfHitArea() {
 
 /** Keeps the bubble inside the window horizontally, e.g. for text that ends at the right edge on mobile */
 function bubbleLeft(rect: DOMRect | undefined) {
-    const left = (rect?.right ?? 0) + 16;
+    const left = (rect?.right ?? 0) + bubbleHalfSize;
     const halfHitArea = bubbleHalfHitArea();
     const min = halfHitArea + bubbleWindowMargin;
     const max = document.documentElement.clientWidth - Math.max(halfHitArea, bubbleHalfSize + bubbleBadgeOverhang) - bubbleWindowMargin;
@@ -104,15 +104,17 @@ function toolbarPillRect(rootElement: HTMLElement | null | undefined) {
 }
 
 /**
- * The bubble's middle, 16px below its anchor. When that leaves the bottom of the window, or goes
+ * The bubble's middle, 17px below its anchor. When that leaves the bottom of the window, or goes
  * under the toolbar pill, while the anchor's bottom is in the window (an element or area that ends
  * at the bottom edge, uier #166), the bubble is above that point, upside down (its sharp corner
- * still on the point), and kept inside the window and above the pill. An anchor below the window
+ * still marks the point), and kept inside the window and above the pill. An anchor below the window
  * keeps its bubble below it, off-screen until scrolled to.
  */
 function bubbleTop(rect: DOMRect | undefined, left: number, rootElement: HTMLElement | null | undefined): { top: number; upsideDown: boolean } {
     const bottom = rect?.bottom ?? 0;
-    const below = bottom + 16;
+    // Leave a pixel between the click and the top-layer hit target so a CSS hover menu stays open.
+    const anchorOffset = bubbleHalfSize + 1;
+    const below = bottom + anchorOffset;
     const height = document.documentElement.clientHeight;
     const halfHitArea = bubbleHalfHitArea();
     let max = height - halfHitArea - bubbleWindowMargin;
@@ -125,7 +127,7 @@ function bubbleTop(rect: DOMRect | undefined, left: number, rootElement: HTMLEle
     if (below <= max || bottom > height + 1) {
         return { top: below, upsideDown: false };
     }
-    return { top: Math.min(bottom - 16, max), upsideDown: true };
+    return { top: Math.min(bottom - anchorOffset, max), upsideDown: true };
 }
 
 type PopoverPlacement = { side: 'top' | 'right' | 'bottom' | 'left'; align: 'start' | 'end'; sideOffset: number; alignOffset: number };
