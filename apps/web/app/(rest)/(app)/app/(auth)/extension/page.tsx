@@ -2,7 +2,7 @@ import { getAppI18n } from '@/src/lib/i18n/server';
 import { AuthCardLoading } from '@/src/components/app/AuthFrame';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
-import { ClockIcon, MousePointerClickIcon } from 'lucide-react';
+import { ClockIcon, FolderPlusIcon, MousePointerClickIcon } from 'lucide-react';
 import { requireAppContext } from '@/src/lib/app/context';
 import { validateAuthorization, type Authorization } from '@/src/lib/extension/auth';
 import { AuthCard } from '@/src/components/app/AuthCard';
@@ -49,6 +49,10 @@ async function ExtensionConsentContent({ searchParams }: { searchParams: Promise
                     <MousePointerClickIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-foreground" strokeWidth={1.75} />
                     <span>{t("Only sites where you choose Start review are activated.")}</span>
                 </li>
+                {input.capability === 'create-projects' && <li className="flex gap-2.5">
+                    <FolderPlusIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-foreground" strokeWidth={1.75} />
+                    <span>{t("The extension can create projects for sites you open, in workspaces where you are an admin.")}</span>
+                </li>}
                 <li className="flex gap-2.5">
                     <ClockIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-foreground" strokeWidth={1.75} />
                     <span>{input.renewable === 'true'

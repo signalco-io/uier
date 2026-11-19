@@ -98,6 +98,42 @@ browser registrations, exact callbacks, bound extension origins, refresh rebindi
 ancestors. Public installation links remain subject to each browser's publication and acceptance
 gates; local browser builds do not announce new store availability.
 
+`POST /api/extension/projects` (`createSiteProject` in `src/lib/extension/review.ts`) creates a project for a
+site no project includes, from the popup. It takes the worker's access token (never a review scope or a refresh
+credential), an exact origin, a name, a workspace id and an attempt. In order:
+
+- **Capability.** The session must hold `create-projects` (`sessions.ts`, `hasExtensionCapability`). Authorization
+  asks for it with `capability=create-projects`, `/app/extension` names it in its own list item, the one-use handoff
+  stores it and the exchange copies it to the session from the handoff alone, never from the exchange body. Refresh
+  keeps the session record, so it neither adds nor drops it. Sessions issued before the capability existed have none:
+  they review as before and get 403 here. A new capability needs its consent line, in every app language.
+- **Permission.** The person must be a stored admin of that workspace, and uier's own workspace is never accepted
+  (`mayCreateProjects`): the same rule as the app's Create project. A missing workspace, a removed member and a
+  commenter get the same 403.
+- **Receipt and budget.** `reserveProjectCreation` writes the attempt's receipt before anything of the project
+  exists, in one transaction with one unit of `siteProjectsLimit` (30 new projects an hour per account, 429 with
+  `Retry-After` beyond it). The same attempt again, or several of it at once, find that receipt and take no unit,
+  so a retry after a partial write costs nothing. Before answering 429 the server asks the store, with a write that
+  changes nothing, whether the attempt's receipt exists: a duplicate of a request that already committed is never
+  refused, in the same hour or across its end ([projects](projects.md)). The receipt answers for 30 days.
+- **Creation.** The app's `createProject` with the receipt ([projects](projects.md)), so address and name
+  validation, the invited-only default, the public id and the client record are the app's. Keep new creation rules
+  in `createProject` so both paths get them. A project that was created and then deleted or transferred, or that
+  no longer includes the address, answers 410: the worker forgets that attempt, and nothing is created again under
+  the old code.
+
+`GET projects` adds `workspaces` (id and name of each workspace the account may create in, oldest membership
+first) beside `canSetUp`, which installed packages still read; the list is a label and grants nothing. A session
+without the capability gets an empty list and `approveCreate: true` when the account has such a workspace.
+`extension.api.spec.ts` covers the capability (legacy, renewable and renewed sessions, an exchange that asks for
+it), the roles, stale and removed memberships, credentials, validation, replay and concurrent requests of one
+attempt (also with one unit of the budget left, in every ordering of a duplicate's reads with the original's write,
+across the end of the hour, and after a request that stopped before or after its commit), replays after deletion,
+in deletion's gap, after a transfer and after the address was removed, the 30-day period, the expiry of receipt and
+marker and the permanent code, the budget and the route; the packaged runtime suite reads the consent line, moves the tab between the form
+and its submit, breaks off the answer of a committed create and fails the refresh after it, sends the retry twice and
+reviews with the one created project.
+
 Workflow discovery uses the allowlisted `GET statuses` operation and the same member-only handler as the embed review API. Guests cannot retrieve workflow names, descriptions or defaults.
 
 The cross-tab consent regression asserts the complete “Continue as” approval identity, since

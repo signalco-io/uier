@@ -47,7 +47,12 @@ disconnected and its ledgers removed, so there is nothing to fan out to.
 
 The project's client (`DbClient`) is a workspace record and stays, as it does when a project's client is
 cleared; the app shows a client only through projects that point to it. Rate-limit counters (an hour or a
-day) and submission receipts (30 days, hashes only) in the comment partition expire on their own. Access events keep the project id for 180 days. Backups keep deleted
+day) and submission receipts (30 days, hashes only) in the comment partition expire on their own. A project
+created from the browser extension has a `project-receipt` in its creator's partition (ids and a hash of the request,
+30 days; beside it the creator's hourly count of such requests, `project-receipt-slot`, about an hour) and a
+`project-created` marker in its workspace's partition (the project id and a time, until 31 days after
+the request). Deletion leaves both to expire: the marker is what stops a repeated create request from making the project again under its
+old code, also while a deletion is under way. Access events keep the project id for 180 days. Backups keep deleted
 data for up to seven days ([backups and restore](backups-and-restore.md)).
 
 A project with a transfer to another workspace in progress cannot be deleted until the transfer

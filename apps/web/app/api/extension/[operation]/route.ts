@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { extensionHandler, extensionApiOrigin } from '@/src/lib/extension/http';
 import { exchangeExtensionCode, readScope } from '@/src/lib/extension/auth';
 import { refreshExtensionSession, revokeExtensionSession } from '@/src/lib/extension/sessions';
-import { extensionReviewContext, matchingProjects, createScope } from '@/src/lib/extension/review';
+import { extensionReviewContext, matchingProjects, createScope, createSiteProject } from '@/src/lib/extension/review';
 import { signToken } from '@/src/lib/app/tokens';
 import { apiErrors, parseJsonBody } from '@/src/lib/comments/http';
 import { assertNotBot } from '@/src/lib/comments/botProtection';
@@ -19,6 +19,8 @@ const handler = extensionHandler(async request => {
     // Public and secret-free: installed packages compare it before asking the browser for an update.
     if (operation === 'version' && request.method === 'GET') return Response.json({ version: latestExtensionVersion });
     if (operation === 'projects' && request.method === 'GET') return matchingProjects(request);
+    // A project for an unlisted site: the worker's access token and the person's stored admin membership, no review scope
+    if (operation === 'projects' && request.method === 'POST') return createSiteProject(request);
     if (operation === 'scope' && request.method === 'POST') return createScope(request);
     if (operation === 'session' && request.method === 'DELETE') {
         await revokeExtensionSession(request);
