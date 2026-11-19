@@ -1093,10 +1093,18 @@ test('file threads backfill a redacted permalink and clean copied context across
         assetTarget: { assetId, authorShareId: 'guest-grant-id', source: { versionId, anchor: { kind: 'text', surfaceId: 'source-node', quote: 'private evidence' } } },
         path: '/private/source?token=proof-source-secret',
         authorId: 'guest-identifier',
+        verification: {
+            id: 'named-check', revision: 'private-check-revision', requester: `user:${f.owner.id}`,
+            reviewer: 'named-proof-reviewer', requestedAt: old, outcome: 'confirmed',
+            summary: 'Private approval rationale', fixUrl: 'https://source.example/?key=proof-source-secret',
+            decision: { kind: 'confirm', actorId: 'named-proof-reviewer', at: old, override: false }
+        },
         thread: { items: [{ id: 'item_original', text: 'Align the header', authorId: 'guest-identifier', authorName: 'Guest name', quotedText: 'private evidence' },
             { id: 'item_reply', text: 'I can take this', authorId: `user:${f.owner.id}` },
             { id: 'item_deleted', text: 'Deleted secret', deletedAt: old }] }
     });
+    await f.comments.create({ ...proof, id: `private_${proof.id}`, private: true, syncPending: false,
+        thread: { items: [{ id: 'item_note', text: 'Private staff note' }] } });
     const original = `${baseUrl}/proof/${f.project.id}/${assetId}?version=${versionId}&thread=${proof.id}`;
     const copies: string[] = [];
     const target = adapter('github', async context => {
@@ -1115,7 +1123,7 @@ test('file threads backfill a redacted permalink and clean copied context across
             slackRootMessage(context.feedback!.context, f.project.name, baseUrl)]);
         expect(rendered).toContain(original);
         for (const forbidden of ['proof-source-secret', 'Guest name', 'guest-identifier', 'guest-grant-id', 'source-node', 'private evidence',
-            'Internal artwork', 'Deleted secret', '/media/', '/original', 'verification'])
+            'Internal artwork', 'Deleted secret', '/media/', '/original', 'verification', 'named-proof-reviewer', 'Private approval rationale', 'Private staff note'])
             expect(rendered).not.toContain(forbidden);
         await context.operation({ step: 'upsert', planHash: hash, repeatable: true }, async () => { copies.push('sync'); });
         await context.checkpoint({ remoteId: 'proof-copy' }, { clearAttempt: true });
