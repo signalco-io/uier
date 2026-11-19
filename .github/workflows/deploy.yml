@@ -95,6 +95,42 @@ jobs:
     with:
       production: true
 
+  proof-html:
+    name: "Bind the production proof hostname"
+    needs: [web, build]
+    if: github.ref == 'refs/heads/main' && needs.build.outputs.proof-html-origin != ''
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    concurrency:
+      group: file-proof-html-production
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /.github/proofs/vercel.mjs
+            /.github/vercel-project.json
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: "26"
+      - name: Verify the release and bind its isolated proof hostname
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          UIER_PROOF_DEPLOYMENT: ${{ needs.web.outputs.url }}
+          UIER_PROOF_HTML_ORIGIN_PRODUCTION: ${{ needs.build.outputs.proof-html-origin }}
+          UIER_PROOF_HTML_ORIGIN_PREVIEW: ${{ vars.UIER_PROOF_HTML_ORIGIN_PREVIEW }}
+        run: |
+          node --input-type=module -e '
+            import { configureHtml } from "./.github/proofs/vercel.mjs";
+            await configureHtml("production", { requirePublished: true });
+          '
+
   indexnow:
     name: "Notify search engines of changed public pages"
     needs: [web, build]

@@ -114,7 +114,7 @@ async function probeRoot(url, dedicated) {
     return true;
 }
 
-export async function configureHtml(target) {
+export async function configureHtml(target, { requirePublished = false } = {}) {
     const setting = 'UIER_PROOF_HTML_ORIGIN_' + target.toUpperCase();
     const url = origin(process.env[setting], setting);
     const host = url.hostname;
@@ -129,6 +129,8 @@ export async function configureHtml(target) {
     const requested = origin(process.env.UIER_PROOF_DEPLOYMENT, 'UIER_PROOF_DEPLOYMENT');
     if (!vercelHost.test(requested.hostname)) throw new Error('Use the exact generated Vercel deployment URL.');
     const wanted = await deployment(requested.hostname, target);
+    if (requirePublished && (target !== 'production' || (await alias(new URL(appOrigin).hostname))?.deploymentId !== wanted.id))
+        throw new Error('The release deployment does not match the current uier.io production binding.');
     await rejectAppDomain(host, dedicated);
 
     const existing = await alias(host);

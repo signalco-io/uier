@@ -13,6 +13,9 @@ on:
       public-pages-changed:
         description: "Whether the production build changes public search content."
         value: ${{ jobs.build.outputs.public-pages-changed }}
+      proof-html-origin:
+        description: "The isolated origin selected by a production build that includes HTML proofs."
+        value: ${{ jobs.build.outputs.proof-html-origin }}
 
 permissions: {}
 env:
@@ -31,6 +34,7 @@ jobs:
       contents: read
     outputs:
       public-pages-changed: ${{ steps.search-changes.outputs.changed }}
+      proof-html-origin: ${{ steps.build.outputs.proof-html-origin }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -71,9 +75,12 @@ jobs:
           restore-keys: |
             turbo-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml', '.nvmrc') }}-
       - name: Build with public project settings
+        id: build
         env:
           PRODUCTION: ${{ inputs.production }}
           UIER_DEPLOYMENT_ENV: ${{ inputs.production && 'production' || 'preview' }}
+          UIER_PROOF_HTML_ORIGIN_PREVIEW: ${{ vars.UIER_PROOF_HTML_ORIGIN_PREVIEW }}
+          UIER_PROOF_HTML_ORIGIN_PRODUCTION: ${{ vars.UIER_PROOF_HTML_ORIGIN_PRODUCTION }}
           UIER_TOOLBAR_RETAIN_FROM: https://uier.io
         run: |
           if [ "$PRODUCTION" = "true" ]; then
@@ -82,9 +89,22 @@ jobs:
           mkdir -p .vercel
           cp .github/vercel-project.json .vercel/project.json
           if [ "$PRODUCTION" = "true" ]; then
+            export NEXT_PUBLIC_UIER_PROOF_HTML_ORIGIN="$UIER_PROOF_HTML_ORIGIN_PRODUCTION"
             "$HOME/.vercel-cli/bin/vercel" build --prod
             node .github/scripts/package_schedules.mjs --production
+            if [ -n "$NEXT_PUBLIC_UIER_PROOF_HTML_ORIGIN" ]; then
+              node --input-type=module -e '
+                import { appendFileSync, readFileSync } from "node:fs";
+                import { origin } from "./.github/proofs/vercel.mjs";
+                const routes = JSON.parse(readFileSync("apps/web/.next/server/app-paths-manifest.json", "utf8"));
+                if (Object.hasOwn(routes, "/proof-preview/[token]/[...resource]/route")) {
+                  const url = origin(process.env.NEXT_PUBLIC_UIER_PROOF_HTML_ORIGIN, "UIER_PROOF_HTML_ORIGIN_PRODUCTION");
+                  appendFileSync(process.env.GITHUB_OUTPUT, "proof-html-origin=" + url.origin + "\n");
+                }
+              '
+            fi
           else
+            export NEXT_PUBLIC_UIER_PROOF_HTML_ORIGIN="$UIER_PROOF_HTML_ORIGIN_PREVIEW"
             "$HOME/.vercel-cli/bin/vercel" build
             node .github/scripts/package_schedules.mjs --preview
           fi

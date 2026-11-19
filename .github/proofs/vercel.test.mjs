@@ -13,7 +13,7 @@ const old = { ...wanted, id: 'dpl_Old', url: 'uier-old-preview-signalco.vercel.a
 const binding = (url, deployment = wanted) => ({ alias: new URL(url).hostname, deploymentId: deployment.id, projectId });
 const absent = () => Response.json({ error: { code: 'not_found' } }, { status: 404 });
 
-function fixture(t, { current, prior = old, next = wanted, domains = [], status = 404, settings = {}, resolvedHost = next.url, assignment } = {}) {
+function fixture(t, { current, prior = old, next = wanted, domains = [], status = 404, settings = {}, resolvedHost = next.url, assignment, published } = {}) {
     const env = {
         VERCEL_TOKEN: 'fixture-api-token',
         UIER_PROOF_VERCEL_BYPASS: '',
@@ -49,6 +49,8 @@ function fixture(t, { current, prior = old, next = wanted, domains = [], status 
         if (url.pathname === '/v13/deployments/' + prior.id) return Response.json(prior);
         if (url.pathname === '/v9/projects/' + projectId + '/domains')
             return Response.json({ domains: domains.map(domain => typeof domain === 'string' ? { name: domain } : domain), pagination: { next: null } });
+        if (url.pathname === '/v4/aliases/uier.io' && published)
+            return Response.json(binding('https://uier.io', published));
         if (url.pathname.startsWith('/v4/aliases/')) {
             assert.equal(url.searchParams.has('projectId'), false);
             return current instanceof Response ? current : current ? Response.json(current) : absent();
@@ -104,6 +106,23 @@ test('allows the dedicated production hostname on production and a verified same
     const { writes } = fixture(t, { next, prior, current: binding(production, prior) });
     await configureHtml('production');
     assert.deepEqual(writes, [new URL(production).hostname]);
+});
+
+test('refreshes the production proof alias only for the deployment serving uier.io', async t => {
+    const next = { ...wanted, target: 'production' };
+    const prior = { ...old, target: 'production' };
+    for (const [name, published] of [['current release', next], ['superseded release', prior]]) {
+        await t.test(name, async t => {
+            const { writes } = fixture(t, { next, prior, current: binding(production, prior), published });
+            if (published === next) {
+                await configureHtml('production', { requirePublished: true });
+                assert.deepEqual(writes, [new URL(production).hostname]);
+            } else {
+                await assert.rejects(configureHtml('production', { requirePublished: true }), /current uier.io production binding/);
+                assert.deepEqual(writes, []);
+            }
+        });
+    }
 });
 
 test('accepts an isolated custom domain and never sends its host the bypass secret', async t => {
