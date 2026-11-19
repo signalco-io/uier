@@ -1,4 +1,4 @@
-import { expect, test, type Browser, type Page } from '@playwright/test';
+import { expect, test, type Browser, type Locator, type Page } from '@playwright/test';
 import sharp from 'sharp';
 import { proofApiPath, type ProofScope, type ProofShare } from '../src/lib/proofs/model';
 import { enableProjectVerification, hydrated, setProjectAccess, signIn, uniqueEmail } from './support/app';
@@ -63,6 +63,14 @@ async function publishReview(page: Page) {
     return { share, source: source!, project, dialog };
 }
 
+async function publishRevisedPrices(dialog: Locator) {
+    await dialog.getByLabel('New version file').setInputFiles(await bitmap('Prices-2.png', '#c8e7d1'));
+    await dialog.getByRole('button', { name: 'Upload version' }).click();
+    const secondEdition = dialog.getByRole('link', { name: 'Version 2 · Prices-2.png' });
+    await expect(secondEdition).toBeVisible();
+    return secondEdition;
+}
+
 function guestContext(browser: Browser, isMobile: boolean) {
     return browser.newContext({ viewport: isMobile ? { width: 390, height: 844 } : { width: 1200, height: 850 }, isMobile, hasTouch: isMobile });
 }
@@ -92,10 +100,7 @@ test('the original guest reopens a share in the same tab and checks two revised 
         await expect(review).toHaveURL(shareAddress(share, ''));
         await expect(review.getByRole('combobox', { name: 'Version', exact: true })).toContainText('Version 1');
         await expect(review.getByText('Changes ready for you to check', { exact: false })).toHaveCount(0);
-        await dialog.getByLabel('New version file').setInputFiles(await bitmap('Prices-2.png', '#c8e7d1'));
-        await dialog.getByRole('button', { name: 'Upload version' }).click();
-        const secondEdition = dialog.getByRole('link', { name: 'Version 2 · Prices-2.png' });
-        await expect(secondEdition).toBeVisible();
+        const secondEdition = await publishRevisedPrices(dialog);
         const version2 = new URL((await secondEdition.getAttribute('href'))!, share).searchParams.get('version')!;
 
         let firstRevisedLocation: unknown;
@@ -217,7 +222,7 @@ test('reopening a collection in the same guest tab refreshes its files and repla
 
 test('a guest follows a file thread and resumes its fix check in a fresh browser', async ({ page, browser, isMobile }) => {
     test.setTimeout(120_000);
-    const { share, source } = await publishReview(page);
+    const { share, source, dialog } = await publishReview(page);
     const original = await guestContext(browser, isMobile);
     const secondGuest = await guestContext(browser, isMobile);
     const returning = await guestContext(browser, isMobile);
@@ -248,6 +253,7 @@ test('a guest follows a file thread and resumes its fix check in a fresh browser
         await expect(other.getByRole('button', { name: 'Follow thread', exact: true })).toHaveCount(0);
         await expect(other.getByText(mailbox)).toHaveCount(0);
 
+        await publishRevisedPrices(dialog);
         await page.goto(threadUrl);
         await page.getByRole('button', { name: 'Request verification', exact: true }).click();
         const request = page.getByRole('form', { name: 'Request verification', exact: true });
