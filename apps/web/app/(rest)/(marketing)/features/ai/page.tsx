@@ -137,6 +137,23 @@ export default function AiPage() {
             </PageSection>
 
             <PageSection
+                id="sidebar-feedback-example"
+                title="From a sidebar comment to a merged fix"
+                lead="A reviewer on uier wanted to see how many comments were still open on each project without opening it.">
+                <Panel>
+                    <Tile title="What Codex had to work with">
+                        <p>The reviewer pinned the request to the project list in the sidebar. That anchor gave Codex the location, and the comment identified what to count.</p>
+                    </Tile>
+                    <Tile title="What changed">
+                        <p>Each project now shows how many unfinished comments the viewer can see. The count skips archived threads and the badge disappears when the count reaches zero. On a screen reader, the count has its own description so the project link keeps its name.</p>
+                    </Tile>
+                    <Tile title="How the fix was checked">
+                        <p>API tests covered private, archived and completed comments. Browser tests checked the badges on desktop, tablet and mobile. <InlineLink href={`${brand.repository}/pull/809`}>Read the change and test results in pull request 809</InlineLink>.</p>
+                    </Tile>
+                </Panel>
+            </PageSection>
+
+            <PageSection
                 id="connect"
                 title="Connect your coding tool"
                 lead={<>Every tool uses one endpoint, <code className={code}>{endpoint}</code>. The setup for each is in the app, under Account → Coding agents.</>}>
