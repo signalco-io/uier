@@ -28,6 +28,7 @@ async function AppShellLayoutContent({ children }: PropsWithChildren) {
     const { t } = await getAppI18n();
     const context = await requireAppContext();
     const projectOrder = await getProjectOrder();
+    const sidebarReadAt = Date.now();
     const visibleProjects = listVisibleProjects(context);
     // The sidebar's reads start once the projects are listed, alongside the access snapshot
     const [projects, access, sidebarProjects, accounts] = await Promise.all([
@@ -53,6 +54,13 @@ async function AppShellLayoutContent({ children }: PropsWithChildren) {
     return (
         <SidebarProvider>
             <AccountSessionBoundary userId={context.user.id} />
+            <ShellInfoProvider
+                key={`${context.user.id}:${context.workspace.id}`}
+                userId={context.user.id}
+                value={shellInfo}
+                projects={sidebarProjects}
+                readAt={sidebarReadAt}
+            >
             {/* The keyboard shortcuts of every page, and `?` to list them */}
             <AppShortcuts>
             <InviteProvider teams={teams} enabled={context.isAdmin && context.workspace.id !== PUBLIC_WORKSPACE_ID} projects={projects.map(({ id, name, status }) => ({ id, name, status }))}>
@@ -73,7 +81,6 @@ async function AppShellLayoutContent({ children }: PropsWithChildren) {
                             feedback
                         };
                     })}
-                    projects={sidebarProjects}
                     projectOrder={projectOrder}
                     hasClients={projects.some(project => project.clientId)} />
                 {/* Where the sidebar is docked (lg) the panel keeps its frame and scrolls inside it, like a desktop app.
@@ -97,13 +104,14 @@ async function AppShellLayoutContent({ children }: PropsWithChildren) {
                                 (edge to edge, padded by them); the rest of its page stays. The space above the page header
                                 is the 24px under it (PageHeader's pb-6, the gap to the comments' search), at every width (uier #181) */}
                             <div className={shellColumnClassName}>
-                                <ShellInfoProvider value={shellInfo}>{children}</ShellInfoProvider>
+                                {children}
                             </div>
                         </div>
                     </div>
                 </SidebarInset>
             </InviteProvider>
             </AppShortcuts>
+            </ShellInfoProvider>
         </SidebarProvider>
     );
 }
