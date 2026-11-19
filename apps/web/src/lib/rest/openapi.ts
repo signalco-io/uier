@@ -43,7 +43,7 @@ function operation(operationId: keyof typeof responses, summary: string, descrip
 export const openapi = {
     openapi: '3.0.3',
     info: { title: 'uier REST API', version: '1.0.0',
-        description: `Use a bearer token from [Account → API tokens](/app/account/api-tokens). Choose projects and permissions when creating it. Access follows current project membership and private-thread visibility. Each token allows up to ${apiRequestLimit} requests per minute. Replies also use the project’s reply limits. Interactive requests act on real project data.` },
+        description: `Use a bearer token from [Account → API tokens](/app/account/api-tokens). Choose projects and permissions when creating it. Feedback endpoints operate on website threads. Access follows current project membership and thread visibility. Each token allows up to ${apiRequestLimit} requests per minute. Replies also use the project’s reply limits. Interactive requests act on real project data.` },
     servers: [{ url: apiRoot }],
     security: [{ bearerAuth: [] }],
     components: { securitySchemes: { bearerAuth: { type: 'http', scheme: 'bearer', description: 'Paste a uier REST API token.' } },

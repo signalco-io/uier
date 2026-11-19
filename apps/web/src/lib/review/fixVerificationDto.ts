@@ -13,9 +13,9 @@ export function verificationPermissions(comment: DbComment, project: DbProject, 
     const me = actor.kind === 'member' ? `user:${actor.userId}` : actor.kind === 'guest' ? actor.visitorId : undefined;
     const v = comment.verification;
     const enabled = project.access !== 'disabled' && project.verificationEnabled === true;
-    const pending = enabled && !comment.resolved && v?.outcome === 'pending';
+    const pending = enabled && (!comment.assetTarget || !comment.archivedAt) && !comment.resolved && v?.outcome === 'pending';
     const distinct = Boolean(me && me !== v?.requester);
-    return { ...(actor.kind === 'member' ? { selfId: actor.userId } : {}), request: enabled && actor.kind === 'member',
+    return { ...(actor.kind === 'member' ? { selfId: actor.userId } : {}), request: enabled && actor.kind === 'member' && (!comment.assetTarget || !comment.archivedAt),
         respond: Boolean(pending && distinct && me === v?.reviewer && (actor.kind === 'member' ? members.has(actor.userId) : actor.kind === 'guest' && usableAuthor(comment, project, members) && me === comment.authorId)),
         cancel: Boolean(pending && (me === v?.requester || actor.kind === 'member' && actor.isAdmin)),
         override: Boolean(pending && distinct && actor.kind === 'member' && actor.isAdmin && me !== v?.reviewer),
@@ -29,8 +29,13 @@ export function verificationDetails(comment: DbComment, project: DbProject, acto
         : id === comment.authorId && !comment.thread.items[0]?.deletedAt ? comment.thread.items[0]?.authorName || 'Guest' : 'Unavailable reviewer';
     const fixOrigin = v.fixUrl ? new URL(v.fixUrl).origin : undefined;
     const showLink = actor.kind === 'member' || Boolean(feedbackSource(project, comment.origin).available && (!fixOrigin || !project.urls.some(url => new URL(url).origin === fixOrigin) || fixOrigin === comment.origin));
+    const evidence = actor.kind === 'member' ? v.stagingEvidence : undefined;
+    const before = Boolean(evidence && evidence.beforeRevision !== undefined && comment.screenshot
+        && evidence.beforeRevision === (comment.screenshot.revision ?? null));
+    const after = evidence && comment.thread.items.slice(1).find(item => String(item.id) === evidence.afterItemId && !item.deletedAt && item.screenshot);
     return { id: v.id, revision: v.revision, outcome: v.outcome, requestedAt: v.requestedAt,
         requester: name(v.requester), reviewer: name(v.reviewer), summary: v.summary,
+        ...(evidence ? { stagingEvidence: { before, ...(after ? { afterItemId: evidence.afterItemId } : {}) } } : {}),
         ...(showLink && v.fixUrl ? { fixUrl: v.fixUrl } : {}),
         ...(v.decision ? { decision: { kind: v.decision.kind, actor: name(v.decision.actorId), at: v.decision.at, override: v.decision.override } } : {}) };
 }

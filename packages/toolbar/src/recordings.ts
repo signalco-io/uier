@@ -1,5 +1,6 @@
 'use client';
 
+import { hidePrivatePreviews } from './capturePrivacy';
 import { useEffect, useRef, useState } from 'react';
 
 export const MAX_RECORDING_BYTES = 25 * 1024 * 1024;
@@ -139,6 +140,7 @@ export function useRecording(initial?: RecordingClip) {
     const recorder = useRef<MediaRecorder | undefined>(undefined);
     const interval = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
     const started = useRef(0);
+    const restorePreviews = useRef<(() => void) | undefined>(undefined);
     const busyRef = useRef(false);
     const save = (next: RecordingClip | undefined) => { clipRef.current = next; if (mounted.current) setClip(next); };
     const cleanTracks = () => {
@@ -146,6 +148,8 @@ export function useRecording(initial?: RecordingClip) {
         interval.current = undefined;
         for (const track of media.current?.getTracks() ?? []) track.stop();
         media.current = undefined;
+        restorePreviews.current?.();
+        restorePreviews.current = undefined;
     };
     const stop = () => {
         if (recorder.current?.state === 'recording') recorder.current.stop();
@@ -202,6 +206,7 @@ export function useRecording(initial?: RecordingClip) {
         const attempt = ++session.current;
         busyRef.current = true;
         setPhase('choosing'); setError(undefined);
+        restorePreviews.current = hidePrivatePreviews();
         try {
             // Called directly by the click handler, before any unrelated await (transient activation).
             const stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: { ideal: 15, max: 30 }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
@@ -255,7 +260,7 @@ export function useRecording(initial?: RecordingClip) {
                 if (seconds >= MAX_RECORDING_DURATION) stop();
             }, 200);
         } catch (cause) {
-            cleanTracks();
+            if (attempt === session.current) cleanTracks();
             if (mounted.current && attempt === session.current) {
                 busyRef.current = false; setPhase('idle');
                 setError(cause instanceof DOMException && ['NotAllowedError', 'AbortError'].includes(cause.name) ? 'permission'

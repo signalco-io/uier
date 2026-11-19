@@ -49,7 +49,8 @@ import {
     replaceProjectScreenshot
 } from './comments';
 import { eligibleParticipants, mentionsSchema } from './participants';
-import type { ReviewApiContext } from './http';
+import { ownOrigin, type ReviewApiContext } from './http';
+import { stagingForReview, stagingPairingId } from '../proofs/staging';
 
 import { assigneeIdsSchema, assignmentModeSchema } from './assignments';
 
@@ -134,7 +135,7 @@ export async function createReviewSession({ request, project }: ReviewApiContext
 
 // Query field names seen on the page, for the page state suggestions in settings; invalid names are dropped, not refused
 const queryKeysSchema = z.array(z.string().max(64)).max(12).transform(keys => pageStatePolicy({ queryParameters: keys }).queryParameters);
-const createSchema = createCommentSchema.safeExtend({ path: reviewPathSchema, authorName: guestNameSchema.optional(), mentions: mentionsSchema.optional(), queryKeys: queryKeysSchema.optional() });
+const createSchema = createCommentSchema.safeExtend({ path: reviewPathSchema, authorName: guestNameSchema.optional(), mentions: mentionsSchema.optional(), queryKeys: queryKeysSchema.optional(), stagingPairingId: stagingPairingId.optional() });
 
 export async function createReviewComment(context: ReviewApiContext) {
     const { request, project, actor, siteOrigin } = context;
@@ -142,13 +143,21 @@ export async function createReviewComment(context: ReviewApiContext) {
     const input = await parseJsonBody(request, createSchema, MAX_NEW_COMMENT_BODY_BYTES);
     assertNotToolbarAnchor(siteOrigin, input.position);
     const authorName = writerName(actor, input.authorName);
-    const origin = projectReviewOrigin(project, request, siteOrigin)!;
+    const origin = input.stagingPairingId ? siteOrigin ?? ownOrigin(request) : projectReviewOrigin(project, request, siteOrigin)!;
     const approved = pageStatePolicy(project.pageState).queryParameters;
     const queryKeys = input.queryKeys?.filter(key => !approved.includes(key));
     const path = pagePath(input.path, project.pageState);
     const sourcePath = newSourcePath(path, input.sourcePath, project.pageState);
     const comment = await createProjectComment(request, project, actor, { ...input, path, sourcePath, pageStateVersion: 1, authorName, origin, queryKeys });
     return await commentResponse(context, comment, 201);
+}
+
+export async function getReviewStaging({ request, project, actor, siteOrigin }: ReviewApiContext) {
+    const query = new URL(request.url).searchParams;
+    const path = reviewPathSchema.safeParse(query.get('path'));
+    if (!path.success) throw apiErrors.notFound();
+    const { pair } = await stagingForReview(project, actor, query.get('pair') ?? '', siteOrigin ?? ownOrigin(request), path.data);
+    return Response.json({ id: pair.pairingId, width: pair.width, height: pair.height, page: pair.page });
 }
 
 const replyInputSchema = replySchema.extend({ authorName: guestNameSchema.optional(), mentions: mentionsSchema.optional() });

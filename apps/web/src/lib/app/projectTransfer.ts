@@ -31,6 +31,7 @@ import { getAppStore, updateDoc, type AppMutation, type AppStore, type StoredDoc
 import { assertMutableProject, assertMutableWorkspace, PUBLIC_WORKSPACE_ID } from '../comments/publicProjectPolicy';
 import { integrationLabels, integrationProviders } from '../integrations/model';
 import { removeProjectFromMcpAccess } from '../mcp/credentials';
+import { cleanupTransferredProofs, rotateProofProject } from '../proofs/cleanup';
 
 /*
  * Moving a project to another workspace. Its comments, screenshots, read state, notification
@@ -316,6 +317,8 @@ async function assertStillTransferring({ id, fromWorkspaceId: from, toWorkspaceI
 
 /** The old copy and its access go, then the new one is a plain project again */
 async function finishTransfer(intent: ProjectTransfer, actorId: string, store: AppStore) {
+    await rotateProofProject(intent.id, `${intent.requestedAt}:${intent.fromWorkspaceId}:${intent.toWorkspaceId}`, store);
+    await cleanupTransferredProofs(intent.id, store);
     await removeProjectCopy(intent.fromWorkspaceId, intent.id, actorId, 'project.transferred-out', store);
     await unmarkProject(intent.toWorkspaceId, intent, store);
     await completeTransfer(intent, store);

@@ -30,6 +30,8 @@ test.beforeAll(async () => {
         '../src/lib/screenshots/blobStore': 'export function getScreenshotBlobStore() { return {async listBefore(){ console.log("PROBE blobs"); return {items:[]}; }}; }',
         '../src/lib/recordings/blobStore': 'export function getRecordingBlobs() { return {}; }',
         '../src/lib/recordings/service': 'export async function sweepRecordings(_store, _blobs, environment) { console.log("CALL recordings " + environment); return {removed:0,failed:process.env.UIER_WORKER_TEST_RECORDING_FAILURE === "1" ? 1 : 0}; }',
+        '../src/lib/proofs/approvals/mail': 'export async function runApprovalMail() { console.log("CALL approval mail"); return {failed:0}; }',
+        '../src/lib/proofs/cleanup': 'export async function sweepProofStorage() { console.log("CALL proof cleanup"); return {failed:process.env.UIER_WORKER_TEST_PROOF_FAILURE === "1" ? 1 : 0}; }',
         '../src/lib/comments/cleanup': 'export async function sweepCommentCleanup() { console.log("CALL cleanup"); return {removed:0,failed:0}; }',
         '../src/lib/app/projectDeletion': 'export async function sweepProjectDeletions() { console.log("CALL deletions"); return {failed:0}; }',
         '../src/lib/app/projectTransfer': 'export async function sweepProjectTransfers() { console.log("CALL transfers"); return {failed:0}; }',
@@ -76,7 +78,7 @@ test('integration-only runs do not invoke email discovery, sending or retry', as
     expect(result.stdout).toContain('CALL integrations');
     // MCP event webhooks are not email: they are delivered on integration-only runs too.
     expect(result.stdout).toContain('CALL mcp-events');
-    expect(result.stdout).not.toMatch(/CALL email|CALL retry|CALL cleanup|CALL deletions|CALL transfers|CALL migrate|CALL blobs|CALL recordings/);
+    expect(result.stdout).not.toMatch(/CALL email|CALL retry|CALL cleanup|CALL deletions|CALL transfers|CALL migrate|CALL blobs|CALL recordings|CALL proof cleanup|CALL approval mail/);
 });
 
 test('normal scheduled runs retain email retries and integration delivery', async () => {
@@ -86,10 +88,12 @@ test('normal scheduled runs retain email retries and integration delivery', asyn
     expect(result.stdout).toContain('CALL blobs');
     expect(result.stdout).toContain('CALL recordings preview');
     expect(result.stdout).toContain('CALL recordings production');
+    expect(result.stdout).toContain('CALL proof cleanup');
     // Project deletions queue thread cleanups that the comment sweep then completes
     expect(result.stdout).toMatch(/CALL deletions[\s\S]*CALL transfers[\s\S]*CALL cleanup/);
     expect(result.stdout).toContain('CALL retry');
     expect(result.stdout).toContain('CALL email');
+    expect(result.stdout).toContain('CALL approval mail');
     // Events imported by integrations this run are delivered in the same run.
     expect(result.stdout).toMatch(/CALL integrations[\s\S]*CALL mcp-events/);
     expect(result.stdout).toContain('[mcp-events] 1 projects: 2 new deliveries, 1 delivered, 1 retrying, 0 failed, 0 skipped, 0 subscriptions ended; 0 projects deferred.');
@@ -99,6 +103,14 @@ test('a failed recording cleanup fails the scheduled run while keeping delivery 
     await expect(run(false, '', { UIER_WORKER_TEST_RECORDING_FAILURE: '1' })).rejects.toMatchObject({
         code: 1,
         stdout: expect.stringMatching(/CALL recordings preview[\s\S]*CALL recordings production[\s\S]*CALL email[\s\S]*CALL integrations/)
+    });
+});
+
+test('a failed proof cleanup reports retry and lets scheduled deliveries run', async () => {
+    await expect(run(false, '', { UIER_WORKER_TEST_PROOF_FAILURE: '1' })).rejects.toMatchObject({
+        code: 1,
+        stdout: expect.stringMatching(/CALL proof cleanup[\s\S]*CALL email[\s\S]*CALL integrations/),
+        stderr: expect.stringContaining('[proofs] 1 proof uploads or cleanups need retry.')
     });
 });
 
@@ -116,7 +128,7 @@ test('a run without email settings leaves deliveries untouched, keeps other work
     } catch (error) {
         const result = error as Error & { stdout?: string; stderr?: string };
         expect(result.stderr).toContain('Email is not configured (ACS_CONNECTION_STRING, UIER_EMAIL_SENDER); delivery skipped.');
-        expect(result.stdout).not.toMatch(/CALL email|CALL retry/);
+        expect(result.stdout).not.toMatch(/CALL email|CALL retry|CALL approval mail/);
         expect(result.stdout).toContain('CALL cleanup');
         expect(result.stdout).toContain('CALL integrations');
     }

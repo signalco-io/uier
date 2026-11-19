@@ -8,7 +8,7 @@ import { hasProjectAccess, loadWorkspaceAccess } from '../../app/access';
 import { listProjects } from '../../app/projects';
 import { getWorkspace, listUserMemberships } from '../../app/workspaces';
 import { publicProjectMember } from '../../comments/publicProjectPolicy';
-import { mcpScopes, type McpScope } from '../scopes';
+import { hasMcpReadScope, mcpScopes, type McpScope } from '../scopes';
 import { MAX_CONNECTION_NAME_LENGTH } from './config';
 import { MAX_BROWSER_ACCOUNTS } from '../../app/browserAccountLimits';
 import { userIdSchema } from '../../app/validation';
@@ -40,7 +40,7 @@ export const mcpAccountsSchema = z.array(z.object({ userId: userIdSchema, access
 export const connectionNameSchema = z.string().trim().min(1, 'Enter a connection name.').max(MAX_CONNECTION_NAME_LENGTH, `Use at most ${MAX_CONNECTION_NAME_LENGTH} characters.`);
 export const grantScopesSchema = z.array(z.enum(mcpScopes)).min(1).max(mcpScopes.length)
     .transform(scopes => [...new Set(scopes)])
-    .refine(scopes => scopes.includes('feedback:read'), 'Read access is required.');
+    .refine(scopes => hasMcpReadScope(scopes), 'Choose website or file read access.');
 
 /** How consent and Account present a client. The name always comes from the client itself. */
 export type ClientPresentation = {

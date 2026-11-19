@@ -10,8 +10,12 @@ import { getMember, listWorkspaceMembers } from '../app/workspaces';
 import { hasProjectAccess, loadWorkspaceAccess } from '../app/access';
 import { findProject } from '../app/projects';
 import { memberActor, type ProjectActor } from '../review/actor';
-import { canSeeComment } from '../review/comments';
+import { canSeeComment, canSeeCommentPrivacy } from '../review/comments';
 import { participantNames } from '../review/dto';
+import { liveProofThreadAsset } from '../proofs/threadAccess';
+import { liveProofFollow, verifiedProofFollow } from '../proofs/access';
+import { proofDigestLifetime, proofReturningLink } from '../proofs/returningLink';
+import { proofThreadPath } from '../proofs/threadModel';
 import { digestContent } from './digest';
 import type { DbComment } from '../db/schema';
 import { getCommentsStore } from '../repo/commentsStore';
@@ -30,7 +34,7 @@ const REVIEW_LIST_LIMIT = 20;
 export const COMPLETED_DELIVERY_TTL = 30 * 24 * 60 * 60;
 
 /** Atomic outbox entries on the comment, using #83's thread sequence. No copied message content. */
-export type NotificationEvent = { sequence: number; actorId: string; kind: 'workflow-status' | 'archived' | 'restored' | 'comment' | 'reply' | 'resolved' | 'reopened' | 'progress-started' | 'progress-stopped' | 'mention' | 'assignment' | 'agent' | 'verification-requested' | 'verification-confirmed' | 'verification-rejected' | 'verification-canceled'; at: string; recipients?: string[]; agent?: import('../db/schema').AgentSource; verificationOverride?: boolean; itemId?: string; assigneeId?: string | null;
+export type NotificationEvent = { sequence: number; actorId: string; kind: 'workflow-status' | 'archived' | 'restored' | 'comment' | 'reply' | 'resolved' | 'reopened' | 'progress-started' | 'progress-stopped' | 'mention' | 'assignment' | 'agent' | 'verification-requested' | 'verification-confirmed' | 'verification-rejected' | 'verification-canceled'; at: string; recipients?: string[]; agent?: import('../db/schema').AgentSource; verificationOverride?: boolean; verificationId?: string; itemId?: string; assigneeId?: string | null;
     statusResolved?: boolean; previousStatusId?: string; statusId?: string; statusLabel?: string; statusCategory?: import('../app/statusWorkflow').StatusCategory;
     assigneeIds?: string[]; previousAssigneeIds?: string[]; agentId?: string;
     /** `agent` events: the agent now working under `assigneeId`, or `null` once it was removed. Never emailed. */
@@ -41,7 +45,7 @@ export type NotificationDelivery = AppDoc & {
     requestedThrough: number; processedThrough: number; active: boolean;
     failures: number; nextAttemptAt: string;
     lease?: { id: string; until: string };
-    attempt?: EmailAttempt & { through: number; message: EmailMessage };
+    attempt?: EmailAttempt & { through: number; message: EmailMessage; proofSubscriptionVersion?: string };
     status: 'queued' | 'waiting' | 'accepted' | 'suppressed' | 'failed' | 'ambiguous';
     lastCode?: string;
     lastOperationId?: string;
@@ -95,7 +99,10 @@ async function recipientContext(delivery: NotificationDelivery) {
         : project.access === 'guests' ? { kind: 'guest', visitorId: delivery.actorId } : null;
     if (!actor) return null;
     const comment = (await getCommentsStore().get(`project:${project.id}`, delivery.threadId))?.comment;
-    if (!comment || !canSeeComment(comment, actor)) return null;
+    if (!comment) return null;
+    if (comment.assetTarget) {
+        if (!canSeeCommentPrivacy(comment, actor) || !await liveProofThreadAsset(project, comment.assetTarget.assetId)) return null;
+    } else if (!canSeeComment(comment, actor)) return null;
     const [subscription, preference, readSequence] = await Promise.all([
         notificationSubscription(project.id, delivery.actorId, comment.id), notificationPreference(project.id, delivery.actorId),
         getReadSequence(comment.domain, delivery.actorId, comment.id)
@@ -103,6 +110,8 @@ async function recipientContext(delivery: NotificationDelivery) {
     const user = delivery.userId ? await getUser(delivery.userId) : null;
     const member = delivery.userId ? await getMember(project.workspaceId, delivery.userId) : null;
     if (preference?.muted || (actor.kind === 'guest' && (!subscription?.following || !subscription.verifiedAt || !subscription.email))) return null;
+    if (comment.assetTarget && actor.kind === 'guest' && (!subscription || !verifiedProofFollow(subscription)
+        || !await liveProofFollow(project, subscription))) return null;
     return { project, comment, actor, subscription, preference, readSequence, memberSince: member?.createdAt, email: user?.email ?? subscription?.email };
 }
 
@@ -114,7 +123,9 @@ function eligibleEvents(delivery: NotificationDelivery, context: NonNullable<Awa
         && (!context.memberSince || event.at >= context.memberSince)
         && (!subscription?.since || event.at >= subscription.since)
         // An agent starting or stopping work is thread activity (unread, MCP events), never an email.
-        && (context.project.verificationEnabled === true || event.kind !== 'verification-requested')
+        && (event.kind !== 'verification-requested' || (context.project.verificationEnabled === true
+            && (!comment.assetTarget || (comment.verification?.outcome === 'pending' && !comment.resolved && !comment.archivedAt
+                && event.verificationId === comment.verification.id && comment.verification.reviewer === delivery.actorId))))
         && event.kind !== 'workflow-status' && event.kind !== 'agent' && event.kind !== 'archived' && event.kind !== 'restored'
         && (event.kind === 'comment' ? actor.kind === 'member' && (actor.isAdmin || actor.userId === context.project.createdBy || event.recipients?.includes(delivery.actorId))
             : event.kind === 'mention' || event.kind === 'assignment' ? Boolean(event.recipients?.includes(delivery.actorId))
@@ -141,7 +152,15 @@ async function digestMessage(baseUrl: string, delivery: NotificationDelivery, co
     const manageUrl = notificationManageUrl(baseUrl, token);
     const unsubscribeUrl = `${baseUrl}${KnownPages.NotificationUnsubscribe}?token=${encodeURIComponent(token)}`;
     let url = delivery.userId ? `${baseUrl}${KnownPageLinks.project(project.id)}?environment=${source.environment}` : manageUrl;
-    if (source.available && source.origin) {
+    if (comment.assetTarget) {
+        const reviewVersion = batch.some(event => event.kind === 'verification-requested') ? comment.verification?.evidence?.after.versionId : undefined;
+        const version = reviewVersion ?? comment.assetTarget.source.versionId;
+        const publicId = project.publicId ?? project.id;
+        url = context.actor.kind === 'guest' && context.subscription
+            ? proofReturningLink(baseUrl, publicId, context.subscription, version, 'open', proofDigestLifetime,
+                reviewVersion ? comment.verification?.id : undefined)
+            : new URL(proofThreadPath(publicId, comment.assetTarget.assetId, version, comment.id), baseUrl).toString();
+    } else if (source.available && source.origin) {
         const page = new URL(commentSourcePath(comment), source.origin);
         if (page.origin !== source.origin) throw new Error('Invalid notification page origin');
         if (delivery.userId) url = `${baseUrl}${KnownPageLinks.projectReview(project.id, page.toString(), comment.id)}`;
@@ -154,8 +173,8 @@ async function digestMessage(baseUrl: string, delivery: NotificationDelivery, co
     const content = digestContent(project, comment, delivery.actorId, batch, await participantNames(project));
     return { ...layoutEmail({ to: context.email!, subject: content.subject, heading: content.title,
         paragraphs: [...content.lines,
-            source.available ? 'Open the thread to read the latest feedback, replies and status changes.' : 'The original site address is unavailable. Project members can read the feedback in the app history.'],
-        action: { label: source.available ? 'Open thread' : delivery.userId ? 'Open feedback history' : 'Manage notifications', url }, footnote: 'Related activity is batched for 5 minutes. Activity you have read is skipped.',
+            (source.available || comment.assetTarget) ? 'Open the thread to read the latest feedback, replies and status changes.' : 'The original site address is unavailable. Project members can read the feedback in the app history.'],
+        action: { label: (source.available || comment.assetTarget) ? 'Open thread' : delivery.userId ? 'Open feedback history' : 'Manage notifications', url }, footnote: 'Related activity is batched for 5 minutes. Activity you have read is skipped.',
         footerAction: { label: mode === 'project' ? 'Manage project emails' : 'Unsubscribe from thread', url: manageUrl } }), headers: {
             'List-Unsubscribe': `<${unsubscribeUrl}>`,
             'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click'
@@ -201,8 +220,9 @@ export async function processNotificationDelivery(candidate: NotificationDeliver
         const batch = events.filter(event => event.sequence <= through);
         // A cursor may advance between retries; cancel any unsent content that's now seen.
         if (!batch.length) { await save({ processedThrough: through, attempt: undefined, active: true, nextAttemptAt: iso(), status: 'suppressed' }); return; }
+        const proofSubscriptionVersion = context.comment.assetTarget && context.actor.kind === 'guest' ? context.subscription?.version : undefined;
         let attempt = delivery.attempt ?? { operationId: randomUUID(), firstSentAt: iso(now), through,
-            message: await digestMessage(baseUrl, delivery, context, batch) };
+            ...(proofSubscriptionVersion ? { proofSubscriptionVersion } : {}), message: await digestMessage(baseUrl, delivery, context, batch) };
         // Persist before the external request, including its exact body and repeatability identity.
         await updateDoc<NotificationDelivery>(delivery.pk, delivery.id, current => {
             if (current.lease?.id !== lease.id) throw new Error('Notification lease lost');
@@ -210,7 +230,8 @@ export async function processNotificationDelivery(candidate: NotificationDeliver
         }, store);
         // Preparing a digest does several reads/writes. Check once more at the send boundary.
         const latest = await recipientContext(delivery);
-        if (!latest?.email || latest.email !== attempt.message.to || !eligibleEvents(delivery, latest).some(event => event.sequence <= through)) {
+        if (!latest?.email || latest.email !== attempt.message.to
+            || (proofSubscriptionVersion && latest.subscription?.version !== attempt.proofSubscriptionVersion) || !eligibleEvents(delivery, latest).some(event => event.sequence <= through)) {
             await save({ processedThrough: through, attempt: undefined, active: false, status: 'suppressed' });
             return;
         }

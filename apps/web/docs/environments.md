@@ -5,7 +5,8 @@
   rules (`e2e/site-rows.api.spec.ts`): addresses show without their default scheme (`typedAddress`), addresses on one
   origin follow the first one's label and sharing, sharing goes both ways, groups of one site are dropped, and a group
   keeps the name it was saved with (environment filters link to it) or is named after its first row's label or host.
-  The table is a card per address below the `@xl` container width.
+  The table is a card per address below the `@xl` container width. A file-only project starts with
+  a blank first row. Saving it enables website review on the normalized address. The main site stays required once added.
 
 - `src/lib/app/environments.ts` owns origin labels, explicit shared groups (Settings → Environments, "Shares feedback with") and historical-source
   fallback. Apply `environmentFilter` before storage limits and before activity/unread selection;

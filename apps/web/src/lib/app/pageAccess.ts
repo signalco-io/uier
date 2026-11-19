@@ -74,7 +74,8 @@ export async function appPageAccess(request: NextRequest): Promise<PageAccess> {
         const project = await getVisibleProject(context, projectPath[1]!);
         if (!project) return { status: 404 };
         const section = projectPath[2] ?? '';
-        if (section === 'install' && query('onboarding') !== '1')
+        if (section === 'files' && project.workspaceId === PUBLIC_WORKSPACE_ID) return { status: 404 };
+        if (section === 'install' && (query('onboarding') !== '1' || !project.urls.length))
             return { redirect: KnownPageLinks.projectInstall(project.id) };
         const configurable = context.isAdmin && context.workspace.id !== PUBLIC_WORKSPACE_ID;
         if (/^settings\/(?:review|people|environments|danger-zone|integrations)(?:\/|$)/.test(section) && !configurable)

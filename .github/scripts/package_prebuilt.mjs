@@ -1,6 +1,7 @@
 import { copyFile, lstat, mkdir, readFile, readdir, readlink, realpath, symlink, writeFile } from 'node:fs/promises';
 import { dirname, isAbsolute, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { traceProofProcessorRuntime, usesProofPdf } from '../../apps/web/scripts/proof-processor-files.mjs';
 
 const prefix = '.vercel/output/runtime-files';
 function safePath(value) {
@@ -25,10 +26,15 @@ export async function packagePrebuilt(directory) {
     const existing = new Set();
     const updates = [];
     const links = [];
+    let proofRuntime;
     for (const name of configs) {
         const path = resolve(output, 'functions', name);
         const config = JSON.parse(await readFile(path, 'utf8'));
         if (!config.filePathMap) continue;
+        if (Object.values(config.filePathMap).some(source => usesProofPdf(source) && !source.startsWith(`${prefix}/`))) {
+            proofRuntime ??= await traceProofProcessorRuntime(root);
+            for (const source of proofRuntime) config.filePathMap[source] ??= source;
+        }
         const packaged = {};
         for (const [destination, source] of Object.entries(config.filePathMap)) {
             // Next traces this setup example; it is not a runtime dependency or deployable environment.

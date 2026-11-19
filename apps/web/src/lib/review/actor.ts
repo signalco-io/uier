@@ -17,10 +17,19 @@ import { publicProjectMember } from '../comments/publicProjectPolicy';
  * - `guest`: anyone else with a visitor id (`X-Uier-Visitor`, a random token kept by the toolbar)
  * - `anonymous`: neither (reading only)
  */
-export type ProjectActor =
+export type ProjectActor = (
     | { kind: 'member'; userId: string; name: string; isAdmin: boolean; agent?: import('../db/schema').AgentSource }
     | { kind: 'guest'; visitorId: string }
-    | { kind: 'anonymous' };
+    | { kind: 'anonymous' }
+) & {
+    /** Set only after proof-specific authorization, never by website review tokens. */
+    proofThread?: {
+        assetId: string;
+        shareId?: string;
+        returning?: true;
+        refresh: (write: boolean) => Promise<{ project: DbProject; actor: ProjectActor }>;
+    };
+};
 
 export const REVIEW_TOKEN_TTL_SECONDS = 30 * 24 * 60 * 60;
 export const REVIEW_CODE_TTL_SECONDS = 10 * 60;
@@ -149,6 +158,16 @@ export function assertWriter(actor: ProjectActor) {
 
 /** Recheck the current project and member on each optimistic write attempt. */
 export async function refreshMutationActor(project: DbProject, actor: ProjectActor, requireComments = false) {
+    if (actor.proofThread) {
+        const fresh = await actor.proofThread.refresh(true);
+        if (fresh.project.id !== project.id || fresh.project.workspaceId !== project.workspaceId
+            || actorAuthorId(fresh.actor) !== actorAuthorId(actor) || fresh.actor.kind !== actor.kind) throw apiErrors.notFound();
+        if (actor.kind === 'member' && fresh.actor.kind === 'member') {
+            actor.isAdmin = fresh.actor.isAdmin;
+            actor.name = fresh.actor.name;
+        }
+        return fresh.project;
+    }
     const current = (await getAppStore().get<DbProject>(workspacePk(project.workspaceId), project.id))?.doc;
     if (!current || current.type !== 'project' || current.workspaceId !== project.workspaceId || !await isLiveProject(current)) throw apiErrors.notFound();
     if (actor.kind === 'member') {

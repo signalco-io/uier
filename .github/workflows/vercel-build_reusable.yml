@@ -74,6 +74,8 @@ jobs:
           key: turbo-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml', '.nvmrc') }}-vercel-${{ inputs.production && 'production' || 'preview' }}-${{ github.sha }}-${{ github.run_attempt }}
           restore-keys: |
             turbo-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml', '.nvmrc') }}-
+      - name: Install the pinned proof video processor
+        run: bash .github/proofs/install-video-processor.sh
       - name: Build with public project settings
         id: build
         env:
@@ -85,6 +87,11 @@ jobs:
         run: |
           if [ "$PRODUCTION" = "true" ]; then
             node .github/scripts/search-index.mjs capture indexnow-before.json
+          fi
+          if [ "$PRODUCTION" = "true" ]; then
+            export NEXT_PUBLIC_UIER_PROOF_HTML_ORIGIN="$UIER_PROOF_HTML_ORIGIN_PRODUCTION"
+          else
+            export NEXT_PUBLIC_UIER_PROOF_HTML_ORIGIN="$UIER_PROOF_HTML_ORIGIN_PREVIEW"
           fi
           mkdir -p .vercel
           cp .github/vercel-project.json .vercel/project.json
@@ -109,6 +116,7 @@ jobs:
             node .github/scripts/package_schedules.mjs --preview
           fi
           node .github/scripts/package_prebuilt.mjs
+          node .github/scripts/check_proof_pdf_prebuilt.mjs
           tar -cf - .vercel/output | gzip -1 > prebuilt.tar.gz
       - name: Compare public search content
         id: search-changes

@@ -1,3 +1,4 @@
+import { proofThreadSql, websiteThreadsSql } from './proofThreadFilter';
 import { archiveSql } from './archiveFilter';
 import { getScreenshotBlobStore, storeScreenshotBytes, type ScreenshotBlobStore } from '../screenshots/blobStore';
 import { originSql } from './originFilter';
@@ -60,7 +61,7 @@ export function createCosmosCommentsStore(getContainer: () => Container = cosmos
             // a recent window that could falsely appear to be the complete filtered result.
             const iterator = container.items.query<CommentQueryCandidate>({
                 query: `SELECT ${commentCandidateProjectionFor(options.includeText !== false)} FROM c WHERE c.domain = @domain AND IS_STRING(c.path)`
-                    + visibility.clause + origin.clause + author.clause + archiveSql(options.archive)
+                    + websiteThreadsSql + visibility.clause + origin.clause + author.clause + archiveSql(options.archive)
                     + (options.predicate ? ` AND (${options.predicate.clause})` : ''),
                 parameters: [{ name: '@domain', value: domain }, ...visibility.parameters, ...origin.parameters, ...author.parameters,
                     ...(options.predicate?.parameters ?? [])]
@@ -101,7 +102,7 @@ export function createCosmosCommentsStore(getContainer: () => Container = cosmos
         },
         async listRealtime(domain) {
             return queryAll('realtime', domain,
-                'SELECT c.id, c.domain, c.path, c.private, c.authorId, c._etag AS revision FROM c WHERE c.domain = @domain AND IS_STRING(c.path)', []);
+                'SELECT c.id, c.domain, c.path, c.private, c.authorId, c._etag AS revision FROM c WHERE c.domain = @domain AND IS_STRING(c.path)' + websiteThreadsSql, []);
         },
         async listSyncPending(options = {}) {
             // No production outbox predates syncKey. Audit missing keys explicitly on adoption;
@@ -166,28 +167,30 @@ export function createCosmosCommentsStore(getContainer: () => Container = cosmos
             const author = authorSql(authorId);
             const resources = await queryAll<Record<string, unknown>>(
                 'list', domain,
-                `SELECT TOP @limit * FROM c WHERE c.domain = @domain AND ${pathFilter}${filter.clause}${author.clause}${archiveSql(archive)} ORDER BY c.createdAt DESC`,
+                `SELECT TOP @limit * FROM c WHERE c.domain = @domain AND ${pathFilter}${websiteThreadsSql}${filter.clause}${author.clause}${archiveSql(archive)} ORDER BY c.createdAt DESC`,
                 [...filter.parameters, ...author.parameters, ...pathParameters(path), { name: '@limit', value: limit }]);
             return resources.map(resource => withoutSystemProperties<DbComment>(resource));
         },
-        async listAll(domain, limit, originFilter, authorId, archive) {
+        async listAll(domain, limit, originFilter, authorId, archive, options) {
             const filter = originSql(originFilter);
             const author = authorSql(authorId);
             // Rate-limit counters and the comment numbers' sequence share the partition; they have no `path`
             const resources = await queryAll<Record<string, unknown>>(
                 'listAll', domain,
-                `SELECT TOP @limit * FROM c WHERE c.domain = @domain AND IS_DEFINED(c.path)${filter.clause}${author.clause}${archiveSql(archive)} ORDER BY c.createdAt DESC`,
+                `SELECT TOP @limit * FROM c WHERE c.domain = @domain AND IS_DEFINED(c.path)${options?.includeProofs ? '' : websiteThreadsSql}${filter.clause}${author.clause}${archiveSql(archive)} ORDER BY c.createdAt DESC`,
                 [...filter.parameters, ...author.parameters, { name: '@limit', value: limit }]);
             return resources.map(resource => withoutSystemProperties<DbComment>(resource));
         },
-        async listPage(domain, { limit, before, path, originFilter, authorId, archive, visibility }) {
+        async listPage(domain, { limit, before, path, originFilter, authorId, archive, visibility, proof, stagingPairingId }) {
             const origin = originSql(originFilter);
             const author = authorSql(authorId);
             const visible = visibilitySql(visibility);
+            const target = proofThreadSql(proof);
             const cursor = commentPageCursorSql(before);
             const where = `c.domain = @domain AND IS_STRING(c.path) AND IS_STRING(c.createdAt)${path === undefined ? '' : ` AND ${pathFilter}`}`
-                + `${visible.clause}${origin.clause}${author.clause}${archiveSql(archive)}${cursor.clause}`;
-            const parameters = [...visible.parameters, ...origin.parameters, ...author.parameters, ...cursor.parameters,
+                + `${target.clause}${visible.clause}${origin.clause}${author.clause}${archiveSql(archive)}${cursor.clause}${stagingPairingId ? ' AND c.stagingDesign.pairingId = @stagingPairingId' : ''}`;
+            const parameters = [...target.parameters, ...visible.parameters, ...origin.parameters, ...author.parameters, ...cursor.parameters,
+                ...(stagingPairingId ? [{ name: '@stagingPairingId', value: stagingPairingId }] : []),
                 ...(path === undefined ? [] : pathParameters(path)), { name: '@limit', value: Math.max(1, Math.min(1000, Math.trunc(limit))) }];
             const read = async (operation: string, query: string, extra: SqlParameter[] = []) =>
                 (await queryAll<Record<string, unknown>>(operation, domain, query, [...parameters, ...extra])).map(resource => withoutSystemProperties<DbComment>(resource));
@@ -195,11 +198,17 @@ export function createCosmosCommentsStore(getContainer: () => Container = cosmos
             return completeCommentPage(first, limit, createdAt =>
                 read('listPageTies', `SELECT TOP @limit * FROM c WHERE ${where} AND c.createdAt = @tieAt ORDER BY c.id DESC`, [{ name: '@tieAt', value: createdAt }]));
         },
+        async countProofThreads(domain, filter) {
+            const { clause, parameters } = proofThreadSql(filter);
+            const [count] = await queryAll<number>('proof-thread-count', domain,
+                `SELECT VALUE COUNT(1) FROM c WHERE c.domain = @domain AND IS_STRING(c.path) AND IS_STRING(c.createdAt)${clause}`, parameters);
+            return count ?? 0;
+        },
         async listChangedSince(domain, since, limit) {
             // `_ts` is the server's write time in seconds; one second earlier never skips a write.
             const resources = await queryAll<Record<string, unknown> & { _ts: number }>(
                 'changedSince', domain,
-                'SELECT TOP @limit * FROM c WHERE c.domain = @domain AND IS_STRING(c.path) AND c._ts >= @since ORDER BY c._ts ASC',
+                `SELECT TOP @limit * FROM c WHERE c.domain = @domain AND IS_STRING(c.path)${websiteThreadsSql} AND c._ts >= @since ORDER BY c._ts ASC`,
                 [{ name: '@since', value: Math.floor(since / 1000) }, { name: '@limit', value: Math.max(1, Math.min(1000, Math.trunc(limit))) }]);
             return resources.filter(resource => isCommentDocument(resource))
                 .map(resource => ({ comment: withoutSystemProperties<DbComment>(resource), changedAt: resource._ts * 1000 }));
@@ -317,12 +326,12 @@ export function createCosmosCommentsStore(getContainer: () => Container = cosmos
             return await queryAll<DbCommentActivity>('activity', domain,
                 `SELECT c.id, c.domain, c.path, c.origin, c.private, c.authorId, c.resolved, c.inProgress, c.archivedAt, {"outcome": c.verification.outcome} AS verification, c.createdAt, c.activity,
                     IIF(IS_DEFINED(c.activity), {"items": []}, {"items": ARRAY(SELECT VALUE {"authorId": i.authorId, "deletedAt": i.deletedAt} FROM i IN c.thread.items)}) AS thread
-                 FROM c WHERE c.domain = @domain AND IS_STRING(c.path)`, []);
+                 FROM c WHERE c.domain = @domain AND IS_STRING(c.path)${websiteThreadsSql}`, []);
         },
         async countOpen(domain, visibleTo) {
             const visibility = visibilitySql(visibleTo);
             const [count] = await queryAll<number>('count-open', domain,
-                `SELECT VALUE COUNT(1) FROM c WHERE c.domain = @domain AND IS_STRING(c.path) AND (NOT IS_DEFINED(c.resolved) OR c.resolved = false) AND NOT IS_STRING(c.archivedAt)${visibility.clause}`,
+                `SELECT VALUE COUNT(1) FROM c WHERE c.domain = @domain AND IS_STRING(c.path)${websiteThreadsSql} AND (NOT IS_DEFINED(c.resolved) OR c.resolved = false) AND NOT IS_STRING(c.archivedAt)${visibility.clause}`,
                 visibility.parameters);
             return count ?? 0;
         },
@@ -330,7 +339,7 @@ export function createCosmosCommentsStore(getContainer: () => Container = cosmos
             // One scalar over indexed fields (automatic /* indexing), however many threads the partition holds
             const visibility = visibilitySql(visibleTo);
             const [latest] = await queryAll<string | undefined>('latest-activity', domain,
-                `SELECT VALUE MAX(c.updatedAt) FROM c WHERE c.domain = @domain AND IS_STRING(c.path) AND IS_STRING(c.updatedAt)${visibility.clause}`,
+                `SELECT VALUE MAX(c.updatedAt) FROM c WHERE c.domain = @domain AND IS_STRING(c.path)${websiteThreadsSql} AND IS_STRING(c.updatedAt)${visibility.clause}`,
                 visibility.parameters);
             return typeof latest === 'string' ? latest : undefined;
         },

@@ -50,8 +50,9 @@ export function notionBlocks(context: FeedbackContext, screenshot?: { fileUpload
     chunks('anchor', 'code', [context.anchor.type, context.anchor.selector, context.anchor.text,
         context.anchor.startOffset === undefined ? undefined : `${context.anchor.startOffset}–${context.anchor.endOffset ?? '?'}`,
         context.anchor.endSelector].filter(value => value !== undefined).join('\n'), { language: 'plain text' });
-    const pageUrl = approvedUrl(context.links.page);
-    if (pageUrl) result.push(blockSpec('page', { object: 'block', type: 'bookmark', bookmark: { url: pageUrl } }));
+    const reviewUrl = approvedUrl(context.proof ? context.links.comment : context.links.page);
+    if (reviewUrl) result.push(blockSpec(context.proof ? 'file-review' : 'page',
+        { object: 'block', type: 'bookmark', bookmark: { url: reviewUrl } }));
     if (context.verification) {
         chunks('verification', 'paragraph', verificationDescription(context.verification));
         if (context.verification.summary) chunks('verification-summary', 'paragraph', context.verification.summary);

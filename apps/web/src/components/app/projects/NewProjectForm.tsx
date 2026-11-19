@@ -6,6 +6,7 @@ import { Button } from '@/src/components/ui/button';
 import { CardContent, CardFooter } from '@/src/components/ui/card';
 import { Field, FieldGroup, FieldLabel } from '@/src/components/ui/field';
 import { Input } from '@/src/components/ui/input';
+import { RadioGroup, RadioGroupItem } from '@/src/components/ui/radio-group';
 import { Spinner } from '@/src/components/ui/spinner';
 import { FormMessage } from '../FormMessage';
 import { Bar, Loading } from '../loading/outlines';
@@ -13,6 +14,7 @@ import { MAX_PROJECT_NAME_LENGTH } from '../../../lib/app/limits';
 import { defaultProjectName, normalizeSiteUrl } from '../../../lib/app/siteUrl';
 import { ClientNameInput } from './ClientNameInput';
 import { UrlListInput } from './UrlListInput';
+import { useNewProjectMode } from './NewProjectMode';
 import { createProjectAction } from './actions';
 
 /** The name a project gets from its main address when the name is left empty (as the server derives it) */
@@ -35,6 +37,7 @@ export function NewProjectForm({ client, submit }: { client: ReactNode; submit: 
     const { t } = useAppI18n();
     const id = useId();
     const [state, formAction, pending] = useActionState(createProjectAction, null);
+    const { mode, setMode } = useNewProjectMode();
     const [name, setName] = useState('');
     const [mainUrl, setMainUrl] = useState<string>();
     return (
@@ -42,9 +45,21 @@ export function NewProjectForm({ client, submit }: { client: ReactNode; submit: 
         <form action={formAction} className="flex flex-col gap-6">
             <CardContent>
                 <FieldGroup>
-                    <UrlListInput
-                        description={t("The site you want to review first, then any staging or preview addresses, so reviewers can open any of them.")}
-                        onUrlsChange={urls => setMainUrl(urls[0])} />
+                    <Field>
+                        <FieldLabel id={`${id}-mode`}>{t("What will you review?")}</FieldLabel>
+                        <input type="hidden" name="mode" value={mode} />
+                        <RadioGroup aria-labelledby={`${id}-mode`} className="flex flex-wrap gap-4" value={mode}
+                            onValueChange={value => setMode(value === 'files' ? 'files' : 'website')}>
+                            <FieldLabel className="gap-2"><RadioGroupItem value="website" />{t("Website")}</FieldLabel>
+                            <FieldLabel className="gap-2"><RadioGroupItem value="files" />{t("Files only")}</FieldLabel>
+                        </RadioGroup>
+                    </Field>
+                    <div hidden={mode === 'files'}>
+                        <UrlListInput
+                            enabled={mode === 'website'}
+                            description={t("The site you want to review first, then any staging or preview addresses, so reviewers can open any of them.")}
+                            onUrlsChange={urls => setMainUrl(urls[0])} />
+                    </div>
                     <Field>
                         <FieldLabel htmlFor={`${id}-name`}>{t("Project name")}</FieldLabel>
                         <Input
@@ -53,7 +68,8 @@ export function NewProjectForm({ client, submit }: { client: ReactNode; submit: 
                             value={name}
                             onChange={(event) => setName(event.target.value)}
                             maxLength={MAX_PROJECT_NAME_LENGTH}
-                            placeholder={derivedName(mainUrl) ?? t("Defaults to the site's domain")} />
+                            required={mode === 'files'}
+                            placeholder={mode === 'website' ? derivedName(mainUrl) ?? t("Defaults to the site's domain") : undefined} />
                     </Field>
                     <Field>
                         <FieldLabel htmlFor={`${id}-client`}>{t("Client name (optional)")}</FieldLabel>

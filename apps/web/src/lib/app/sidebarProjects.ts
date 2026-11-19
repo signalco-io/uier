@@ -7,7 +7,7 @@ import { appActor } from './projectComments';
 import { listsProject, type OrderableProject, type ProjectOrder } from './projectOrder';
 
 /** A project in the sidebar's quick switcher; grouped by client, the client's tile (its logo, else its icon or letter) heads its projects */
-export type SidebarProject = OrderableProject & { openCount?: number; url?: string; client?: Pick<ClientSummary, 'id' | 'name' | 'icon' | 'color' | 'logoUrl'> };
+export type SidebarProject = OrderableProject & { publicId?: string; openCount?: number; url?: string; client?: Pick<ClientSummary, 'id' | 'name' | 'icon' | 'color' | 'logoUrl'> };
 
 /**
  * When a project last changed for this member: the newest `updatedAt` of a thread they can see (a comment, reply,
@@ -68,6 +68,7 @@ export async function loadSidebarProjects(context: AppContext, projects: DbProje
         const client = clients && projectClient(project, clients);
         return {
             id: project.id,
+            publicId: project.publicId,
             name: project.name,
             url: project.urls[0],
             status: project.status === 'done' ? 'done' : 'active',

@@ -3,7 +3,7 @@ export type ExtensionMethod = 'GET' | 'POST' | 'PATCH' | 'DELETE';
 const id = '[A-Za-z0-9_-]{1,72}';
 const operations: [RegExp, ExtensionMethod[]][] = [
     [/^$/, ['GET']], [/^comments$/, ['GET', 'POST']], [/^comments\/activity$/, ['GET']],
-    [/^comments\/read$/, ['POST']], [/^participants$/, ['GET']], [/^statuses$/, ['GET']], [/^rewrite$/, ['POST']],
+    [/^staging$/, ['GET']], [/^comments\/read$/, ['POST']], [/^participants$/, ['GET']], [/^statuses$/, ['GET']], [/^rewrite$/, ['POST']],
     [/^recordings$/, ['POST']], [new RegExp(`^recordings/${id}/complete$`), ['POST']],
     [new RegExp(`^comments/${id}/recording$`), ['GET', 'POST']],
     [new RegExp(`^comments/${id}/replies/${id}/recording$`), ['GET']],
@@ -32,6 +32,7 @@ export function extensionOperation(url: string, apiOrigin: string, publicId: str
     if (!allowedExtensionOperation(path, method)) throw new Error('Unsupported review operation');
     if (target.search.length > 4096) throw new Error('Review query is too long');
     for (const key of target.searchParams.keys()) {
+        if (path === 'staging' && key === 'pair') continue;
         if (!['path', 'scope', 'unread', 'environment', 'commentId', 'archive', 'limit', 'before'].includes(key)) throw new Error('Unsupported review query');
     }
     return { path, query: target.search };

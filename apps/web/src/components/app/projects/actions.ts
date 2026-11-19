@@ -14,7 +14,6 @@ import { appContextOrThrow } from '../../../lib/app/context';
 import { pageStatePolicy } from '@uier/toolbar/page-state';
 import {
     createProject,
-    defaultProjectName,
     getProject,
     getVisibleProject,
     normalizeSiteUrl,
@@ -25,6 +24,7 @@ import {
     projectNameSchema,
     projectPageStateSchema,
     projectUrlsSchema,
+    projectSetupSchema,
     updateProject,
     type ProjectUpdate
 } from '../../../lib/app/projects';
@@ -83,17 +83,19 @@ function formUrls(formData: FormData) {
 export async function createProjectAction(_: ActionState, formData: FormData): Promise<ActionState> {
     const result = await actionResult(async () => {
         const context = await appContextOrThrow({ admin: true });
-        const urls = projectUrlsSchema.parse(formUrls(formData));
-        const nameInput = String(formData.get('name') ?? '').trim();
-        const name = projectNameSchema.parse(nameInput || defaultProjectName(urls[0]!));
+        const mode = projectSetupSchema.parse(formData.get('mode') ?? 'website');
+        const name = String(formData.get('name') ?? '');
+        const urls = formUrls(formData);
         const clientName = projectClientNameSchema.parse(formData.get('clientName') ?? '');
-        return await createProject(context, { name, urls, clientName });
+        return await createProject(context, { mode, name, urls, clientName });
     });
     if (!result?.ok)
         return result;
 
     revalidatePath('/app', 'layout');
-    redirect(KnownPageLinks.projectInstall(result.data.id, { onboarding: true }));
+    redirect(result.data.urls.length
+        ? KnownPageLinks.projectInstall(result.data.id, { onboarding: true })
+        : KnownPageLinks.projectFiles(result.data.publicId));
 }
 
 /** General: the name, client, AI thread titles and rewrite guidance, one save. All are checked before any is written. */
@@ -201,10 +203,12 @@ export async function updateProjectSitesAction(_: ActionState, formData: FormDat
                 byOrigin.set(origin, { origin, label: row.label, group: row.group });
         }
         const environments = environmentSchema.parse([...byOrigin.values()]);
-        await saveProject(formData.get('projectId'), {
+        const { context, project } = await adminProject(formData.get('projectId'));
+        await updateProject(context.workspace.id, project.id, {
             urls,
             environments: environments.map(item => ({ ...item, label: item.label || item.origin, group: item.group || undefined }))
-        });
+        }, { firstSite: formData.get('firstSite') === 'true' });
+        revalidatePath('/app', 'layout');
     }, 'Saved.');
 }
 

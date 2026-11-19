@@ -55,6 +55,8 @@ Vercel-trusted identity; account-key authentication remains enabled until the st
 
 ### Incoming email forwarding
 
+File proof mail uses a distinct literal Worker route and plus addressing. Set it up through the [file proof provider workflow](proof-providers.md#test-email-ingress).
+
 Cloudflare Email Routing manages incoming mail for `uier.io` through `infra/src/emailRouting.ts`.
 The dashboard owns its three MX records and `cf2024-1._domainkey` TXT record. Pulumi retains the
 existing root SPF resource and merges `include:_spf.mx.cloudflare.net` with the ACS-provided
@@ -144,15 +146,21 @@ Once the production proof route is included in the build and its origin is set, 
 Normal PR previews build with their preview origin. Their deployment job leaves both persistent
 aliases alone. Use the manual `html` dispatch to select the preview deployment for proof QA.
 
-The workflow reads back the alias and checks that the isolated origin serves a 404 for the app
-root. A protected dedicated Vercel hostname can use the environment's
-`UIER_PROOF_VERCEL_BYPASS` automation secret as a request header. If the run reports a 401
-with alias verification only, finish QA using authenticated access. Verify the root 404 and
-load a real signed prototype through the app's iframe. Use the isolated hostname for proof
-resources and check that the ordinary app origin rejects those resources. If a custom hostname
-requires authentication, verify its current binding through Vercel before moving it. The
-workflow can read back a custom hostname already on the selected deployment.
+The workflow reads back the alias and probes the isolated app root without following redirects.
+A 401 or, on the dedicated Vercel hostname, a 302 to `https://vercel.com/sso-api` indicates
+Deployment Protection. For the dedicated preview hostname, the workflow can retry that request
+on the same hostname with the environment's `UIER_PROOF_VERCEL_BYPASS` secret. If it reports
+alias verification only, verify the app root returns 404 with authorized preview access.
+Then load a real signed prototype through the guest review iframe.
 [Vercel automation protection bypass](https://vercel.com/docs/deployment-protection/methods-to-bypass-deployment-protection/protection-bypass-automation)
+
+Production requires an anonymous app root 404 and a working signed guest review. Open the
+guest link in a fresh browser without a Vercel session or automation bypass and verify that the
+prototype and its assets load from the isolated hostname. In both environments, check that the
+ordinary app origin rejects those resources.
+
+If a custom hostname requires authentication, verify its current binding through Vercel before
+moving it. The workflow can read back a custom hostname already on the selected deployment.
 
 **Mail.** Set `UIER_PROOF_APP_ORIGIN` to the exact generated deployment origin for the selected
 target. Production can also use `https://uier.io` once it resolves to the intended production

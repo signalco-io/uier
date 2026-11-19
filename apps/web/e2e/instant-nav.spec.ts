@@ -20,7 +20,12 @@ for (const populated of [false, true]) {
             urls: ['https://instant.example.com'], name: 'Existing project', clientName: 'Existing client',
         });
         await page.goto('/app/projects');
-        const link = page.getByRole('link', { name: 'Create project', exact: true }).filter({ visible: true }).first();
+        const main = page.getByRole('main');
+        // The loading header also has a Create project link. Exercise the one on the settled project list.
+        const source = populated ? main.getByRole('link', { name: 'Existing project', exact: true })
+            : main.getByText('No active projects', { exact: true });
+        await expect(source).toBeVisible();
+        const link = main.getByRole('link', { name: 'Create project', exact: true }).filter({ visible: true });
         await hydrated(link);
         await instant(page, async () => {
             await link.click();
@@ -28,8 +33,13 @@ for (const populated of [false, true]) {
             await capture(page, info, 'locked');
             await expect(page.getByTestId('new-project-heading')).toBeVisible();
             await expect(page.getByRole('list', { name: 'Onboarding progress' })).toBeVisible();
-            await expect(page.getByText('Tell uier which site you want to review. Then add the script and invite a reviewer.', { exact: true })).toBeVisible();
+            await expect(page.getByText('Set up a website for review or start with files.', { exact: true })).toBeVisible();
             await expect(page.getByRole('list', { name: 'Onboarding progress' }).getByRole('listitem')).toHaveCount(4);
+            await expect(page.getByRole('radio', { name: 'Website', exact: true })).toBeChecked();
+            await page.getByRole('radio', { name: 'Files only', exact: true }).click();
+            await expect(page.getByLabel('Main site address')).toBeHidden();
+            await expect(page.getByRole('button', { name: 'Create project', exact: true })).toBeDisabled();
+            await page.getByRole('radio', { name: 'Website', exact: true }).click();
             // The form is the shell too: its addresses and name need no data, so they can be typed at once
             await page.getByLabel('Main site address').fill('typed-early.example.com');
             await expect(page.getByLabel('Project name', { exact: true })).toBeVisible();

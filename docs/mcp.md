@@ -86,11 +86,11 @@ out. Only that random request id passes through sign-in. The page shows:
   including new ones" (the default), or "Choose workspaces and projects", where each workspace gets
   all its projects, including new ones, or the projects you pick. Only that profile's accessible
   workspaces and projects are listed. New accounts are never added to an existing connection automatically.
-- **Operations.** Read feedback (always included), Read screenshots, Reply to feedback, Change status and
+- **Operations.** Choose Read feedback for websites, Read file feedback for proofs, or both. Read screenshots, Reply to feedback, Change status and
   Assign feedback (which also lets the tool link pull requests to threads and show itself as the [agent working on feedback assigned to
   you](#agents-working-on-feedback)). The operations the tool asked for are preselected; Claude Code asks for Read feedback.
   **Create access tokens** lets the tool issue bounded tokens for scripts and watchers. It starts off, even when requested.
-  **Select all operations** picks all six. Operations apply to the whole connection, not per workspace.
+  **Select all operations** selects every operation. Operations apply to the whole connection.
 - **Connection name.** Prefilled from the tool's name, 1–60 characters. Replies, status changes and
   assignments made through the connection show this name.
 - **Update or replace.** When the same tool asks again, the page starts from its connection as it
@@ -277,7 +277,7 @@ A request with another `Origin` gets 403 before authentication.
 {
   "resource": "https://uier.io/api/mcp",
   "authorization_servers": ["https://uier.io"],
-  "scopes_supported": ["feedback:read", "screenshots:read", "feedback:reply", "feedback:status", "feedback:assign", "tokens:create"],
+  "scopes_supported": ["feedback:read", "screenshots:read", "feedback:reply", "feedback:status", "feedback:assign", "proofs:read", "proofs:upload", "tokens:create"],
   "bearer_methods_supported": ["header"],
   "resource_name": "uier"
 }
@@ -297,7 +297,7 @@ The authorization server document:
   "code_challenge_methods_supported": ["S256"],
   "token_endpoint_auth_methods_supported": ["none"],
   "revocation_endpoint_auth_methods_supported": ["none"],
-  "scopes_supported": ["feedback:read", "screenshots:read", "feedback:reply", "feedback:status", "feedback:assign", "tokens:create"],
+  "scopes_supported": ["feedback:read", "screenshots:read", "feedback:reply", "feedback:status", "feedback:assign", "proofs:read", "proofs:upload", "tokens:create"],
   "client_id_metadata_document_supported": true,
   "authorization_response_iss_parameter_supported": true
 }
@@ -347,7 +347,7 @@ see consent would make uier an open redirect.
 - `resource`, when sent, must be the MCP endpoint (`invalid_target`). It is compared after lowercasing
   the scheme and host and removing one trailing slash, never by prefix. A missing `resource` defaults to
   the MCP endpoint.
-- `scope`: the six scopes above, space-separated; anything else is `invalid_scope`. No scope means
+- `scope`: the advertised scopes, space-separated; anything else is `invalid_scope`. No scope means
   `feedback:read`.
 - `prompt=none`: `interaction_required`, because consent is always shown.
 - A repeated parameter or a `state` over 1024 characters: `invalid_request`.
@@ -367,8 +367,8 @@ authentication, cookies or CORS. Responses send `Cache-Control: no-store`.
 - `grant_type=refresh_token` needs `refresh_token` and `client_id`, plus optional `resource` and `scope`.
   Every refresh returns a new pair and retires the old refresh token. Presenting a retired refresh token
   once more within 60 seconds (a lost response or a concurrent refresh) returns another new pair.
-  Presenting it again, or later, revokes the connection. `scope` may repeat or narrow the granted operations, always including
-  `feedback:read`. Narrowing applies to the new access token only; a later refresh without `scope` returns
+  Presenting it again, or later, revokes the connection. `scope` may repeat or narrow the granted operations, including
+  `feedback:read` or `proofs:read`. Narrowing applies to the new access token only; a later refresh without `scope` returns
   every granted operation.
 
 ```json
@@ -472,14 +472,16 @@ against the live connection.
 | Tool | Scope | Behavior |
 | --- | --- | --- |
 | `create_access_token` | `tokens:create` | Create a named, one-workspace token for 1–30 days within this connection’s projects and operations; return its secret only once |
-| `list_projects` | `feedback:read` | Projects the selected accounts can still access, with the acting account and workspace; optional `workspaceId` filter |
+| `list_projects` | `feedback:read` or `proofs:read` | Projects the selected accounts can still access, with the acting account and workspace; optional `workspaceId` filter |
+| `list_proof_files` | `proofs:read` or `proofs:upload` | File discovery and current version IDs |
+| `list_proof_threads` | `proofs:read` | Page through visible threads on one file, optionally on a revision |
 | `list_feedback_labels` | `feedback:read` | Effective label IDs, names, brand colors, optional icons and descriptions |
 | `set_feedback_labels` | `feedback:assign` | Add/remove approved label IDs with a stable retry key |
 | `list_feedback_statuses` | `feedback:read` | Effective ordered status IDs, categories, labels, descriptions and new-comment/Done/Archive defaults |
 | `list_feedback` | `feedback:read` | Routing summaries with page, environment, anchor, assignment, author kind, unread and screenshot filters within a 1000-thread window |
-| `get_feedback` | `feedback:read` | Thread, anchor, original reproduction context and authorized screenshot reference |
-| `show_feedback` | `feedback:read` | The same thread packet, with an optional read-only [MCP App card](#thread-cards) |
-| `get_feedback_batch` | `feedback:read` | The same full packets for 1–10 distinct thread ids, in request order, within 256 KiB |
+| `get_feedback` | `feedback:read` or `proofs:read` with `assetId` | Thread, anchor, original reproduction context and authorized screenshot reference |
+| `show_feedback` | `feedback:read` or `proofs:read` with `assetId` | The same thread packet, with an optional read-only [MCP App card](#thread-cards) |
+| `get_feedback_batch` | `feedback:read` or `proofs:read` with `assetId` | The same full packets for 1–10 distinct thread ids, in request order, within 256 KiB |
 | `list_feedback_events` | `feedback:read` | New feedback, replies, status, assignment, agents and mentions since a cursor ([polling](#polling)) |
 | `list_assignees` | `feedback:assign` | Existing participants eligible to see the thread |
 | `reply_to_feedback` | `feedback:reply` | Validated reply as the human account, attributed to the connection and marked as written by the agent; its text shows as Markdown ([replies written by an agent](#replies-written-by-an-agent)) |
@@ -1337,3 +1339,41 @@ Definitions are managed in settings, with no MCP catalog-write tool.
 Renaming a definition updates existing display; removing it hides it without deleting the thread
 or changing its status. A later add rejects an unavailable ID. Reads never acknowledge activity.
 Label writes create thread activity/history without email or a dedicated label webhook event.
+
+## Hand off file feedback
+
+Choose **Read file feedback** (`proofs:read`) for the selected account and projects. From
+`list_projects`, call `list_proof_files({projectId})` and then `list_proof_threads({projectId, assetId})`.
+The list follows `nextCursor` and excludes archived threads by default. Pass a published
+`versionId` to list threads anchored or carried to that revision. Website lists and events
+retain their existing website scope.
+
+Pass `projectId`, `assetId` and `commentId` to `get_feedback` or `show_feedback`, or pass
+`commentIds` for a batch on one file. `context.links.comment` pins the original revision;
+`context.links.revision` identifies a requested revision with a saved location. Both links
+require the viewer's current uier access. Packets include saved discussion and a redacted
+anchor category. Source URLs and tokens, guest identities, raw media, quoted evidence
+and named decisions stay in the protected review.
+
+Use `reply_to_feedback`, `set_feedback_status`, `list_assignees` and `assign_feedback` with
+the same `assetId` and their existing operation scopes. The file list returns the applicable
+workflow statuses. As with website threads, get human approval for a write and retry the
+same idempotency key with the same input. Ordinary status changes cannot confirm a fix
+or record a version approval.
+
+A connection with `tokens:create` can include `proofAssetIds` in `create_access_token` to issue
+a token for up to 20 exact files in one selected project. Select `proofs:read` and omit
+`feedback:read` and `screenshots:read` for these tokens. Future or sibling files are outside
+that token's grant. Proof share links and guest sessions do not authorize MCP.
+
+## Publish a proof version
+
+Approve the file with the person, then use a connection that includes
+`proofs:upload`. Call `list_proof_files` to get the asset and current version.
+Send `projectId`, `assetId`, `expectedVersionId`, a fresh `requestId`,
+`filename`, `contentType` and byte `size` to `begin_proof_upload`. Use the
+returned `uploadUrl` and headers for a raw PUT without forwarding the MCP
+bearer. Keep the temporary storage URL private. Call `finalize_proof_upload`
+with the returned `versionId` to get the authorized viewer link. Retry the
+same request ID when renewing the upload, and reuse the version ID on a
+finalize retry. See the [proof API](../apps/web/docs/proof-api.md).

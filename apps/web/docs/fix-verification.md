@@ -32,3 +32,6 @@ status names separate from confirmation semantics. `/features/board` illustrates
 an enabled project and states that Ready is hidden when off. Keep those claims and the linked
 use-case pages synchronized with this setting; `fix-verification-page.spec.ts` and
 `feature-overview-pages.spec.ts` cover the public explanation.
+
+[File proof checks](proof-review.md) use the same transitions with immutable before/after
+locations, an exact reviewer queue and reauthorization of the proof scope on retries.

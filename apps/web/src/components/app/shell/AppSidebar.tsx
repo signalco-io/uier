@@ -71,6 +71,15 @@ function NavItem({ href, label, icon: Icon, current, roving }: { href: string; l
     );
 }
 
+function projectHref(project: SidebarProject) {
+    return project.url || !project.publicId ? KnownPageLinks.project(project.id) : KnownPageLinks.projectFiles(project.publicId);
+}
+
+function currentProject(pathname: string, project: SidebarProject) {
+    return isCurrent(pathname, KnownPageLinks.project(project.id))
+        || (project.publicId !== undefined && isCurrent(pathname, KnownPageLinks.project(project.publicId)));
+}
+
 /** An active project's entry: its favicon and name, current on its pages */
 function ProjectItem({ project, current, roving }: { project: SidebarProject; current: boolean; roving: RovingProps }) {
     const { t, language } = useAppI18n();
@@ -80,7 +89,7 @@ function ProjectItem({ project, current, roving }: { project: SidebarProject; cu
     const words = category === 'one' ? t(" open comment") : category === 'few' ? t(" open comments [few]") : t(" open comments");
     return (
         <SidebarMenuItem>
-            <SidebarMenuButton {...roving} className={count > 0 ? "pr-14" : undefined} isActive={current} tooltip={project.name} render={<Link href={KnownPageLinks.project(project.id)} aria-current={current ? "page" : undefined} aria-describedby={count > 0 ? countId : undefined} />}>
+            <SidebarMenuButton {...roving} className={count > 0 ? "pr-14" : undefined} isActive={current} tooltip={project.name} render={<Link href={projectHref(project)} aria-current={current ? "page" : undefined} aria-describedby={count > 0 ? countId : undefined} />}>
                 {/* A 20 px tile with the mark's own 2 px padding inside its border (uier #87), so the favicon sits on the tile
                     as in the project header and the projects list. The negative margin keeps it in the 16 px icon slot:
                     names line up with the pages above, also collapsed and in the sheet */}
@@ -135,15 +144,16 @@ export function AppSidebar({ isAdmin, user, accounts, workspaces, currentWorkspa
     const { setOpenMobile } = useSidebar();
     useEffect(() => setOpenMobile(false), [pathname, setOpenMobile]);
     // A listed project is current in its own entry; Projects covers the list and every other project page
-    const inListedProject = listed.some(project => isCurrent(pathname, KnownPageLinks.project(project.id)));
+    const activeProject = listed.find(project => currentProject(pathname, project));
+    const inListedProject = Boolean(activeProject);
     const projectsCurrent = isCurrent(pathname, KnownPages.AppProjects) && !inListedProject;
     // The navigation is one tab stop, like a list (the current page's link, or the one last focused): ↓ and ↑ move
     // between its links, Home and End to the first and the last. The group's buttons (order, Create project) keep theirs.
     const links = [KnownPages.AppMyWork, KnownPages.AppProjects, ...(!active.length && isAdmin ? [KnownPages.AppNewProject] : []),
-        ...listed.map(project => KnownPageLinks.project(project.id))];
+        ...listed.map(projectHref)];
     const currentLink = isCurrent(pathname, KnownPages.AppMyWork) ? KnownPages.AppMyWork
         : projectsCurrent ? KnownPages.AppProjects
-            : listed.map(project => KnownPageLinks.project(project.id)).find(href => isCurrent(pathname, href));
+            : activeProject ? projectHref(activeProject) : undefined;
     const roving = useRovingTabStop(links, { preferred: currentLink, orientation: 'vertical' });
 
     return (
@@ -201,7 +211,7 @@ export function AppSidebar({ isAdmin, user, accounts, workspaces, currentWorkspa
                                         </SidebarGroupLabel>
                                         <SidebarMenu aria-labelledby={labelId}>
                                             {group.projects.map(project => (
-                                                <ProjectItem key={project.id} project={project} current={isCurrent(pathname, KnownPageLinks.project(project.id))} roving={roving.itemProps(KnownPageLinks.project(project.id))} />
+                                                <ProjectItem key={project.id} project={project} current={currentProject(pathname, project)} roving={roving.itemProps(projectHref(project))} />
                                             ))}
                                         </SidebarMenu>
                                     </div>
@@ -209,7 +219,7 @@ export function AppSidebar({ isAdmin, user, accounts, workspaces, currentWorkspa
                             }) : listed.length > 0 && (
                                 <SidebarMenu>
                                     {listed.map(project => (
-                                        <ProjectItem key={project.id} project={project} current={isCurrent(pathname, KnownPageLinks.project(project.id))} roving={roving.itemProps(KnownPageLinks.project(project.id))} />
+                                        <ProjectItem key={project.id} project={project} current={currentProject(pathname, project)} roving={roving.itemProps(projectHref(project))} />
                                     ))}
                                 </SidebarMenu>
                             )}

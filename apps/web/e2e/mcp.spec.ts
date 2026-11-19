@@ -183,3 +183,65 @@ test('the Server Card and the AI Catalog are public and point to the endpoint', 
     // The endpoint itself still asks for sign-in.
     expect((await request.post('/api/mcp', { data: { jsonrpc: '2.0', id: 1, method: 'tools/list' } })).status()).toBe(401);
 });
+
+test('a file-only token reads a published proof through the built MCP endpoint and its browser permalink', async ({ page, baseURL, playwright }) => {
+    const { pngImage } = await import('./support/images');
+    const { randomUUID } = await import('node:crypto');
+    await signIn(page, uniqueEmail('mcp-proof'));
+    const projectId = await createProject(page, { name: 'Proof handoff project', urls: ['https://reviewed.example'] });
+    const request = page.request;
+    const headers = { origin: new URL(baseURL!).origin };
+    const root = `/api/proofs/${projectId}/assets`;
+    const created = await request.post(root, { headers, data: { name: 'Cover' } });
+    expect(created.status(), await created.text()).toBe(201);
+    const { asset } = await created.json();
+    const assetUrl = `${root}/${asset.id}`;
+    const image = Buffer.from(pngImage.split(',')[1]!, 'base64');
+    const grantResponse = await request.post(`${assetUrl}/uploads`, { headers, data: {
+        filename: 'cover.png', contentType: 'image/png', size: image.length, expectedVersionId: null, requestId: randomUUID()
+    } });
+    expect(grantResponse.ok(), await grantResponse.text()).toBe(true);
+    const grant = await grantResponse.json();
+    const versionId = grant.version.id;
+    const uploader = await playwright.request.newContext({ baseURL });
+    try {
+        const put = await uploader.put(grant.uploadUrl, { headers: { ...headers, ...grant.headers }, data: image });
+        expect(put.status(), await put.text()).toBe(204);
+    } finally { await uploader.dispose(); }
+    expect((await request.post(`${assetUrl}/uploads/${versionId}/finalize`, { headers })).ok()).toBe(true);
+    const threadResponse = await request.post(`${assetUrl}/threads`, { headers, data: {
+        text: 'Adjust the title', location: { versionId, anchor: { kind: 'general' } }, idempotencyKey: randomUUID()
+    } });
+    expect(threadResponse.status(), await threadResponse.text()).toBe(201);
+    const { thread } = await threadResponse.json();
+    await page.goto('/app/account/coding-agents');
+    const section = page.getByRole('region', { name: 'Coding agents' });
+    await section.getByRole('button', { name: 'Show access tokens' }).click();
+    await section.getByLabel('Token label').fill('Proof reviewer');
+    await section.getByRole('checkbox', { name: 'Proof handoff project', exact: true }).check();
+    await section.getByRole('checkbox', { name: 'Read file feedback', exact: true }).check();
+    await section.getByRole('checkbox', { name: 'Read feedback', exact: true }).uncheck();
+    await section.getByRole('button', { name: 'Create token', exact: true }).click();
+    const token = section.locator('code').filter({ hasText: /^uier_mcp\./ });
+    await expect(token).toBeVisible();
+    const client = new Client({ name: 'built proof handoff', version: '1.0.0' });
+    await client.connect(new StreamableHTTPClientTransport(new URL('/api/mcp', baseURL),
+        { requestInit: { headers: { Authorization: `Bearer ${await token.textContent()}` } } }));
+    try {
+        const args = { projectId, assetId: asset.id, commentId: thread.id };
+        const list = await client.callTool({ name: 'list_proof_threads', arguments: { projectId, assetId: asset.id } });
+        expect(list.structuredContent).toMatchObject({ items: [{ id: thread.id, summary: 'Adjust the title' }] });
+        const result = await client.callTool({ name: 'get_feedback', arguments: args });
+        const original = new URL(thread.href, baseURL).href;
+        expect(result.structuredContent).toMatchObject({ context: { identity: args, links: { comment: original },
+            screenshot: { state: 'unavailable' }, feedback: { text: 'Adjust the title' } } });
+        const exported = await request.get(`${assetUrl}/threads/${thread.id}/export?version=${versionId}`);
+        expect(await exported.json()).toMatchObject({ context: { identity: args, links: { comment: original } } });
+        expect((await request.get(original)).status()).toBe(200);
+        const site = await client.callTool({ name: 'list_feedback', arguments: { projectId } });
+        expect(site.structuredContent).toMatchObject({ error: 'forbidden' });
+        expect((await request.delete(assetUrl, { headers })).status()).toBe(204);
+        const removed = await client.callTool({ name: 'get_feedback', arguments: args });
+        expect(removed.structuredContent).toMatchObject({ error: 'not_found' });
+    } finally { await client.close(); }
+});

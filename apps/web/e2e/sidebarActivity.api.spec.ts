@@ -72,12 +72,12 @@ test('Cosmos reads one scalar in the project partition, with the visibility in t
     // Admins: every thread of the partition
     expect(await store.latestActivity('project:p_sidebar')).toBe('2026-11-07T09:00:00.000Z');
     expect(captured[0]?.options).toEqual({ partitionKey: 'project:p_sidebar' });
-    expect(captured[0]?.input.query).toBe('SELECT VALUE MAX(c.updatedAt) FROM c WHERE c.domain = @domain AND IS_STRING(c.path) AND IS_STRING(c.updatedAt)');
+    expect(captured[0]?.input.query).toBe('SELECT VALUE MAX(c.updatedAt) FROM c WHERE c.domain = @domain AND IS_STRING(c.path) AND NOT IS_DEFINED(c.assetTarget) AND IS_STRING(c.updatedAt)');
     expect(captured[0]?.input.parameters).toEqual([{ name: '@domain', value: 'project:p_sidebar' }]);
 
     // Everyone else on uier's public project: not private, not its app pages, or their own; nothing visible yet
     expect(await store.latestActivity(PUBLIC_PROJECT_PARTITION, commentVisibilityFilter(PUBLIC_PROJECT_PARTITION, other))).toBeUndefined();
-    expect(captured[1]?.input.query).toBe('SELECT VALUE MAX(c.updatedAt) FROM c WHERE c.domain = @domain AND IS_STRING(c.path) AND IS_STRING(c.updatedAt)'
+    expect(captured[1]?.input.query).toBe('SELECT VALUE MAX(c.updatedAt) FROM c WHERE c.domain = @domain AND IS_STRING(c.path) AND NOT IS_DEFINED(c.assetTarget) AND IS_STRING(c.updatedAt)'
         + ' AND (NOT (IS_BOOL(c.private) AND c.private = true OR c.path = @privatePath OR STARTSWITH(c.path, @privatePath0)'
         + ' OR STARTSWITH(c.path, @privatePath1) OR STARTSWITH(c.path, @privatePath2)) OR c.authorId = @readerId)');
     expect(captured[1]?.input.parameters).toEqual([

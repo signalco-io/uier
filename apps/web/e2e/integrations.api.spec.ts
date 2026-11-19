@@ -1076,3 +1076,105 @@ test('connected services get "via Claude" as the author of a message an agent wr
     expect(delivered!.context.assignee).not.toHaveProperty('agent');
     expect(delivered!.context.assignees?.[0]).not.toHaveProperty('agents');
 });
+
+test('file threads backfill a redacted permalink and clean copied context across privacy, deletion and transfer', async () => {
+    const { proofStore } = await import('../src/lib/proofs/store');
+    const { retireDeletedProofThreads } = await import('../src/lib/proofs/deletedThreads');
+    const { syncTombstone, withSyncMark } = await import('../src/lib/integrations/syncSignal');
+    const { githubIssueProjection } = await import('../src/lib/integrations/github/issue');
+    const { notionBlocks } = await import('../src/lib/integrations/notion/page');
+    const { slackRootMessage } = await import('../src/lib/integrations/slack/message');
+    const f = await fixture();
+    const proofs = proofStore(f.project.id);
+    const assetId = randomUUID(), versionId = randomUUID().replaceAll('-', '');
+    await f.store.create({ id: assetId, pk: proofs.pk, type: 'proof-asset', name: 'Internal artwork', currentVersionId: versionId });
+    await f.store.create({ id: versionId, pk: proofs.pk, type: 'proof-version', assetId, status: 'published',
+        manifest: { surfaces: [{ sourceUrl: 'https://source.example/?key=proof-source-secret' }] } });
+    const proof = await replaceSource(f, {
+        assetTarget: { assetId, authorShareId: 'guest-grant-id', source: { versionId, anchor: { kind: 'text', surfaceId: 'source-node', quote: 'private evidence' } } },
+        path: '/private/source?token=proof-source-secret',
+        authorId: 'guest-identifier',
+        verification: {
+            id: 'named-check', revision: 'private-check-revision', requester: `user:${f.owner.id}`,
+            reviewer: 'named-proof-reviewer', requestedAt: old, outcome: 'confirmed',
+            summary: 'Private approval rationale', fixUrl: 'https://source.example/?key=proof-source-secret',
+            decision: { kind: 'confirm', actorId: 'named-proof-reviewer', at: old, override: false }
+        },
+        thread: { items: [{ id: 'item_original', text: 'Align the header', authorId: 'guest-identifier', authorName: 'Guest name', quotedText: 'private evidence' },
+            { id: 'item_reply', text: 'I can take this', authorId: `user:${f.owner.id}` },
+            { id: 'item_deleted', text: 'Deleted secret', deletedAt: old }] }
+    });
+    await f.comments.create({ ...proof, id: `private_${proof.id}`, private: true, syncPending: false,
+        thread: { items: [{ id: 'item_note', text: 'Private staff note' }] } });
+    const original = `${baseUrl}/proof/${f.project.id}/${assetId}?version=${versionId}&thread=${proof.id}`;
+    const copies: string[] = [];
+    const target = adapter('github', async context => {
+        if (context.mode === 'cleanup') {
+            expect(context.feedback).toBeNull();
+            if (context.ledger.state.remoteId) {
+                await context.operation({ step: 'cleanup', planHash: hash, repeatable: true }, async () => { copies.push('cleanup'); });
+                await context.checkpoint({}, { clearAttempt: true });
+            }
+            return { status: 'suppressed' };
+        }
+        expect(context.feedback?.context.links).toEqual({ comment: original });
+        expect(context.feedback?.context.feedback?.text).toBe('Align the header');
+        expect(context.feedback?.context.discussion[0]?.text).toBe('I can take this');
+        const notion = notionBlocks(context.feedback!.context);
+        expect(notion).toEqual(expect.arrayContaining([expect.objectContaining({ key: 'file-review',
+            block: { object: 'block', type: 'bookmark', bookmark: { url: original } } })]));
+        const rendered = JSON.stringify([context.feedback, githubIssueProjection(context.feedback!.context, 'marker'), notion,
+            slackRootMessage(context.feedback!.context, f.project.name, baseUrl)]);
+        expect(rendered).toContain(original);
+        for (const forbidden of ['proof-source-secret', 'Guest name', 'guest-identifier', 'guest-grant-id', 'source-node', 'private evidence',
+            'Internal artwork', 'Deleted secret', '/media/', '/original', 'verification', 'named-proof-reviewer', 'Private approval rationale', 'Private staff note'])
+            expect(rendered).not.toContain(forbidden);
+        await context.operation({ step: 'upsert', planHash: hash, repeatable: true }, async () => { copies.push('sync'); });
+        await context.checkpoint({ remoteId: 'proof-copy' }, { clearAttempt: true });
+        return { status: 'accepted' };
+    });
+    expect(await startIntegrationBackfill(f.project, 'github', f.owner.id)).toMatchObject({ total: 1 });
+    expect(await queueIntegrationBackfills('github', { deadline: Date.now() + 10_000 })).toMatchObject({ queued: 1 });
+    const run = async () => processIntegrationDelivery(await currentLedger(f, 'github'), baseUrl, target);
+    await run();
+    await run();
+    expect(copies).toEqual(['sync']);
+    const transition = async (privateThread: boolean) => {
+        const current = (await f.comments.get(proof.domain, proof.id))!;
+        const change = withSyncMark(f.project, current.comment, { ...current.comment, private: privateThread });
+        expect(await f.comments.replace(change, current.etag)).toBe('ok');
+        expect(await discoverThreadIntegrationSync(f.project, change, { adapters: [target, accepting('notion')] })).toBe(true);
+    };
+    await transition(true);
+    await run();
+    expect(copies).toEqual(['sync', 'cleanup']);
+    await transition(false);
+    await run();
+    expect(copies).toEqual(['sync', 'cleanup', 'sync']);
+    const current = (await f.comments.get(proof.domain, proof.id))!;
+    const asset = (await proofs.asset(assetId))!;
+    expect(await f.store.replace({ ...asset.doc, deleted: true }, asset.etag)).toBe('ok');
+    expect(await retireDeletedProofThreads(f.project, assetId)).toBe(true);
+    expect(await f.comments.get(proof.domain, proof.id)).toBeNull();
+    const intent = syncTombstone(f.project, current.comment);
+    const deletion = (await f.comments.listSyncPending()).find(row => row.id === intent.id)!;
+    expect(deletion).toMatchObject({ syncVersion: intent.syncVersion, commentId: proof.id });
+    expect(await discoverThreadIntegrationSync(f.project, deletion, { adapters: [target, accepting('notion')] })).toBe(true);
+    await run();
+    expect(copies).toEqual(['sync', 'cleanup', 'sync', 'cleanup']);
+
+    // The same old binding cannot send proof text after a transfer starts.
+    const transferred = await fixture();
+    const transferredProofs = proofStore(transferred.project.id);
+    await transferred.store.create({ ...asset.doc, pk: transferredProofs.pk });
+    await transferred.store.create({ id: versionId, pk: transferredProofs.pk, type: 'proof-version', assetId, status: 'published' });
+    await replaceSource(transferred, { assetTarget: proof.assetTarget });
+    const pending = await queue(transferred, 'github');
+    await updateDoc<DbProject>(transferred.project.pk, transferred.project.id, project => ({ ...project, transfer: { from: project.workspaceId, to: 'destination' } }));
+    await processIntegrationDelivery(pending, baseUrl, adapter('github', async context => {
+        expect(context.mode).toBe('cleanup');
+        expect(context.feedback).toBeNull();
+        return { status: 'suppressed' };
+    }));
+    expect((await currentLedger(transferred, 'github')).status).toBe('suppressed');
+});

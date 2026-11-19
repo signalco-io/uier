@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import type { AppDoc } from '../../app/model';
 import { getAppStore, type AppMutation } from '../../app/store';
 import { randomToken, sha256Hex } from '../../app/tokens';
-import type { McpScope } from '../scopes';
+import { hasMcpReadScope, type McpScope } from '../scopes';
 import { isMcpResource, OAUTH_LIFETIMES, parseScopes } from './config';
 import { OAuthError } from './errors';
 import { limitByKey } from './http';
@@ -162,8 +162,8 @@ export async function refreshTokens(form: URLSearchParams, issuer: string, attem
     let scopes: McpScope[] | undefined;
     if (requestedScope !== undefined) {
         const requested = parseScopes(requestedScope);
-        if (!requested || !requested.includes('feedback:read') || requested.some(scope => !grant.doc.scopes.includes(scope)))
-            throw new OAuthError('invalid_scope', 'Request the granted scopes or fewer, including feedback:read.');
+        if (!requested || !hasMcpReadScope(requested) || requested.some(scope => !grant.doc.scopes.includes(scope)))
+            throw new OAuthError('invalid_scope', 'Request the granted scopes or fewer, including a read scope.');
         scopes = requested.length === grant.doc.scopes.length ? undefined : requested;
     }
     const updatedGrant: McpGrant = { ...grant.doc, idleExpiresAt: iso(OAUTH_LIFETIMES.idleSeconds, now), lastUsedAt: new Date(now).toISOString(), ttl: OAUTH_LIFETIMES.idleSeconds + 86400 };

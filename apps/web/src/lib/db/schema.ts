@@ -165,10 +165,20 @@ export type DbVerification = {
     id: string; revision: string; requester: string; reviewer: string; requestedAt: string;
     outcome: import('@uier/toolbar/verification').VerificationOutcome;
     summary?: string; fixUrl?: string;
+    /** Immutable locations copied when the reviewer is asked to check this revision. */
+    evidence?: import('../proofs/threadModel').ProofVerificationEvidence;
+    /** Actor-scoped receipt hashes used to correlate a retried proof action with the saved request. */
+    proofRequestReceipt?: string;
+    proofDecisionReceipt?: string;
+    stagingEvidence?: { beforeRevision?: string | null; afterItemId: string; requestReceipt?: string; decisionReceipt?: string };
     decision?: { kind: 'confirm' | 'reject' | 'cancel'; actorId: string; at: string; override: boolean };
 };
 
 export type DbComment = {
+    /** An ordinary website thread may refer to one immutable approved design surface. */
+    stagingDesign?: import('../proofs/stagingModel').StagingDesignReference;
+    /** File threads are canonical project comments with an immutable original and separate relocations. */
+    assetTarget?: import('../proofs/threadModel').ProofThreadTarget & { authorShareId?: string };
     recording?: DbCommentRecording;
     /** Internal normalized query fields, committed atomically with the comment; never a public DTO. */
     queryMetadata?: import('../repo/queryMetadata').CommentQueryMetadata;

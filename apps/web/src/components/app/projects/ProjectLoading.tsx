@@ -1,3 +1,4 @@
+import { Bar, Loading } from '../loading/outlines';
 import { CommentsSection } from '../comments/CommentsSection';
 import { ProjectCommentsLoading } from '../comments/ProjectCommentsLoading';
 import { PageChecksLoading } from '../pageChecks/PageChecksLoading';
@@ -21,6 +22,7 @@ export function ProjectLoading() {
             <div className="flex flex-col gap-6 pt-6">
                 <ProjectLoadingPage
                     comments={<CommentsSection><ProjectCommentsLoading /></CommentsSection>}
+                    files={<Loading label="Loading files"><Bar className="h-40 w-full rounded-xl" /></Loading>}
                     pageChecks={<PageChecksLoading />}
                     settings={<ProjectSettingsLoading />}
                     install={<InstallLoading />} />

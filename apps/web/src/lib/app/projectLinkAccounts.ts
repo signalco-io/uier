@@ -37,7 +37,7 @@ async function canOpenLink(context: AppContext, project: DbProject, url: URL, se
             const comment = await getProjectComment(project, actor, commentId);
             // A project page can still open without its old comment. A hidden private
             // comment instead throws 404, so only accounts that may see it qualify.
-            return comment ? !review || feedbackSource(project, comment.origin).available : !review;
+            return comment ? !review || Boolean(comment.assetTarget) || feedbackSource(project, comment.origin).available : !review;
         } catch (error) {
             if (error instanceof ApiError && error.status === 404) return false;
             throw error;
@@ -55,8 +55,8 @@ export const projectLinkAccounts = cache(async (jar: AccountCookieReader, next: 
     if (!match || match[2] === 'new' || url.pathname.endsWith('/screenshot')) return [];
     const section = match[3] ?? '';
     // Only real resource pages can offer identities; unknown paths retain their normal 404.
-    if (match[1] === 'review' ? Boolean(section) : !/^(?:|install|page-checks|settings(?:\/(?:notifications|installation|review|people|environments|danger-zone|integrations(?:\/[^/]+)?))?)$/.test(section)) return [];
-    const project = await findProject(match[2]!) ?? (match[1] === 'review' ? await findReviewProject(match[2]!) : null);
+    if (match[1] === 'review' ? Boolean(section) : !/^(?:|files|install|page-checks|settings(?:\/(?:notifications|installation|review|people|environments|danger-zone|integrations(?:\/[^/]+)?))?)$/.test(section)) return [];
+    const project = await findProject(match[2]!) ?? (match[1] === 'review' || section === 'files' ? await findReviewProject(match[2]!) : null);
     if (!project) return [];
     const sessions = await browserSessions(jar);
     if (!sessions.some(session => session.active)) return [];

@@ -209,6 +209,7 @@ export type CommentItem = {
     reproduction?: CommentReproduction;
     labelIds?: string[];
     priority?: import('../../triage').CommentPriority;
+    hasDesignReference?: true;
     verification?: import('../../verification').VerificationDetails;
     verificationPermissions?: import('../../verification').VerificationPermissions;
     archivedAt?: string;
@@ -240,6 +241,7 @@ export type CommentItem = {
 
 /** A comment being written: device context and screenshot start with the draft. */
 export type CommentDraft = {
+    stagingPairingId?: string;
     device?: CommentDeviceInfo;
     position: CommentAnchor;
     /**

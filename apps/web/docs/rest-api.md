@@ -6,7 +6,10 @@ describe the supported operations. Each route under `app/api/v1/projects` calls 
 then resolve the project and a fresh member actor. The review services own visibility, workflow
 validation, reply attribution, rate limits and durable write receipts. The public response
 projection includes text and workflow state. Account IDs, internal storage fields and attachments
-are outside this contract.
+are outside this contract. Feedback endpoints operate on website threads and apply the
+token owner's current thread visibility. REST checks the requested thread before processing
+a write receipt. Both public and private file threads use the
+[proof-specific MCP handoff](mcp-connector.md#file-proof-handoff).
 
 Account → API tokens creates and revokes tokens. The shared credential store distinguishes REST
 from MCP with a stored audience and a dedicated bearer prefix. Existing MCP tokens keep their

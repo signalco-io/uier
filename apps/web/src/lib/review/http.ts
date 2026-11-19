@@ -15,7 +15,7 @@ export type ReviewApiContext = {
 type ReviewParams = { projectId: string };
 
 /** The API's own origin (requests from uier.io pages are same-origin and need no CORS) */
-function ownOrigin(request: Request) {
+export function ownOrigin(request: Request) {
     const host = request.headers.get('host');
     const protocol = request.headers.get('x-forwarded-proto')?.split(',')[0]?.trim() || new URL(request.url).protocol.replace(':', '');
     return host ? `${protocol}://${host}` : new URL(request.url).origin;

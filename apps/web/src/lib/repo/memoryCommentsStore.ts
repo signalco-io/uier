@@ -1,3 +1,4 @@
+import { matchesProofThread } from './proofThreadFilter';
 import { matchesArchive } from './archiveFilter';
 import { matchesOrigin } from './originFilter';
 import { matchesAuthor } from './authorFilter';
@@ -97,7 +98,7 @@ export function getMemoryCommentsStore(): CommentsStore {
                 throwIfQueryAborted(options.signal);
                 if (performance.now() - start > budget.durationMs) throw new CommentQueryBudgetError();
                 const comment = commentOf(entry, true);
-                if (!comment || typeof comment.path !== 'string' || !matchesVisibility(comment, options.visibility)
+                if (!comment || comment.assetTarget || typeof comment.path !== 'string' || !matchesVisibility(comment, options.visibility)
                     || !matchesOrigin(comment.origin, options.origin) || !matchesAuthor(comment, options.authorId) || !matchesArchive(comment, options.archive)) continue;
                 const candidate = toCommentQueryCandidate(comment, String(entry.version), options.includeText !== false);
                 if (options.predicate && !options.predicate.test(candidate)) continue;
@@ -110,7 +111,7 @@ export function getMemoryCommentsStore(): CommentsStore {
         async listRealtime(domain) {
             return [...domainEntries(domain).values()].flatMap(entry => {
                 const comment = commentOf(entry);
-                if (!comment) return [];
+                if (!comment || comment.assetTarget) return [];
                 const { id, path, private: isPrivate, authorId } = comment;
                 return [{ id, domain, path, private: isPrivate, authorId, revision: String(entry.version) }];
             });
@@ -156,7 +157,7 @@ export function getMemoryCommentsStore(): CommentsStore {
         },
         async list(domain, path, limit, originFilter, authorId, archive) {
             return domainComments(domain)
-                .filter(comment => matchesOrigin(comment.origin, originFilter) && matchesAuthor(comment, authorId) && matchesArchive(comment, archive))
+                .filter(comment => !comment.assetTarget && matchesOrigin(comment.origin, originFilter) && matchesAuthor(comment, authorId) && matchesArchive(comment, archive))
                 .filter(comment => pathMatches(comment, path))
                 .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
                 .slice(0, limit)
@@ -167,27 +168,30 @@ export function getMemoryCommentsStore(): CommentsStore {
             const floor = Math.floor(since / 1000) * 1000;
             return [...domainEntries(domain).values()].flatMap(entry => {
                 const comment = commentOf(entry);
-                return comment && entry.modifiedAt >= floor ? [{ entry, comment }] : [];
+                return comment && !comment.assetTarget && entry.modifiedAt >= floor ? [{ entry, comment }] : [];
             }).sort((a, b) => a.entry.modifiedAt - b.entry.modifiedAt || a.entry.version - b.entry.version)
                 .slice(0, Math.max(1, Math.min(1000, Math.trunc(limit))))
                 .map(({ entry, comment }) => ({ comment: clone(comment), changedAt: Math.floor(entry.modifiedAt / 1000) * 1000 }));
         },
-        async listAll(domain, limit, originFilter, authorId, archive) {
+        async listAll(domain, limit, originFilter, authorId, archive, options) {
             return domainComments(domain)
-                .filter(comment => matchesOrigin(comment.origin, originFilter) && matchesAuthor(comment, authorId) && matchesArchive(comment, archive))
+                .filter(comment => (options?.includeProofs || !comment.assetTarget) && matchesOrigin(comment.origin, originFilter) && matchesAuthor(comment, authorId) && matchesArchive(comment, archive))
                 .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
                 .slice(0, limit)
                 .map(clone);
         },
-        async listPage(domain, { limit, before, path, originFilter, authorId, archive, visibility }) {
+        async listPage(domain, { limit, before, path, originFilter, authorId, archive, visibility, proof, stagingPairingId }) {
             return domainComments(domain)
-                .filter(comment => typeof comment.path === 'string' && typeof comment.createdAt === 'string'
+                .filter(comment => matchesProofThread(comment, proof) && typeof comment.path === 'string' && typeof comment.createdAt === 'string'
                     && (path === undefined || pathMatches(comment, path)) && matchesVisibility(comment, visibility)
                     && matchesOrigin(comment.origin, originFilter) && matchesAuthor(comment, authorId) && matchesArchive(comment, archive)
-                    && isAfterCursor(comment, before))
+                    && (!stagingPairingId || comment.stagingDesign?.pairingId === stagingPairingId) && isAfterCursor(comment, before))
                 .sort(newestCommentFirst)
                 .slice(0, Math.max(1, Math.min(1000, Math.trunc(limit))))
                 .map(clone);
+        },
+        async countProofThreads(domain, filter) {
+            return domainComments(domain).filter(comment => typeof comment.path === 'string' && typeof comment.createdAt === 'string' && matchesProofThread(comment, filter)).length;
         },
         async get(domain, id): Promise<StoredComment | null> {
             const entry = domainEntries(domain).get(id);
@@ -281,19 +285,19 @@ export function getMemoryCommentsStore(): CommentsStore {
         async listActivity(domain): Promise<DbCommentActivity[]> {
             return [...domainEntries(domain).values()].flatMap(entry => {
                 const comment = commentOf(entry);
-                if (!comment) return [];
+                if (!comment || comment.assetTarget) return [];
                 const { id, path, origin, private: isPrivate, authorId, resolved, inProgress, archivedAt, verification, createdAt, activity } = comment;
                 return [{ id, domain, path, origin, private: isPrivate, authorId, resolved, inProgress, archivedAt, verification: verification ? { outcome: verification.outcome } : undefined, createdAt, activity: clone(activity),
                     thread: { items: activity ? [] : comment.thread.items.map(item => ({ authorId: item.authorId, deletedAt: item.deletedAt })) } }];
             }).sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));
         },
         async countOpen(domain, visibleTo) {
-            return domainComments(domain).filter(comment => typeof comment.path === 'string'
+            return domainComments(domain).filter(comment => !comment.assetTarget && typeof comment.path === 'string'
                 && !comment.resolved && typeof comment.archivedAt !== 'string' && matchesVisibility(comment, visibleTo)).length;
         },
         async latestActivity(domain, visibleTo) {
             return domainComments(domain)
-                .filter(comment => typeof comment.path === 'string' && matchesVisibility(comment, visibleTo))
+                .filter(comment => !comment.assetTarget && typeof comment.path === 'string' && matchesVisibility(comment, visibleTo))
                 .map(comment => comment.updatedAt)
                 .filter((updatedAt): updatedAt is string => typeof updatedAt === 'string')
                 .sort().at(-1);

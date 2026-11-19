@@ -108,10 +108,16 @@ export const listFeedback = restRoute<ProjectParams>('feedback:read', async (req
     };
 });
 
-export const getFeedback = restRoute<ThreadParams>('feedback:read', async (_request, { projectId, feedbackId }, token) => {
-    const { project, actor } = await requireProject(token, projectId);
-    const comment = await getProjectComment(project, actor, feedbackId);
+/** Resolve visibility before processing a write receipt. The mutation still checks access on each retry. */
+async function requireWebsiteFeedback(token: McpCredential, projectId: string, feedbackId: string) {
+    const access = await requireProject(token, projectId);
+    const comment = await getProjectComment(access.project, access.actor, feedbackId);
     if (!comment) throw apiErrors.notFound();
+    return { ...access, comment };
+}
+
+export const getFeedback = restRoute<ThreadParams>('feedback:read', async (_request, { projectId, feedbackId }, token) => {
+    const { project, comment } = await requireWebsiteFeedback(token, projectId, feedbackId);
     return detail(comment, await loadStatusWorkflow(project));
 });
 
@@ -122,7 +128,7 @@ function retryKey(request: Request, credential: McpCredential) {
 }
 
 export const reply = restRoute<ThreadParams>('feedback:reply', async (request, { projectId, feedbackId }, token) => {
-    const { project, actor } = await requireProject(token, projectId);
+    const { project, actor } = await requireWebsiteFeedback(token, projectId, feedbackId);
     const key = retryKey(request, token);
     const { text } = await parseJsonBody(request, replyBody.extend({ text: textSchema }), 16_384);
     const comment = await replyToProjectComment(request, project, actor, feedbackId, { text, idempotencyKey: key });
@@ -130,7 +136,7 @@ export const reply = restRoute<ThreadParams>('feedback:reply', async (request, {
 });
 
 export const updateStatus = restRoute<ThreadParams>('feedback:status', async (request, { projectId, feedbackId }, token) => {
-    const { project, actor } = await requireProject(token, projectId);
+    const { project, actor } = await requireWebsiteFeedback(token, projectId, feedbackId);
     const key = retryKey(request, token);
     const { statusId } = await parseJsonBody(request, statusBody, 16_384);
     const comment = await setProjectCommentWorkflowStatus(project, actor, feedbackId, statusId, key);
