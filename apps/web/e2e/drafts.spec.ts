@@ -148,8 +148,8 @@ test('page feedback, bugs and edits keep separate drafts and sign-out clears eve
     await page.goto(origin);
     // Saved feedback has no pin. Open its edit in the inbox, then reload to restore the original edit snapshot.
     await page.getByRole('button', { name: /^Inbox/ }).click();
-    await page.getByRole('button', { name: 'More options for your comment' }).click();
-    await page.getByRole('dialog', { name: 'Comment options', exact: true }).getByRole('button', { name: 'Edit', exact: true }).click();
+    await page.getByRole('button', { name: 'Thread options', exact: true }).click();
+    await page.getByRole('dialog', { name: 'Thread options', exact: true }).getByRole('button', { name: 'Edit', exact: true }).click();
     await page.getByRole('textbox', { name: 'Edit comment', exact: true }).fill('Edit draft');
     await page.reload();
     // Reload restores the open inbox; toggling it would hide the restored edit.
@@ -217,17 +217,20 @@ test('inline and pin composers share edit/reply drafts and pending state', async
     await page.locator(`[data-uier-comment="${comment.id}"]`).click();
     const pin = page.getByRole('textbox', { name: 'Reply', exact: true });
     const thread = page.getByRole('dialog', { name: 'Comment thread', exact: true });
-    await thread.getByRole('button', { name: 'More options for your comment' }).click();
-    await page.getByRole('dialog', { name: 'Comment options', exact: true }).getByRole('button', { name: 'Edit', exact: true }).click();
+    await thread.getByRole('button', { name: 'Thread options', exact: true }).click();
+    const threadOptions = page.getByRole('dialog', { name: 'Thread options', exact: true });
+    await threadOptions.getByRole('button', { name: 'Edit', exact: true }).click();
     await thread.getByRole('textbox', { name: 'Edit comment', exact: true }).fill('Keep the same edit from either surface');
+    // Thread options stays while it fades out, and Escape would close it rather than the thread
+    await expect(threadOptions).toBeHidden();
     await page.keyboard.press('Escape');
     await expect(thread).toBeHidden();
     const inlineThread = page.getByRole('region', { name: 'Headline comment thread' });
-    await inlineThread.getByRole('button', { name: 'More options for your comment' }).click();
-    await page.getByRole('dialog', { name: 'Comment options', exact: true }).getByRole('button', { name: 'Edit', exact: true }).click();
+    await inlineThread.getByRole('button', { name: 'Thread options', exact: true }).click();
+    await page.getByRole('dialog', { name: 'Thread options', exact: true }).getByRole('button', { name: 'Edit', exact: true }).click();
     await expect(inlineThread.getByRole('textbox', { name: 'Edit comment', exact: true })).toHaveText('Keep the same edit from either surface', { useInnerText: true });
     await inlineThread.getByRole('button', { name: 'Cancel', exact: true }).click();
-    await expect(inlineThread.getByRole('button', { name: 'More options for your comment' })).toBeFocused();
+    await expect(inlineThread.getByRole('button', { name: 'Thread options', exact: true })).toBeFocused();
     await page.getByRole('heading', { level: 1 }).scrollIntoViewIfNeeded();
     await page.locator(`[data-uier-comment="${comment.id}"]`).click();
     await pin.fill('Send from either composer');

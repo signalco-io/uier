@@ -167,14 +167,16 @@ test('visitors leave public feedback; only the author resolves or deletes it', a
     await commentBubble(author, 2).click();
     const authorThread = openThread(author);
     await expect(authorThread.getByText(/^Guest [0-9A-F]{4}$/)).toBeVisible();
-    await expect(authorThread.getByRole('button', { name: 'More options' })).toHaveCount(1);
+    // The comment's own options are in Thread options (uier #470); B's reply has none for A
+    await expect(authorThread.getByRole('button', { name: 'Thread options', exact: true })).toHaveCount(1);
+    await expect(authorThread.getByRole('button', { name: 'More options' })).toHaveCount(0);
     await setThreadStatus(author, authorThread, 'Done');
     await expect(commentBubbles(author)).toHaveCount(1);
     await expect(author.getByRole('button', { name: /^Inbox(?:,|$)/ })).toBeVisible();
 
     await commentBubble(author, 1).click();
-    await authorThread.getByRole('button', { name: 'More options for your comment' }).click();
-    const options = author.getByRole('dialog', { name: 'Comment options' });
+    await authorThread.getByRole('button', { name: 'Thread options', exact: true }).click();
+    const options = author.getByRole('dialog', { name: 'Thread options', exact: true });
     // Asks first: deleting a comment deletes its replies as well
     await expect(options.getByRole('button', { name: 'Edit', exact: true })).toBeFocused();
     await options.getByRole('button', { name: 'Delete…' }).click();
@@ -325,8 +327,8 @@ test('deleting a comment others replied to keeps their replies', async ({ browse
     // The author deletes the comment; the confirmation says the replies stay
     await author.reload();
     await commentBubble(author, 2).click();
-    await openThread(author).getByRole('button', { name: 'More options for your comment' }).click();
-    const options = author.getByRole('dialog', { name: 'Comment options' });
+    await openThread(author).getByRole('button', { name: 'Thread options', exact: true }).click();
+    const options = author.getByRole('dialog', { name: 'Thread options', exact: true });
     await expect(options.getByRole('button', { name: 'Edit', exact: true })).toBeFocused();
     await options.getByRole('button', { name: 'Delete…' }).click();
     await expect(options).toContainText('Delete this comment? Its text is removed. The replies stay.');

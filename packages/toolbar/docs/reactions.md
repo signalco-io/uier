@@ -7,8 +7,8 @@ threads. Storage, permissions, limits and the API are in
 
 - `components/MessageReactions.tsx`, separate from `CommentThreadItem` so composers and message layouts can change
   without it:
-  - `ReactionPicker`: Add reaction (an outlined smile-plus drawn like the kit's icons) beside the message's options,
-    with its `IconTooltip`. Its popover (`toolbarSurface('uier-reaction-picker')`, rendered in the shadow root) is
+  - `ReactionPicker`: Add reaction (an outlined smile-plus drawn like the kit's icons, 14 px in a 24 px button) beside a
+    reply's options, and for the first message in the thread's header line before Copy (uier #470), with its `IconTooltip`. Its popover (`toolbarSurface('uier-reaction-picker')`, rendered in the shadow root) is
     the quick set as toggle buttons named by what they show ("Thumbs up") with their names as tooltips,
     `aria-pressed` for the reviewer's own; ← → ↑ ↓, Home and End move between them, a choice closes it.
   - `ReactionList`: under the message, a "Reactions" group of pills: the emoji and the count, `aria-pressed` when
