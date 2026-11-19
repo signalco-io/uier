@@ -254,9 +254,14 @@ export default function BrandPage() {
                             <li><span className="font-mono text-foreground">150ms ease-out</span> enter and exit: fade plus 8 px slide.</li>
                             <li><span className="font-mono text-foreground">200ms ease-out</span> change of place: the item slides there.</li>
                             <li><span className="font-mono text-foreground">120ms</span> hover and press: colour only, no scale. A tile that opens a page rises to floating instead.</li>
-                            <li><span className="font-mono text-foreground">500ms ease-out</span> in an example loop: the same motion, slower, so each step can be followed.</li>
                             <li><span className="font-mono text-foreground">none</span> on page load. No bounces, parallax or gradient movement.</li>
                         </ul>
+                        <span className="text-xs leading-relaxed text-muted-foreground">At most one thing moves on its own on a page: its cover, a loop that plays only in view, with Pause and one still frame with reduced motion.</span>
+                        <span className="text-xs leading-relaxed text-muted-foreground">
+                            The one exception is the landing page&rsquo;s feature tiles. Each plays a loop of its feature at a slower pace, so each step can be followed:{' '}
+                            <span className="font-mono text-foreground">500ms ease-out</span> to come in, <span className="font-mono text-foreground">400ms</span> to leave, about a second for a pointer or an item that changes place, and a few seconds of rest on the still picture it starts and ends on.
+                            A tile plays only in view, one Pause button stops all of them, and with reduced motion they stay still.
+                        </span>
                     </div>
                 </div>
             </Section>

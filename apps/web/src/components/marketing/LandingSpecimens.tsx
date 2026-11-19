@@ -385,8 +385,27 @@ export function BoardSpecimen({ animated }: { animated?: boolean }) {
 
 /** The services a project can send shared feedback to, with what each thread becomes there */
 export function IntegrationsSpecimen({ animated }: { animated?: boolean }) {
-    // The loop: the services come in one after another
-    const loop = specimenLoop(animated ? 10 : undefined);
+    // The loop: a shared thread goes to GitHub and is an open issue there, then the list is as before.
+    // GitHub, because issue creation is what its recorded production checks cover (src/lib/integrations/publication.ts);
+    // the other services wait, dimmed, so the picture claims no delivery it cannot back.
+    const loop = specimenLoop(animated ? 12.5 : undefined);
+    const sent = 4.7;
+    const cleared = 8.4;
+    const waiting = loop.frames([
+        { at: rest, opacity: 1, easing: 'ease-out' },
+        { at: rest + 0.5, opacity: 0.4 },
+        { at: cleared, opacity: 0.4, easing: 'ease-out' },
+        { at: cleared + 0.5, opacity: 1 }
+    ]);
+    // The thread comes in over the list, then travels up to GitHub's row (two rows of 49 px) and leaves into it
+    const onGitHub = '0px -98px';
+    const thread = loop.frames([
+        { at: 2.2, opacity: 0, translate: '0px 8px', easing: 'ease-out' },
+        { at: 2.7, opacity: 1, translate: '0px 0px' },
+        { at: 3.6, opacity: 1, translate: '0px 0px', easing: 'ease-out' },
+        { at: sent - 0.1, opacity: 1, translate: onGitHub, easing: 'ease-out' },
+        { at: sent + 0.3, opacity: 0, translate: onGitHub }
+    ], true);
     const providers: [IntegrationProviderId, string, string][] = [
         ['github', 'GitHub', 'An issue for each thread'],
         ['linear', 'Linear', 'An issue for each thread'],
@@ -396,16 +415,31 @@ export function IntegrationsSpecimen({ animated }: { animated?: boolean }) {
     ];
     return (
         <Specimen className="items-center" loop={loop}>
-            <div className="flex w-full max-w-[280px] flex-col divide-y overflow-hidden rounded-xl border bg-background">
-                {providers.map(([id, name, detail], index) => (
-                    <span key={id} className="flex items-center gap-2.5 px-3 py-1.5" {...loop.enter(2.4 + index * 0.6)}>
+            <div className="relative flex w-full max-w-[280px] flex-col divide-y overflow-hidden rounded-xl border bg-background">
+                {providers.map(([id, name, detail]) => (
+                    <span key={id} className="relative flex items-center gap-2.5 px-3 py-1.5" {...(id === 'github' ? {} : waiting)}>
                         <IntegrationLogo provider={id} className="size-6 rounded-md p-1" />
                         <span className="flex min-w-0 flex-col">
                             <span className="text-[13px] font-medium">{name}</span>
-                            <span className="truncate text-[11px] text-muted-foreground">{detail}</span>
+                            <span className="truncate text-[11px] text-muted-foreground">
+                                {id === 'github' ? <Swap loop={loop} from={sent} to={cleared} was="An issue for #14">{detail}</Swap> : detail}
+                            </span>
                         </span>
+                        {/* The copy's state, as the integrations cover shows it */}
+                        {id === 'github' && loop.on && (
+                            <span className="absolute right-3 top-1/2 -mt-3 inline-flex h-6 items-center gap-1.5 rounded-full border bg-card px-2 text-xs font-medium" {...loop.during(sent, cleared)}>
+                                <StatusDot stage="open" />Open
+                            </span>
+                        )}
                     </span>
                 ))}
+                {loop.on && (
+                    <span className={cx('absolute inset-x-3 top-[42%] z-10 flex items-center gap-1.5 rounded-xl border bg-popover p-2 text-xs text-popover-foreground', floating)} {...thread}>
+                        <Avatar initials="MI" small />
+                        <span className="font-mono text-muted-foreground">#14</span>
+                        <span className="min-w-0 truncate">The prices here are from last year.</span>
+                    </span>
+                )}
             </div>
         </Specimen>
     );

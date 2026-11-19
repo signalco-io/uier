@@ -261,9 +261,11 @@ Lucide (the UI kit's `@signalco/ui-icons`), 1.75 px stroke, 16 inline with text,
 an item that changes place (a card to another column, a row to its new order), 120 ms colour-only
 hover and press, nothing on page load. No bounces, parallax or gradient movement.
 
-An example loop in a marketing picture uses the same motion at a slower pace, so each step can be
-followed: 500 ms to come in, 400 ms to leave, about a second for a pointer or an item that changes
-place, and a rest of a few seconds on the full picture before the loop starts again.
+One exception, only for the feature tiles of the landing page (see "Marketing and metadata"): their
+example loops use the same motion at a slower pace, so each step can be followed. 500 ms ease-out to
+come in, 400 ms to leave, about a second for a pointer or an item that changes place, and a few
+seconds of rest on the still picture before the loop starts again. Covers and the product keep the
+timings above.
 
 ## The review layer
 
@@ -321,16 +323,17 @@ popovers are radius 12 and float; dialogs and the sidebar are radius 16.
   items sit in one bordered panel divided by hairlines rather than in a row of separate cards. Keep steps and
   tiles to a title and one or two short sentences, and do not give two neighbouring sections the
   same layout.
-- At most one cover moves on its own per page: the landing's cover, the how-it-works scene, a loop that
+- At most one thing moves on its own: the landing's cover, the how-it-works scene, a loop that
   plays the product on an example site. Things in it come and go with the enter and exit motion above; the
   pointer and the text selection move with ease-out and no overshoot. It plays only in view, has a
   Pause button and shows one still frame with reduced motion. On the integrations index and each
   feature page that one thing is the cover under the header: a loop of that feature on the example
   site, with the same rules.
-- The landing's feature tiles also play: each picture is a slow loop of its feature at the example
-  pace above, starting and ending on the still picture. A tile plays only in view, one Pause button
-  stops them all, and with reduced motion they are the still pictures. On every other page the same
-  pictures stay still.
+- The landing page has the one exception to that rule: besides its cover, the pictures of its
+  feature tiles play. Each is a loop of its feature at the tiles' slower pace ("Motion"), starting
+  and ending on the still picture. A tile plays only while it is in view, one Pause button stops all
+  of them, and with reduced motion they are the still pictures, with a note in place of the button.
+  On every other page the same pictures stay still and the rule above holds.
 - Footer: on every page, with "A signalco project" and signalco's mark, linked to signalco.io, in
   the bottom line. Contact links use `brand.contact` (contact@uier.io, security@uier.io,
   privacy@uier.io); the GitHub link uses `brand.social`. signalco's X account (@signalco_io)

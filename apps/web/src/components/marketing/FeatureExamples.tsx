@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { Pause, Play } from '@signalco/ui-icons';
 import { Button } from '@signalco/ui-primitives/Button';
+import { cx } from '@signalco/ui-primitives/cx';
 
 // Plays the loops of the landing's feature tiles (apps/web/docs/landing-page.md, "The tiles play").
 // Each animated specimen is a `[data-motion-loop]` with its length in seconds, and its moving parts
@@ -11,7 +12,12 @@ import { Button } from '@signalco/ui-primitives/Button';
 //
 // - A loop plays only while half of its picture is in view, and goes on from where it stopped.
 // - One button pauses every tile (WCAG 2.2.2); the tiles are links, so they get no button each.
-// - With reduced motion (read live) there are no animations and no button: the still pictures.
+//   It is 44 px tall on touch screens (BRAND.md, "Space").
+// - With reduced motion (read live) there are no animations: the still pictures. A note takes the
+//   button's place, in the same box, so nothing moves when the setting changes. Until the script
+//   runs CSS shows the right one; after that the state does, so when the setting changes the focus
+//   can go from the one that leaves to the one that comes in the same commit, before the browser
+//   drops it to the page.
 // - Only opacity and transforms move, inside each picture's fixed box: nothing around it shifts.
 
 /** Tiles that come into view together start a little apart, so they do not move in step */
@@ -31,10 +37,15 @@ function sync(loop: Loop, paused: boolean) {
 
 export function FeatureExamples({ heading, children }: { heading: ReactNode; children: ReactNode }) {
     const root = useRef<HTMLDivElement>(null);
+    const control = useRef<HTMLDivElement>(null);
+    const note = useRef<HTMLParagraphElement>(null);
     const loops = useRef<Loop[]>([]);
     const paused = useRef(false);
     const [playing, setPlaying] = useState(true);
-    const [reducedMotion, setReducedMotion] = useState(false);
+    // Null until the script has read the setting: CSS decides which control shows
+    const [reducedMotion, setReducedMotion] = useState<boolean | null>(null);
+    // The setting changed while the control that leaves had the focus
+    const refocus = useRef(false);
 
     useEffect(() => {
         const element = root.current;
@@ -58,6 +69,7 @@ export function FeatureExamples({ heading, children }: { heading: ReactNode; chi
         };
         const start = () => {
             stop();
+            refocus.current = control.current?.contains(document.activeElement) ?? false;
             setReducedMotion(query.matches);
             if (query.matches)
                 return;
@@ -82,6 +94,14 @@ export function FeatureExamples({ heading, children }: { heading: ReactNode; chi
         };
     }, []);
 
+    // The button or the note in its place had the focus: it goes to the one shown now
+    useLayoutEffect(() => {
+        if (!refocus.current)
+            return;
+        refocus.current = false;
+        (reducedMotion ? note.current : control.current?.querySelector('button'))?.focus({ preventScroll: true });
+    }, [reducedMotion]);
+
     const toggle = () => {
         paused.current = playing;
         setPlaying(!playing);
@@ -93,16 +113,20 @@ export function FeatureExamples({ heading, children }: { heading: ReactNode; chi
         <>
             <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
                 {heading}
-                {!reducedMotion && (
+                {/* The button and the reduced-motion note share one cell of a fixed height: the one not shown is invisible, never removed */}
+                <div ref={control} data-feature-examples-control="" className="ml-auto grid h-9 shrink-0 items-center justify-items-end pointer-coarse:h-11">
                     <Button
                         variant="plain"
                         size="sm"
                         onClick={toggle}
                         startDecorator={playing ? <Pause size={16} strokeWidth={1.75} /> : <Play size={16} strokeWidth={1.75} />}
-                        className="-mx-2 shrink-0 text-muted-foreground motion-reduce:hidden">
+                        className={cx('col-start-1 row-start-1 -mr-2 text-muted-foreground pointer-coarse:h-11', reducedMotion === null ? 'motion-reduce:invisible' : reducedMotion && 'invisible')}>
                         {playing ? 'Pause examples' : 'Play examples'}
                     </Button>
-                )}
+                    <p ref={note} tabIndex={-1} className={cx('col-start-1 row-start-1 text-right text-sm leading-tight text-muted-foreground', reducedMotion === null ? 'invisible motion-reduce:visible' : !reducedMotion && 'invisible')}>
+                        Examples stay still with reduced motion.
+                    </p>
+                </div>
             </div>
             <div ref={root} data-feature-examples={reducedMotion ? 'still' : playing ? 'playing' : 'paused'}>
                 {children}
