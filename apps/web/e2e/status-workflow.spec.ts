@@ -4,6 +4,7 @@ import { createProject, hydrated, openBoardMove, openComment, setProjectAccess, 
 import { verifiedReviewHeaders } from './support/reviewVerification';
 import { startReviewedSite } from './support/reviewedSite';
 import { expectNoAxeViolations } from './accessibility';
+import { animationsFinished } from './support/toolbar';
 
 async function choose(page: Page, select: Locator, name: string) {
     await select.click();
@@ -103,6 +104,8 @@ test('workspace statuses inherit, project overrides save/discard, and board/menu
         await expect(page.getByText('Nothing archived', { exact: true })).toBeVisible();
         await page.getByRole('button', { name: 'Archived, clear filter', exact: true }).click();
         await expect(column('Production').getByRole('listitem')).toHaveCount(1);
+        // The card fades into its column: scan its final colours, not a frame of that
+        await animationsFinished(column('Production'));
         await expectNoAxeViolations(page);
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     } finally { await site.close(); }
