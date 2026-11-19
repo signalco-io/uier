@@ -15,6 +15,7 @@ import type { ProofAnchor, ProofPendingPage, ProofThread, ProofThreadLocation, P
 import { MessageMarkdown } from '../comments/MessageMarkdown';
 import { VerificationControl } from '../comments/VerificationControl';
 import { proofFetch, ProofRequestError, proofWrite } from './client';
+import { videoTime } from './coordinates';
 
 export type ProofThreadsProps = {
     projectId: string;
@@ -26,7 +27,8 @@ export type ProofThreadsProps = {
     onThreadSelect?: (threadId: string) => void;
     onJump?: (location: ProofThreadLocation) => void;
     onEvidence?: (evidence: ProofVerificationEvidence, side: 'before' | 'after') => void;
-    onRequestTarget?: () => void;
+    onRequestTarget?: (location: ProofThreadLocation) => void;
+    copySuggestions?: boolean;
     onThreadsChange?: (threads: ProofThread[]) => void;
 };
 
@@ -44,7 +46,7 @@ function writeKey(ref: { current?: { payload: string; key: string } }, value: un
     return ref.current.key;
 }
 
-export function ProofThreads({ projectId, assetId, versionId, currentVersionId, threadId, draftAnchor, onThreadSelect, onJump, onEvidence, onRequestTarget, onThreadsChange }: ProofThreadsProps) {
+export function ProofThreads({ projectId, assetId, versionId, currentVersionId, threadId, draftAnchor, onThreadSelect, onJump, onEvidence, onRequestTarget, onThreadsChange, copySuggestions }: ProofThreadsProps) {
     const { t } = useAppI18n();
     const base = `${proofApiPath(projectId)}/assets/${encodeURIComponent(assetId)}`;
     const heading = useRef<HTMLHeadingElement>(null);
@@ -59,6 +61,7 @@ export function ProofThreads({ projectId, assetId, versionId, currentVersionId, 
     const [refresh, setRefresh] = useState(0);
     const [name, setName] = useState('');
     const [text, setText] = useState('');
+    const [copyDraft, setCopyDraft] = useState<{ anchor: ProofAnchor; replacement: string }>();
     const [privateNote, setPrivateNote] = useState(false);
     const [reply, setReply] = useState('');
     const [statusId, setStatusId] = useState<string>();
@@ -75,6 +78,7 @@ export function ProofThreads({ projectId, assetId, versionId, currentVersionId, 
     const page = listed?.key === key ? listed.page : undefined;
     const pending = queue?.key === key ? queue.page : noPending;
     const selected = detail?.id === open ? detail : undefined;
+    const replacement = copyDraft && copyDraft.anchor === draftAnchor ? copyDraft.replacement : undefined;
     const threadEndpoint = (thread: string) => `${base}/threads/${encodeURIComponent(thread)}`;
     const notifyThreads = useEffectEvent((threads: ProofThread[]) => onThreadsChange?.(threads));
     const describe = (reason: unknown) => reason instanceof ProofRequestError ? t(reason.message) : t('The request could not be completed.');
@@ -182,7 +186,9 @@ export function ProofThreads({ projectId, assetId, versionId, currentVersionId, 
     function submitMessage(event: FormEvent, target?: ProofThread) {
         event.preventDefault();
         const payload = target ? { text: reply, ...(page?.guest ? { authorName: name } : {}) }
-            : { text, ...(page?.guest ? { authorName: name } : {}), location: { versionId, anchor: draftAnchor ?? generalAnchor }, ...(page?.canMakePrivate && privateNote ? { private: true } : {}) };
+            : { text: text.trim() || replacement || '', ...(page?.guest ? { authorName: name } : {}),
+                location: { versionId, anchor: draftAnchor ?? generalAnchor }, ...(page?.canMakePrivate && privateNote ? { private: true } : {}),
+                ...(replacement?.trim() ? { suggestion: { replacement } } : {}) };
         if (!payload.text.trim() || (page?.guest && !name.trim()) || busy) return;
         const attempt = target ? actionAttempt : createAttempt;
         start(async () => {
@@ -192,7 +198,7 @@ export function ProofThreads({ projectId, assetId, versionId, currentVersionId, 
                 const { thread } = await proofWrite<ThreadResult>(endpoint, 'POST', { ...payload, idempotencyKey: writeKey(attempt, { endpoint, payload }) });
                 attempt.current = undefined;
                 if (target) { setReply(''); setDetail(thread); }
-                else { setText(''); setPrivateNote(false); select(thread); }
+                else { setText(''); setCopyDraft(undefined); setPrivateNote(false); select(thread); }
                 reload();
             } catch (reason) { setError(describe(reason)); }
         });
@@ -208,6 +214,7 @@ export function ProofThreads({ projectId, assetId, versionId, currentVersionId, 
                 });
                 actionAttempt.current = undefined;
                 setDetail(thread);
+                if (operation.operation === 'relocate') onJump?.(thread.location);
                 reload();
             } catch (reason) {
                 setError(describe(reason));
@@ -249,6 +256,10 @@ export function ProofThreads({ projectId, assetId, versionId, currentVersionId, 
             override: Boolean(selected.evidenceLinks && selected.verificationPermissions.override)
         }
     };
+    const originalAnchor = selected?.target.source.anchor;
+    const time = selected?.location.anchor.kind === 'time' ? selected.location.anchor : undefined;
+    const unconfirmedVideo = originalAnchor?.kind === 'time' && selected?.location.versionId !== versionId
+        && versionId === latestVersion && selected?.permissions.assign && !draftAnchor;
     const completedLabel = t('No more changes to check on this version.');
     const evidenceView = evidence && <div className="flex flex-col gap-2">
         <p className="text-sm text-muted-foreground">{afterVersion ? t('Fix check for version {number}', { number: afterVersion }) : t('Requested version')}</p>
@@ -334,13 +345,28 @@ export function ProofThreads({ projectId, assetId, versionId, currentVersionId, 
                 <a className={buttonVariants({ variant: 'ghost', size: 'sm' })} href={selected.href}
                     onClick={onJump ? event => { event.preventDefault(); onJump(selected.target.source); } : undefined}>{t('Original location')}</a>
             </div>
+            {time && <p className="m-0 text-sm font-mono tabular-nums">
+                {videoTime(time.startMs)}{time.endMs !== undefined && ` – ${videoTime(time.endMs)}`}
+            </p>}
+            {selected.target.suggestion && selected.thread.items[0] && !('deleted' in selected.thread.items[0]) && originalAnchor?.kind === 'text' && <dl className="m-0 grid gap-2 break-words rounded-lg border p-2 text-sm">
+                <div><dt className="font-medium">{t('Original copy')}</dt><dd className="m-0 whitespace-pre-wrap">{originalAnchor.quote}</dd></div>
+                <div><dt className="font-medium">{t('Suggested replacement')}</dt><dd className="m-0 whitespace-pre-wrap">{selected.target.suggestion.replacement}</dd></div>
+                {evidence?.after.anchor.kind === 'text' && <div><dt className="font-medium">{t('Revised copy')}</dt>
+                    <dd className="m-0 whitespace-pre-wrap">{evidence.after.anchor.quote}</dd></div>}
+            </dl>}
             <ul className="grid gap-3">
                 {selected.thread.items.map(item => <li key={item.id} className="min-w-0 text-sm">
                     {'deleted' in item ? <p className="text-muted-foreground">{t('Deleted message')}</p> : <>
-                        <p className="font-medium">{item.author.name}</p><MessageMarkdown text={item.text} />
+                        <p className="font-medium">{item.author.name}</p>
+                        {(item !== selected.thread.items[0] || item.text !== selected.target.suggestion?.replacement) && <MessageMarkdown text={item.text} />}
                     </>}
                 </li>)}
             </ul>
+            {unconfirmedVideo && <div className="grid justify-items-start gap-2">
+                <p className="m-0 text-sm text-muted-foreground">{t('Confirm where this moment appears in the revised clip.')}</p>
+                {onRequestTarget && <Button variant="outline" className="pointer-coarse:min-h-11"
+                    onClick={() => onRequestTarget(selected.target.source)}>{t('Reconfirm video location')}</Button>}
+            </div>}
             <div className="flex flex-wrap items-start gap-2">
                 {selected.permissions.resolve && !selected.archivedAt && <Select value={selected.statusId} items={(page?.statuses ?? []).map(status => ({ value: status.id, label: workflowStatusLabel(status, t) }))}
                     disabled={busy} onValueChange={status => {
@@ -376,7 +402,7 @@ export function ProofThreads({ projectId, assetId, versionId, currentVersionId, 
                     participants: selected.participants ?? [], evidence: requestEvidence, targetVersionId: evidence?.after.versionId, evidenceView, save: saveVerification,
                     requestTarget: <Field><FieldTitle>{t('Revised location')}</FieldTitle>
                         <FieldDescription>{requestEvidence ? (revisedAnchor?.kind === 'general' ? t('Using the whole version.') : t('Using the selected location.')) : t('Choose a location on a newer version.')}</FieldDescription>
-                        {onRequestTarget && <Button variant="outline" className="self-start pointer-coarse:min-h-11" onClick={onRequestTarget}>{t('Choose location')}</Button>}
+                        {onRequestTarget && originalAnchor && <Button variant="outline" className="self-start pointer-coarse:min-h-11" onClick={() => onRequestTarget(selected.target.source)}>{t('Choose location')}</Button>}
                     </Field>
                 }} />
             {page?.canComment && <form aria-label={t('Reply')} onSubmit={event => submitMessage(event, selected)}>
@@ -390,15 +416,27 @@ export function ProofThreads({ projectId, assetId, versionId, currentVersionId, 
         </div>}
         {page?.canComment && <form aria-label={t('Add comment')} onSubmit={event => submitMessage(event)}>
             <FieldGroup>
+                {copySuggestions && draftAnchor?.kind === 'text' && <Field>
+                    {replacement === undefined ? <Button variant="outline" className="self-start pointer-coarse:min-h-11"
+                        onClick={() => setCopyDraft({ anchor: draftAnchor, replacement: '' })}>{t('Suggest replacement')}</Button> : <>
+                        <FieldDescription>{t('Original copy')} · {draftAnchor.quote}</FieldDescription>
+                        <FieldLabel htmlFor={`${id}-replacement`}>{t('Suggested replacement')}</FieldLabel>
+                        <Textarea id={`${id}-replacement`} maxLength={1000} required value={replacement} autoFocus
+                            onChange={event => setCopyDraft({ anchor: draftAnchor, replacement: event.target.value })} />
+                        <Button variant="ghost" className="self-start pointer-coarse:min-h-11" onClick={() => setCopyDraft(undefined)}>{t('Cancel')}</Button>
+                    </>}
+                </Field>}
                 <Field><FieldLabel htmlFor={`${id}-comment`}>{t('Add comment')}</FieldLabel>
-                    <Textarea required id={`${id}-comment`} maxLength={1000} value={text} onChange={event => setText(event.target.value)} />
+                    <Textarea required={replacement === undefined} id={`${id}-comment`} maxLength={1000} value={text} onChange={event => setText(event.target.value)} />
                     {draftAnchor && <FieldDescription>{t('Using the selected location.')}</FieldDescription>}
                 </Field>
                 {page.canMakePrivate && <Field orientation="horizontal">
                     <Checkbox id={`${id}-private`} checked={privateNote} onCheckedChange={checked => setPrivateNote(checked === true)} />
                     <FieldLabel htmlFor={`${id}-private`}>{t('Make private')}</FieldLabel>
                 </Field>}
-                <Button type="submit" className="self-start pointer-coarse:min-h-11" disabled={busy || !text.trim() || (page.guest && !name.trim())}>{t('Add comment')}</Button>
+                <Button type="submit" className="self-start pointer-coarse:min-h-11" disabled={busy || !(replacement ?? text).trim() || (page.guest && !name.trim())}>
+                    {t(replacement === undefined ? 'Add comment' : 'Post suggestion')}
+                </Button>
             </FieldGroup>
         </form>}
     </section>;

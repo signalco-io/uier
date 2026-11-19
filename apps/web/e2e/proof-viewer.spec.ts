@@ -228,7 +228,7 @@ test('PDF renderer paints real pages, searches text and pairs reordered pages', 
     await expect(page.locator('ins')).toHaveText('49');
 });
 
-test('a published PDF preserves a selectable-text annotation at its original page', async ({ page }) => {
+test('a published PDF preserves an anchored copy replacement at its original page', async ({ page, isMobile }) => {
     test.setTimeout(120_000);
     await makeFileOnlyProject(page);
     await page.getByRole('button', { name: 'File formats', exact: true }).click();
@@ -252,25 +252,37 @@ test('a published PDF preserves a selectable-text annotation at its original pag
     await expect(quote).toBeVisible();
     const pageId = await surface.getAttribute('data-proof-surface');
     await choose(page, 'Review tool', 'Quote text');
-    await quote.evaluate(element => {
-        const range = document.createRange();
-        const first = element.firstChild!;
-        const start = first.textContent!.indexOf('Dinner');
-        range.setStart(first, start);
-        range.setEnd(first, start + 'Dinner'.length);
-        window.getSelection()?.removeAllRanges();
-        window.getSelection()?.addRange(range);
-        element.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
-    });
+    if (isMobile) {
+        await page.getByText('Choose PDF text', { exact: true }).tap();
+        await page.getByRole('button', { name: /Dinner.*45 EUR/ }).tap();
+    } else {
+        await quote.evaluate(element => {
+            const range = document.createRange();
+            const first = element.firstChild!;
+            const start = first.textContent!.indexOf('Dinner');
+            range.setStart(first, start);
+            range.setEnd(first, start + 'Dinner'.length);
+            window.getSelection()?.removeAllRanges();
+            window.getSelection()?.addRange(range);
+            element.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
+        });
+    }
     await expect(page.getByText('Using the selected location.')).toBeVisible();
-    await page.getByRole('textbox', { name: 'Add comment', exact: true }).fill('Confirm this price');
+    const suggest = page.getByRole('button', { name: 'Suggest replacement', exact: true });
+    if (isMobile) await suggest.tap();
+    else { await suggest.focus(); await suggest.press('Enter'); }
+    await expect(page.getByRole('textbox', { name: 'Suggested replacement' })).toBeFocused();
+    await page.getByRole('textbox', { name: 'Suggested replacement' }).fill('Evening menu');
     const created = page.waitForResponse(response => response.request().method() === 'POST' && response.url().endsWith('/threads'));
-    await page.getByRole('button', { name: 'Add comment', exact: true }).click();
+    await page.getByRole('button', { name: 'Post suggestion', exact: true }).click();
     const response = await created;
     expect(response.ok()).toBe(true);
-    const { thread } = await response.json() as { thread: { href: string; location: { anchor: unknown } } };
-    expect(thread.location.anchor).toEqual({ kind: 'text', surfaceId: pageId, quote: 'Dinner' });
+    const { thread } = await response.json() as { thread: { href: string; target: { suggestion: unknown }; location: { anchor: unknown } } };
+    expect(thread.location.anchor).toMatchObject({ kind: 'text', surfaceId: pageId, quote: isMobile ? expect.stringMatching(/Dinner.*45 EUR/) : 'Dinner' });
+    expect(thread.target.suggestion).toEqual({ replacement: 'Evening menu' });
     await page.goto(thread.href);
     await expect(page.locator('[data-proof-surface]').first()).toHaveAttribute('data-proof-surface', pageId!);
     await expect(page.locator('[data-proof-quote]').first()).toContainText('Dinner');
+    await expect(page.getByText('Suggested replacement', { exact: true })).toBeVisible();
+    await expect(page.getByRole('definition').filter({ hasText: 'Evening menu' })).toBeVisible();
 });

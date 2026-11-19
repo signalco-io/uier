@@ -57,11 +57,11 @@ version and surface IDs live in the manifest, independent of screen size.
 | Format | Browser input and behavior |
 | --- | --- |
 | Image | `surfaces[index].artifactId` names a safe raster derivative. The image processor's animated WebP carries animation duration, so the viewer can pause, play and step decoded frames. SVG uses a raster derivative. |
-| PDF | A published `application/pdf` artifact supplies real canvas pages, selectable text and scrollable thumbnails. `manifest.pdf.artifactId` can designate it explicitly. PDF.js and its worker load on demand. The build publishes the pinned package's CMaps, fonts and decoder WASM under `/proof-pdf/<version>/`. Text selection creates a quote anchor; repeated quotes need an explicit spatial anchor for exact visual placement. Reordered pages pair on unique content or text evidence. When the match is ambiguous or the page changed, the reviewer can select the reference page. The diff presents removals and additions in version order. |
+| PDF | A published `application/pdf` artifact supplies real canvas pages, selectable text and scrollable thumbnails. `manifest.pdf.artifactId` can designate it explicitly. PDF.js and its worker load on demand. The build publishes the pinned package's CMaps, fonts and decoder WASM under `/proof-pdf/<version>/`. Text selection and the keyboard- and touch-operable text picker create quote anchors. A saved occurrence distinguishes repeated copy when the text layer can identify it. A reviewer can suggest a replacement on that anchor. Reordered pages pair on unique content or text evidence. When the match is ambiguous or the page changed, the reviewer can select the reference page. The diff presents removals and additions in version order. |
 | Figma | Each imported frame uses its stable surface ID, dimensions, label and raster artifact. The comparison follows a matching frame ID even after rename, and shows an absent frame explicitly. An optional HTTPS `surface.sourceUrl` to Figma is displayed to members. |
-| Video | A surface or version exposes a playable MP4 or WebM derivative. `durationMs` bounds time and time-range anchors. Optional `manifest.video.frameRate` controls the step increment. The viewer seeks to the saved timestamp and can apply the time to a paired version. Spatial regions and timed ranges use their respective anchor types. |
-| Email | A published HTML or plain-text artifact supplies the body. Optional `manifest.email` supplies subject, preheader, sender and `plainTextArtifactId`. Wide and narrow set distinct logical iframe widths. The viewer keeps HTML in a scriptless opaque sandbox, removes navigation targets and remote resources, and lists link destinations as text. The plain-text body and metadata support quote anchors. |
-| HTML prototype | The viewer requests an authorized, version-bound URL from `GET /assets/:assetId/versions/:versionId/prototype`. It mounts that URL only on the configured origin `NEXT_PUBLIC_UIER_PROOF_HTML_ORIGIN`. The frame runs scripts in an opaque sandbox. Its bridge lets a reviewer pick an element or quote selected text on a page in the version’s manifest. Navigation stays inside the sandbox. A raster derivative can supply a captured view. The saved point locates the viewport coordinate. Reopening an exact interactive state requires a published capture of that state. |
+| Video | A surface or version exposes a playable MP4 or WebM derivative. `durationMs` bounds time and time-range anchors. Step backward and forward use the published frame rate, with a default increment for older media without that metadata. A spatial point or region stores its time in the same anchor. Select a time range first to keep geometry visible throughout that interval. A revised clip shows the original separately and lets the reviewer seek to the match, confirm the proposed position or place a new pin before saving a correspondence. |
+| Email | A published HTML or plain-text artifact supplies the body. Optional `manifest.email` supplies subject, preheader, sender and `plainTextArtifactId`. Wide and narrow set distinct logical iframe widths. The viewer keeps HTML in a scriptless opaque sandbox, removes navigation targets and remote resources, and lists link destinations as text. Subject, preheader and sender have their own anchors. Use the body text picker or select copy in plain text. The calls-to-action list identifies individual link labels in Safe HTML. A replacement suggestion continues in the file thread and shows the original, proposed and revised copy when the revised location is text. |
+| HTML prototype | The viewer requests an authorized, version-bound URL from `GET /assets/:assetId/versions/:versionId/prototype`. It mounts that URL only on the configured origin `NEXT_PUBLIC_UIER_PROOF_HTML_ORIGIN`. The frame runs scripts in an opaque sandbox. Browse the bundle and use **Pick a prototype element** to click, tap or press Enter on a focused element. Alt+Shift+A starts picking from inside the frame without moving focus. Select text in the frame and use **Use selected text** to quote it. Deep links reopen the selected revision and page and check the saved element and text. Native details and popovers can be reopened. A custom menu or other state that no longer matches opens its captured labels and layout. The reviewer can still browse the original bundle. The captured reference represents the reviewed detail as text and boxes. |
 
 The paired layout shares zoom for comparable surfaces. The opacity overlay is
 available for raster, PDF and Figma surfaces with matching aspect ratios.
@@ -74,7 +74,7 @@ comparison and revocation on desktop and touch. The PDF renderer fixture uses
 real PDF bytes with synthetic asset metadata so canvas, text and page pairing
 are exercised even when new PDF uploads are paused. The published PDF test
 also enables the format, uploads a PDF through the library, selects text on the
-second rendered page, and reopens that exact quote through the thread permalink.
+second rendered page and reopens the replacement suggestion at its exact quote.
 
 The two-thread [verification spec](../e2e/proof-verification.spec.ts) places revised locations on the
 same point on touch and checks focus when the reviewer advances. Placement and pan own pointer
@@ -108,3 +108,10 @@ later redaction.
 
 The [staging review API](proof-review.md#design-to-staging) describes the access and
 retention rules.
+
+[Browser import journeys](../e2e/proof-imports.spec.ts) cover a custom prototype
+menu and a restorable native menu, an agent publishing version 2, and a
+separately authorized guest returning to version 1 before the share is
+revoked. They also check video pin geometry and timestamps after resize,
+reconfirmation after a one-second trim, and subject, CTA and body suggestions
+through the before-and-after viewer on desktop and touch.

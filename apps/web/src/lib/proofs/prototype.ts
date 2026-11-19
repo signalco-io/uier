@@ -7,10 +7,10 @@ import { validPrototypePath } from './adapters/html';
 import { getProofBlobs, proofAttemptPrefix } from './blobs';
 import { readProofBytes } from './sourceBytes';
 import { proofPreviewOrigin } from './previewOrigin';
+import { prototypeBridge, prototypeBridgeName } from './prototypeBridge';
 import { proofEpoch, proofNotFound, proofStore } from './store';
 
 const purpose = 'proof-prototype';
-const bridgeName = '__uier_bridge.js';
 const grantAge = 30 * 60;
 type PreviewGrant = { p: string; a: string; v: string; e: string; parent: string } & ({ member: string } | { share: string });
 type ParentNode = DefaultTreeAdapterTypes.ParentNode;
@@ -83,7 +83,7 @@ function injectPreview(htmlSource: string, root: string, parent: string) {
         }
     }
     const bridge = tree.createElement('script', html.NS.HTML, [
-        { name: 'src', value: root + bridgeName }, { name: 'data-uier-parent', value: parent }
+        { name: 'src', value: root + prototypeBridgeName }, { name: 'data-uier-parent', value: parent }
     ]);
     const first = head.childNodes[0];
     if (first) tree.insertBefore(head, bridge, first);
@@ -93,45 +93,21 @@ function injectPreview(htmlSource: string, root: string, parent: string) {
     return serialize(document);
 }
 
-const bridge = String.raw`(() => {
-    const parentOrigin = document.currentScript.dataset.uierParent;
-    const root = new URL(document.currentScript.src).pathname.slice(0, -'__uier_bridge.js'.length);
-    if (window.parent === window) return;
-    const send = (type, data = {}) => window.parent.postMessage({ type: 'uier-proof:' + type,
-        path: location.pathname.slice(root.length), ...data }, parentOrigin);
-    let annotate = false;
-    window.addEventListener('message', event => {
-        if (event.source !== window.parent || event.origin !== parentOrigin) return;
-        if (event.data?.type === 'uier-proof:annotate') annotate = event.data.enabled === true;
-    });
-    window.addEventListener('click', event => {
-        if (!annotate || !event.isTrusted || !(event.target instanceof Element)) return;
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        const target = event.target;
-        const rect = target.getBoundingClientRect();
-        const selection = window.getSelection()?.toString().trim().slice(0, 500);
-        send('anchor', { x: (event.detail ? event.clientX : rect.left + rect.width / 2) / innerWidth,
-            y: (event.detail ? event.clientY : rect.top + rect.height / 2) / innerHeight, quote: selection || '' });
-    }, true);
-    window.addEventListener('DOMContentLoaded', () => send('ready'), { once: true });
-})();`;
-
 export async function serveProofPrototype(request: Request, token: string, parts: string[]) {
     try {
         const origin = proofPreviewOrigin();
         if (!origin || request.headers.get('host') !== origin.host) throw proofNotFound();
         const path = parts.join('/');
-        if (!validPrototypePath(path)) throw proofNotFound();
+        if (!validPrototypePath(path) || request.headers.get('sec-fetch-dest') === 'document') throw proofNotFound();
         const { grant, version, resources } = await previewVersion(token);
         const root = `/proof-preview/${token}/`;
         const allowed = origin.origin + root;
-        // The browser makes every bundle document opaque, including top-level visits to the isolated host.
+        // The browser makes every bundle document opaque.
         const csp = `default-src 'none'; sandbox allow-scripts; script-src 'unsafe-inline' ${allowed}; style-src 'unsafe-inline' ${allowed}; img-src data: blob: ${allowed}; font-src data: ${allowed}; media-src blob: ${allowed}; connect-src ${allowed}; base-uri 'none'; form-action 'none'; frame-ancestors ${grant.parent}`;
         const headers = new Headers({ ...baseHeaders, 'Content-Security-Policy': csp });
-        if (path === bridgeName) {
+        if (path === prototypeBridgeName) {
             headers.set('Content-Type', 'text/javascript; charset=utf-8');
-            return new Response(request.method === 'HEAD' ? null : bridge, { headers });
+            return new Response(request.method === 'HEAD' ? null : prototypeBridge, { headers });
         }
         const id = Object.hasOwn(resources, path) ? resources[path] : undefined;
         const artifact = version.artifacts.find(item => item.id === id);

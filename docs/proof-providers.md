@@ -21,9 +21,15 @@ host. Keep the ordinary preview application protected as configured. [Vercel Dep
 2. Run **Configure file proof providers** on `main` with feature `html`, the target environment and the exact deployment URL. It needs the existing target environment's `VERCEL_TOKEN` with project alias access. The workflow checks the selected deployment and probes the isolated host's app root for a 404.
 3. On the app origin, upload a prototype with `index.html`, local CSS, and local JavaScript. Open its iframe from a permissioned review. Verify the script and assets load only from the isolated hostname. Verify direct resource requests on the app host fail and revocation blocks another isolated load. Reattach the preview alias when changing the deployment being qualified.
 
-Local acceptance can start the app on `localhost:4693` with
-`NEXT_PUBLIC_UIER_PROOF_HTML_ORIGIN=http://127.0.0.1:4693`. Use `localhost`
-for the app and sign-in. The loopback exception is for local runtime only.
+For the production-build browser test on loopback, use separate hostnames for
+the app and isolated renderer. The test app uses `127.0.0.1`. Use the same port
+and renderer origin at build and test time. The exception for HTTP is local only.
+
+```sh
+NEXT_PUBLIC_UIER_PROOF_HTML_ORIGIN=http://localhost:4781 pnpm build
+NEXT_PUBLIC_UIER_PROOF_HTML_ORIGIN=http://localhost:4781 PORT=4781 PLAYWRIGHT_FULL=1 \
+  pnpm -C apps/web exec playwright test proof-imports.spec.ts --project="Desktop Chrome" --project="Mobile Chrome" --retries=0 -g "isolated prototype"
+```
 
 ## Test email ingress
 

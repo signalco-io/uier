@@ -17,6 +17,7 @@ import { authorizeProofThread } from '../src/lib/proofs/threadAccess';
 import { exchangeProofShare } from '../src/lib/proofs/access';
 import { proofStore, type DbProofAsset, type DbProofShare, type DbProofVersion } from '../src/lib/proofs/store';
 import { changeProofThread, createProofThread, exportProofThread, getProofThread, listProofThreads, listProofVerification, replyToProofThread, verifyProofThread } from '../src/lib/proofs/threadRoutes';
+import type { ProofManifest } from '../src/lib/proofs/model';
 import type { ProofPendingPage, ProofThread, ProofThreadLocation } from '../src/lib/proofs/threadModel';
 import { persistProjectAccess } from './support/projectAccess';
 
@@ -33,7 +34,7 @@ test.afterEach(() => {
     else process.env.UIER_LOCAL = previousLocal;
 });
 
-async function fixture() {
+async function fixture(manifestFor?: (id: string) => ProofManifest) {
     const owner = { kind: 'member', userId: `u_owner_${key()}`, name: 'Developer', isAdmin: true } as const;
     const reviewer = { kind: 'member', userId: `u_reviewer_${key()}`, name: 'Reviewer', isAdmin: false } as const;
     const projectSeed = { id: key().replaceAll('-', '').slice(0, 12), verificationEnabled: true, access: 'guests' } as DbProject;
@@ -49,7 +50,7 @@ async function fixture() {
             id, pk: proofs.pk, type: 'proof-version', projectId: project.id, workspaceId: project.workspaceId, epoch: 'initial',
             assetId, uploaderId: owner.userId, expectedVersionId: versions[index - 1] ?? null, number: index + 1, status: 'published',
             filename: 'menu.png', contentType: 'image/png', size: 1, uploadUntil: now, grantUntil: now, createdAt: now, publishedAt: now,
-            manifest: { format: 'image', surfaces: [{ id: 'page', artifactId: 'preview' }] }, artifacts: [{ id: 'preview', contentType: 'image/png', size: 1 }]
+            manifest: manifestFor?.(id) ?? { format: 'image', surfaces: [{ id: 'page', artifactId: 'preview' }] }, artifacts: [{ id: 'preview', contentType: 'image/png', size: 1 }]
         })));
     };
     await Promise.all([asset('asset_a', ['v1', 'v2', 'v3'], 'v2'), asset('asset_b', ['v4'], 'v4')]);
@@ -268,4 +269,69 @@ test('a grant revoked between optimistic attempts cannot write or replay a recei
     await expect(changeFixVerification(proof.project, proof.actor, thread.id, input, revokeDuringWrite)).rejects.toMatchObject({ status: 404 });
     expect(attempts).toBe(1);
     expect((await store.get(projectPartition(f.project.id), thread.id))?.comment.verification?.outcome).toBe('pending');
+});
+
+test('prototype evidence is bounded, immutable and visible only with live proof access', async () => {
+    const f = await fixture(() => ({ format: 'html', surfaces: [{ id: 'page' }], html: { entry: 'index.html', pages: { page: 'index.html' } } }));
+    const guest = await f.guestCookie();
+    const node = { path: [2, 0], tag: 'button' };
+    const source = { versionId: 'v1', anchor: { kind: 'prototype', surfaceId: 'page',
+        target: node, selection: { quote: 'Recipes', offset: 0, endOffset: 0, start: 0, end: 7 },
+        capture: { nodes: [{ node, box: { x: 0.2, y: 0.4, width: 0.25, height: 0.1 }, label: 'Recipes', state: '1----' }], native: [] } } } satisfies ProofThreadLocation;
+    const first = await f.open(guest, { location: source });
+    expect(first.target.source).toEqual(source);
+    const read = await getProofThread(f.make(guest, undefined, 'GET', '?version=v1'), f.ctx(first.id));
+    expect((await threadFrom(read)).location).toEqual(source);
+    for (const invalid of [
+        { ...source.anchor, capture: { ...source.anchor.capture, script: '<script>bad</script>' } },
+        { ...source.anchor, capture: { nodes: Array(25).fill(source.anchor.capture.nodes[0]), native: [] } },
+        { ...source.anchor, target: { path: [3, 0], tag: 'button' } },
+        { ...source.anchor, surfaceId: 'other' }
+    ]) {
+        const rejected = await createProofThread(f.make(guest, { text: 'Bad evidence', authorName: 'Guest reviewer', idempotencyKey: key(),
+            location: { ...source, anchor: invalid } }), { params: Promise.resolve(f.route) });
+        expect(rejected.status).toBe(400);
+    }
+    expect((await getProofThread(f.make(), f.ctx(first.id))).status).toBe(404);
+    const grant = (await f.proofs.share(f.shareId))!;
+    await f.app.replace({ ...grant.doc, revokedAt: new Date().toISOString() }, grant.etag);
+    expect((await getProofThread(f.make(guest, undefined, 'GET', '?version=v1'), f.ctx(first.id))).status).toBe(404);
+    expect((await threadFrom(await getProofThread(f.make(f.ownerCookie, undefined, 'GET', '?version=v1'), f.ctx(first.id)))).location).toEqual(source);
+});
+
+test('timed regions and copy replacements follow the original thread through a revised location', async () => {
+    const f = await fixture(id => id === 'v4'
+        ? { format: 'email', surfaces: [{ id: 'page' }], email: { subject: 'Sale starts today', plainTextArtifactId: 'email-text', links: [] } }
+        : { format: 'video', surfaces: [{ id: 'page', width: 640, height: 360 }], durationMs: id === 'v1' ? 4000 : 3000 });
+    const original = { versionId: 'v1', anchor: { kind: 'time', surfaceId: 'page',
+        startMs: 2750, endMs: 3500, geometry: { x: 0.2, y: 0.3, width: 0.4, height: 0.1 } } } satisfies ProofThreadLocation;
+    const thread = await f.open(f.ownerCookie, { location: original });
+    const relocate = (location: ProofThreadLocation) => changeProofThread(f.make(f.ownerCookie,
+        { operation: 'relocate', expectedRevision: thread.revision, location }, 'PATCH'), f.ctx(thread.id));
+    expect((await relocate({ ...original, versionId: 'v2' })).status).toBe(400);
+    const revised = { versionId: 'v2', anchor: { ...original.anchor, startMs: 1750, endMs: 2500 } } satisfies ProofThreadLocation;
+    const response = await relocate(revised);
+    expect(response.ok, await response.clone().text()).toBe(true);
+    const moved = await threadFrom(response);
+    expect(moved.target.source).toEqual(original);
+    expect(moved.location).toEqual(revised);
+    const evidence = { assetId: 'asset_a', before: original, after: revised };
+    const verified = await f.postVerification(f.ownerCookie, moved, f.ask(moved, { reviewerId: f.reviewer.userId, evidence }));
+    expect(verified.ok, await verified.clone().text()).toBe(true);
+    expect((await threadFrom(verified)).verification?.evidence).toEqual(evidence);
+
+    const route = { ...f.route, assetId: 'asset_b' };
+    const suggestion = { replacement: 'Shop the winter offers' };
+    const copySource = { versionId: 'v4', anchor: { kind: 'text', surfaceId: 'page', field: 'subject', quote: 'Sale starts today' } } satisfies ProofThreadLocation;
+    const create = (location: ProofThreadLocation, idempotencyKey = key()) => createProofThread(f.make(f.ownerCookie,
+        { idempotencyKey, text: suggestion.replacement, location, suggestion }), { params: Promise.resolve(route) });
+    expect((await create({ versionId: 'v4', anchor: { kind: 'general' } })).status).toBe(400);
+    expect((await create({ ...copySource, anchor: { ...copySource.anchor, quote: 'Wrong subject' } })).status).toBe(400);
+    const idempotencyKey = key();
+    const posted = await create(copySource, idempotencyKey);
+    expect(posted.status, await posted.clone().text()).toBe(201);
+    const copyThread = await threadFrom(posted);
+    expect(copyThread.target).toMatchObject({ source: copySource, suggestion });
+    const retry = await create(copySource, idempotencyKey);
+    expect((await threadFrom(retry)).id).toBe(copyThread.id);
 });

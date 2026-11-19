@@ -11,7 +11,7 @@ const Pdf = dynamic(() => import('./PdfProof').then(module => module.PdfProof), 
 const AnimatedImage = dynamic(() => import('./AnimatedProofImage').then(module => module.AnimatedProofImage), { ssr: false });
 const Video = dynamic(() => import('./VideoProof').then(module => module.VideoProof), { ssr: false });
 const Email = dynamic(() => import('./DocumentProof').then(module => module.EmailProof), { ssr: false });
-const Html = dynamic(() => import('./DocumentProof').then(module => module.HtmlProof), { ssr: false });
+const Html = dynamic(() => import('./HtmlProof').then(module => module.HtmlProof), { ssr: false });
 
 export type MediaSize = { width: number; height: number };
 export type VideoPosition = { ms: number; nonce: number };
@@ -36,11 +36,12 @@ function imageArtifact(artifact: ProofArtifact | undefined): artifact is ProofAr
 }
 
 export function ProofMedia({ projectId, version, index, label, width, emailWidth, onSize, onDocument, onText,
-    onQuoteTarget, onAnchor, anchor, videoPosition, onTime, readonly = false, decorative = false }: {
+    onQuoteTarget, onAnchor, anchor, focusNonce, pins, videoPosition, videoProposal, onTime, readonly = false, decorative = false }: {
     projectId: string; version: ProofVersion; index: number; label: string; width: number; emailWidth: number;
     onSize?: (size: MediaSize) => void; onDocument?: (document: PdfDocument) => void; onText?: (text: string) => void;
     onQuoteTarget?: (point: QuoteTarget) => void; onAnchor?: (anchor: ProofAnchor) => void;
-    anchor?: ProofAnchor; videoPosition?: VideoPosition; onTime?: (ms: number) => void; readonly?: boolean; decorative?: boolean;
+    anchor?: ProofAnchor; focusNonce?: number; pins?: boolean; videoPosition?: VideoPosition; onTime?: (ms: number) => void; readonly?: boolean; decorative?: boolean;
+    videoProposal?: Extract<ProofAnchor, { kind: 'time' }>;
 }) {
     const { t } = useAppI18n();
     const surface = mediaSurface(version, index);
@@ -50,24 +51,27 @@ export function ProofMedia({ projectId, version, index, label, width, emailWidth
         const file = version.artifacts.find(item => item.id === manifest.pdf?.artifactId && item.contentType === 'application/pdf')
             ?? version.artifacts.find(item => item.contentType === 'application/pdf');
         if (file) return <Pdf key={file.url} url={file.url} pageNumber={index + 1} width={width} onSize={onSize} onDocument={onDocument} onText={onText}
-            quote={anchor?.kind === 'text' ? anchor.quote : undefined} onQuoteTarget={onQuoteTarget} />;
+            quote={pins && anchor?.kind === 'text' ? anchor.quote : undefined} occurrence={anchor?.kind === 'text' ? anchor.occurrence : undefined} onQuoteTarget={onQuoteTarget} />;
     }
     if (manifest?.format === 'video' && surface) {
         const file = [artifact, ...version.artifacts].find(item => item && (item.contentType === 'video/mp4' || item.contentType === 'video/webm'));
         const poster = version.artifacts.find(item => item.id === manifest.video?.posterArtifactId && imageArtifact(item))?.url;
         if (file) return <Video key={file.url} url={file.url} label={label} surfaceId={surface.id} durationMs={manifest.durationMs} frameRate={manifest.video?.frameRate}
-            poster={poster} position={videoPosition} range={anchor?.kind === 'time' ? anchor : undefined} onTime={onTime} onAnchor={readonly ? undefined : onAnchor} />;
+            poster={poster} position={videoPosition} range={anchor?.kind === 'time' ? anchor : undefined} proposal={videoProposal}
+            onTime={onTime} onAnchor={readonly ? undefined : onAnchor} />;
     }
     if (manifest?.format === 'email' && surface) {
         const body = artifact?.contentType.startsWith('text/html') ? artifact : version.artifacts.find(item => item.contentType.startsWith('text/html'));
         const plain = version.artifacts.find(item => item.id === manifest.email?.plainTextArtifactId && item.contentType.startsWith('text/plain'))
             ?? version.artifacts.find(item => item.contentType.startsWith('text/plain'));
-        if (body || plain) return <Email key={`${version.id}:${emailWidth}`} manifest={manifest} body={body} plain={plain} surfaceId={surface.id} logicalWidth={emailWidth} renderedWidth={width} onAnchor={readonly ? undefined : onAnchor} />;
+        if (body || plain) return <Email key={version.id} manifest={manifest} body={body} plain={plain} surfaceId={surface.id} logicalWidth={emailWidth}
+            renderedWidth={width} anchor={anchor?.kind === 'text' ? anchor : undefined} focusNonce={focusNonce} pins={pins} onAnchor={readonly ? undefined : onAnchor} />;
     }
     if (manifest?.format === 'html' && surface)
         return <Html key={`${version.id}:${surface.id}`} accessUrl={manifest.html && `${proofApiPath(projectId)}/assets/${encodeURIComponent(version.assetId)}/versions/${encodeURIComponent(version.id)}/prototype?` +
                 new URLSearchParams({ surface: surface.id })}
-            pages={manifest.html?.pages} surface={surface} width={width} onAnchor={readonly ? undefined : onAnchor} snapshot={imageArtifact(artifact) ? <RasterImage artifact={artifact} label={label} onSize={onSize} /> : undefined} />;
+            pages={manifest.html?.pages} surface={surface} width={width} anchor={anchor?.kind === 'prototype' ? anchor : undefined} focusNonce={focusNonce} pins={pins}
+            onAnchor={readonly ? undefined : onAnchor} snapshot={imageArtifact(artifact) ? <RasterImage artifact={artifact} label={label} onSize={onSize} /> : undefined} />;
     if (imageArtifact(artifact)) {
         if (manifest?.format === 'image' && manifest.durationMs && artifact.contentType === 'image/webp') {
             return <AnimatedImage key={artifact.url} url={artifact.url} label={label} controls={!decorative} />;

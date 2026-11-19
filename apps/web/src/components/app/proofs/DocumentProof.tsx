@@ -1,13 +1,15 @@
 'use client';
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/src/components/ui/button';
 import { useAppI18n } from '@/src/lib/i18n/client';
-import type { ProofArtifact, ProofManifest, ProofSurface } from '@/src/lib/proofs/model';
-import type { ProofAnchor } from '@/src/lib/proofs/threadModel';
-import { proofFetch } from './client';
+import type { ProofArtifact, ProofManifest } from '@/src/lib/proofs/model';
+import type { ProofTextAnchor } from '@/src/lib/proofs/threadModel';
+import { cn } from '@/src/lib/utils';
+import { textMatches } from './pdfQuote';
 
 const emailPolicy = "default-src 'none'; img-src data:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'";
+const normalize = (text: string) => text.replace(/\s+/g, ' ').trim();
 
 function safeEmail(html: string) {
     const template = document.createElement('template');
@@ -15,6 +17,7 @@ function safeEmail(html: string) {
     template.content.querySelectorAll('script, noscript, iframe, frame, object, embed, svg, math, base, link, meta, form, audio, video, input, button, textarea, select, template')
         .forEach(element => element.remove());
     const links = new Set<string>();
+    const ctas: { index: number; quote: string }[] = [];
     template.content.querySelectorAll('*').forEach(element => {
         for (const attribute of [...element.attributes]) {
             if (attribute.name === 'href') {
@@ -23,13 +26,24 @@ function safeEmail(html: string) {
                     if (url.protocol === 'https:' || url.protocol === 'http:' || url.protocol === 'mailto:') links.add(url.href);
                 } catch { /* Relative links have no trustworthy destination. */ }
             }
-            if (attribute.name.startsWith('on') || ['href', 'srcset', 'ping', 'action', 'formaction', 'autofocus', 'target', 'background'].includes(attribute.name)
+            if (attribute.name.startsWith('on') || ['href', 'srcset', 'ping', 'action', 'formaction', 'autofocus', 'target', 'background', 'data-proof-cta'].includes(attribute.name)
                 || (attribute.name === 'src' && !/^data:image\/(?:gif|png|jpeg|webp);base64,/i.test(attribute.value)))
                 element.removeAttribute(attribute.name);
         }
+        if (element.localName === 'a' && ctas.length < 100) {
+            const quote = normalize(element.textContent ?? '').slice(0, 500);
+            if (quote) {
+                element.setAttribute('data-proof-cta', String(ctas.length));
+                ctas.push({ index: ctas.length, quote });
+            }
+        }
     });
-    const documentHtml = `<!doctype html><html><head><meta charset="UTF-8"><meta http-equiv="Content-Security-Policy" content="${emailPolicy}"></head><body>${template.innerHTML}</body></html>`;
-    return { documentHtml, links: [...links].slice(0, 100) };
+    return { body: template.innerHTML, ctas, links: [...links].slice(0, 100) };
+}
+
+function emailFrame(body: string, cta: number | undefined) {
+    const highlight = cta === undefined ? '' : `<style>[data-proof-cta="${cta}"]{outline: 3px solid Highlight !important}</style>`;
+    return `<!doctype html><html><head><meta charset="UTF-8"><meta http-equiv="Content-Security-Policy" content="${emailPolicy}">${highlight}</head><body>${body}</body></html>`;
 }
 
 function useDocument<T>(url: string | undefined, parse: (text: string) => T) {
@@ -50,53 +64,107 @@ function useDocument<T>(url: string | undefined, parse: (text: string) => T) {
 }
 
 const identity = (text: string) => text;
+const emailFields = [['Subject', 'subject'], ['Preheader', 'preheader'], ['Sender', 'sender']] as const;
 
-export function EmailProof({ manifest, body, plain, surfaceId, logicalWidth, renderedWidth, onAnchor }: {
+function bodyQuote(text: string, anchor: ProofTextAnchor | undefined) {
+    if (!anchor?.quote) return;
+    // Keep original line breaks and find the matching copy in its normalized text.
+    const parts = [...text.matchAll(/\S+/g)];
+    const offsets: number[] = [];
+    let normalized = '';
+    for (const { 0: word, index } of parts) {
+        if (normalized) { offsets.push(index - 1); normalized += ' '; }
+        for (let character = 0; character < word.length; character++) offsets.push(index + character);
+        normalized += word;
+    }
+    const matches = textMatches(normalized, anchor.quote, anchor.occurrence === undefined ? 2 : anchor.occurrence + 1);
+    const position = anchor.occurrence === undefined ? (matches.length === 1 ? matches[0] : undefined) : matches[anchor.occurrence];
+    if (position === undefined) return;
+    const start = offsets[position];
+    const end = offsets[position + normalize(anchor.quote).length - 1];
+    if (start !== undefined && end !== undefined) return { start, end: end + 1 };
+}
+
+export function EmailProof({ manifest, body, plain, surfaceId, logicalWidth, renderedWidth, anchor, focusNonce, pins, onAnchor }: {
     manifest: ProofManifest;
     body?: ProofArtifact;
     plain?: ProofArtifact;
     surfaceId: string;
     logicalWidth: number;
     renderedWidth: number;
-    onAnchor?: (anchor: ProofAnchor) => void;
+    anchor?: ProofTextAnchor;
+    focusNonce?: number;
+    pins?: boolean;
+    onAnchor?: (anchor: ProofTextAnchor) => void;
 }) {
     const { t } = useAppI18n();
-    const [mode, setMode] = useState<'html' | 'text'>(body ? 'html' : 'text');
+    const [view, setView] = useState<{ mode: 'html' | 'text'; anchor?: ProofTextAnchor; nonce?: number }>();
+    const mode = view && view.anchor === anchor && view.nonce === focusNonce ? view.mode
+        : plain && (anchor?.field === 'body' || (anchor && !anchor.field) || !body) ? 'text' : 'html';
     const html = useDocument(mode === 'html' ? body?.url : undefined, safeEmail);
     const text = useDocument(mode === 'text' ? plain?.url : undefined, identity);
     const scale = renderedWidth / logicalWidth;
     const frameHeight = 580;
     const links = [...new Set([...(manifest.email?.links ?? []), ...(html?.value?.links ?? [])])].slice(0, 100);
-    const lines = [
-        ['Subject', manifest.email?.subject],
-        ['Preheader', manifest.email?.preheader],
-        ['Sender', manifest.email?.sender]
-    ] as const;
-    const quote = (root: HTMLElement) => {
-        const selection = window.getSelection();
-        if (selection?.anchorNode && selection.focusNode && root.contains(selection.anchorNode) && root.contains(selection.focusNode)) {
-            const quote = selection.toString().trim().slice(0, 500);
-            if (quote) onAnchor?.({ kind: 'text', surfaceId, quote });
-        }
+    const field = anchor?.field;
+    const focus = useRef<HTMLElement | null>(null);
+    const cta = anchor && field === 'cta' && html?.value?.ctas.find(item => item.index === anchor.occurrence && item.quote === anchor.quote);
+    const marked = pins && text?.value && (!field || field === 'body') ? bodyQuote(text.value, anchor) : undefined;
+    const bodyLines = [...(text?.value ?? '').matchAll(/[^\r\n]+/g)].slice(0, 100);
+
+    useEffect(() => {
+        if (pins) focus.current?.scrollIntoView({ block: 'nearest' });
+    }, [anchor, cta, focusNonce, html?.value, text?.value, pins]);
+
+    const chooseBody = (quote: string, prefix: string) => {
+        const value = normalize(quote).slice(0, 500);
+        if (value) onAnchor?.({ kind: 'text', surfaceId, field: 'body', quote: value,
+            occurrence: Math.min(100_000, textMatches(normalize(prefix), value).length) });
     };
+    const selectBody = (root: HTMLElement) => {
+        const selection = window.getSelection();
+        if (!selection?.rangeCount || !selection.anchorNode || !selection.focusNode
+            || !root.contains(selection.anchorNode) || !root.contains(selection.focusNode)) return;
+        const prefix = document.createRange();
+        prefix.selectNodeContents(root);
+        const selected = selection.getRangeAt(0);
+        prefix.setEnd(selected.startContainer, selected.startOffset);
+        chooseBody(selection.toString(), prefix.toString());
+    };
+    const changeMode = (mode: 'html' | 'text') => setView({ mode, anchor, nonce: focusNonce });
 
     return <div className="flex size-full flex-col overflow-auto bg-background text-sm">
         <div className="flex flex-wrap items-center gap-1 border-b p-2" data-proof-control="">
-            {body && <Button size="sm" variant={mode === 'html' ? 'secondary' : 'ghost'} aria-pressed={mode === 'html'} onClick={() => setMode('html')}>{t('Safe HTML')}</Button>}
-            {plain && <Button size="sm" variant={mode === 'text' ? 'secondary' : 'ghost'} aria-pressed={mode === 'text'} onClick={() => setMode('text')}>{t('Plain text')}</Button>}
+            {body && <Button size="sm" variant={mode === 'html' ? 'secondary' : 'ghost'} aria-pressed={mode === 'html'} onClick={() => changeMode('html')}>{t('Safe HTML')}</Button>}
+            {plain && <Button size="sm" variant={mode === 'text' ? 'secondary' : 'ghost'} aria-pressed={mode === 'text'} onClick={() => changeMode('text')}>{t('Plain text')}</Button>}
         </div>
-        {lines.some(([, value]) => value) && <dl className="m-0 grid gap-2 border-b p-3">
-            {lines.map(([label, value]) => value && <div key={label} className="flex flex-wrap items-center gap-x-2">
-                <dt className="font-medium">{t(label)}</dt>
-                <dd className="m-0 min-w-0 flex-1 break-words">{value}</dd>
-                {onAnchor && <Button type="button" size="sm" variant="ghost" data-proof-control="" onClick={() => onAnchor({ kind: 'text', surfaceId, quote: value.slice(0, 500) })}>
-                    {t('Annotate {field}', { field: t(label) })}
-                </Button>}
-            </div>)}
-        </dl>}
+        <dl className="m-0 grid gap-2 border-b p-3">
+            {emailFields.map(([label, key]) => {
+                const value = manifest.email?.[key];
+                const selected = pins && field === key && value === anchor?.quote;
+                return value && <div key={key} className="flex flex-wrap items-center gap-x-2">
+                    <dt className="font-medium">{t(label)}</dt>
+                    <dd className="m-0 min-w-0 flex-1 break-words">{selected ? <mark ref={focus}>{value}</mark> : value}</dd>
+                    {onAnchor && <Button size="sm" variant="ghost" data-proof-control="" className="pointer-coarse:min-h-11"
+                        onClick={() => onAnchor({ kind: 'text', surfaceId, quote: value, field: key })}>
+                        {t('Annotate {field}', { field: t(label) })}
+                    </Button>}
+                </div>;
+            })}
+        </dl>
         {mode === 'html' && html?.value && <>
+            {html.value.ctas.length > 0 && (onAnchor || cta) && <details key={cta ? cta.index : 'links'} open={cta ? true : undefined} className="border-b p-3" data-proof-control="">
+                <summary>{t('Email calls to action')}</summary>
+                <ul className="list-none p-0">{html.value.ctas.map(({ index, quote }) => <li key={index}>
+                    {onAnchor ? <Button size="sm" variant={cta && cta.index === index && pins ? 'secondary' : 'ghost'}
+                        className="h-auto min-h-8 w-full justify-start whitespace-normal text-left pointer-coarse:min-h-11"
+                        onClick={() => onAnchor({ kind: 'text', surfaceId, quote, field: 'cta', occurrence: index })}>
+                        {t('Annotate {field}', { field: quote })}
+                    </Button> : cta && cta.index === index ? <span>{quote}</span> : null}
+                </li>)}</ul>
+            </details>}
             <div className="relative shrink-0 overflow-hidden" style={{ height: frameHeight * scale }}>
-                <iframe title={t('Safe HTML email preview')} srcDoc={html.value.documentHtml} sandbox="" referrerPolicy="no-referrer"
+                <iframe title={t('Safe HTML email preview')} srcDoc={emailFrame(html.value.body, cta && pins ? cta.index : undefined)} sandbox="" referrerPolicy="no-referrer"
                     className="absolute inset-0 block max-w-none origin-top-left border-0"
                     style={{ width: logicalWidth, height: frameHeight, transform: `scale(${scale})` }} />
             </div>
@@ -105,108 +173,19 @@ export function EmailProof({ manifest, body, plain, surfaceId, logicalWidth, ren
                 <ul className="break-all">{links.map(link => <li key={link}>{link}</li>)}</ul>
             </details>}
         </>}
-        {mode === 'text' && text?.value !== undefined &&
-            <pre onPointerUp={event => quote(event.currentTarget)} onKeyUp={event => quote(event.currentTarget)}
-                className="m-0 flex-1 whitespace-pre-wrap break-words p-3 font-sans">{text.value}</pre>}
+        {mode === 'text' && text?.value !== undefined && <>
+            {onAnchor && bodyLines.length > 0 && <details className="border-b p-3" data-proof-control="">
+                <summary>{t('Choose body text')}</summary>
+                <ul className="list-none p-0">{bodyLines.map(({ 0: line, index }) => <li key={index}>
+                    <Button size="sm" variant="ghost" className="h-auto min-h-8 w-full justify-start whitespace-normal text-left pointer-coarse:min-h-11"
+                        onClick={() => chooseBody(line, text.value!.slice(0, index))}>{line.slice(0, 500)}</Button>
+                </li>)}</ul>
+            </details>}
+            <pre onPointerUp={event => selectBody(event.currentTarget)} onKeyUp={event => { if (event.shiftKey) selectBody(event.currentTarget); }}
+                className="m-0 flex-1 whitespace-pre-wrap break-words p-3 font-sans">{marked
+                    ? <>{text.value.slice(0, marked.start)}<mark ref={focus}>{text.value.slice(marked.start, marked.end)}</mark>{text.value.slice(marked.end)}</> : text.value}</pre>
+        </>}
         {(html?.failed || text?.failed) && <p role="alert" className="p-3 text-destructive">{t('This email preview could not be loaded.')}</p>}
         {!html && !text && <p role="status" className="p-3 text-muted-foreground">{t('Loading preview…')}</p>}
     </div>;
-}
-
-function isolatedUrl(input: string) {
-    try {
-        const url = new URL(input);
-        const configured = process.env.NEXT_PUBLIC_UIER_PROOF_HTML_ORIGIN;
-        const local = ['localhost', '127.0.0.1'].includes(location.hostname)
-            && ['localhost', '127.0.0.1'].includes(url.hostname);
-        if (configured && url.origin === new URL(configured).origin && url.hostname !== location.hostname
-            && (url.protocol === 'https:' || (local && url.protocol === 'http:'))
-            && url.pathname.startsWith('/proof-preview/') && !url.username && !url.password) return url.href;
-    } catch { /* Missing and malformed renderer origins never become frames. */ }
-}
-
-export function HtmlProof({ accessUrl, pages, surface, width, snapshot, onAnchor }: {
-    accessUrl?: string; pages?: Record<string, string>; surface: ProofSurface; width: number;
-    snapshot?: ReactNode; onAnchor?: (anchor: ProofAnchor) => void;
-}) {
-    const { t } = useAppI18n();
-    const frame = useRef<HTMLIFrameElement>(null);
-    const [url, setUrl] = useState<string>();
-    const [captured, setCaptured] = useState(false);
-    const [readyPath, setReadyPath] = useState<string>();
-    const [picking, setPicking] = useState(false);
-    const [attempt, setAttempt] = useState(0);
-    const [failed, setFailed] = useState(false);
-    const logicalWidth = surface.width ?? 1280;
-    const logicalHeight = surface.height ?? 800;
-
-    useEffect(() => {
-        if (!accessUrl) return;
-        const controller = new AbortController();
-        void proofFetch<{ url: string }>(accessUrl, { signal: controller.signal }).then(response => {
-            if (controller.signal.aborted) return;
-            const verified = isolatedUrl(response.url);
-            setUrl(verified);
-            setFailed(!verified);
-        }, () => { if (!controller.signal.aborted) setFailed(true); });
-        return () => controller.abort();
-    }, [accessUrl, attempt]);
-
-    useEffect(() => {
-        if (!url || captured) return;
-        function message(event: MessageEvent) {
-            if (event.origin !== 'null' || event.source !== frame.current?.contentWindow
-                || !event.data || typeof event.data !== 'object') return;
-            const { type, path, x, y, quote } = event.data as Record<string, unknown>;
-            if (typeof path !== 'string' || path.length > 1800) return;
-            let page: string;
-            try { page = decodeURIComponent(path); } catch { return; }
-            const surfaceId = Object.entries(pages ?? {}).find(([, savedPath]) => savedPath === page)?.[0];
-            if (type === 'uier-proof:ready') {
-                setReadyPath(surfaceId);
-                setPicking(false);
-            }
-            if (type === 'uier-proof:anchor' && picking && surfaceId && onAnchor) {
-                if (typeof quote === 'string' && quote.trim()) onAnchor({ kind: 'text', surfaceId, quote: quote.trim().slice(0, 500) });
-                else if (typeof x === 'number' && typeof y === 'number' && Number.isFinite(x + y) && x >= 0 && x <= 1 && y >= 0 && y <= 1)
-                    onAnchor({ kind: 'point', surfaceId, x, y });
-                else return;
-                frame.current?.contentWindow?.postMessage({ type: 'uier-proof:annotate', enabled: false }, '*');
-                setPicking(false);
-            }
-        }
-        window.addEventListener('message', message);
-        return () => window.removeEventListener('message', message);
-    }, [captured, onAnchor, pages, picking, url]);
-
-    function retry() {
-        setUrl(undefined);
-        setFailed(false);
-        setReadyPath(undefined);
-        setPicking(false);
-        setAttempt(value => value + 1);
-    }
-
-    return <>
-        {url && !captured
-            ? <iframe key={url} ref={frame} title={t('Interactive prototype')} sandbox="allow-scripts" referrerPolicy="no-referrer"
-                src={url} className="absolute inset-0 block max-w-none origin-top-left border-0"
-                style={{ width: logicalWidth, height: logicalHeight, transform: `scale(${width / logicalWidth})` }} />
-            : snapshot ?? <p role={failed || !accessUrl ? 'alert' : 'status'} className="m-0 grid size-full place-items-center p-4 text-center">
-                {t(failed || !accessUrl ? 'This prototype preview is unavailable.' : 'Loading preview…')}
-            </p>}
-        <div data-proof-control="" className="absolute bottom-1 left-1 z-10 flex max-w-full flex-wrap gap-1 rounded-lg bg-background/90 p-1">
-            {url && snapshot && <Button size="sm" variant="outline" onClick={() => {
-                setCaptured(value => !value);
-                setReadyPath(undefined);
-                setPicking(false);
-            }}>{t(captured ? 'Interactive prototype' : 'Captured preview')}</Button>}
-            {url && !captured && readyPath && onAnchor && <Button size="sm" variant="outline" aria-pressed={picking} onClick={() => {
-                frame.current?.contentWindow?.postMessage({ type: 'uier-proof:annotate', enabled: !picking }, '*');
-                setPicking(value => !value);
-                frame.current?.focus();
-            }}>{t(picking ? 'Cancel' : 'Pick a prototype element')}</Button>}
-            {accessUrl && !captured && (failed || (url && !readyPath)) && <Button size="sm" variant="outline" onClick={retry}>{t('Retry preview')}</Button>}
-        </div>
-    </>;
 }

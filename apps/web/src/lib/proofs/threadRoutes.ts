@@ -172,10 +172,13 @@ export const createProofThread = proofThreadsHandler(async (request, route: Proo
     const input = await parseJsonBody(request, proofCreateThreadSchema, inputLimit);
     const auth = await authorizeProofThread(request, route, input.location.versionId, true);
     assertProofAnchor(input.location.anchor, auth.version?.manifest);
+    const format = auth.version?.manifest?.format;
+    if (input.suggestion && (input.location.anchor.kind !== 'text' || (format !== 'email' && format !== 'pdf')))
+        throw apiErrors.invalidRequest('Choose a location on this version.');
     if (auth.actor.kind === 'guest' && !input.authorName) throw apiErrors.invalidRequest('Enter your name.');
     const saved = await createProjectComment(request, auth.project, auth.actor, {
         path: `/proof/${encodeURIComponent(route.assetId)}`, position: { type: 'page' }, kind: 'comment',
-        ...input, assetTarget: { assetId: route.assetId, source: input.location, authorShareId: auth.actor.proofThread?.shareId }
+        ...input, assetTarget: { assetId: route.assetId, source: input.location, ...(input.suggestion ? { suggestion: input.suggestion } : {}), authorShareId: auth.actor.proofThread?.shareId }
     });
     return detailResponse(auth, saved, 201);
 });

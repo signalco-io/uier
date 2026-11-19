@@ -113,10 +113,18 @@ prototype routes only. The app host denies prototype resource paths. Both the
 iframe and the response sandbox run documents as opaque origins. The policy
 allows scripts, local images, CSS, fonts and JSON under the same bundle URL.
 Relative resource paths work, and root HTML attribute paths are rewritten
-within the bundle. Runtime requests should use relative URLs. The bridge
-supports point or text evidence for bundled pages. Arbitrary application
-state and captured screenshots are outside the current preview contract.
-Reload the review if an open prototype has outlived its URL.
+within the bundle. Runtime requests should use relative URLs. HTML is served
+to the review frame. A browser navigation that requests a top-level document is
+denied. Reload the review if an open prototype has outlived its URL.
+
+The bridge can identify an element and a text selection within it. The file
+thread stores up to 24 visible items with short labels, normalized viewport
+boxes and supported control state. It records up to eight native controls for
+restoration. Selectors are bounded child indexes and tag names. The capture
+contains no DOM markup, scripts, field values, URLs or browser storage. The
+review frame uses this inert reference when the live document cannot recover
+the saved state. Both the reference and the original bundle retain their
+independent authorization paths.
 
 ### Inbound test messages and agents
 
@@ -187,7 +195,8 @@ policy, racing publishers, retry, transfer and removal of private bytes.
 [Source tests](../e2e/proof-sources.api.spec.ts) exercise adapter publication,
 PDF privacy and evidence, provider access and replay, source rotation,
 prototype fencing and agent permissions. [Browser imports](../e2e/proof-imports.spec.ts)
-cover guest PDF page search and directory selection with an isolated host.
+cover guest PDF page search, isolated prototype capture and agent publishing,
+timed pins on a trimmed clip, and email copy suggestions across versions.
 
 
 ## Version approvals and review record

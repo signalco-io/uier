@@ -15,8 +15,9 @@ switching versions. Its optional props connect the renderer and the thread panel
 | `onThreadSelect?: (threadId: string) => void` | Update the selected pin and `thread` query key. |
 | `onJump?: (location: ProofThreadLocation) => void` | Open the given `versionId` and align its `anchor` in the rendered page, frame or time range. |
 | `onEvidence?: (evidence: ProofVerificationEvidence, side: 'before' \| 'after') => void` | Show or compare the two saved locations. Without this callback the panel calls `onJump` with the selected side. |
-| `onRequestTarget?: () => void` | Switch version if needed and enter location selection. Return the selection in `draftAnchor`. While selecting, give the location picker priority over pin buttons so it can capture overlapping points. |
+| `onRequestTarget?: (location: ProofThreadLocation) => void` | Switch version if needed and enter location selection. Return the selection in `draftAnchor`. While selecting, give the location picker priority over pin buttons so it can capture overlapping points. |
 | `onThreadsChange?: (threads: ProofThread[]) => void` | Render the current page's authorized pins using their stable thread id, number and location. |
+| `copySuggestions?: boolean` | Offer a replacement for a selected PDF or email quote. |
 
 `ProofThreadLocation` is `{ versionId, anchor }`. `ProofVerificationEvidence` is
 `{ assetId, before: ProofThreadLocation, after: ProofThreadLocation }`.
@@ -39,7 +40,7 @@ Writes require same-origin JSON.
 | Method | Path | Contract |
 | --- | --- | --- |
 | GET | `/threads?version=…` | `ProofThreadPage`, including the authorized threads and available statuses. |
-| POST | `/threads` | `{text, authorName?, idempotencyKey, location, private?}` → `{thread}`. A guest supplies their name. An admin can choose a private thread. |
+| POST | `/threads` | `{text, authorName?, idempotencyKey, location, private?, suggestion?}` → `{thread}`. A guest supplies their name. An admin can choose a private thread. |
 | GET | `/threads/:id?version=…` | `{thread}` independently of list paging. The original location is returned as a fallback when the selected version has no correspondence. |
 | PATCH | `/threads/:id?version=…` | `operation` is `status` with `statusId`, `archive` with `archived`, `assignment` with `assigneeIds`, `private` with a boolean `private`, `read` with the shown `sequence`, or `relocate` with `location` and `expectedRevision`. Status, archive and assignment take an `idempotencyKey`. Read returns `{activity}`. Other mutations return `{thread}`. |
 | POST | `/threads/:id/replies?version=…` | `{text, authorName?, idempotencyKey}` → `{thread}`. |
@@ -56,9 +57,14 @@ Project opt-in controls the queue, decisions and request reminders.
 `DbComment.assetTarget` is optional and shares the project's thread numbering,
 receipts, assignees, status, history and activity. Locations refer to a published
 version's manifest. Points, regions and drawings use normalized surface coordinates.
-Text captures the quoted string on that surface. Media times are integer milliseconds.
-General feedback addresses the entire version. The server validates the surface,
-region bounds and time range and caps the serialized relocation data.
+Text captures the quoted string with an optional occurrence and an optional
+email field. PDF and email quote threads can carry an immutable
+`suggestion: { replacement }` of up to 1,000 characters. Media times are integer
+milliseconds with optional normalized point or region geometry. A prototype
+anchor contains a bounded element path and inert, version-bound evidence. General
+feedback addresses the entire version. The server validates format-specific
+anchors, surface membership, geometry and time ranges and caps serialized
+relocation data.
 
 Requests copy the exact source and a location on a newer published version of the same
 file into `DbVerification.evidence`. Relocating a pin or publishing another version

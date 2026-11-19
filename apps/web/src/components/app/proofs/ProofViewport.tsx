@@ -6,21 +6,23 @@ import { cn } from '@/src/lib/utils';
 import { useAppI18n } from '@/src/lib/i18n/client';
 import type { ProofVersion } from '@/src/lib/proofs/model';
 import type { ProofAnchor, ProofPoint, ProofThread } from '@/src/lib/proofs/threadModel';
-import { anchorPoint, anchorForGesture, clamp, normalizedPoint, type ReviewTool, type SpatialTool } from './coordinates';
+import { anchorPoint, anchorForGesture, clamp, normalizedPoint, videoTime, type ReviewTool, type SpatialTool } from './coordinates';
 import { mediaSurface, proofSize, ProofMedia, type MediaSize, type VideoPosition } from './ProofMedia';
+import { selectedPdfQuote } from './pdfQuote';
 import type { PdfDocument } from './PdfProof';
 
 export type ProofFocus = { anchor: ProofAnchor; nonce: number };
 export type SynchronizedCenter = { point: ProofPoint; from: 'primary' | 'reference'; nonce: number };
 
 export function ProofViewport({ projectId, version, index, label, zoom, emailWidth, tool = 'browse', focus, draftAnchor, threads = [], selectedThread,
-    pins = true, source = 'primary', syncCenter, onCenter, onSelectThread, onAnchor, onDocument, onText, onTime, videoPosition, overlay }: {
+    pins = true, source = 'primary', syncCenter, onCenter, onSelectThread, onAnchor, onDocument, onText, onTime, videoPosition, videoProposal, overlay }: {
     projectId: string; version: ProofVersion; index: number; label: string; zoom: number | 'fit'; emailWidth: number; tool?: ReviewTool; focus?: ProofFocus;
     draftAnchor?: ProofAnchor; threads?: ProofThread[]; selectedThread?: string; pins?: boolean;
     source?: SynchronizedCenter['from']; syncCenter?: SynchronizedCenter; onCenter?: (point: ProofPoint, from: SynchronizedCenter['from']) => void;
     onSelectThread?: (thread: ProofThread) => void; onAnchor?: (anchor: ProofAnchor) => void;
     onDocument?: (document: PdfDocument) => void; onText?: (text: string) => void; onTime?: (ms: number) => void;
-    videoPosition?: VideoPosition; overlay?: { version: ProofVersion; index: number; opacity: number };
+    videoPosition?: VideoPosition; videoProposal?: Extract<ProofAnchor, { kind: 'time' }>;
+    overlay?: { version: ProofVersion; index: number; opacity: number };
 }) {
     const { t } = useAppI18n();
     const viewport = useRef<HTMLDivElement>(null);
@@ -29,10 +31,12 @@ export function ProofViewport({ projectId, version, index, label, zoom, emailWid
     const [measured, setMeasured] = useState<{ id: string; size: MediaSize }>();
     const [preview, setPreview] = useState<ProofAnchor>();
     const [cursor, setCursor] = useState<ProofPoint>({ x: 0.5, y: 0.5 });
+    const [playhead, setPlayhead] = useState(0);
     const keyboardStart = useRef<ProofPoint | undefined>(undefined);
     const pointer = useRef<{ id: number; x: number; y: number; left: number; top: number; points: ProofPoint[] } | undefined>(undefined);
     const programmatic = useRef<{ left: number; top: number } | undefined>(undefined);
     const surfaceId = mediaSurface(version, index)?.id;
+    const duration = version.manifest?.format === 'video' ? version.manifest.durationMs : undefined;
     const sizeKey = `${version.id}:${index}:${emailWidth}`;
     const base = measured?.id === sizeKey ? measured.size : proofSize(version, index, emailWidth);
     const fit = viewportSize
@@ -46,6 +50,10 @@ export function ProofViewport({ projectId, version, index, label, zoom, emailWid
     }, [sizeKey]);
     const activeAnchor = focus?.anchor;
     const position = activeAnchor?.kind === 'time' ? { ms: activeAnchor.startMs, nonce: focus?.nonce ?? 0 } : videoPosition;
+    const reportTime = useCallback((ms: number) => {
+        setPlayhead(ms);
+        onTime?.(ms);
+    }, [onTime]);
 
     useLayoutEffect(() => {
         const box = viewport.current;
@@ -91,9 +99,25 @@ export function ProofViewport({ projectId, version, index, label, zoom, emailWid
 
     const spatial = Boolean(surfaceId && onAnchor && ['point', 'region', 'drawing'].includes(tool));
     const handlesPointer = spatial || tool === 'pan';
+    function place(points: ProofPoint[]) {
+        if (!surfaceId || !onAnchor) return;
+        const anchor = anchorForGesture(tool as SpatialTool, surfaceId, points);
+        if (duration === undefined || (anchor.kind !== 'point' && anchor.kind !== 'region')) {
+            onAnchor(anchor);
+            return;
+        }
+        const player = surface.current?.querySelector('video');
+        if (!player || player.readyState < 1) return;
+        player.pause();
+        const ms = clamp(Math.round(player.currentTime * 1000), 0, duration);
+        const interval = draftAnchor?.kind === 'time' && draftAnchor.endMs !== undefined ? draftAnchor : undefined;
+        const geometry = { x: anchor.x, y: anchor.y, ...(anchor.kind === 'region' ? { width: anchor.width, height: anchor.height } : {}) };
+        onAnchor({ kind: 'time', surfaceId, startMs: interval?.startMs ?? ms, endMs: interval?.endMs, geometry });
+    }
     function start(event: PointerEvent<HTMLDivElement>) {
         if (event.button !== 0 || (!spatial && tool !== 'pan') || pointer.current || !viewport.current) return;
         const target = event.currentTarget;
+        if (spatial && duration !== undefined) surface.current?.querySelector('video')?.pause();
         target.setPointerCapture(event.pointerId);
         pointer.current = { id: event.pointerId, x: event.clientX, y: event.clientY,
             left: viewport.current.scrollLeft, top: viewport.current.scrollTop,
@@ -121,7 +145,7 @@ export function ProofViewport({ projectId, version, index, label, zoom, emailWid
         setPreview(undefined);
         if (spatial && surfaceId && onAnchor) {
             const end = normalizedPoint(event.currentTarget.getBoundingClientRect(), event.clientX, event.clientY);
-            onAnchor(anchorForGesture(tool as SpatialTool, surfaceId, [...gesture.points, end]));
+            place([...gesture.points, end]);
         }
     }
 
@@ -130,8 +154,9 @@ export function ProofViewport({ projectId, version, index, label, zoom, emailWid
         if (tool !== 'text' || !surfaceId || !onAnchor || !selection?.anchorNode || !selection.focusNode) return;
         const root = surface.current?.querySelector('.proof-pdf-text');
         if (!root?.contains(selection.anchorNode) || !root.contains(selection.focusNode)) return;
-        const quote = selection.toString().trim().slice(0, 500);
-        if (quote) onAnchor({ kind: 'text', surfaceId, quote });
+        if (!(root instanceof HTMLElement)) return;
+        const quote = selectedPdfQuote(root, selection);
+        if (quote) onAnchor({ kind: 'text', surfaceId, ...quote });
     }
 
     const relevantDraft = draftAnchor && 'surfaceId' in draftAnchor && draftAnchor.surfaceId === surfaceId ? draftAnchor : undefined;
@@ -158,7 +183,7 @@ export function ProofViewport({ projectId, version, index, label, zoom, emailWid
                         keyboardStart.current = cursor;
                         return;
                     }
-                    onAnchor(anchorForGesture(tool as SpatialTool, surfaceId, keyboardStart.current ? [keyboardStart.current, cursor] : [cursor]));
+                        place(keyboardStart.current ? [keyboardStart.current, cursor] : [cursor]);
                     keyboardStart.current = undefined;
                     setPreview(undefined);
                 }
@@ -172,19 +197,24 @@ export function ProofViewport({ projectId, version, index, label, zoom, emailWid
                 <div ref={surface} className="relative m-auto shrink-0 bg-background shadow-sm" style={{ width, height }}
                     data-proof-surface={surfaceId} onPointerUp={selectedText} onKeyUp={event => { if (event.shiftKey) selectedText(); }}>
                     <ProofMedia projectId={projectId} version={version} index={index} label={label} width={width} emailWidth={emailWidth} onSize={onSize}
-                        onDocument={onDocument} onText={onText} onQuoteTarget={align} anchor={pins ? evidenceAnchor : undefined}
-                        videoPosition={position} onAnchor={onAnchor} onTime={onTime} readonly={!onAnchor} />
+                        onDocument={onDocument} onText={onText} onQuoteTarget={align} anchor={relevantDraft ?? evidenceAnchor} focusNonce={focus?.nonce} pins={pins}
+                        videoPosition={position} videoProposal={videoProposal} onAnchor={onAnchor}
+                        onTime={duration !== undefined ? reportTime : onTime} readonly={!onAnchor} />
                     {overlay && <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden" style={{ opacity: overlay.opacity }}>
                         <ProofMedia projectId={projectId} version={overlay.version} index={overlay.index} label={label} width={width} emailWidth={emailWidth} readonly decorative />
                     </div>}
-                    {pins && evidenceAnchor && <AnchorShape anchor={evidenceAnchor} />}
-                    {pins && relevantDraft && <AnchorShape anchor={relevantDraft} draft />}
+                    {pins && evidenceAnchor && (evidenceAnchor.kind !== 'time' || visibleVideoAnchor(evidenceAnchor, playhead)) && <AnchorShape anchor={evidenceAnchor} />}
+                    {pins && relevantDraft && (relevantDraft.kind !== 'time' || visibleVideoAnchor(relevantDraft, playhead)) && <AnchorShape anchor={relevantDraft} draft />}
                     {preview && spatial && <AnchorShape anchor={preview} draft />}
                     {markerThreads.map(thread => {
                         const point = anchorPoint(thread.location.anchor)!;
                         const selected = thread.id === selectedThread;
+                        const anchor = thread.location.anchor;
+                        const timed = anchor.kind === 'time';
+                        if (timed && !visibleVideoAnchor(anchor, playhead)) return null;
                         return <Button key={thread.id} size="icon-sm" variant={selected ? 'default' : 'outline'}
-                            aria-label={t('Thread {number}', { number: thread.number ?? '–' })} aria-pressed={selected}
+                            aria-label={timed ? t('Thread {number} at {time}', { number: thread.number ?? '–', time: videoTime(anchor.startMs) })
+                                : t('Thread {number}', { number: thread.number ?? '–' })} aria-pressed={selected}
                             tabIndex={handlesPointer ? -1 : undefined} aria-disabled={handlesPointer || undefined}
                             onClick={() => { if (!handlesPointer) onSelectThread?.(thread); }}
                             className={cn('absolute z-20 -translate-x-1/2 -translate-y-1/2 rounded-full shadow-sm pointer-coarse:size-10',
@@ -202,8 +232,17 @@ export function ProofViewport({ projectId, version, index, label, zoom, emailWid
     );
 }
 
+function visibleVideoAnchor(anchor: Extract<ProofAnchor, { kind: 'time' }>, playhead: number) {
+    return playhead >= anchor.startMs - 1 && playhead <= (anchor.endMs ?? anchor.startMs) + 1;
+}
+
 function AnchorShape({ anchor, draft }: { anchor: ProofAnchor; draft?: boolean }): ReactNode {
     const paint = draft ? 'border-dashed border-ring bg-ring/15' : 'border-ring bg-ring/20';
+    if (anchor.kind === 'time' && anchor.geometry && anchor.surfaceId) {
+        const { x, y, width, height } = anchor.geometry;
+        anchor = width !== undefined && height !== undefined ? { kind: 'region', surfaceId: anchor.surfaceId, x, y, width, height }
+            : { kind: 'point', surfaceId: anchor.surfaceId, x, y };
+    }
     if (anchor.kind === 'region') return <div aria-hidden className={cn('pointer-events-none absolute z-10 border-2', paint)}
         style={{ left: `${anchor.x * 100}%`, top: `${anchor.y * 100}%`, width: `${anchor.width * 100}%`, height: `${anchor.height * 100}%` }} />;
     if (anchor.kind === 'point') return <span aria-hidden className={cn('pointer-events-none absolute z-10 size-5 -translate-1/2 rounded-full border-2', paint)}

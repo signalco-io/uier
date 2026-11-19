@@ -6,6 +6,7 @@ import type { PDFDocumentProxy, PDFPageProxy, RenderTask } from 'pdfjs-dist';
 import { Button } from '@/src/components/ui/button';
 import { Input } from '@/src/components/ui/input';
 import { useAppI18n } from '@/src/lib/i18n/client';
+import { pdfHighlight } from './pdfQuote';
 
 GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).href;
 
@@ -14,9 +15,9 @@ export type PdfResult = { number: number; text: string };
 
 type PdfPageSize = { width: number; height: number };
 
-export function PdfProof({ url, pageNumber, width, onDocument, onSize, onText, quote, onQuoteTarget }: {
+export function PdfProof({ url, pageNumber, width, onDocument, onSize, onText, quote, occurrence, onQuoteTarget }: {
     url: string; pageNumber: number; width: number; onDocument?: (document: PdfDocument) => void;
-    onSize?: (size: PdfPageSize) => void; onText?: (text: string) => void; quote?: string; onQuoteTarget?: (point: { x: number; y: number }) => void;
+    onSize?: (size: PdfPageSize) => void; onText?: (text: string) => void; quote?: string; occurrence?: number; onQuoteTarget?: (point: { x: number; y: number }) => void;
 }) {
     const { t } = useAppI18n();
     const [document, setDocument] = useState<PdfDocument>();
@@ -82,14 +83,14 @@ export function PdfProof({ url, pageNumber, width, onDocument, onSize, onText, q
         const root = layer.current;
         if (!root || !textReady) return;
         root.querySelectorAll<HTMLElement>('[data-proof-quote]').forEach(span => delete span.dataset.proofQuote);
-        const match = quote && pdfHighlight(root, quote);
+        const match = quote && pdfHighlight(root, quote, occurrence);
         if (match) {
             const bounds = root.getBoundingClientRect();
             const first = match.getBoundingClientRect();
             if (bounds.width && bounds.height)
                 onQuoteTarget?.({ x: (first.left + first.width / 2 - bounds.left) / bounds.width, y: (first.top + first.height / 2 - bounds.top) / bounds.height });
         }
-    }, [quote, textReady, onQuoteTarget]);
+    }, [quote, occurrence, textReady, onQuoteTarget]);
 
     if (error) return <p role="alert" className="m-0 grid size-full place-items-center p-4 text-center text-destructive">{t('This PDF page could not be rendered.')}</p>;
     return <div className="relative size-full bg-background">
@@ -186,24 +187,4 @@ export function PdfSearch({ document, onPage }: { document: PdfDocument; onPage:
             </ul> : <span role="status" className="text-sm text-muted-foreground">{t('No matching PDF text')}</span>)}
         </div>
     );
-}
-
-export function pdfHighlight(layer: HTMLElement, quote: string) {
-    const normalize = (text: string) => text.replace(/\s+/g, ' ').trim();
-    const spans = Array.from(layer.querySelectorAll<HTMLElement>('span[role="presentation"]'));
-    let text = '';
-    const ranges = spans.flatMap(span => {
-        const value = normalize(span.textContent ?? '');
-        if (!value) return [];
-        const start = text.length;
-        text += value + ' ';
-        return [{ start, end: text.length - 1, span }];
-    });
-    const needle = normalize(quote);
-    if (!needle) return;
-    const start = text.indexOf(needle);
-    if (start < 0 || text.indexOf(needle, start + 1) !== -1) return;
-    const matches = ranges.filter(range => range.end > start && range.start < start + needle.length);
-    for (const { span } of matches) span.dataset.proofQuote = '';
-    return matches[0]?.span;
 }

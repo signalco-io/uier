@@ -208,6 +208,7 @@ test('prototype resource grants serve only on the isolated host and stop on shar
     expect(page.headers.get('content-security-policy')).not.toContain('allow-same-origin');
     expect(await page.text()).toContain('__uier_bridge.js');
     expect((await isolated('menu.js')).headers.get('content-type')).toBe('text/javascript; charset=utf-8');
+    expect((await serveProofPrototype(request(grant.url, 'GET', undefined, undefined, { 'Sec-Fetch-Dest': 'document' }), token, ['index.html'])).status).toBe(404);
     expect(await (await isolated('details.html')).text()).toContain('Details');
     expect((await serveProofPrototype(request('/proof-preview/' + token + '/index.html'), token, ['index.html'])).status).toBe(404);
     expect((await f.api('/shares/' + guest.share.id, 'DELETE')).status).toBe(204);

@@ -28,7 +28,7 @@
                 "public/toolbar-fonts/**",
                 "dist/mcp/**"
             ],
-            "env": ["SITE_URL", "UIER_DEPLOYMENT_ENV", "VERCEL_ENV", "VERCEL", "UIER_INSTANT_TEST"]
+            "env": ["SITE_URL", "UIER_DEPLOYMENT_ENV", "VERCEL_ENV", "VERCEL", "UIER_INSTANT_TEST", "NEXT_PUBLIC_UIER_PROOF_HTML_ORIGIN"]
         },
         "build": {
             "dependsOn": ["build:compile"],

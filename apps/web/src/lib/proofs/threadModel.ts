@@ -4,17 +4,35 @@ import type { ReviewCommentDto } from '../review/dto';
 import { proofViewerPath } from './model';
 
 export type ProofPoint = { x: number; y: number };
+export type ProofVideoTime = { startMs: number; endMs?: number };
+export type ProofVideoGeometry = ProofPoint & { width?: number; height?: number };
+export type ProofPrototypeNode = { path: number[]; tag: string };
+export type ProofPrototypeCapture = {
+    nodes: { node: ProofPrototypeNode; box: ProofPoint & { width: number; height: number }; label?: string; state?: string }[];
+    native: { node: ProofPrototypeNode; control: 'details' | 'popover' }[];
+};
+export type ProofPrototypeAnchor = {
+    kind: 'prototype'; surfaceId: string; target: ProofPrototypeNode;
+    selection?: { quote: string; offset: number; endOffset: number; start: number; end: number };
+    capture: ProofPrototypeCapture;
+};
+export type ProofTextAnchor = {
+    kind: 'text'; surfaceId: string; quote: string;
+    occurrence?: number;
+    field?: 'subject' | 'preheader' | 'sender' | 'body' | 'cta';
+};
 export type ProofAnchor =
     | { kind: 'general' }
     | ({ kind: 'point'; surfaceId: string } & ProofPoint)
     | ({ kind: 'region'; surfaceId: string; width: number; height: number } & ProofPoint)
     | { kind: 'drawing'; surfaceId: string; strokes: ProofPoint[][] }
-    | { kind: 'text'; surfaceId: string; quote: string }
-    | { kind: 'time'; startMs: number; endMs?: number; surfaceId?: string };
+    | ProofTextAnchor
+    | ({ kind: 'time'; surfaceId?: string; geometry?: ProofVideoGeometry } & ProofVideoTime)
+    | ProofPrototypeAnchor;
 
 export type ProofThreadLocation = { versionId: string; anchor: ProofAnchor };
 export type ProofVerificationEvidence = { assetId: string; before: ProofThreadLocation; after: ProofThreadLocation };
-export type ProofThreadTarget = { assetId: string; source: ProofThreadLocation; relocations?: ProofThreadLocation[] };
+export type ProofThreadTarget = { assetId: string; source: ProofThreadLocation; relocations?: ProofThreadLocation[]; suggestion?: { replacement: string } };
 export type ProofThread = Pick<ReviewCommentDto, 'id' | 'number' | 'thread' | 'resolved' | 'inProgress' | 'archivedAt' | 'private' | 'assignees' | 'activity'> & {
     target: ProofThreadTarget;
     location: ProofThreadLocation;

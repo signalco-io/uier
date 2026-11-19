@@ -13,7 +13,7 @@ import {
 } from '@/src/lib/proofs/model';
 import type { ProofAnchor, ProofPoint, ProofThread, ProofThreadLocation, ProofVerificationEvidence } from '@/src/lib/proofs/threadModel';
 import { KnownPageLinks } from '@/src/knownPages';
-import { clamp, type ReviewTool } from './coordinates';
+import { clamp, videoTime, type ReviewTool } from './coordinates';
 import { exchangeProofLink, proofFetch, ProofRequestError } from './client';
 import { mediaSurface, proofSize, type VideoPosition } from './ProofMedia';
 import { ProofSelect } from './ProofSelect';
@@ -22,6 +22,7 @@ import { ProofStaging } from './ProofStaging';
 import { ProofApprovalPanel } from './ProofApprovalPanel';
 import { ProofViewport, type ProofFocus, type SynchronizedCenter } from './ProofViewport';
 import type { PdfDocument } from './PdfProof';
+import { textMatches } from './pdfQuote';
 
 const PdfSearch = dynamic(() => import('./PdfProof').then(module => module.PdfSearch), { ssr: false });
 const PdfThumbnail = dynamic(() => import('./PdfProof').then(module => module.PdfThumbnail), { ssr: false });
@@ -119,6 +120,7 @@ export function ProofViewer({ projectId, assetId, initialVersionId, initialThrea
     const [referenceText, setReferenceText] = useState<{ key: string; value: string }>();
     const [autoPair, setAutoPair] = useState<{ key: string; index: number | null }>();
     const [videoSync, setVideoSync] = useState<VideoPosition>();
+    const [videoProposal, setVideoProposal] = useState<{ version: string; position: VideoPosition; anchor: Extract<ProofAnchor, { kind: 'time' }> }>();
     const [copied, setCopied] = useState(false);
     const [notice, setNotice] = useState('');
     const [authorizedCollection, setAuthorizedCollection] = useState<string>();
@@ -190,6 +192,8 @@ export function ProofViewer({ projectId, assetId, initialVersionId, initialThrea
             setDraftAnchor(undefined);
             setScene(undefined);
             setComparison(undefined);
+            setVideoProposal(undefined);
+            setChoosingEvidence(false);
         };
         window.addEventListener('popstate', pop);
         return () => window.removeEventListener('popstate', pop);
@@ -205,6 +209,8 @@ export function ProofViewer({ projectId, assetId, initialVersionId, initialThrea
         setScene({ versionId: target.versionId, index });
         setFocus({ versionId: target.versionId, anchor: target.anchor, nonce: ++gestureNumber.current });
         setDraftAnchor(undefined);
+        setVideoProposal(undefined);
+        setChoosingEvidence(false);
         setTool('browse');
     }, []);
 
@@ -216,7 +222,9 @@ export function ProofViewer({ projectId, assetId, initialVersionId, initialThrea
         void proofFetch<{ thread: ProofThread }>(url, { signal: controller.signal }).then(({ thread }) => {
             if (controller.signal.aborted) return;
             const selected = detail.versions.find(item => item.id === thread.location.versionId);
-            if (selected) {
+            const needsReconfirmation = selected && current.id === detail.asset.currentVersionId && current.id !== selected.id && current.manifest?.format === 'video'
+                && thread.target.source.anchor.kind === 'time' && thread.permissions.assign;
+            if (selected && !needsReconfirmation) {
                 showLocation(thread.location, selected);
                 if (current.id !== selected.id) changeAddress({ version: selected.id, thread: thread.id }, true);
             }
@@ -261,6 +269,9 @@ export function ProofViewer({ projectId, assetId, initialVersionId, initialThrea
         setDraftAnchor(undefined);
         setScene(undefined);
         setNotice('');
+        setVideoProposal(undefined);
+        setChoosingEvidence(false);
+        setTool('browse');
         if (next && preferredAnchor) showLocation({ versionId: id, anchor: preferredAnchor }, next);
         changeAddress({ version: id, thread: address.thread });
     };
@@ -280,16 +291,31 @@ export function ProofViewer({ projectId, assetId, initialVersionId, initialThrea
         }
         setDraftAnchor(anchor);
         setTool('browse');
+        setVideoProposal(undefined);
         setChoosingEvidence(false);
     };
 
-    function requestTarget() {
-        setChoosingEvidence(true);
+    function requestTarget(source: ProofThreadLocation) {
+        const latest = published.find(item => item.id === detail?.asset.currentVersionId);
+        if (!latest) return;
+        if (latest.id !== versionId) changeVersion(latest.id);
+        setFocus(undefined);
         setDraftAnchor(undefined);
-        if (detail?.asset.currentVersionId && versionId !== detail.asset.currentVersionId) changeVersion(detail.asset.currentVersionId);
-        setTool('point');
+        setChoosingEvidence(true);
+        if (source.anchor.kind === 'time' && latest.manifest?.format === 'video' && latest.manifest.durationMs !== undefined) {
+            const ms = source.anchor.startMs <= latest.manifest.durationMs ? source.anchor.startMs : 0;
+            setVideoProposal({ version: latest.id, anchor: source.anchor, position: { ms, nonce: ++gestureNumber.current } });
+            setComparison({ versionId: source.versionId, evidence: source });
+            setCompareMode('side');
+            setTool('browse');
+        } else {
+            const targetFormat = latest.manifest?.format;
+            setTool(targetFormat === 'pdf' && source.anchor.kind === 'text' ? 'text'
+                : targetFormat === 'html' || targetFormat === 'email' ? 'browse' : 'point');
+        }
     }
 
+    const trackTime = useCallback((ms: number) => { currentTime.current = ms; }, []);
     const saveDocument = useCallback((value: PdfDocument) => {
         if (versionId) setPdf({ version: versionId, document: value });
     }, [versionId]);
@@ -321,6 +347,9 @@ export function ProofViewer({ projectId, assetId, initialVersionId, initialThrea
     };
     const surfaceItems = (item: ProofVersion) => item.manifest?.surfaces.map((_, index) => ({ value: String(index), label: surfaceLabel(item, index) })) ?? [];
     const moveZoom = (delta: number) => setZoom(current => current === 'fit' ? (delta > 0 ? 1 : 0.5) : clamp(Math.round((current + delta) * 100) / 100, 0.1, 4));
+    const proposal = videoProposal?.version === versionId ? videoProposal : undefined;
+    const pageText = text?.key === textKey ? text.value : undefined;
+    const textLines = tool === 'text' && pageText ? [...pageText.matchAll(/[^\r\n]+/g)].slice(0, 100) : [];
     const referenceFocus = comparison?.evidence && reference ? { anchor: comparison.evidence.anchor, nonce: currentFocus?.nonce ?? 0 } : undefined;
 
     return (
@@ -410,8 +439,28 @@ export function ProofViewer({ projectId, assetId, initialVersionId, initialThrea
                                 threadPanel.current?.scrollIntoView({ block: 'start' });
                             }}>{t('Comments')}</Button>
                         </div>
-                        {choosingEvidence && <p role="status" className="m-0 text-sm text-muted-foreground">{t('Choose the revised detail on the file.')}</p>}
+                        {choosingEvidence && <p role="status" className="m-0 text-sm text-muted-foreground">
+                            {t(proposal ? 'The clip may have been trimmed. Scrub to the matching moment and confirm it, or place a new pin.' : 'Choose the revised detail on the file.')}
+                            {proposal && <> {t('Original time: {time}', { time: videoTime(proposal.anchor.startMs) })}</>}
+                        </p>}
+                        {draftAnchor?.kind === 'time' && draftAnchor.endMs !== undefined && !draftAnchor.geometry && <p role="status" className="m-0 text-sm text-muted-foreground">
+                            {t('Place a point or region to attach it to the selected time range.')}
+                        </p>}
                         {tool === 'text' && <p className="m-0 text-sm text-muted-foreground">{t('Select text on the PDF to quote it.')}</p>}
+                        {textLines.length > 0 && activeSurface && <details className="rounded-lg border p-2">
+                            <summary>{t('Choose PDF text')}</summary>
+                            <ul className="m-0 max-h-48 list-none overflow-auto p-0">
+                                {textLines.map(({ 0: line, index }) => <li key={index}>
+                                    <Button variant="ghost" className="h-auto min-h-8 w-full justify-start whitespace-normal text-left pointer-coarse:min-h-11"
+                                        onClick={() => {
+                                            const quote = line.trim().slice(0, 500);
+                                            if (!quote) return;
+                                            const prefix = pageText!.slice(0, index).replace(/\s+/g, ' ').trim();
+                                            chooseAnchor({ kind: 'text', surfaceId: activeSurface.id, quote, occurrence: textMatches(prefix, quote).length });
+                                        }}>{line.trim().slice(0, 500)}</Button>
+                                </li>)}
+                            </ul>
+                        </details>}
                         {tool !== 'browse' && tool !== 'pan' && tool !== 'text' &&
                             <p className="m-0 text-sm text-muted-foreground">{t('Mark the file, or focus the preview and use the arrow keys and Enter.')}</p>}
                         {notice && <p role="status" className="m-0 text-sm text-muted-foreground">{t(notice)}</p>}
@@ -423,7 +472,7 @@ export function ProofViewer({ projectId, assetId, initialVersionId, initialThrea
                                     selectedThread={address.thread} pins={pins} onSelectThread={pickPin} onAnchor={canComment ? chooseAnchor : undefined}
                                     syncCenter={center} onCenter={reference && !overlay && !comparison?.evidence ? syncCenter : undefined}
                                     overlay={overlay} onDocument={format === 'pdf' ? saveDocument : undefined} onText={format === 'pdf' ? saveText : undefined}
-                                    onTime={format === 'video' ? ms => { currentTime.current = ms; } : undefined} />
+                                    onTime={format === 'video' ? trackTime : undefined} videoPosition={proposal?.position} videoProposal={proposal?.anchor} />
                             </div>
                             {reference && !overlay && <div className="grid min-w-0 content-start gap-2">
                                 <div className="flex flex-wrap items-center gap-2">
@@ -467,7 +516,8 @@ export function ProofViewer({ projectId, assetId, initialVersionId, initialThrea
                         className="min-w-0 scroll-mt-3 rounded-xl border bg-background p-3 outline-none focus-visible:ring-2 focus-visible:ring-ring lg:max-h-[calc(100dvh-6rem)] lg:overflow-auto">
                         <ProofThreads projectId={projectId} assetId={assetId} versionId={threadVersion.id} currentVersionId={display?.asset.currentVersionId ?? null}
                             threadId={address.thread} draftAnchor={draftAnchor} onThreadSelect={selectThread} onJump={openLocation}
-                            onThreadsChange={setThreads} onEvidence={openEvidence} onRequestTarget={requestTarget} />
+                            onThreadsChange={setThreads} onEvidence={openEvidence} onRequestTarget={requestTarget}
+                            copySuggestions={format === 'pdf' || format === 'email'} />
                     </aside>
                 </div>
             </div>}

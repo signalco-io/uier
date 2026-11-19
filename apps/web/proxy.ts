@@ -40,7 +40,7 @@ export async function proxy(request: NextRequest) {
     const nonce = appPage || proofPage || pathname === '/review-verification' || pathname === '/extension-verification' ? randomBytes(16).toString('base64') : undefined;
     const development = process.env.NODE_ENV === 'development';
     const preview = process.env.UIER_DEPLOYMENT_ENV === 'preview';
-    const proofHtmlOrigin = proofPage && previewOrigin?.hostname !== request.nextUrl.hostname ? previewOrigin?.origin : undefined;
+    const proofHtmlOrigin = proofPage ? previewOrigin?.origin : undefined;
     const proofSources = proofPage ? [{
         scriptSrc: ["'wasm-unsafe-eval'"],
         ...(proofHtmlOrigin ? { frameSrc: [proofHtmlOrigin] } : {})

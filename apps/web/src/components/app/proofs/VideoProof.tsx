@@ -5,19 +5,15 @@ import { Button } from '@/src/components/ui/button';
 import { Input } from '@/src/components/ui/input';
 import { useAppI18n } from '@/src/lib/i18n/client';
 import type { ProofAnchor } from '@/src/lib/proofs/threadModel';
-import { clamp } from './coordinates';
+import { clamp, videoTime } from './coordinates';
 import { ProofSelect } from './ProofSelect';
 
 type VideoPosition = { ms: number; nonce: number };
 
-export function videoTime(ms: number) {
-    const whole = Math.floor(Math.max(0, ms) / 1000);
-    return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, '0')}`;
-}
-
-export function VideoProof({ url, label, durationMs, frameRate, poster, position, range, onTime, onAnchor, surfaceId }: {
+export function VideoProof({ url, label, durationMs, frameRate, poster, position, range, proposal, onTime, onAnchor, surfaceId }: {
     url: string; label: string; durationMs?: number; frameRate?: number; poster?: string; position?: VideoPosition;
     range?: { startMs: number; endMs?: number };
+    proposal?: Extract<ProofAnchor, { kind: 'time' }>;
     onTime?: (ms: number) => void; onAnchor?: (anchor: ProofAnchor) => void; surfaceId: string;
 }) {
     const { t } = useAppI18n();
@@ -30,29 +26,47 @@ export function VideoProof({ url, label, durationMs, frameRate, poster, position
     const [mark, setMark] = useState<number>();
     const [error, setError] = useState(false);
     const [ready, setReady] = useState(false);
+    const intervalLength = proposal?.endMs !== undefined ? proposal.endMs - proposal.startMs : undefined;
+    const fits = time + (intervalLength ?? 0) <= duration;
 
     useEffect(() => {
         const player = video.current;
-        if (!player || !ready || !position) return;
+        if (!player) return;
+        const metadata = () => {
+            const milliseconds = Math.round(player.duration * 1000);
+            if (Number.isFinite(milliseconds)) setDuration(durationMs ? Math.min(durationMs, milliseconds) : milliseconds);
+            setReady(true);
+        };
+        player.addEventListener('loadedmetadata', metadata);
+        if (player.readyState >= HTMLMediaElement.HAVE_METADATA) metadata();
+        return () => player.removeEventListener('loadedmetadata', metadata);
+    }, [durationMs]);
+
+    const { ms: requestedTime, nonce } = position ?? {};
+    useEffect(() => {
+        const player = video.current;
+        if (!player || !ready || requestedTime === undefined) return;
         player.pause();
-        player.currentTime = clamp(position.ms / 1000, 0, player.duration);
-    }, [position, ready]);
+        player.currentTime = clamp(requestedTime / 1000, 0, player.duration);
+    }, [requestedTime, nonce, ready]);
 
     const seek = (ms: number) => {
         const player = video.current;
         if (!player || !ready) return;
         player.currentTime = clamp(ms, 0, duration) / 1000;
         setTime(Math.round(player.currentTime * 1000));
+        onTime?.(Math.round(player.currentTime * 1000));
     };
+    function step(direction: 1 | -1) {
+        const player = video.current;
+        if (!player) return;
+        player.pause();
+        seek(player.currentTime * 1000 + direction * 1000 / (frameRate && frameRate > 0 ? frameRate : 30));
+    }
 
     return <div className="relative size-full bg-background">
         <video ref={video} src={url} poster={poster} aria-label={label} className="block size-full object-contain"
             playsInline preload="metadata" onError={() => setError(true)}
-            onLoadedMetadata={event => {
-                const milliseconds = Math.round(event.currentTarget.duration * 1000);
-                if (Number.isFinite(milliseconds)) setDuration(durationMs ? Math.min(durationMs, milliseconds) : milliseconds);
-                setReady(true);
-            }}
             onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onEnded={() => setPlaying(false)}
             onTimeUpdate={event => {
                 const player = event.currentTarget;
@@ -79,10 +93,8 @@ export function VideoProof({ url, label, durationMs, frameRate, poster, position
                     if (player.paused) void player.play().catch(() => setError(true));
                     else player.pause();
                 }}>{t(playing ? 'Pause' : 'Play')}</Button>
-                <Button size="sm" variant="ghost" disabled={!ready} onClick={() => {
-                    video.current?.pause();
-                    seek(time + 1000 / (frameRate && frameRate > 0 ? frameRate : 30));
-                }}>{t('Step forward')}</Button>
+                <Button size="sm" variant="ghost" disabled={!ready} onClick={() => step(-1)}>{t('Step backward')}</Button>
+                <Button size="sm" variant="ghost" disabled={!ready} onClick={() => step(1)}>{t('Step forward')}</Button>
                 <ProofSelect label={t('Playback speed')} value={rate} items={['0.5', '1', '1.5', '2'].map(value => ({ value, label: `${value}×` }))}
                     disabled={!ready} onChange={value => {
                         if (video.current) video.current.playbackRate = Number(value);
@@ -90,15 +102,28 @@ export function VideoProof({ url, label, durationMs, frameRate, poster, position
                     }} />
                 <Button size="sm" variant={loop ? 'secondary' : 'ghost'} aria-pressed={loop} disabled={!ready} onClick={() => setLoop(value => !value)}>{t('Loop')}</Button>
                 {onAnchor && durationMs !== undefined && <>
+                    {proposal && <Button size="sm" variant="secondary" disabled={!ready || !fits} onClick={() => {
+                        const player = video.current;
+                        if (!player) return;
+                        player.pause();
+                        const startMs = Math.round(player.currentTime * 1000);
+                        if (startMs + (intervalLength ?? 0) > duration) return;
+                        onAnchor({ kind: 'time', surfaceId, startMs, geometry: proposal.geometry,
+                            ...(intervalLength !== undefined ? { endMs: startMs + intervalLength } : {}) });
+                    }}>{t(proposal.geometry ? 'Keep position at this time' : 'Confirm this time')}</Button>}
                     <Button size="sm" variant="ghost" disabled={!ready} onClick={() => {
-                        video.current?.pause();
-                        onAnchor({ kind: 'time', startMs: clamp(time, 0, durationMs), surfaceId });
+                        const player = video.current;
+                        if (!player) return;
+                        player.pause();
+                        onAnchor({ kind: 'time', startMs: clamp(Math.round(player.currentTime * 1000), 0, durationMs), surfaceId });
                     }}>{t('Annotate time')}</Button>
                     <Button size="sm" variant="ghost" disabled={!ready} onClick={() => {
-                        const end = clamp(time, 0, durationMs);
+                        const player = video.current;
+                        if (!player) return;
+                        const end = clamp(Math.round(player.currentTime * 1000), 0, durationMs);
                         if (mark === undefined) setMark(end);
                         else {
-                            video.current?.pause();
+                            player.pause();
                             onAnchor({ kind: 'time', startMs: Math.min(mark, end), endMs: Math.max(mark, end), surfaceId });
                             setMark(undefined);
                         }
@@ -106,6 +131,7 @@ export function VideoProof({ url, label, durationMs, frameRate, poster, position
                     {mark !== undefined && <Button size="sm" variant="ghost" onClick={() => setMark(undefined)}>{t('Cancel')}</Button>}
                 </>}
             </div>
+            {proposal && !fits && <p role="status" className="m-0 px-1 text-xs">{t('The original range does not fit here. Choose a new time range.')}</p>}
         </div>}
     </div>;
 }

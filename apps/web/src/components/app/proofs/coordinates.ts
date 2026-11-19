@@ -27,6 +27,12 @@ export function anchorForGesture(tool: SpatialTool, surfaceId: string, points: P
 
 export function anchorPoint(anchor: ProofAnchor): ProofPoint | undefined {
     if (anchor.kind === 'point' || anchor.kind === 'region') return anchor;
+    if (anchor.kind === 'time') return anchor.geometry;
     if (anchor.kind === 'drawing') return anchor.strokes[0]?.[0];
     return undefined;
+}
+
+export function videoTime(ms: number) {
+    const whole = Math.floor(Math.max(0, ms) / 1000);
+    return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, '0')}.${String(Math.max(0, ms) % 1000).padStart(3, '0')}`;
 }
