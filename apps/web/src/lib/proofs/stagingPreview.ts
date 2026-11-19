@@ -180,7 +180,7 @@ async function handle(request: Request, projectId: string, pairingId: string) {
     const { pair } = await liveStagingPair(projectId, pairingId);
     const { language, t } = await textFor(request, url);
     const title = t('Approved design preview');
-    return html(language, title, `<main><a hidden target="_blank" rel="noopener noreferrer">${t('Authorize design preview in uier')}</a></main><img hidden alt="${title}">`,
+    return html(language, title, `<main hidden><a hidden target="_blank" rel="noopener noreferrer">${t('Authorize design preview in uier')}</a></main><img hidden alt="${title}">`,
         pair.origin, frameScript, `data-parent="${escapeHtml(pair.origin)}" data-authorize="/app/staging-preview/${encodeURIComponent(projectId)}/${pairingId}"`);
 }
 

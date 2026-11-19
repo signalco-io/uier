@@ -7,7 +7,6 @@ import { cspSources, embedScript } from '../src/lib/app/integration';
 import { proofViewerPath, type ProofAsset, type ProofUploadGrant, type ProofVersion } from '../src/lib/proofs/model';
 import { createProject, enableProjectVerification, hydrated, projectPublicId, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { openThread, threadOptions, toolbar } from './support/toolbar';
-import { pasteFile } from './support/images';
 
 test('approved PDF page overlays a top-level staging site, links a discrepancy and verifies actual before and after evidence', async ({ page, browser, baseURL, isMobile }) => {
     test.setTimeout(120_000);
@@ -102,7 +101,11 @@ ${embedScript(baseURL!, project)}</body></html>`);
         const stageResponse = page.waitForResponse(response => response.url().startsWith(staging) && response.request().isNavigationRequest());
         await launch.click();
         expect((await stageResponse).headers()['x-frame-options']).toBe('DENY');
-        await expect(page.getByRole('heading', { name: 'Shipping pending' })).toBeVisible();
+        const title = page.getByRole('heading', { name: 'Shipping pending' });
+        await expect(title).toBeVisible();
+        const before = await title.screenshot();
+        // On touch exercise the first-party authorization fallback with no background sign-in cookie.
+        if (isMobile) await page.context().clearCookies({ name: /uier_review_sso/ });
         const toggle = page.locator('[data-uier-staging-toggle]');
         if (isMobile) await toggle.tap(); else { await toggle.focus(); await toggle.press('Enter'); }
         const selector = 'iframe[title="Approved design preview"]';
@@ -110,6 +113,7 @@ ${embedScript(baseURL!, project)}</body></html>`);
         const image = frame.getByRole('img', { name: 'Approved design preview' });
         const allow = frame.getByRole('link', { name: 'Authorize design preview in uier' });
         await expect(image.or(allow)).toBeVisible();
+        if (isMobile) await expect(allow).toBeVisible();
         if (await allow.isVisible()) {
             const event = page.context().waitForEvent('page');
             await allow.click();
@@ -126,13 +130,15 @@ ${embedScript(baseURL!, project)}</body></html>`);
 
         const report = page.locator('[data-uier-staging-report]');
         if (isMobile) await report.tap(); else await report.click();
-        const title = page.getByRole('heading', { name: 'Shipping pending' });
         const box = (await title.boundingBox())!;
         if (isMobile) await page.touchscreen.tap(box.x + 35, box.y + box.height / 2);
         else await page.mouse.click(box.x + 35, box.y + box.height / 2);
         await expect(page.getByText('This comment links to the approved design.')).toBeVisible();
         const draft = page.getByRole('textbox', { name: 'Comment', exact: true });
         await draft.fill('Shipping uses the wrong heading.');
+        await page.getByRole('dialog', { name: 'New comment', exact: true }).locator('input[type=file][accept*="image/"]')
+            .setInputFiles({ buffer: before, name: 'before.png', mimeType: 'image/png' });
+        await expect(page.getByRole('button', { name: 'Remove attached image before.png' })).toBeVisible();
         const created = page.waitForResponse(response => response.request().method() === 'POST' && response.url().endsWith('/comments'));
         await page.getByRole('button', { name: 'Post comment', exact: true }).click();
         const creation = await created;
@@ -158,7 +164,9 @@ ${embedScript(baseURL!, project)}</body></html>`);
         const liveThread = openThread(reviewer);
         const reply = liveThread.getByRole('textbox', { name: 'Reply', exact: true });
         await reply.fill('Updated the heading on staging.');
-        await pasteFile(reviewer, { buffer: after, name: 'after.png', mimeType: 'image/png' });
+        await liveThread.locator('input[type=file][accept*="image/"]').setInputFiles({
+            buffer: after, name: 'after.png', mimeType: 'image/png'
+        });
         await expect(liveThread.getByRole('button', { name: 'Remove attached image after.png' })).toBeVisible();
         await liveThread.getByRole('button', { name: 'Post reply', exact: true }).click();
         await expect(liveThread.getByRole('button', { name: 'Image attached to reply', exact: true })).toBeVisible();
@@ -179,8 +187,12 @@ ${embedScript(baseURL!, project)}</body></html>`);
         await expect(verification.getByText('Before screenshot', { exact: true })).toBeVisible();
         await expect(verification.getByText('After screenshot', { exact: true })).toBeVisible();
         const confirm = verification.getByRole('button', { name: 'Confirm fix', exact: true });
+        const confirmed = page.waitForResponse(response => response.request().method() === 'POST' && response.url().endsWith(`/comments/${thread.id}/verification`));
         if (isMobile) await confirm.tap(); else { await confirm.focus(); await confirm.press('Enter'); }
-        await expect(verification).toContainText('Fix confirmed by');
+        const receipt = await confirmed;
+        expect(receipt.status(), await receipt.text()).toBe(200);
+        expect(await receipt.json()).toMatchObject({ id: thread.id, resolved: true, verification: { outcome: 'confirmed' } });
+        await expect(page.getByText('Verification saved', { exact: true })).toBeVisible();
         await page.goto(viewer + '&' + new URLSearchParams({ surface: designPage }));
         await page.getByRole('button', { name: 'Revoke pairing' }).click();
         await expect(page.getByRole('link', { name: 'Open paired live review' })).toHaveCount(0);

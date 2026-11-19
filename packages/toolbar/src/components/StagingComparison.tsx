@@ -40,7 +40,10 @@ export function StagingComparison({ pair, unavailable, onReport }: { pair?: Pair
         const update = () => {
             setWidth(document.documentElement.clientWidth);
             setHeight(innerHeight);
-            if (frame.current) frame.current.style.top = ready ? `${-window.scrollY}px` : '';
+            if (frame.current) {
+                frame.current.style.left = ready ? `${-window.scrollX}px` : '';
+                frame.current.style.top = ready ? `${-window.scrollY}px` : '';
+            }
         };
         const message = (event: MessageEvent) => {
             if (event.origin === origin && event.source === frame.current?.contentWindow && event.data?.type === 'uier:staging-preview') {
@@ -62,7 +65,7 @@ export function StagingComparison({ pair, unavailable, onReport }: { pair?: Pair
     if (!pair && !unavailable) return null;
     const src = pair && `${origin}/api/review/${encodeURIComponent(toolbarConfig.project!)}/staging-preview/${pair.id}?${new URLSearchParams({ lang: language })}`;
     return <InkScope>
-        <section aria-label={t.label} className="fixed right-2 top-2 z-[51] max-w-[calc(100vw-1rem)] rounded-xl border bg-background p-2 text-sm text-foreground">
+        <section aria-label={t.label} className="fixed right-2 bottom-24 z-[51] sm:bottom-auto sm:top-2 max-w-[calc(100vw-1rem)] rounded-xl border bg-background p-2 text-sm text-foreground">
             {!pair ? <p role="status" className="m-1">{t.unavailable}</p> : <>
                 <Button size="sm" variant="outlined" className="pointer-coarse:min-h-11" aria-pressed={open} data-uier-staging-toggle=""
                     onClick={() => { setOpen(!open); setReady(false); }}>{t.toggle}</Button>
@@ -84,7 +87,7 @@ export function StagingComparison({ pair, unavailable, onReport }: { pair?: Pair
             sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
             hidden={hidden} tabIndex={ready ? -1 : 0}
             className={hidden ? 'hidden' : ready ? 'pointer-events-none fixed left-0 top-0 z-[39] border-0'
-                : 'fixed right-2 top-56 z-[50] h-32 w-72 max-w-[calc(100vw-1rem)] rounded-xl border bg-background'}
+                : 'fixed right-2 bottom-64 z-[50] sm:bottom-auto sm:top-56 h-32 w-72 max-w-[calc(100vw-1rem)] rounded-xl border bg-background'}
             style={ready ? { width: pair.width, height: pair.height, opacity: opacity / 100 } : undefined} />}
     </InkScope>;
 }
