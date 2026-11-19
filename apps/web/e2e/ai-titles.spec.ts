@@ -56,7 +56,10 @@ test('a row shows the title AI wrote for its thread, and the first line once tit
     await expect(thread.getByRole('img', { name: 'Title written by AI', exact: true })).toHaveCount(0);
     // The row has it too (a phone hides the list while a thread is open)
     await expect(page.getByRole('link', { name: /^Comment #\d+ Pay button behind the footer/, includeHidden: true })).toHaveCount(1);
-    await thread.getByRole('button', { name: 'Pay button behind the footer', exact: true }).click();
+    // The title does not open while its rename is still saving (it is busy then)
+    const renamed = thread.getByRole('button', { name: 'Pay button behind the footer', exact: true });
+    await expect(renamed).not.toHaveAttribute('aria-busy', 'true');
+    await renamed.click();
     await field.fill('Something else');
     await field.press('Escape');
     await expect(thread.getByRole('heading', { name: 'Pay button behind the footer', exact: true })).toBeVisible();
