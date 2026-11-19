@@ -13,7 +13,7 @@ const old = { ...wanted, id: 'dpl_Old', url: 'uier-old-preview-signalco.vercel.a
 const binding = (url, deployment = wanted) => ({ alias: new URL(url).hostname, deploymentId: deployment.id, projectId });
 const absent = () => Response.json({ error: { code: 'not_found' } }, { status: 404 });
 
-function fixture(t, { current, prior = old, next = wanted, domains = [], status = 404, settings = {}, resolvedHost = next.url } = {}) {
+function fixture(t, { current, prior = old, next = wanted, domains = [], status = 404, settings = {}, resolvedHost = next.url, assignment } = {}) {
     const env = {
         VERCEL_TOKEN: 'fixture-api-token',
         UIER_PROOF_VERCEL_BYPASS: '',
@@ -57,6 +57,7 @@ function fixture(t, { current, prior = old, next = wanted, domains = [], status 
             assert.equal(options.method, 'POST');
             const { alias } = JSON.parse(options.body);
             writes.push(alias);
+            if (assignment) return assignment;
             const oldDeploymentId = current?.deploymentId;
             current = { alias, deploymentId: next.id, projectId };
             return Response.json({ alias, oldDeploymentId });
@@ -78,6 +79,23 @@ test('assigns the dedicated preview hostname and repeats without a write, using 
         { host: preview, bypass: null }, { host: preview, bypass: 'fixture-bypass' },
         { host: preview, bypass: null }, { host: preview, bypass: 'fixture-bypass' }
     ]);
+});
+
+test('accepts an empty alias 404, then verifies the binding and repeats without writing', async t => {
+    const { writes } = fixture(t, { current: new Response(null, { status: 404 }) });
+    await configureHtml('preview');
+    await configureHtml('preview');
+    assert.deepEqual(writes, [new URL(preview).hostname]);
+});
+
+test('an empty 404 still requires provider authorization to claim the hostname', async t => {
+    const { writes, probes } = fixture(t, {
+        current: new Response(null, { status: 404 }),
+        assignment: Response.json({ error: { code: 'alias_in_use' } }, { status: 403 })
+    });
+    await assert.rejects(configureHtml('preview'), /Vercel rejected.*HTTP 403/);
+    assert.deepEqual(writes, [new URL(preview).hostname]);
+    assert.deepEqual(probes, []);
 });
 
 test('allows the dedicated production hostname on production and a verified same-target move', async t => {
@@ -137,9 +155,13 @@ test('refuses foreign, redirected, ambiguous or wrong-target aliases before any 
         ['unrelated project', { ...binding(preview), projectId: 'prj_Foreign' }],
         ['unrelated team', { ...binding(preview), teamId: 'team_Foreign' }],
         ['different deployment owner', binding(preview, old), { ...old, ownerId: 'team_Foreign' }],
+        ['contradictory deployment owner', binding(preview, old), { ...old, ownerId: 'team_Foreign', team: { id: orgId } }],
         ['different deployment target', binding(preview, old), { ...old, target: 'production' }],
         ['redirect', { ...binding(preview), redirect: 'uier.io' }],
         ['unknown 404', Response.json({ error: { code: 'team_not_found' } }, { status: 404 })],
+        ['malformed 404', new Response('<html>error</html>', { status: 404 })],
+        ['empty forbidden alias', new Response(null, { status: 403 })],
+        ['empty provider failure', new Response(null, { status: 500 })],
         ['forbidden alias', Response.json({ error: { code: 'forbidden' } }, { status: 403 })]
     ]) {
         await t.test(label, async t => {

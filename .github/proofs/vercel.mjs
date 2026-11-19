@@ -14,13 +14,13 @@ export function origin(value, setting) {
     return url;
 }
 
-async function api(path, { body, missing = false } = {}) {
+async function api(path, { body, allowMissingAlias = false } = {}) {
     const token = process.env.VERCEL_TOKEN;
     if (!token) throw new Error('Missing Vercel project token.');
     const url = new URL(path, 'https://api.vercel.com');
     url.searchParams.set('teamId', orgId);
     let response;
-    let data;
+    let payload;
     try {
         response = await fetch(url, {
             method: body ? 'POST' : 'GET',
@@ -29,11 +29,20 @@ async function api(path, { body, missing = false } = {}) {
             redirect: 'error',
             signal: AbortSignal.timeout(15_000)
         });
-        data = await response.json();
+        payload = await response.text();
     } catch {
-        throw new Error('Vercel did not return a valid response for the proof operation.');
+        throw new Error('Could not read the Vercel proof operation response.');
     }
-    if (missing && response.status === 404 && ['not_found', 'alias_not_found'].includes(data?.error?.code)) return null;
+    const missingAlias = allowMissingAlias && response.status === 404;
+    if (missingAlias && !payload.trim()) return null;
+
+    let data;
+    try {
+        data = JSON.parse(payload);
+    } catch {
+        if (response.ok) throw new Error('Vercel did not return a valid response for the proof operation.');
+    }
+    if (missingAlias && ['not_found', 'alias_not_found'].includes(data?.error?.code)) return null;
     if (!response.ok || !data || data.error)
         throw new Error('Vercel rejected the proof operation (HTTP ' + response.status + '). Check the project token and provider configuration.');
     return data;
@@ -44,6 +53,7 @@ async function deployment(idOrHost, target) {
     const expectedTarget = target === 'production' ? data.target === 'production' : data.target === null || data.target === 'preview';
     if (!deploymentId.test(data.id) || (data.id !== idOrHost && data.url !== idOrHost)
         || data.projectId !== projectId || (data.team?.id ?? data.ownerId) !== orgId
+        || (data.ownerId != null && data.ownerId !== orgId)
         || data.readyState !== 'READY' || data.deletedAt || data.softDeletedByRetention
         || data.customEnvironment || data.customEnvironmentId || !expectedTarget)
         throw new Error('Expected a ready deployment in the uier Vercel team, project and requested target.');
@@ -51,7 +61,7 @@ async function deployment(idOrHost, target) {
 }
 
 async function alias(host) {
-    const data = await api('/v4/aliases/' + encodeURIComponent(host), { missing: true });
+    const data = await api('/v4/aliases/' + encodeURIComponent(host), { allowMissingAlias: true });
     if (data && (data.alias !== host || data.projectId !== projectId || !deploymentId.test(data.deploymentId)
         || (data.teamId && data.teamId !== orgId) || (data.ownerId && data.ownerId !== orgId)
         || (data.deployment && data.deployment.id !== data.deploymentId)
