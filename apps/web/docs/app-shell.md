@@ -197,6 +197,13 @@ the separately bundled review toolbar owns its own query cache.
   at 14 px clear of the border, like the project header and the projects list; a negative margin keeps
   the tile in the menu button's 16 px icon slot, so project names line up with Projects and My work,
   expanded, collapsed to icons and in the mobile sheet.
+- Project marks request a bounded `&size=<pixels>` variant and a 2× candidate via `srcset`. Oversized
+  PNG, JPEG, GIF, WebP and AVIF sources are resized on demand to fit, retaining aspect ratio, and the
+  result is kept with the fetched source in memory. SVG, ICO, BMP and raster sources the server
+  cannot decode keep their original bytes. The URL without a size serves the original for full-size
+  use. Each variant uses the same project membership and stored-address checks. Successful and
+  missing responses are cached privately by URL and cookie. Access errors and invalid sizes use
+  `private, no-store`.
 - **Projects list** (`(shell)/projects/page.tsx`): project cards in as many 18rem columns as the page's width holds
   (up to three; the sidebar takes part of a window). A card is one header: the favicon, the name (a link over the whole
   card) and on its line two quiet icon buttons, Open review (`ReviewLinksMenu` with `compact`: a tooltip, named

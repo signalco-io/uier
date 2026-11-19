@@ -278,16 +278,19 @@ test('the icon route serves a project\'s icon from uier to its members only, for
     // The route uses the production network; in local runtime the test upstream stands in for the internet
     process.env.UIER_SITE_ICONS_TEST_UPSTREAM = `http://127.0.0.1:${server.port}`;
     const host = `route-${randomUUID().slice(0, 8)}.example.com`;
+    const rasterHost = `raster-${randomUUID().slice(0, 8)}.example.com`;
+    const large = await png(1000);
     server.add(host, { '/': page('<link rel="icon" href="/brand/icon.svg">'), '/brand/icon.svg': file(svg, 'image/svg+xml') });
+    server.add(rasterHost, { '/': page('<link rel="icon" href="/icon.png">'), '/icon.png': file(large, 'image/png') });
     const user = await findOrCreateUser(`site-icons-${randomUUID()}@example.com`);
     const member = await ensureOwnWorkspace(user);
     const context = { user, member, workspace: { id: member.workspaceId }, isAdmin: true } as AppContext;
-    const project = await createProject(context, { name: 'Icons', urls: [`https://${host}`, 'https://no-icon.example.com', `http://localhost:${server.port}`] });
+    const project = await createProject(context, { name: 'Icons', urls: [`https://${host}`, `https://${rasterHost}`, 'https://no-icon.example.com', `http://localhost:${server.port}`] });
     const outsider = await findOrCreateUser(`site-icons-outsider-${randomUUID()}@example.com`);
     await ensureOwnWorkspace(outsider);
     const session = (userId: string) => `${cookieName(cookieNames.session)}=${signToken('session', { uid: userId, iat: Math.floor(Date.now() / 1000) }, SESSION_TTL_SECONDS)}`;
-    const get = (site: string, userId?: string, projectId = project.id) => readIcon(
-        new Request(`http://localhost:4004${projectIconUrl(projectId, site)}`, { headers: userId ? { cookie: session(userId) } : {} }),
+    const get = (site: string, userId?: string, projectId = project.id, size?: number) => readIcon(
+        new Request(`http://localhost:4004${projectIconUrl(projectId, site, size)}`, { headers: userId ? { cookie: session(userId) } : {} }),
         { params: Promise.resolve({ projectId }) });
 
     const icon = await get(`https://${host}`, user.id);
@@ -296,16 +299,43 @@ test('the icon route serves a project\'s icon from uier to its members only, for
     expect(Object.fromEntries(icon.headers)).toMatchObject({
         'content-type': 'image/svg+xml',
         'cache-control': 'private, max-age=86400',
+        vary: 'Cookie',
         'content-security-policy': 'default-src \'none\'; style-src \'unsafe-inline\'; sandbox',
         'content-disposition': 'attachment; filename="icon"',
         'cross-origin-resource-policy': 'same-origin',
         'x-content-type-options': 'nosniff'
     });
+    expect(await (await get(`https://${host}`, user.id, project.id, 14)).text()).toBe(svg);
+
+    const raster = `https://${rasterHost}`;
+    for (const size of [14, 28, 68]) {
+        const variant = await get(raster, user.id, project.id, size);
+        expect(variant.status).toBe(200);
+        const bytes = Buffer.from(await variant.arrayBuffer());
+        expect(await sharp(bytes).metadata()).toMatchObject({ width: size, height: size, format: 'webp' });
+        expect(bytes.length).toBeLessThan(large.length);
+        expect(Object.fromEntries(variant.headers)).toMatchObject({
+            'content-type': 'image/webp',
+            'content-length': String(bytes.length),
+            'cache-control': 'private, max-age=86400',
+            vary: 'Cookie'
+        });
+    }
+    expect(Buffer.from(await (await get(raster, user.id)).arrayBuffer())).toEqual(large);
+    expect(server.requests.filter(request => request.host === rasterHost).map(request => request.path)).toEqual(['/', '/icon.png']);
+    const invalid = await get(raster, user.id, project.id, 1000);
+    expect(invalid.status).toBe(400);
+    expect(invalid.headers.get('cache-control')).toBe('private, no-store');
+    const denied = await get(raster, outsider.id, project.id, 14);
+    expect(denied.status).toBe(404);
+    expect(denied.headers.get('cache-control')).toBe('private, no-store');
+    expect((await get(raster, undefined, project.id, 28)).status).toBe(401);
 
     // No icon: the browser keeps the answer for half an hour
-    const none = await get('https://no-icon.example.com', user.id);
+    const none = await get('https://no-icon.example.com', user.id, project.id, 14);
     expect(none.status).toBe(404);
     expect(none.headers.get('cache-control')).toBe('private, max-age=1800');
+    expect(none.headers.get('vary')).toBe('Cookie');
 
     // Signed out, not a member, not the project's address, an unknown project
     expect((await get(`https://${host}`)).status).toBe(401);
