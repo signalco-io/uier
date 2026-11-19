@@ -53,7 +53,7 @@ isolation; `thread-history.spec.ts` covers the app controls, reloads, themes and
 - `e2e/activity.spec.ts` exercises project/showcase adaptive refresh with the Playwright clock:
   15-second active cadence, 30 after one minute idle, 60 after two, immediate return, held-response
   coalescing, pause/resume, drafts/focus, unread and revoked-access cleanup. Count identity/viewer,
-  comments and activity endpoints separately; do not equate cycles with HTTP requests or invoice savings.
+  ordinary comments, archived comments and activity separately; do not equate cycles with HTTP requests or invoice savings.
   See [refresh contract and measurements](../../../docs/review-workflow.md#polling-request-measurement).
 
 - The app bulk-read browser test (`activity.spec.ts`) assigns through the assignee menu's checkbox items and Done,

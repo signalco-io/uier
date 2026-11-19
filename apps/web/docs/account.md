@@ -38,7 +38,9 @@
   (saved through `POST /api/review/<code>/language` or `POST /api/visitor/language`). Project default clears it, so
   each project's language applies (the project's, else its workspace's, else English); see
   [project settings](project-settings.md#toolbar-language). `setUserToolbarLanguage` writes only that field,
-  through the user document's etag.
+  through the user document's etag. Account and toolbar Options both show each choice in its own
+  language. `toolbar-language.spec.ts` checks the exact saved label in Account after a toolbar write,
+  including when a previous save was delayed or failed.
 
 Account section links use Next.js navigation and preserve the document and feedback toolbar pill
 (`e2e/app-navigation.spec.ts`). Google/Microsoft account linking still uses provider redirects.
