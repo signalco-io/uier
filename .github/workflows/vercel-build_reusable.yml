@@ -98,6 +98,7 @@ jobs:
             node .github/scripts/package_schedules.mjs --preview
           fi
           node .github/scripts/package_prebuilt.mjs
+          node .github/scripts/check_proof_pdf_prebuilt.mjs
           tar -cf - .vercel/output | gzip -1 > prebuilt.tar.gz
       - name: Compare public search content
         id: search-changes

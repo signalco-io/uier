@@ -9,16 +9,22 @@ python3 -m pip download --disable-pip-version-check --only-binary=:all: --no-dep
 mkdir -p apps/web/dist/proof-processor
 python3 - "$work" <<'PY'
 import glob
+import gzip
 import os
 import pathlib
+import shutil
 import sys
 import zipfile
 
 wheel, = glob.glob(os.path.join(sys.argv[1], 'imageio_ffmpeg-*.whl'))
+executable = pathlib.Path(sys.argv[1]) / 'ffmpeg'
 with zipfile.ZipFile(wheel) as source:
     binary, = (name for name in source.namelist() if '/binaries/ffmpeg-linux-x86_64-' in name)
-    output = pathlib.Path('apps/web/dist/proof-processor/ffmpeg')
-    output.write_bytes(source.read(binary))
-    output.chmod(0o755)
+    with source.open(binary) as packed, executable.open('wb') as output:
+        shutil.copyfileobj(packed, output)
+executable.chmod(0o755)
+with executable.open('rb') as source, open('apps/web/dist/proof-processor/ffmpeg.gz', 'wb') as target:
+    with gzip.GzipFile(filename='', fileobj=target, mode='wb', compresslevel=6, mtime=0) as packed:
+        shutil.copyfileobj(source, packed)
 PY
-apps/web/dist/proof-processor/ffmpeg -hide_banner -version | head -n 1
+"$work/ffmpeg" -hide_banner -version | head -n 1

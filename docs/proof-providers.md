@@ -76,14 +76,23 @@ forwards `message.to` without substituting MIME headers or the base alias.
 ## Video and PDF processing
 
 The credential-free Vercel build and the manual notification worker package
-install a checksum-pinned Linux FFmpeg binary. Local codec tests accept an
+ship a compressed, checksum-pinned Linux FFmpeg binary. Each running process
+unpacks it to a private temporary directory on first use. Local codec tests accept an
 absolute `UIER_PROOF_FFMPEG_PATH`. Native MP4 or WebM previews can be remuxed
 without it. Conversion-dependent uploads return an explicit unavailable
 error when the processor is missing. Qualify actual browser playback and
 seeking for MP4, MOV conversion and WebM at the target runtime.
 
 PDF processing uses bundled PDF.js and local English OCR assets with no
-external calls. In preview, open a restricted link for a fixture containing
+external calls. The prebuilt packaging step traces the canvas loader from
+PDF.js's own module path, preserving the pnpm link and the build platform's
+native binding. It also carries Tesseract's local model and standalone
+WebAssembly files. CI renders a private PDF and runs OCR and text extraction
+using only the assembled files for each participating function. Run
+`node .github/scripts/check_proof_pdf_prebuilt.mjs` after packaging a local
+prebuilt artifact to repeat the check.
+
+In preview, open a restricted link for a fixture containing
 metadata, hidden text and an attachment. Verify page search and check that
 no private fixture marker appears in either guest artifact. Check that a
 separate authorized original download matches the source bytes.

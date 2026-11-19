@@ -13,7 +13,7 @@ const proofProcessorAssets = [
     './node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs',
     './node_modules/geist/dist/fonts/geist-sans/Geist-Regular.ttf',
     './node_modules/@tesseract.js-data/eng/4.0.0_best_int/eng.traineddata.gz',
-    '../../node_modules/.pnpm/tesseract.js-core@*/node_modules/tesseract.js-core/tesseract-core-*-lstm.wasm.js',
+    '../../node_modules/.pnpm/tesseract.js-core@*/node_modules/tesseract.js-core/*.wasm',
     './node_modules/tesseract.js/src/**/*'
 ];
 
@@ -39,8 +39,8 @@ const nextConfig: NextConfig = {
     // run time, so the deployment has to carry them.
     serverExternalPackages: ['pdfjs-dist', 'tesseract.js'],
     outputFileTracingIncludes: {
-        '/api/mcp': ['./dist/proof-processor/ffmpeg', ...proofProcessorAssets, '../../plugins/uier/skills/**/*', './dist/mcp/thread.html'],
-        '/api/proofs/**': ['./dist/proof-processor/ffmpeg', ...proofProcessorAssets],
+        '/api/mcp': ['./dist/proof-processor/ffmpeg.gz', ...proofProcessorAssets, '../../plugins/uier/skills/**/*', './dist/mcp/thread.html'],
+        '/api/proofs/**': ['./dist/proof-processor/ffmpeg.gz', ...proofProcessorAssets],
         '/api/proof-mail': proofProcessorAssets,
         '/proof-pdf/**': ['./node_modules/pdfjs-dist/{cmaps,standard_fonts,wasm}/**/*']
     },

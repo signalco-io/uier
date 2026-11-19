@@ -1,9 +1,11 @@
-import { existsSync } from 'node:fs';
+import { createReadStream, createWriteStream, existsSync } from 'node:fs';
 import { execFile } from 'node:child_process';
 import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { pipeline } from 'node:stream/promises';
 import { promisify } from 'node:util';
+import { createGunzip } from 'node:zlib';
 import { BufferSource, BufferTarget, Conversion, Input, MP4, Mp4OutputFormat, Output, QTFF, WEBM, WebMOutputFormat } from 'mediabunny';
 import { apiErrors } from '../../comments/http';
 import { MAX_PROOF_UPLOAD_BYTES, proofUploadTypes } from '../model';
@@ -16,11 +18,32 @@ const formats = { 'video/mp4': MP4, 'video/quicktime': QTFF, 'video/webm': WEBM 
 const dimensionsLimit = 3840 * 2160;
 const maxInputFrameRate = 120;
 
-function ffmpegCommand() {
+let packagedExecutable: Promise<string> | undefined;
+
+async function unpackFfmpeg(archive: string) {
+    const directory = await mkdtemp(join(tmpdir(), 'uier-ffmpeg-'));
+    const binary = join(directory, 'ffmpeg');
+    try {
+        await pipeline(createReadStream(archive), createGunzip(), createWriteStream(binary, { mode: 0o700 }));
+        return binary;
+    } catch {
+        await rm(directory, { recursive: true, force: true });
+        throw apiErrors.unavailable('Video conversion is unavailable because the packaged processor could not be unpacked.');
+    }
+}
+
+async function ffmpegCommand() {
     const configured = process.env.UIER_PROOF_FFMPEG_PATH?.trim();
     if (configured) return configured;
-    return [join(process.cwd(), 'dist/proof-processor/ffmpeg'), join(process.cwd(), 'apps/web/dist/proof-processor/ffmpeg')]
+    const archive = [join(process.cwd(), 'dist/proof-processor/ffmpeg.gz'), join(process.cwd(), 'apps/web/dist/proof-processor/ffmpeg.gz')]
         .find(path => existsSync(path));
+    if (!archive) return;
+    // Concurrent conversions share one unpacked binary and a failed unpack can be retried.
+    packagedExecutable ??= unpackFfmpeg(archive).catch(error => {
+        packagedExecutable = undefined;
+        throw error;
+    });
+    return packagedExecutable;
 }
 
 async function ffmpegRun(binary: string, args: string[], signal: AbortSignal, cwd: string, seconds: number) {
@@ -39,7 +62,7 @@ async function ffmpegRun(binary: string, args: string[], signal: AbortSignal, cw
 }
 
 async function makeVideoFiles(source: Buffer, contentType: string, transcode: boolean, signal: AbortSignal) {
-    const binary = ffmpegCommand();
+    const binary = await ffmpegCommand();
     if (!binary) {
         if (transcode) throw apiErrors.unavailable('This video requires a configured conversion processor.');
         return { playable: source };
