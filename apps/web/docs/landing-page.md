@@ -32,7 +32,7 @@ itself, so the global `:target` margin does not apply there and the layout turns
   their configured addresses, with headers for identity and BotID proofs for writes.
 - **Pictures are specimens.** The cover scene and the feature tiles are built from the tokens and
   `<Pin />` (`HowItWorks`, `LandingSpecimens`), hidden from assistive technologies, never
-  screenshots; keep their text out of the strings the e2e tests look up on the page (the FAQ's
+  screenshots (the tiles play, see "The tiles play" below); keep their text out of the strings the e2e tests look up on the page (the FAQ's
   "add one script tag to your site", the description). The starter thread "Try it here" is pinned
   to the "Try it on this page" box by `id="first-step-comment-anchor"`; the id is stored in
   production, so keep it.
@@ -55,8 +55,32 @@ itself, so the global `:target` margin does not apply there and the layout turns
   while in view, Pause stops it, and with reduced motion it shows one still frame. Its canvas is
   `data-uier-decorative` with a `min-height`: the toolbar's screenshots keep its box but not its
   content (copying it made every capture on the landing page much slower). The e2e axe scan skips
-  the scene (`data-landing-scene`): it is a picture, and a frame caught mid-fade has low contrast. Keep the other sections still, and keep each section's layout
+  the scene (`data-landing-scene`): it is a picture, and a frame caught mid-fade has low contrast. Besides it only the feature tiles move (next); keep the other sections still, and keep each section's layout
   different from its neighbours.
+- **The tiles play** ([uier #475](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2F&comment=comment_a7NAZVJwcc6NBwaQi4sP4)).
+  On the landing each tile's picture is a slow loop of its feature (`animated` on the specimen): a click, a drag and
+  a selection each pin a comment; the screenshot attempt and the device details come in; the assignee, a reply and
+  its image arrive; a new thread lands unread at the top of the inbox; a card is dragged to In progress; Check again
+  checks the page; the services come in; the agent's steps run and show on the thread. Rules:
+  - The still picture is the loop's first and last frame, and what the specimen shows on every other page
+    (use cases, guides) and before the script runs. A loop rests on it, the parts its story adds leave together and
+    come back one step at a time; a loop that moves something away (the board's card) puts it back before it ends.
+  - The script is in the specimen, beside the part it moves, in seconds: `specimenLoop(seconds)` of
+    `specimenMotion.tsx` gives `enter`, `during`, `grow`, `pointer` and `frames`, which put keyframes in
+    `data-motion`; `Swap` changes a value in place and `LoopPointer` is the pointer. Without `animated` they add nothing.
+    Keep the pace of BRAND.md's example loops ("Motion"), slower than the product, and leave a few seconds of rest.
+  - `FeatureExamples` (the only client code) hands the keyframes to the Web Animations API. A tile plays only while
+    half of its picture is in view, tiles that come into view together start 600 ms apart, the one "Pause examples"
+    button beside the section heading stops them all (the tiles are links, so none has its own), and with reduced
+    motion, read live, there are no animations and no button.
+  - Only `opacity`, `translate`, `scale`, `rotate` and a card's shadow move, inside the picture's fixed box, so nothing
+    shifts. Distances are in the part's own size (`calc(100% + 8px)` for a card and the gap under it) or fixed
+    pixels, never measured, so a loop follows any width; check a new one at 390 px, where the board shows two columns
+    and the pictures with a page beside the panel show only the panel.
+  - An animated picture is `inert` as well as `aria-hidden`, so the axe scan skips a frame caught mid-fade; the tile's
+    title and text say what it shows, and nothing is told by motion alone.
+  - `e2e/feature-overview-pages.spec.ts` covers playing only in view, the button, reduced motion and a loop that moves
+    nothing around it at 390 px.
 - **Get started** (the hero and pricing) opens `/app`, like the navigation's "Sign in": signed-out
   visitors land on sign in, signed-in people in the app. The `#get-started` section below the
   features still offers both paths: trying the showcase toolbar on this page, or a project for

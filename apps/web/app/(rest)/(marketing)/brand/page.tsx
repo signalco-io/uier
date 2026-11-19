@@ -254,6 +254,7 @@ export default function BrandPage() {
                             <li><span className="font-mono text-foreground">150ms ease-out</span> enter and exit: fade plus 8 px slide.</li>
                             <li><span className="font-mono text-foreground">200ms ease-out</span> change of place: the item slides there.</li>
                             <li><span className="font-mono text-foreground">120ms</span> hover and press: colour only, no scale. A tile that opens a page rises to floating instead.</li>
+                            <li><span className="font-mono text-foreground">500ms ease-out</span> in an example loop: the same motion, slower, so each step can be followed.</li>
                             <li><span className="font-mono text-foreground">none</span> on page load. No bounces, parallax or gradient movement.</li>
                         </ul>
                     </div>
