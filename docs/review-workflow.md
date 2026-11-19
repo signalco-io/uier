@@ -517,7 +517,8 @@ images that haven't loaded within a second (lazy ones below the window), `<canva
 
 For missing or unsuitable captures, the author (or a workspace admin) can add evidence to saved feedback in
 the toolbar. Without a screenshot, **Attach to comment** (a paperclip among the first message's actions) offers
-**Take screenshot** (the commented part of the page as it is now, on the comment's own page), **Attach image**
+**Take screenshot** (the commented part of the page as it is now, only on the comment's own page at the address it
+was left on, also when other addresses share its feedback), **Attach image**
 and **Paste image**, and a screen recording while the comment has none. With a screenshot, **Upload image** and
 **Paste image** are in the expanded screenshot next to Redact screenshot. Keyboard image paste also works while
 one of these controls has focus. PNG, JPEG and WebP images use the same 512 KB / 4096 px limits as automatic evidence;

@@ -6,6 +6,8 @@ import { getRecordingBlobs, localRecordingFile, recordingNames } from '../src/li
 import { getMemoryCommentsStore } from '../src/lib/repo/memoryCommentsStore';
 import { commitNewSubmission, submission } from '../src/lib/comments/submissions';
 import { attachSavedRecording } from '../src/lib/comments/attachRecording';
+import { apiErrors } from '../src/lib/comments/http';
+import type { CommentsStore } from '../src/lib/repo/commentsStore';
 import { attachProjectRecording } from '../src/lib/review/comments';
 import { recordingUploadDocumentId, type DbComment } from '../src/lib/db/schema';
 import { persistProjectAccess } from './support/projectAccess';
@@ -269,4 +271,55 @@ test('project comments take a recording from their author or an admin, with thei
     const late = await serviceUpload(domain, 'user:admin');
     await expect(attachSavedRecording(store, domain, 'user:admin', kept.id, late.upload.id, () => {})).rejects.toMatchObject({ code: 'not_found' });
     expect((await store.getRecordingUpload(domain, recordingUploadDocumentId(late.upload.id)))!.doc.attached).toBeUndefined();
+});
+
+test('requests racing for the same recording all return the saved comment; a different upload keeps its conflict', async () => {
+    const store = getMemoryCommentsStore();
+    // A site of its own each time: an actor starts ten uploads a day on one
+    const save = async (domain = `race-${randomUUID()}`) => {
+        const comment: DbComment = { id: `comment_${randomUUID()}`, domain, path: '/', position: { type: 'page' }, authorId: 'owner',
+            thread: { items: [{ id: 'first', text: 'Evidence follows', authorId: 'owner' }] } };
+        await store.create(comment);
+        return comment;
+    };
+    type Read = 'getSubmission' | 'get' | 'getRecordingUpload';
+    // The winning request commits right after the losing one's nth read of that kind returned what was there before
+    const losing = (read: Read, nth: number, win: () => Promise<unknown>): CommentsStore => {
+        let reads = 0;
+        return { ...store, [read]: async (...args: [string, string]) => {
+            const result = await store[read](...args);
+            if (++reads === nth) await win();
+            return result;
+        } };
+    };
+    // Every read of the losing request, in order: its receipt lookup, the comment, the upload, then the
+    // transaction's own receipt lookup and comment read
+    for (const [read, nth] of [['getSubmission', 1], ['get', 1], ['getRecordingUpload', 1], ['getSubmission', 2], ['get', 2]] as const) {
+        const comment = await save(), { domain } = comment, f = await serviceUpload(domain, 'owner');
+        const win = () => attachSavedRecording(store, domain, 'owner', comment.id, f.upload.id, () => {});
+        const authorized: (string | undefined)[] = [];
+        const saved = await attachSavedRecording(losing(read, nth, win), domain, 'owner', comment.id, f.upload.id, seen => { authorized.push(seen.recording?.id); });
+        expect(saved.recording, `${read} ${nth}`).toEqual(f.metadata);
+        // The recovered comment was authorized like the one read first
+        expect(authorized.at(-1), `${read} ${nth}`).toBe(f.upload.id);
+        expect((await store.get(domain, comment.id))!.comment.recording).toEqual(f.metadata);
+        // Losing the race is never a way around a refusal
+        const again = await save(domain), g = await serviceUpload(domain, 'owner');
+        await expect(attachSavedRecording(losing(read, nth, () => attachSavedRecording(store, domain, 'owner', again.id, g.upload.id, () => {})),
+            domain, 'owner', again.id, g.upload.id, seen => { if (seen.recording) throw apiErrors.forbidden(); })).rejects.toMatchObject({ code: 'forbidden' });
+    }
+
+    // The same request sent three times at once
+    const comment = await save(), { domain } = comment, f = await serviceUpload(domain, 'owner');
+    const together = await Promise.all([1, 2, 3].map(() => attachSavedRecording(store, domain, 'owner', comment.id, f.upload.id, () => {})));
+    for (const saved of together) expect(saved.recording).toEqual(f.metadata);
+
+    // Another upload that loses the race is a real conflict: nothing was saved for it, and it stays unattached
+    for (const [read, nth] of [['getSubmission', 1], ['get', 1], ['getSubmission', 2]] as const) {
+        const contested = await save(), { domain } = contested, first = await serviceUpload(domain, 'owner'), second = await serviceUpload(domain, 'owner');
+        const win = () => attachSavedRecording(store, domain, 'owner', contested.id, first.upload.id, () => {});
+        await expect(attachSavedRecording(losing(read, nth, win), domain, 'owner', contested.id, second.upload.id, () => {})).rejects.toMatchObject({ code: 'conflict' });
+        expect((await store.get(domain, contested.id))!.comment.recording).toEqual(first.metadata);
+        expect((await store.getRecordingUpload(domain, recordingUploadDocumentId(second.upload.id)))!.doc.attached).toBeUndefined();
+    }
 });

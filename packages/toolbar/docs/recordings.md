@@ -48,7 +48,8 @@ offers Record screen and Upload recording while the comment has no recording, fo
   the API answers it with the saved comment.
 - A pin keeps this recording's state (`ThreadRecordingContext` from `CommentBubble`), so the thread stays open
   while a capture is chosen or runs, Escape stops it, and a clip that was not attached is still there when the
-  thread opens again. The inbox and inline threads stay mounted and keep their own.
+  thread opens again. A thread shown as a sheet on a narrow touch screen goes back to its popover while a capture
+  runs, like for a reply's. The inbox and inline threads stay mounted and keep their own.
 - One recording per message: there is no way to replace or remove it but deleting the comment, which is why a
   capture is previewed before it is attached.
 

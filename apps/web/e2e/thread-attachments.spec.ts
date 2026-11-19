@@ -1,12 +1,20 @@
+import { randomBytes } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { expect, test, type Page } from '@playwright/test';
 import { isolatedOrigin, newVisitor, openLanding } from './support/toolbar';
+import { createProject, hydrated, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { startReviewedSite } from './support/reviewedSite';
+import { verifiedReviewHeaders } from './support/reviewVerification';
 import { pngImage } from './support/images';
 import { expectNoAxeViolations } from './accessibility';
 
 const fixture = fileURLToPath(new URL('./fixtures/recording.webm', import.meta.url));
 // The first message's own picker, not the reply box's
 const recordingInput = 'input[type="file"][accept="video/webm,video/mp4"]:not(form *)';
+
+let site: Awaited<ReturnType<typeof startReviewedSite>>;
+test.beforeAll(async ({ baseURL }) => { site = await startReviewedSite(new URL(baseURL!).origin); });
+test.afterAll(async () => { await site.close(); });
 
 async function savedFeedback(page: Page, screenshot?: string) {
     const id = await page.evaluate(async screenshot => {
@@ -167,4 +175,54 @@ test('thread attachments: a screen capture keeps the thread open, and a recordin
     await expect(attach).toHaveCount(0);
     expect((await saved(page, id))?.recording?.id).toEqual(expect.any(String));
     await context.close();
+});
+
+test('thread attachments: addresses that share feedback take a screenshot only for their own comments', async ({ page, request }) => {
+    test.setTimeout(120_000);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await signIn(page, uniqueEmail('attach-origins'));
+    const production = site.origin('production'), alias = site.origin('alias');
+    const projectId = await createProject(page, { urls: [production, alias], name: 'Shared evidence' });
+    await setProjectAccess(page, projectId, 'Anyone with the link');
+    const path = `/${projectId}/same`;
+    const headers = await verifiedReviewHeaders(request, projectId, production, randomBytes(32).toString('base64url'));
+    const created = await request.post(`/api/review/${projectId}/comments`, { headers, data: {
+        path, text: 'Left on production', authorName: 'Reviewer', position: { type: 'point', selector: 'h1', xNormal: 0.5, yNormal: 0.5 }
+    } });
+    expect(created.status()).toBe(201);
+    const id = (await created.json() as { id: string }).id;
+
+    // The alias shares production's feedback: the same page there shows the thread
+    const host = (origin: string) => origin.replace(/^https?:\/\//, '');
+    await page.goto(`/app/projects/${projectId}/settings/environments`);
+    const settings = page.getByRole('region', { name: 'Site addresses', exact: true });
+    await hydrated(settings.locator('form'));
+    await settings.getByRole('combobox', { name: `${host(alias)} shares feedback with`, exact: true }).click();
+    await page.getByRole('option', { name: host(production), exact: true }).click();
+    await settings.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(settings.getByRole('status')).toContainText('Saved.');
+
+    const thread = page.getByRole('dialog', { name: 'Comment thread' });
+    const menu = page.getByRole('dialog', { name: 'Attach to comment', exact: true });
+    const capture = menu.getByRole('button', { name: 'Take screenshot', exact: true });
+    // On the alias, the same path is another document: a capture of it is not this comment's evidence
+    await page.goto(`/app/review/${projectId}?url=${encodeURIComponent(`${alias}${path}`)}`);
+    await expect(page).toHaveURL(new RegExp('alias\\.localhost'));
+    await page.locator(`[data-uier-comment="${id}"]`).click();
+    await expect(thread.getByText('Left on production', { exact: true })).toBeVisible();
+    await thread.getByRole('button', { name: 'Attach to comment', exact: true }).click();
+    await expect(menu.getByRole('button', { name: 'Attach image', exact: true })).toBeVisible();
+    await expect(menu.getByRole('button', { name: 'Upload recording', exact: true })).toBeVisible();
+    await expect(capture).toHaveCount(0);
+    await page.keyboard.press('Escape');
+
+    // On the address it was left on, the page is the comment's own
+    await page.goto(`/app/review/${projectId}?url=${encodeURIComponent(`${production}${path}`)}`);
+    await expect(page).toHaveURL(new RegExp('production\\.localhost'));
+    await page.locator(`[data-uier-comment="${id}"]`).click();
+    await thread.getByRole('button', { name: 'Attach to comment', exact: true }).click();
+    await capture.click();
+    const thumbnail = thread.getByRole('button', { name: 'Screenshot of the commented part of the page' });
+    await expect(thumbnail).toBeVisible();
+    await expect.poll(() => thumbnail.locator('img').evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(100);
 });

@@ -14,11 +14,10 @@ import { SuppliedImageError, suppliedScreenshot } from '../suppliedScreenshot';
 import { captureCommentScreenshot } from '../screenshot';
 import { useReplaceScreenshot } from '../hooks/useReplaceScreenshot';
 import { useAttachRecording } from '../hooks/useAttachRecording';
-import { useProjectViewer } from '../project/ProjectGate';
 import { useMessages } from '../i18n';
 import { moveFocusInMenu } from '../focusKeys';
 import { keepMovedFocus } from '../toolbarReview';
-import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
+import { CommentsBootstrapperContext, useToolbarPortalContainer } from './CommentsBootstrapperContext';
 import { useIconTooltip } from './IconTooltip';
 import { useInkContainer } from './InkScope';
 import { useAnnounce } from './Announcer';
@@ -45,8 +44,8 @@ class CaptureFailed extends Error {}
  * Attach, among the first message's actions in the thread's header line (uier #473): one paperclip whose menu
  * adds what the saved comment does not have yet, for those who may edit it (its author, or a project's admin).
  * It replaces the "No screenshot · Upload image · Paste image" row, so a thread without evidence has no row for it.
- * - An image, while there is no screenshot: Take screenshot (the commented part of the page as it is now, on
- *   the comment's own page), Attach image and Paste image. Each is saved like a replaced screenshot, under
+ * - An image, while there is no screenshot: Take screenshot (the commented part of the page as it is now, only
+ *   on the comment's own page at the address it was left on), Attach image and Paste image. Each is saved like a replaced screenshot, under
  *   the same formats and limits; a paste with the keyboard works while Attach or its menu has the focus.
  * - A recording, while there is none: Record screen, where the browser can capture, and Upload recording.
  *   The capture and the clip show under the message (`panel`); a clip is attached with Attach recording.
@@ -63,8 +62,8 @@ function AttachControl({ comment, panel, disabled }: { comment: CommentItem; pan
     const t = useMessages();
     const announce = useAnnounce();
     const { rootElement, path } = useContext(CommentsBootstrapperContext);
-    const { currentEnvironment } = useProjectViewer();
-    const container = useInkContainer() ?? rootElement;
+    // In a thread shown as a sheet, its dialog (a modal makes the rest inert); else dark in the ink scope like the inbox
+    const container = useToolbarPortalContainer(useInkContainer());
     const [open, setOpen] = useState(false);
     const [stage, setStage] = useState<'capturing' | 'reading' | 'saving'>();
     const working = useRef(false);
@@ -89,8 +88,12 @@ function AttachControl({ comment, panel, disabled }: { comment: CommentItem; pan
         // Only when the comment's recording appears
     }, [hasRecording]);
 
-    // The page being reviewed is the comment's: the same test as the inbox's "This page"
-    const onThisPage = comment.path === path && (!comment.source || comment.source.environment === currentEnvironment);
+    // The document being reviewed is the one the comment was left on: its canonical page, at its own origin.
+    // Addresses that share feedback show each other's threads, but a capture here is of this address, and would
+    // be saved as the other's evidence. A project comment names its source; one whose source is gone or was never
+    // recorded gets no capture. Public comments are kept per site, so their page is enough.
+    const onSourcePage = comment.path === path
+        && (!comment.source || (comment.source.available && comment.source.origin === window.location.origin));
     const offerImage = !comment.screenshot;
     const offerRecording = !hasRecording && !recording.clip && recording.phase !== 'recording';
     const offerCapture = offerRecording && canRecordScreen();
@@ -164,7 +167,7 @@ function AttachControl({ comment, panel, disabled }: { comment: CommentItem; pan
     };
     const itemClassName = 'justify-start gap-2 font-normal';
     const items = [
-        offerImage && onThisPage && (
+        offerImage && onSourcePage && (
             <Button key="capture" variant="plain" size="sm" fullWidth type="button" className={itemClassName}
                 aria-describedby={captureId} disabled={imageDisabled}
                 startDecorator={<CameraIcon />}

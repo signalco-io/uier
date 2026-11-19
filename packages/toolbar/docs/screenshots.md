@@ -57,7 +57,10 @@ Record screen and Upload recording are items of the same Attach menu; a recordin
   the reply box's Attach:
   - **Take screenshot**, an after-comment screenshot: `captureCommentScreenshot` of the commented part of the page
     as it is now (the window for page feedback), without the toolbar, with the comment's drawing. Only on the
-    comment's own page (the inbox's "This page" test), never for a thread of another page or environment.
+    document the comment was left on: its canonical page at its recorded source origin (as Reattach comment's
+    original site). Addresses that share feedback show each other's threads, but none takes a screenshot for
+    another's comment, nor does a comment whose source was removed or never recorded. Public comments are kept
+    per site, so their page is enough.
   - **Attach image** and **Paste image**, also a keyboard paste while Attach or its menu has the focus.
   - Record screen and Upload recording, while the comment has no [recording](recordings.md#a-recording-for-a-saved-comment).
   Each image is saved through the same replacement request (`expectedRevision: null`), so the formats, limits,
