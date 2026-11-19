@@ -1,5 +1,5 @@
 import { expect, test, type APIRequestContext, type Locator, type Page, type WebSocketRoute } from '@playwright/test';
-import { commentRows, createProject, openBoardMove, selectionBar, selectShownResults, selectThread, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { commentRows, createProject, expectArchiveCount, openBoardMove, selectionBar, selectShownResults, selectThread, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 import { startReviewedSite } from './support/reviewedSite';
 
@@ -273,7 +273,7 @@ test('archived cards leave one after another from the top, and the next page ris
     expect(motions.filter(motion => motion.startsWith('enter:')).length).toBeGreaterThan(0);
     expect(motions.filter(motion => motion.startsWith('enter:')).every(motion => next.some(comment => motion === `enter:${comment.id}`))).toBe(true);
     await watch.settled();
-    await expect(page.getByRole('button', { name: /^Archive(?:\s*\d+)?$/ })).toHaveText(/25/);
+    await expectArchiveCount(page, 25);
 });
 
 test('with reduced motion cards and rows go straight to their places', async ({ page, request }) => {

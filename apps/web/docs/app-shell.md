@@ -90,8 +90,8 @@ the separately bundled review toolbar owns its own query cache.
   skeleton carries the loaded page's `data-page-width="wide"` and `data-header-wide`, which widen the shell's column
   and the project header. `CommentsLoading` (comments/) draws the search row (search, the list's status tabs, Filter,
   List/Board), the count line's own row where it has one, then the list with the first thread beside it, or the board's
-  columns every workflow has (Open, In progress and Done, each with its status's dot) and the Archive toggle in the header
-  (a faint edge, no fill), from the left. The search row needs no data, so it is drawn for real but
+  columns every workflow has (Open, In progress and Done, each with its status's dot), from the left. The header has no
+  Archive: it is in the Filter popover (uier #485). The search row needs no data, so it is drawn for real but
   `inert` and `aria-hidden` (search, the status tabs with the address's tab pressed and their counts loading, Filter,
   List/Board with the opening view pressed; [uier #362](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_Wg-1DSXTyPI9bQLuSCxHj)).
   A loading state shows only what every project has; what only some projects or people have appears with the loaded
