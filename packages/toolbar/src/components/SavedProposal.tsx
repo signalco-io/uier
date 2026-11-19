@@ -1,33 +1,17 @@
 import { useId, useLayoutEffect, useRef, useState } from 'react';
 import { Button } from '@signalco/ui-primitives/Button';
-import { hasVisibleReplacement, isChangeProposal, proposalCss, type ChangeProposal } from '../changeProposal';
+import { proposalCss, type ChangeProposal } from '../changeProposal';
 import { useLayoutVersion } from '../hooks/useLayoutVersion';
 import { useProposalSession } from '../hooks/useProposalSession';
 import { useMessages } from '../i18n';
-import { markdownPlainText, type MarkdownMention } from '../markdown';
 import { readProposalTarget } from '../proposalPreview';
 import { proposalMatchesTarget, proposalSessionActive, revealProposalTarget } from '../proposalSession';
 import { useAnnounce } from './Announcer';
 import { useReattach } from './CommentAnchorDetails';
+import { TextChanges } from './TextChanges';
 import type { CommentItem, CommentItemPosition } from './@types/Comments';
 
-export function rewriteProposal(original: string | undefined, markdown: string, mentions?: readonly MarkdownMention[]) {
-    if (original === undefined || !markdown.trim()) return undefined;
-    const proposed = markdownPlainText(markdown, mentions);
-    if (!hasVisibleReplacement(proposed)) return undefined;
-    const proposal = { text: { original, proposed }, styles: {} };
-    return isChangeProposal(proposal) ? proposal : undefined;
-}
-
-export function savedProposal(comment: CommentItem | undefined) {
-    const first = comment?.thread.items[0];
-    if (!comment || !first || first.deleted) return undefined;
-    if (isChangeProposal(comment.proposal)) return comment.proposal;
-    if (comment.kind !== 'rewrite') return undefined;
-    const selected = comment.position.type === 'text' ? comment.position.text : undefined;
-    const original = first.quotedText && selected?.trim() !== first.quotedText ? first.quotedText : selected ?? first.quotedText;
-    return rewriteProposal(original, first.text, first.mentions);
-}
+export { rewriteProposal, rewriteWithoutProposal, savedProposal } from '../rewriteProposal';
 
 export function ProposalSwitch({ session, position, disabled = false }: { session: ReturnType<typeof useProposalSession>; position: CommentItemPosition; disabled?: boolean }) {
     const t = useMessages().proposal;
@@ -70,6 +54,7 @@ export function SavedProposal({ comment, proposal, interactive }: { comment: Com
             {anchor.available && <Button size="xs" variant="plain" className="pointer-coarse:min-h-11"
                 onClick={anchor.request}>{t.thread.reattach}</Button>}
         </div>}
+        {proposal.text && <TextChanges original={proposal.text.original} proposed={proposal.text.proposed} />}
         <Button type="button" size="xs" variant="plain" className="justify-self-start pointer-coarse:min-h-11" data-uier-proposal-details=""
             aria-expanded={showDetails} aria-controls={showDetails ? id : undefined}
             onClick={() => setDetailsOpen(!showDetails)}>{t.proposal.values}</Button>

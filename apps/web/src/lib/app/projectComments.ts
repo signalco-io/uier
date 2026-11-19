@@ -16,7 +16,7 @@ import { MAX_THREAD_ITEMS } from '../comments/limits';
 import { commentAnchor, type CommentAnchorView } from './commentAnchor';
 import { projectCommentRouting } from './projectCommentRouting';
 import { commentProposal, commentSourcePath } from '../comments/dto';
-import type { ChangeProposal } from '@uier/toolbar/change-proposal';
+import { rewriteOriginalText, type ChangeProposal } from '@uier/toolbar/change-proposal';
 import { reactionViews } from '../comments/reactions';
 import { getReadSequence, loadReadSequences } from '../comments/readState';
 import { ApiError } from '../comments/http';
@@ -152,6 +152,8 @@ export type ProjectCommentView = {
     kind: DbCommentKind;
     feedbackType?: import('@uier/toolbar/feedback-types').FeedbackTypeSnapshot;
     proposal?: ChangeProposal;
+    /** A rewrite without a proposal: the text it replaces, for its diff (its quote, or the full selection when that was cut) */
+    rewriteOriginal?: string;
     /** What it was left on: an element, selected text (empty once the comment is deleted) or the whole page */
     anchor: CommentAnchorView;
     device?: DbDeviceSize;
@@ -285,6 +287,8 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
     const firstText = mentionText(first, participants);
     const title = threadTitle(comment, titles);
     const proposal = commentProposal(comment);
+    const rewriteOriginal = comment.kind === 'rewrite' && !proposal && !first.deletedAt
+        ? rewriteOriginalText(comment.position.type === 'text' ? comment.position.text : undefined, first.quotedText) : undefined;
     return {
         ...(actor.kind === 'member' && comment.stagingDesign ? {
             designReferenceHref: stagingDesignPath(project.publicId ?? project.id, comment.id)
@@ -308,6 +312,7 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
         kind: isCommentKind(comment.kind) ? comment.kind : 'comment',
         ...(feedbackTypeSnapshot(comment.feedbackType, comment.kind) ? { feedbackType: feedbackTypeSnapshot(comment.feedbackType, comment.kind) } : {}),
         ...(proposal ? { proposal } : {}),
+        ...(rewriteOriginal ? { rewriteOriginal } : {}),
         anchor: anchorView(comment, first, t),
         device: size && deviceSizes.includes(size) ? size : undefined,
         reproduction: toReproductionContext(comment, projectOrigins(project)),
