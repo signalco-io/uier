@@ -32,7 +32,7 @@ import { feedbackStage } from '../verification';
 import { PinParticipants, participantsTuck, participantsWidth, threadParticipants } from './PinParticipants';
 import { usePinShift, type PinBox } from '../pinLayout';
 import { RewriteSuggestions, useRewriteSuggestionsState } from './RewriteSuggestions';
-import { ComposerAttachmentsHeader, ComposerScreenshotToggle, composerIconButtonClassName, useAttachedImage, type AttachedImage } from './ComposerAttachments';
+import { ComposerAttachmentsHeader, ComposerScreenshot, composerIconButtonClassName, useAttachedImage, type AttachedImage } from './ComposerAttachments';
 import { ComposerModal, ExpandComposerButton } from './ComposerModal';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { IconTooltip } from './IconTooltip';
@@ -761,7 +761,7 @@ export function CommentBubble(props: CommentBubbleProps) {
                 waiting={sending}
                 image={{ attachment, reply: !creating }}
                 attachments={creating && (
-                    <ComposerScreenshotToggle
+                    <ComposerScreenshot
                         screenshot={capture?.screenshot}
                         omitted={omitScreenshot}
                         onOmittedChange={handleOmittedChange}

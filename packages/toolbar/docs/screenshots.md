@@ -2,7 +2,7 @@
 
 The automatic screenshot of a new comment, the reviewer's own image, and saved images. Formats, limits, storage
 and what every client does are in [review workflow](../../../docs/review-workflow.md#screenshots). The rules that
-apply to every toolbar change (capture, the screenshot toggle, attached images, image fetches) are in
+apply to every toolbar change (capture, the composer's screenshot, attached images, image fetches) are in
 [the toolbar guide](../AGENTS.md#rules).
 
 ## Capture
@@ -27,17 +27,24 @@ Restored or reopened drafts refresh the capture without persisting images. A dra
 ## The form
 
 New comment and feedback forms render `ComposerAttachmentsHeader` above (not inside) `CommentComposer`
-(`components/ComposerAttachments.tsx`): the title and Expand. The screenshot toggle, **Attach screenshot**
-(`ComposerScreenshotToggle`), is in the text box's bottom-left corner after Attach ([uier #391](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_napwWAvckuKEmZr-J0GGQ)). It has its
-tooltip, `aria-pressed` and the read-out capture status as its description. Pressed while the screenshot will be sent
-(also while it is being taken), it is ink (the UI kit's `solid`: `--primary` on `--primary-foreground`, black in
-light and white in dark) with a check and a camera, so the choice shows before sending. Turned off, it is a plain
-crossed-out camera and `screenshot` is left out of the request. It is hidden while a capture that failed is not
-turned off, and while an image is attached.
+(`components/ComposerAttachments.tsx`): the title and Expand. The screenshot (`ComposerScreenshot`) is in the text
+box's bottom-left corner after Attach ([uier #391](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_napwWAvckuKEmZr-J0GGQ), [uier #476](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2F&comment=comment_MHq-BrZmONnqI7ugzvoOX)):
+
+- A small thumbnail of the capture (the row's 28 px height, 44 px on touch screens), a button named **Preview
+  screenshot** with the read-out capture status as its description. It opens a larger preview in a popover
+  (**Screenshot**, with Close screenshot; Escape closes it and the focus goes back to the thumbnail). The thumbnail is
+  the capture as it will be sent, with the comment's drawing. Like the rest of the comment being written, the preview
+  is not a reviewable toolbar part (no `toolbarSurface`).
+- While it is being taken, a placeholder of the thumbnail's size (`data-image-placeholder`, still with reduced motion)
+  holds its place.
+- **Remove screenshot**, an X after it in the same outlined chip, so it does not read as Discard (28 px, 44 px on touch screens), also while it is being taken: `screenshot` is
+  left out of the request. **Attach screenshot**, a camera, then takes the thumbnail's place and takes a new one.
+  Each takes the focus from the other.
+- Nothing shows while a capture that failed is not removed, nor while an image is attached.
 
 **Attach image**, an item of Attach's menu (`ComposerAttachMenu`), sends the reviewer's own image, picked or pasted
 into the form, as `screenshot` instead of the capture. Once one is attached, its name with a remove button follows
-Attach and the item leaves the menu. Never an image preview. In a tight row the name truncates and the chip's icons keep their
+Attach and the item leaves the menu. No preview of the reviewer's own image. In a tight row the name truncates and the chip's icons keep their
 size ([uier #396](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1%2Fpage-checks&comment=comment_7u8PpdTZvoj6z0h3M0fEy)).
 
 One [screen recording](recordings.md) can be attached alongside the screenshot or supplied image.
@@ -71,12 +78,12 @@ Record screen and Upload recording are items of the same Attach menu; a recordin
 - A comment or reply that is still sending with a screenshot or image shows the thumbnail's placeholder
   (`data-image-placeholder`, the thumbnail's fixed size) at once; the image is fetched once the saved message
   replaces it ([uier #409](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_ZGmj2h7nGoa5E6mpHV0zU)).
-- Saved thumbnails expand in a popover in the shadow root. Redaction opens only from the expanded saved details;
-  composers never preview images.
+- Saved thumbnails expand in a popover in the shadow root. Redaction opens only from the expanded saved details,
+  never from the composer's preview.
 - A replacement invalidates cached originals and updates every comment list.
 
 ## Tests
 
-`apps/web/e2e/screenshots.spec.ts`: Attach and the screenshot toggle in the text box. `thread-attachments.spec.ts`:
+`apps/web/e2e/screenshots.spec.ts`: Attach, the screenshot's thumbnail, its preview and Remove screenshot in the text box. `thread-attachments.spec.ts`:
 Attach to comment on a saved thread; `screenshot-replacement.spec.ts`: saved images, their errors and redaction. `screenshot-performance.spec.ts`: capture yields
 to the browser ([capture responsiveness](composer-popovers.md#capture-responsiveness)).

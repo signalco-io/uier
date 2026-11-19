@@ -388,10 +388,9 @@ error boundary, so one bad comment never breaks the toolbar.
   Revision checks reject stale choices; access/selector/page/project/origin checks run on the server.
   Cross-page migration and automatic AI relocation are not supported.
 - Screenshots are captured automatically when a new element/text comment, rewrite, feedback or bug report starts.
-  There is no preview while writing. The text box's corner has **Attach** (a menu: Attach image, Record screen,
-  Upload recording) and the **Attach screenshot** toggle, pressed (ink, with a check) while a screenshot will be
-  attached: its tooltip says so (or that it is being taken, or could not be taken), and turning it off (a crossed-out
-  camera) posts only the text: no image is sent for that comment. **Attach image**, or pasting an image into the
+  The text box's corner has **Attach** (a menu: Attach image, Record screen, Upload recording) and the screenshot's
+  small thumbnail (a placeholder while it is taken), which opens a larger preview, with **Remove screenshot**: removed,
+  only the text is posted and no image is sent for that comment; **Attach screenshot** (a camera) takes a new one. **Attach image**, or pasting an image into the
   form, sends the reviewer's own PNG, JPEG or WebP (up to 512 KB and 4096 pixels on each side) instead of the
   screenshot; the corner names the file and removes it again. Posting waits for that capture attempt (up to 15 seconds);
   a failed capture still saves the text. Reopening or restoring a draft refreshes its capture and viewport from the current page, and

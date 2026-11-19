@@ -17,7 +17,7 @@ import { CommentComposer } from './CommentComposer';
 import { defaultFeedbackTypes, type FeedbackTypeId } from '../feedbackTypes';
 import { useProjectViewer } from '../project/ProjectGate';
 import { CommentKindIcon } from './CommentKindLabel';
-import { ComposerAttachmentsHeader, ComposerScreenshotToggle, useAttachedImage } from './ComposerAttachments';
+import { ComposerAttachmentsHeader, ComposerScreenshot, useAttachedImage } from './ComposerAttachments';
 import { ComposerModal, ExpandComposerButton } from './ComposerModal';
 import { useAnnounce } from './Announcer';
 import { getDeviceInfo } from './info/getDeviceInfo';
@@ -195,7 +195,7 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
                 recording={{ ...recording, start: () => { setExpanded(false); return recording.start(); } }}
                 image={{ attachment }}
                 attachments={(
-                    <ComposerScreenshotToggle
+                    <ComposerScreenshot
                         page
                         screenshot={screenshot}
                         omitted={omitScreenshot}

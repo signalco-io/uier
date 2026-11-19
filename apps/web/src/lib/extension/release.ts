@@ -22,8 +22,8 @@ export const extensionRelease = {
         setup: 'Open project setup',
         retry: 'Try again'
     },
-    /** The toolbar's toggle that, turned off, sends one comment without its automatic screenshot (ComposerScreenshotToggle) */
-    screenshotToggle: 'Attach screenshot',
+    /** The button beside the composer's screenshot thumbnail that sends one comment without it (ComposerScreenshot) */
+    removeScreenshot: 'Remove screenshot',
     /** The suggested shortcut that opens the popup (`commands` in apps/extension/scripts/build.mjs) */
     shortcut: 'Alt+Shift+U',
     /** `minimum_chrome_version` of the manifest; Edge shares the Chromium version number */
