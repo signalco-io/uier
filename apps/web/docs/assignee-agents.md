@@ -30,6 +30,8 @@ Adding more agents, updating and clearing keep the stage.
 `AssigneesControl` uses a checkbox menu that stays open between people, with atomic add/remove and
 optimistic shared-list patches. It groups each person's `AgentControl` beneath the selection; only
 the signed-in person's controls edit agents, including Add agent while they already have agents.
+A chosen agent shows at once and stays the same chip when the server confirms it: its save is a confirmed
+write ([optimistic comment updates](optimistic-status.md)), and the chip keeps its key when its id arrives.
 `AssigneeCard` opens from rows, board cards and My work. Its full list indents agents beneath their
 person, whose avatar is larger, on a line that runs down from the centre of that avatar. Each agent (`AgentDetailsItem`) has its avatar
 centred on its header line: its name, then "Working now" and "Started 3 min ago" at the right (compact, truncating);

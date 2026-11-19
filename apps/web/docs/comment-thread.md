@@ -241,7 +241,9 @@ assignee card, with Open in T3 Code or another desktop session link, at the top 
   message is edited in place the same way from the thread's More actions (Edit, "Edit comment"), without mentions
   (`editCommentAction` keeps the saved ones where they are); the editor stays open while it saves, keeps the text
   and says why when the save fails, and gives the focus back to the thread's More actions when it closes (the menu
-  leaves the focus in the editor when Edit opens it). `e2e/project-review.spec.ts` covers it.
+  leaves the focus in the editor when Edit opens it). The menu takes the focus back to its button only while the
+  focus is still in the menu or nowhere: a control focused while the menu closes keeps it, so a menu opened right
+  after an item was chosen keeps the keyboard and stays open. `e2e/project-review.spec.ts` covers both.
 
 Project triagers can paste a supported pull request URL in the open thread properties. The row shows a quiet
 Link a pull request ghost control (plus icon, the shared "not set" look), in a row one control tall so it

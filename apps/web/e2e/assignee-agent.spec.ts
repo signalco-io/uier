@@ -142,6 +142,55 @@ test('the assignee picks the agent working with them, edits its session, model a
     await expectRowAvatar('Assigned to you');
 });
 
+test('a new agent stays the same chip when the server confirms it, with the menu opened on it meanwhile', async ({ page, request }) => {
+    const email = uniqueEmail('agent-chip');
+    const name = email.split('@')[0]!;
+    await signIn(page, email);
+    const project = await createProject(page, { urls: [site.origin()] });
+    await setProjectAccess(page, project, 'Anyone with the link');
+    const headers = await verifiedReviewHeaders(request, project, site.origin());
+    const response = await request.post(`/api/review/${project}/comments`, { headers, data: {
+        path: `/${project}/pricing`, text: 'Footer link is broken', authorName: 'Reviewer', position: { type: 'page' }, kind: 'feedback'
+    } });
+    expect(response.status()).toBe(201);
+    await page.goto(`/app/projects/${project}`);
+    const thread = await openComment(page, 'Footer link is broken');
+    await thread.getByRole('button', { name: 'Unassigned. Change assignee', exact: true }).click();
+    await page.getByRole('menuitemcheckbox', { name, exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Done', exact: true }).click();
+    await expect(thread.getByRole('button', { name: 'Assigned to you. Change assignee', exact: true })).toBeEnabled();
+    // Add agent comes with the saved assignment, before anything is held back
+    const add = thread.getByRole('button', { name: 'Add agent', exact: true });
+    await expect(add).toBeEnabled();
+
+    // The save is held back: the agent shows at once, and its menu is opened before the server answers
+    let release = () => {};
+    const held = new Promise<void>(resolve => { release = resolve; });
+    await page.route('**/*', async route => {
+        if (route.request().method() === 'POST' && route.request().headers()['next-action']) await held;
+        await route.continue();
+    });
+    await add.click();
+    const agents = page.getByRole('menu').filter({ has: page.getByRole('menuitemradio', { name: 'Claude', exact: true }) });
+    await animationsFinished(agents);
+    await agents.getByRole('menuitemradio', { name: 'Claude', exact: true }).click();
+    const agent = thread.getByRole('button', { name: 'Agent: Claude. Change agent', exact: true });
+    await expect(agents).toHaveCount(0);
+    await agent.click();
+    const details = page.getByRole('menuitem', { name: 'Session and model', exact: true });
+    await expect(details).toBeVisible();
+    await agent.evaluate(element => element.setAttribute('data-shown-before-saving', ''));
+
+    // Saved: the agent never left, and the chip with its open menu is the one shown before, now with the saved details
+    release();
+    await expect(page.getByRole('menu').filter({ has: details })).toContainText('Started just now');
+    await expect(add).toBeEnabled();
+    await expect(agent).toHaveAttribute('data-shown-before-saving', '');
+    await expect(details).toBeVisible();
+    await details.click();
+    await expect(page.getByRole('dialog', { name: 'Claude details' })).toBeVisible();
+});
+
 test('the avatars on a row show the assignee and their agent on hover, focus or tap, and a click still opens the thread', async ({ page, request }, testInfo) => {
     const email = uniqueEmail('agent-card');
     const name = email.split('@')[0]!;

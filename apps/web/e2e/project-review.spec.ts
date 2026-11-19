@@ -1009,8 +1009,12 @@ test('the app lists, filters and manages a project\'s comments', async ({ page, 
     expect(await list(ana, about)).toHaveLength(0);
     expect(await list(ben, about)).toHaveLength(1);
 
-    // Assign to me, then the "Assigned to me" filter
+    // Assign to me, then the "Assigned to me" filter. More actions closes while this menu opens: it does not take
+    // the focus back from it, which left the new menu without the keyboard or closed it
     await benCard.getByRole('button', { name: /Change assignee$/ }).click();
+    const assign = page.getByRole('menu').filter({ has: page.getByRole('menuitemcheckbox', { name: /^owner-/ }) });
+    await expect(page.getByRole('menuitem', { name: 'Make public' })).toHaveCount(0);
+    await expect.poll(() => assign.evaluate(menu => menu.contains(document.activeElement))).toBe(true);
     await page.getByRole('menuitemcheckbox', { name: /^owner-/ }).click();
     await page.getByRole('menuitem', { name: 'Done', exact: true }).click();
     await expect(benCard.getByRole('button', { name: 'Assigned to you. Change assignee', exact: true })).toBeVisible();
