@@ -20,6 +20,7 @@ export type DbProofAsset = AppDoc & ProofAsset & {
     type: 'proof-asset';
     deleted?: boolean;
     nextAttemptAt?: string;
+    emailIngress?: { hash: string; ownerId: string; epoch: string; createdAt: string };
 };
 export type DbProofCollection = AppDoc & ProofCollection & { type: 'proof-collection' };
 export type DbProofShare = AppDoc & ProofShare & {
@@ -46,6 +47,11 @@ export type DbProofVersion = AppDoc & Omit<ProofVersion, 'artifacts' | 'original
     attempt?: { id: string; until: string };
     publishedAttemptId?: string;
     manifest?: ProofManifest;
+    resources?: Record<string, string>;
+    sourceFingerprint?: string;
+    agentUpload?: { userId: string; connectionId: string; kind: 'credential' | 'oauth' };
+    emailDeliveryKey?: string;
+    emailDelivery?: { key: string; addressHash: string; sourceDigest: string };
     artifacts: DbProofArtifact[];
 };
 

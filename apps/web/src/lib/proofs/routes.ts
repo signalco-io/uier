@@ -8,6 +8,11 @@ import { createProofShare, deleteProofAsset, deleteProofCollection, getProofAsse
 import { getProofBlobs, proofAttemptPrefix, type ByteRange } from './blobs';
 import { beginProofUpload, finalizeProofUpload, putLocalProofUpload } from './uploads';
 import { proofArtifactIdPattern, proofInlineTypes } from './sources';
+import { figmaSourceType } from './adapters/figma';
+import { figmaFramesInput, figmaImportInput, importProofFigma, inspectProofFigma } from './figmaImport';
+import { proofEmailAddress } from './emailIngress';
+import { openPrototype } from './prototype';
+import { proofPreviewOrigin } from './previewOrigin';
 import { proofNotFound } from './store';
 
 const idPattern = /^(?:[0-9a-f]{32}|[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12})$/;
@@ -17,7 +22,7 @@ const name = z.string().trim().min(1).max(160).regex(/^[^\p{Cc}\p{Cf}]*$/u);
 const position = z.number().int().min(0).max(1_000_000_000);
 const assetInput = z.strictObject({ name, collectionId: proofId.nullish(), position: position.optional() });
 const collectionInput = z.strictObject({ name, position: position.optional() });
-const uploadInput = z.strictObject({
+export const proofUploadInput = z.strictObject({
     requestId: z.string().regex(/^[A-Za-z0-9_-]{8,100}$/),
     expectedVersionId: proofId.nullable(),
     filename: z.string().trim().min(1).max(200).regex(/^[^/\\\p{Cc}\p{Cf}]+$/u),
@@ -60,7 +65,8 @@ async function proofMedia(request: Request, projectId: string, assetId: string, 
     const { version } = await authorizeProof(request, { projectId, assetId, versionId }, original ? 'downloadOriginal' : 'view');
     if (!version?.publishedAttemptId) throw proofNotFound();
     const artifact = original ? null : version.artifacts.find(item => item.id === artifactId);
-    if (!original && (!artifact || !proofInlineTypes.has(artifact.contentType))) throw proofNotFound();
+    if (!original && version.manifest?.format === 'pdf' && version.manifest.pdf?.rendition !== 'raster-ocr-v1') throw proofNotFound();
+    if (!original && (!artifact || !proofInlineTypes.has(artifact.contentType) || Object.values(version.resources ?? {}).includes(artifact.id))) throw proofNotFound();
     const size = artifact?.size ?? version.size;
     let range: ByteRange | undefined;
     try {
@@ -70,7 +76,7 @@ async function proofMedia(request: Request, projectId: string, assetId: string, 
         return new Response(null, { status: 416, headers: { 'Content-Range': `bytes */${size}` } });
     }
     const headers = {
-        'Content-Type': artifact?.contentType ?? 'application/octet-stream',
+        'Content-Type': artifact?.contentType === 'text/html' ? 'text/plain; charset=utf-8' : artifact?.contentType ?? 'application/octet-stream',
         'Content-Disposition': original ? attachment(version.filename) : 'inline',
         'Content-Security-Policy': "default-src 'none'; frame-ancestors 'self'; sandbox",
         'Accept-Ranges': 'bytes',
@@ -111,10 +117,21 @@ async function handleProof(request: Request, projectId: string, path: string[], 
             return noContent();
         }
     }
+    if (path.length === 2 && path[0] === 'figma' && path[1] === 'frames' && method === 'POST')
+        return Response.json(await inspectProofFigma(request, projectId, await json(request, figmaFramesInput)));
+    if (path.length === 3 && path[0] === 'assets' && path[2] === 'figma' && method === 'POST')
+        return Response.json({ version: await importProofFigma(request, projectId, validId(path[1]!), await json(request, figmaImportInput)) });
+    if (path.length === 3 && path[0] === 'assets' && path[2] === 'email-address') {
+        const assetId = validId(path[1]!);
+        if (method === 'GET') return Response.json(await proofEmailAddress(request, projectId, assetId));
+        if (method === 'POST' || method === 'DELETE')
+            return Response.json(await proofEmailAddress(request, projectId, assetId, method === 'POST' ? 'rotate' : 'disable'));
+    }
     if (path[0] === 'assets' && path[2] === 'uploads') {
         const assetId = validId(path[1]!);
         if (path.length === 3 && method === 'POST') {
-            const input = await json(request, uploadInput);
+            const input = await json(request, proofUploadInput);
+            if (input.contentType === figmaSourceType) throw apiErrors.invalidRequest('Use the authorized Figma import for design snapshots.');
             if (input.size > MAX_PROOF_UPLOAD_BYTES) throw apiErrors.tooLarge(MAX_PROOF_UPLOAD_BYTES);
             return Response.json(await beginProofUpload(request, projectId, assetId, input));
         }
@@ -128,6 +145,8 @@ async function handleProof(request: Request, projectId: string, path: string[], 
     if (path[0] === 'assets' && path[2] === 'versions' && (method === 'GET' || method === 'HEAD')) {
         const assetId = validId(path[1]!);
         const versionId = validId(path[3] ?? '');
+        if (path.length === 5 && path[4] === 'prototype' && method === 'GET')
+            return Response.json(await openPrototype(request, projectId, assetId, versionId, await baseUrl()));
         if (path.length === 5 && path[4] === 'original') return proofMedia(request, projectId, assetId, versionId);
         if (path.length === 6 && path[4] === 'media' && proofArtifactIdPattern.test(path[5]!))
             return proofMedia(request, projectId, assetId, versionId, path[5]!);
@@ -163,7 +182,11 @@ async function handleProof(request: Request, projectId: string, path: string[], 
         return response;
     }
     if (subresource(path, 'settings', 1)) {
-        if (method === 'GET') return Response.json({ formats: await proofFormatSettings(request, projectId) });
+        if (method === 'GET') {
+            const { actor } = await authorizeProof(request, { projectId }, 'manage');
+            return Response.json({ formats: await proofFormatSettings(request, projectId),
+                canEdit: actor.kind === 'member' && actor.isAdmin, htmlAvailable: Boolean(proofPreviewOrigin()) });
+        }
         if (method === 'PATCH') {
             const { formats } = await json(request, settingsInput);
             return Response.json({ formats: await proofFormatSettings(request, projectId, [...new Set(formats)]) });

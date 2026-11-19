@@ -26,12 +26,17 @@ function proofShare({ id, scope, permission, downloadOriginal, createdAt, expire
     return { id, scope, permission, downloadOriginal, createdAt, expiresAt, revokedAt };
 }
 
-export function proofVersion(projectId: string, version: DbProofVersion, actor: Pick<ProofActor, 'downloadOriginal'>): ProofVersion {
+export function proofVersion(projectId: string, version: DbProofVersion, actor: Pick<ProofActor, 'downloadOriginal' | 'manage'>): ProofVersion {
     const { assetId, id, number, status, filename, contentType, size, digest, manifest, createdAt, publishedAt, failure } = version;
     const path = `${proofApiPath(projectId)}/assets/${assetId}/versions/${id}`;
+    const certifiedPdf = manifest?.format !== 'pdf' || manifest.pdf?.rendition === 'raster-ocr-v1';
     return {
-        id, assetId, number, status, filename, contentType, size, digest, manifest, createdAt, publishedAt, failure,
-        artifacts: version.artifacts.map(artifact => ({ ...artifact, url: `${path}/media/${artifact.id}` })),
+        id, assetId, number, status, filename, contentType, size, digest, createdAt, publishedAt, failure,
+        manifest: manifest?.format === 'figma' && !actor.manage
+            ? { format: 'figma', surfaces: manifest.surfaces.map(({ sourceUrl: _, ...surface }) => surface) }
+            : manifest,
+        artifacts: version.artifacts.filter(artifact => certifiedPdf && !Object.values(version.resources ?? {}).includes(artifact.id))
+            .map(artifact => ({ ...artifact, url: `${path}/media/${artifact.id}` })),
         ...(status === 'published' && actor.downloadOriginal ? { originalUrl: `${path}/original` } : {})
     };
 }
@@ -87,7 +92,7 @@ export async function saveProofAsset(request: Request, projectId: string, assetI
         if (collectionId && !await proofs.collection(collectionId)) throw proofNotFound();
         const now = new Date().toISOString();
         const doc: DbProofAsset = {
-            type: 'proof-asset', pk: proofs.pk, id, ttl: -1, name: input.name ?? saved?.doc.name ?? '',
+            ...saved?.doc, type: 'proof-asset', pk: proofs.pk, id, ttl: -1, name: input.name ?? saved?.doc.name ?? '',
             collectionId, position: input.position ?? saved?.doc.position ?? 0,
             createdAt: saved?.doc.createdAt ?? now, updatedAt: now, currentVersionId: saved?.doc.currentVersionId ?? null
         };

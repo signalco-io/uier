@@ -1,14 +1,20 @@
 import { createHash, randomUUID } from 'node:crypto';
 import type { DbProject } from '../app/model';
+import { currentMcpConnection, mcpProject } from '../mcp/credentials';
 import { memberActor } from '../review/actor';
 import { sha256Hex, signToken, verifyToken } from '../app/tokens';
 import { ApiError, apiErrors } from '../comments/http';
-import { authorizeProof, proofProject } from './access';
+import { authorizeProof, proofProject, type ProofAuthorization } from './access';
 import { proofVersion } from './assets';
+import { rollApprovalRound } from './approvals/storage';
 import { getProofBlobs, proofAttemptPrefix, proofStagedBlob, type ProofBlobs } from './blobs';
+import { proofPreviewOrigin } from './previewOrigin';
 import { MAX_PROOF_UPLOAD_BYTES, proofApiPath, type ProofUploadGrant, type ProofUploadInput } from './model';
 import { getProofSourceAdapter, ingestProofBytes, ProofSourceError } from './sources';
 import { mutateProof, proofConflict, proofEpoch, proofNotFound, proofStore, type DbProofProject, type DbProofVersion, type ProofStore } from './store';
+
+export type ProofUploadAuthorizer = () => Promise<ProofAuthorization>;
+type TrustedSource = Pick<DbProofVersion, 'sourceFingerprint' | 'emailDelivery' | 'agentUpload'>;
 
 const grantMs = 10 * 60_000;
 const uploadMs = 24 * 60 * 60_000;
@@ -45,26 +51,40 @@ function checkUploadInput(input: ProofUploadInput) {
     if (input.size > MAX_PROOF_UPLOAD_BYTES) throw apiErrors.tooLarge(MAX_PROOF_UPLOAD_BYTES);
 }
 
-export async function beginProofUpload(request: Request, projectId: string, assetId: string, input: ProofUploadInput): Promise<ProofUploadGrant> {
+export function beginProofUpload(request: Request, projectId: string, assetId: string, input: ProofUploadInput): Promise<ProofUploadGrant> {
+    return beginAuthorizedProofUpload(projectId, assetId, input, () => authorizeProof(request, { projectId, assetId }, 'manage'));
+}
+
+export function proofUploadId(project: DbProject, epoch: string, assetId: string, userId: string, requestId: string) {
+    return sha256Hex(JSON.stringify([project.id, project.workspaceId, epoch, assetId, userId, requestId])).slice(0, 32);
+}
+
+export async function beginAuthorizedProofUpload(projectId: string, assetId: string, input: ProofUploadInput,
+    authorize: ProofUploadAuthorizer, trusted?: TrustedSource): Promise<ProofUploadGrant> {
     checkUploadInput(input);
-    const { project, actor } = await authorizeProof(request, { projectId, assetId }, 'manage');
+    const { project, actor } = await authorize();
     if (actor.kind !== 'member') throw proofNotFound();
     const { version, repeated } = await mutateProof(project, async (proofs, guard) => {
-        const { project: current, actor: owner, asset } = await authorizeProof(request, { projectId, assetId }, 'manage');
+        const { project: current, actor: owner, asset } = await authorize();
         if (owner.kind !== 'member' || owner.userId !== actor.userId || !asset) throw proofNotFound();
         const epoch = proofEpoch(guard);
-        const id = sha256Hex(JSON.stringify([project.id, current.workspaceId, epoch, assetId, owner.userId, input.requestId])).slice(0, 32);
+        const id = proofUploadId(current, epoch, assetId, owner.userId, input.requestId);
         const previous = await proofs.version(id);
         const now = Date.now();
         if (previous) {
             const saved = previous.doc;
             if (saved.filename !== input.filename || saved.contentType !== input.contentType
-                || saved.expectedVersionId !== input.expectedVersionId || saved.size !== input.size)
+                || saved.expectedVersionId !== input.expectedVersionId || saved.size !== input.size
+                || saved.sourceFingerprint !== trusted?.sourceFingerprint || saved.emailDelivery?.key !== trusted?.emailDelivery?.key
+                || saved.agentUpload?.connectionId !== trusted?.agentUpload?.connectionId)
                 throw proofConflict('That upload request ID was already used with different file details.');
             if (saved.status !== 'pending') return { value: { version: saved, repeated: true } };
             if (saved.uploadUntil <= iso(now)) throw proofConflict('This upload expired. Start a new upload.');
         }
-        if (!getProofSourceAdapter(input.contentType, guard.formats ?? ['image'])) throw unsupported();
+        const adapter = getProofSourceAdapter(input.contentType, guard.formats ?? ['image']);
+        if (!adapter) throw unsupported();
+        if (adapter.format === 'html' && !proofPreviewOrigin())
+            throw apiErrors.unavailable('The separate prototype preview host is not configured.');
         if (asset.currentVersionId !== input.expectedVersionId) throw staleVersion();
         if (previous && previous.doc.grantUntil > iso(now + 30_000)) return { value: { version: previous.doc, repeated: true } };
         const uploadUntil = previous?.doc.uploadUntil ?? iso(now + uploadMs);
@@ -80,13 +100,13 @@ export async function beginProofUpload(request: Request, projectId: string, asse
         const doc: DbProofVersion = {
             type: 'proof-version', id, pk: proofs.pk, ttl: -1, projectId: project.id, workspaceId: current.workspaceId, epoch,
             assetId, uploaderId: owner.userId, expectedVersionId: input.expectedVersionId,
-            filename: input.filename, contentType: input.contentType, size: input.size,
+            filename: input.filename, contentType: input.contentType, size: input.size, ...trusted, emailDeliveryKey: trusted?.emailDelivery?.key,
             number: null, status: 'pending', createdAt: iso(now), artifacts: [], uploadUntil, grantUntil, nextAttemptAt: uploadUntil
         };
         return { value: { version: doc, repeated: false }, operations: [{ kind: 'create', doc }] };
     });
     const representation = proofVersion(projectId, version, actor);
-    if (version.status !== 'pending') return { version: representation, uploadUrl: null, headers: {}, expiresAt: version.grantUntil };
+    if (trusted?.sourceFingerprint || trusted?.emailDelivery || version.status !== 'pending') return { version: representation, uploadUrl: null, headers: {}, expiresAt: version.grantUntil };
     const blobs = getProofBlobs();
     if (repeated && await blobs.hasStaged(proofStagedBlob(version)))
         return { version: representation, uploadUrl: null, headers: {}, expiresAt: version.grantUntil };
@@ -105,11 +125,15 @@ function assertUploadOwner(version: DbProofVersion, assetId: string, userId: str
 }
 
 /** Trusted imports and local development can stage raw source bytes through the same private slot. */
-export async function stageProofSource(request: Request, projectId: string, assetId: string, versionId: string, bytes: Buffer) {
-    const { project, actor } = await authorizeProof(request, { projectId, assetId }, 'manage');
+export function stageProofSource(request: Request, projectId: string, assetId: string, versionId: string, bytes: Buffer) {
+    return stageAuthorizedProofSource(assetId, versionId, bytes, () => authorizeProof(request, { projectId, assetId }, 'manage'));
+}
+
+export async function stageAuthorizedProofSource(assetId: string, versionId: string, bytes: Buffer, authorize: ProofUploadAuthorizer) {
+    const { project, actor } = await authorize();
     if (actor.kind !== 'member') throw proofNotFound();
     const version = await mutateProof(project, async (proofs, guard) => {
-        const { project: current, actor: owner } = await authorizeProof(request, { projectId, assetId }, 'manage');
+        const { project: current, actor: owner } = await authorize();
         if (owner.kind !== 'member') throw proofNotFound();
         const saved = (await proofs.version(versionId))?.doc;
         if (!saved) throw proofNotFound();
@@ -146,6 +170,7 @@ export async function putLocalProofUpload(request: Request, projectId: string, a
         ]);
         if (!version || !asset || asset.doc.deleted || !guard || guard.doc.deleted || member?.kind !== 'member') throw proofNotFound();
         assertUploadOwner(version.doc, assetId, uploaderId, current, guard.doc);
+        await assertAgentGrant(version.doc);
         if (version.doc.status !== 'pending' || version.doc.grantUntil <= iso(Date.now())) throw proofConflict('This upload grant is no longer active.');
         return version.doc;
     }
@@ -181,6 +206,20 @@ type Processing = {
     store?: ProofStore['store'];
 };
 
+function assertDelivery(version: DbProofVersion, asset: NonNullable<ProofAuthorization['asset']>, guard: DbProofProject) {
+    if (version.emailDelivery && (asset.emailIngress?.hash !== version.emailDelivery.addressHash
+        || asset.emailIngress.epoch !== proofEpoch(guard) || asset.emailIngress.ownerId !== version.uploaderId)) throw proofNotFound();
+}
+
+async function assertAgentGrant(version: DbProofVersion) {
+    if (!version.agentUpload || version.status === 'published') return;
+    const { userId, connectionId, kind } = version.agentUpload;
+    const identity = await currentMcpConnection(userId, connectionId, kind);
+    if (!identity) throw proofNotFound();
+    const { user } = await mcpProject(identity, version.projectId, 'proofs:upload');
+    if (user.id !== version.uploaderId) throw proofNotFound();
+}
+
 async function currentProject(input: Processing, proofs: ProofStore) {
     if (input.reauthorize) return input.reauthorize();
     const project = await proofProject(input.project.id, proofs.store);
@@ -210,6 +249,8 @@ export async function processProofUpload(input: Processing): Promise<DbProofVers
         if (!asset || asset.doc.deleted || !saved) throw proofNotFound();
         const version = saved.doc;
         assertUploadOwner(version, input.assetId, input.userId, project, guard);
+        assertDelivery(version, asset.doc, guard);
+        await assertAgentGrant(version);
         if (version.status === 'published' || version.status === 'failed') return { value: { version, done: true } };
         const now = iso(Date.now());
         if (version.attempt && version.attempt.until > now) throw proofConflict('This file is already being processed. Try again shortly.');
@@ -263,6 +304,8 @@ export async function processProofUpload(input: Processing): Promise<DbProofVers
         const [asset, saved] = await Promise.all([proofs.asset(input.assetId), proofs.version(input.versionId)]);
         if (!asset || asset.doc.deleted || !saved) throw proofNotFound();
         assertUploadOwner(saved.doc, input.assetId, input.userId, project, guard);
+        assertDelivery(saved.doc, asset.doc, guard);
+        await assertAgentGrant(saved.doc);
         if (saved.doc.status === 'published') return { value: saved.doc };
         if (saved.doc.attempt?.id !== attemptId || saved.doc.attempt.until <= iso(Date.now())) throw proofConflict();
         if (asset.doc.currentVersionId !== saved.doc.expectedVersionId
@@ -277,28 +320,35 @@ export async function processProofUpload(input: Processing): Promise<DbProofVers
         const now = iso(Date.now());
         const { attempt: _, ...rest } = saved.doc;
         const doc: DbProofVersion = { ...rest, status: 'published', number: (preceding?.doc.number ?? 0) + 1,
-            digest, manifest: result.manifest, artifacts: result.artifacts.map(({ id, contentType, bytes }) => ({ id, contentType, size: bytes.length })),
+            digest, manifest: result.manifest, resources: result.resources, artifacts: result.artifacts.map(({ id, contentType, bytes }) => ({ id, contentType, size: bytes.length })),
             publishedAt: now, publishedAttemptId: attemptId, nextAttemptAt: proofCleanupAt(saved.doc) };
         return { value: doc, operations: [
             { kind: 'replace', doc, etag: saved.etag },
-            { kind: 'replace', doc: { ...asset.doc, updatedAt: now, currentVersionId: doc.id }, etag: asset.etag }
+            { kind: 'replace', doc: { ...asset.doc, updatedAt: now, currentVersionId: doc.id }, etag: asset.etag },
+            ...await rollApprovalRound(proofs, asset.doc, doc, proofEpoch(guard))
         ] };
     }, input.store);
     if (savedVersion.status === 'failed') throw failedVersion(savedVersion);
     return savedVersion;
 }
 
-export async function finalizeProofUpload(request: Request, projectId: string, assetId: string, versionId: string) {
-    const initial = await authorizeProof(request, { projectId, assetId }, 'manage');
+export function finalizeProofUpload(request: Request, projectId: string, assetId: string, versionId: string) {
+    return finalizeAuthorizedProofUpload(projectId, assetId, versionId, () => authorizeProof(request, { projectId, assetId }, 'manage'));
+}
+
+export async function finalizeAuthorizedProofUpload(projectId: string, assetId: string, versionId: string, authorize: ProofUploadAuthorizer) {
+    const initial = await authorize();
     if (initial.actor.kind !== 'member') throw proofNotFound();
     const userId = initial.actor.userId;
     const version = await processProofUpload({ project: initial.project, assetId, versionId, userId, blobs: getProofBlobs(),
         reauthorize: async () => {
-            const fresh = await authorizeProof(request, { projectId, assetId }, 'manage');
+            const fresh = await authorize();
             if (fresh.actor.kind !== 'member' || fresh.actor.userId !== userId) throw proofNotFound();
             return fresh.project;
         }
     });
-    const fresh = await authorizeProof(request, { projectId, assetId, versionId }, 'manage');
+    const fresh = await authorize();
+    if (fresh.actor.kind !== 'member' || fresh.actor.userId !== userId || fresh.project.workspaceId !== version.workspaceId)
+        throw proofNotFound();
     return proofVersion(projectId, version, fresh.actor);
 }

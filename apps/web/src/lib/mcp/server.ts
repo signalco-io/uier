@@ -17,7 +17,7 @@ import { screenshotBytes } from '../screenshots/blobStore';
 import { McpServer, ProtocolError, ProtocolErrorCode, ResourceTemplate } from '@modelcontextprotocol/server';
 import { z } from 'zod';
 import { pagePath } from '@uier/toolbar/page-state';
-import { mcpAccounts, mcpProject, requireMcpScope, type McpIdentity } from './credentials';
+import { authenticateMcp, mcpAccounts, mcpProject, requireMcpScope, type McpIdentity } from './credentials';
 import { accessCovers, listAccessibleWorkspaces } from './oauth/grants';
 import { ApiError, apiErrors } from '../comments/http';
 import { MAX_SCREENSHOT_BYTES } from '../comments/limits';
@@ -53,6 +53,14 @@ import { messageAgentView } from '../review/messageAgent';
 import { createAccessToken, createAccessTokenSchema } from './createAccessToken';
 import type { DbUser } from '../app/model';
 import { threadCardHtml, THREAD_CARD_URI, THREAD_CARD_MIME } from './threadCard';
+
+import { agentProofAuthorizer, agentProofFiles, assertAgentUploadType } from '../proofs/agentUploads';
+import { proofUploadInput } from '../proofs/routes';
+import { beginAuthorizedProofUpload, finalizeAuthorizedProofUpload } from '../proofs/uploads';
+import { proofViewerPath } from '../proofs/model';
+
+const proofAssetId = z.string().uuid();
+const proofVersionId = z.string().regex(/^[a-f0-9]{32}$/);
 
 const page = {
     limit: z.number().int().min(1).max(25).default(20).describe('Results per page: 1–25, default 20. Use nextCursor for more results.'),
@@ -143,6 +151,8 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
     registerMcpEvents(server, identity, log, { baseUrl, stream: options.stream });
     const actingAsFor = (user: DbUser) => ({ userId: user.id, name: user.name, credential: identity.connection.name, connection: { kind: identity.connection.kind } });
     const actingAs = actingAsFor(identity.user);
+    const liveProofAuthorizer = (projectId: string, assetId: string) => agentProofAuthorizer(
+        identity, projectId, assetId, () => authenticateMcp(request, baseUrl));
     const readAnnotations = { readOnlyHint: true, destructiveHint: false, openWorldHint: false };
     const writeAnnotations = { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false };
     server.registerTool('create_access_token', {
@@ -151,6 +161,30 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
     }, input => safely(async () => {
         const { user } = await mcpProject(identity, input.projectIds[0]!);
         return result({ actingAs: actingAsFor(user), ...await createAccessToken(identity, input) });
+    }));
+    server.registerTool('list_proof_files', {
+        description: 'List permitted proof assets, current version IDs, and enabled upload media types. Requires proofs:upload.',
+        inputSchema: { projectId, cursor: proofAssetId.optional() }, annotations: readAnnotations
+    }, input => safely(async () => result(await agentProofFiles(identity, input.projectId, input.cursor))));
+    server.registerTool('begin_proof_upload', {
+        description: 'Prepare a new version of an existing proof after the user approves the file. Requires proofs:upload. PUT raw file bytes to uploadUrl with the exact returned headers and no credentials. Treat this URL as a secret. Then call finalize_proof_upload. Retry the same request ID and input, and use the current version ID from list_proof_files.',
+        inputSchema: { projectId, assetId: proofAssetId, ...proofUploadInput.shape }, annotations: writeAnnotations
+    }, ({ projectId, assetId, ...input }) => safely(async () => {
+        assertAgentUploadType(input.contentType);
+        const grant = await beginAuthorizedProofUpload(projectId, assetId, { ...input, requestId: key(identity, input.requestId) },
+            liveProofAuthorizer(projectId, assetId), { agentUpload: { userId: identity.user.id, connectionId: identity.connection.id, kind: identity.connection.kind } });
+        return result({ versionId: grant.version.id, uploadUrl: grant.uploadUrl ? new URL(grant.uploadUrl, baseUrl).href : null,
+            headers: grant.headers, expiresAt: grant.expiresAt });
+    }));
+    server.registerTool('finalize_proof_upload', {
+        description: 'Publish staged bytes as an immutable proof version and return its member review link. Requires proofs:upload. Retry the original version ID on a temporary processing conflict.',
+        inputSchema: { projectId, assetId: proofAssetId, versionId: proofVersionId }, annotations: writeAnnotations
+    }, ({ projectId, assetId, versionId }) => safely(async () => {
+        const authorize = liveProofAuthorizer(projectId, assetId);
+        const version = await finalizeAuthorizedProofUpload(projectId, assetId, versionId, authorize);
+        const { project } = await authorize();
+        return result({ versionId: version.id, number: version.number, format: version.manifest?.format,
+            url: new URL(proofViewerPath(project.publicId ?? projectId, assetId, versionId), baseUrl).href });
     }));
     server.registerTool('list_projects', { description: `List projects this connection can reach through its selected accounts, with each project's acting account and workspace. When accounts share a project, the connection's managing account is used first, then the selected account order. Optional workspaceId filter. Limit: 1–25 (default 20); follow nextCursor. If a feedback packet's owning project is absent, ask the person to reconnect and choose it. ${untrusted}`, inputSchema: { ...projectPage, workspaceId: z.string().min(1).max(128).optional().describe('Only projects in this workspace.') }, annotations: readAnnotations }, input => safely(async () => {
         requireMcpScope(identity, 'feedback:read');
