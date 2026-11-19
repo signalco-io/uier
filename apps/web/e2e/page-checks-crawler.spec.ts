@@ -106,6 +106,13 @@ test('the Crawlers section requests nothing before the SEO panel opens, then rep
     await expect(crawlers.locator('[data-uier-crawler="GPTBot"]')).toContainText('OpenAI, training AI models');
     await expect(crawlers.locator('[data-uier-crawler="GPTBot"]')).toContainText('Blocked by Disallow: /');
     await expect(crawlers.locator('[data-uier-crawler="ClaudeBot"]')).toContainText('Allowed');
+    // In columns: every row's purpose starts at the same x, and every verdict ends at the same x
+    const columns = await crawlers.getByRole('listitem').evaluateAll(rows => rows.map(row => {
+        const [, use, verdict] = Array.from(row.children).map(cell => cell.getBoundingClientRect());
+        return { use: Math.round(use.left), verdict: Math.round(verdict.right) };
+    }));
+    expect(new Set(columns.map(column => column.use)).size).toBe(1);
+    expect(new Set(columns.map(column => column.verdict)).size).toBe(1);
 
     await animationsFinished(panel);
     await expectNoAxeViolations(page, { include: ['#uier-toolbar'] });
