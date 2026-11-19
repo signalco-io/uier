@@ -106,7 +106,8 @@ row repeating it ([uier #390](https://uier.io/app/review/uier00000002?url=https%
 ## Deleting an account
 
 Account → General → Delete account requires the active account’s email and a sign-in within the last
-ten minutes (`RECENT_SIGN_IN_SECONDS`, the passkeys’ limit). Deletion drops the active account
+ten minutes (`RECENT_SIGN_IN_SECONDS`, the passkeys’ limit; a Google or Microsoft sign-in counts only
+when the provider confirms it, see [sign in again](sign-in.md#sign-in-again)). Deletion drops the active account
 from the browser and resumes another signed-in account if present. Signing up again creates a fresh
 identity. Project feedback and workspace history follow their normal retention rules.
 

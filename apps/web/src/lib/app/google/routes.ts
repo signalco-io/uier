@@ -16,9 +16,10 @@ function redirect(location: string) {
 }
 
 /** Sign in, with an allowlisted `google` outcome and the stored return path, never OAuth parameters */
-function signInUrl(baseUrl: string, outcome?: string, next?: string, addingAccount = false) {
+function signInUrl(baseUrl: string, outcome?: string, next?: string, addingAccount = false, again = false) {
     const url = new URL(KnownPages.AppSignIn, baseUrl);
     if (addingAccount) url.searchParams.set('add', '1');
+    if (again) url.searchParams.set('again', '1');
     if (next) url.searchParams.set('next', next);
     if (outcome) url.searchParams.set('google', outcome);
     return url.href;
@@ -32,7 +33,8 @@ function accountUrl(baseUrl: string, outcome?: string) {
 }
 
 /**
- * `GET /app/sign-in/google[?next=]` signs in; `?intent=link` links Google to the signed-in account.
+ * `GET /app/sign-in/google[?next=]` signs in; `?intent=link` links Google to the signed-in account;
+ * `?add=1&again=1` signs the same account in again, which counts only when Google shows the sign-in to be new.
  * Cross-site and prefetch requests start nothing, like an integration's connect route.
  */
 export async function startGoogleSignInRoute(request: Request) {
@@ -40,7 +42,9 @@ export async function startGoogleSignInRoute(request: Request) {
     const params = new URL(request.url).searchParams;
     const linking = params.get('intent') === 'link';
     const next = linking ? undefined : safeNextPath(params.get('next') ?? undefined);
-    const back = (outcome?: string) => linking ? accountUrl(baseUrl, outcome) : signInUrl(baseUrl, outcome, next, params.get('add') === '1');
+    // `again`: Sign in again from a step that needs a recent sign-in (`KnownPageLinks.signInAgain`)
+    const again = !linking && params.get('add') === '1' && params.get('again') === '1';
+    const back = (outcome?: string) => linking ? accountUrl(baseUrl, outcome) : signInUrl(baseUrl, outcome, next, params.get('add') === '1', again);
     const site = request.headers.get('sec-fetch-site');
     if ((site && site !== 'same-origin' && site !== 'none') || /prefetch/i.test(`${request.headers.get('purpose')} ${request.headers.get('sec-purpose')}`))
         return redirect(back());
@@ -53,7 +57,7 @@ export async function startGoogleSignInRoute(request: Request) {
     if (!linking && user && params.get('add') !== '1')
         return redirect(new URL(next ?? KnownPages.App, baseUrl).href);
     try {
-        const started = await beginGoogleSignIn({ next, link: linking ? session! : undefined, baseUrl, ipBucket: await requestIpBucket() });
+        const started = await beginGoogleSignIn({ next, link: linking ? session! : undefined, baseUrl, ipBucket: await requestIpBucket(), reauth: again });
         (await cookies()).set(GOOGLE_SIGN_IN_COOKIE_NAME, started.binding, appCookieOptions(GOOGLE_SIGN_IN_TTL_SECONDS));
         return redirect(started.url);
     } catch (error) {
@@ -81,7 +85,7 @@ export async function finishGoogleSignInRoute(request: Request) {
     switch (outcome.kind) {
         case 'signed_in': {
             try {
-                const proof = await startSession(outcome.userId, 'google', outcome.provenEmail);
+                const proof = await startSession(outcome.userId, 'google', outcome.provenEmail, outcome.authenticatedAt);
                 return redirect(new URL(await signInDestination(outcome.userId, outcome.next ?? KnownPages.App, proof), baseUrl).href);
             } catch (error) {
                 if (error instanceof AccountLimitError) return redirect(new URL(`${KnownPages.AppSignIn}?add=1&accounts=full`, baseUrl).href);
@@ -94,6 +98,7 @@ export async function finishGoogleSignInRoute(request: Request) {
         case 'linked':
             return redirect(accountUrl(baseUrl, 'linked'));
         case 'problem':
-            return redirect(outcome.linking ? accountUrl(baseUrl, outcome.problem) : signInUrl(baseUrl, outcome.problem, outcome.next, Boolean(await getSessionUser())));
+            return redirect(outcome.linking ? accountUrl(baseUrl, outcome.problem)
+                : signInUrl(baseUrl, outcome.problem, outcome.next, Boolean(await getSessionUser()), outcome.reauth));
     }
 }

@@ -43,3 +43,7 @@ review before merge.
 The privacy policy and terms of service were updated on 19 November 2026 to describe self-service account deletion in Account →
 General, workspace handoff, retention of contributed feedback and history, and the one email that
 confirms the deletion to the account's address. The existing owner review applies before merge.
+
+The privacy and cookie policies were updated on 19 November 2026 for sign-in freshness: Google and
+Microsoft may tell uier when the person last signed in there, that time stays in the session cookie,
+and steps that need a recent sign-in use it. The existing owner review applies before merge.

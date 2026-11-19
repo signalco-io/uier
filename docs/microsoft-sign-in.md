@@ -30,6 +30,14 @@ The existing Boards app supports organizational accounts, whereas login also acc
    through the normal main-branch pipeline, then test first email confirmation, returning Microsoft
    sign-in, Account linking/unlinking and cancellation with real work/school and personal accounts.
 
+### The `auth_time` claim
+
+A step that needs a recent sign-in asks when the person authenticated. Microsoft says so only with an
+optional claim. An owner adds it once: in the app registration, **Token configuration → Add optional
+claim → ID → `auth_time`**. Until then every Microsoft sign-in still works, and none of them is a
+recent sign-in: adding a passkey, linking a provider and deleting the account ask for a passkey or an
+email code.
+
 The button is hidden until both credentials are configured. It is always disabled on previews,
 which lack a stable registered callback. Use a separate local app registration for development,
 with `http://localhost:4004/app/sign-in/microsoft/callback` and credentials in `apps/web/.env.local`.
@@ -52,11 +60,14 @@ not find or create an account without proving its inbox.
 - Account linking requires a sign-in from the last 10 minutes, checked at the start and at the
   callback against the flow's creation time. The callback must use the initiating user's session.
   It links to that user regardless of the suggested Microsoft email.
+- A Microsoft sign-in is as recent as its ID token's `auth_time` says, and never recent without
+  one ([the `auth_time` claim](#the-auth_time-claim)). The callback puts it in the session (`aat`,
+  [sign in again](../apps/web/docs/sign-in.md#sign-in-again)).
 - Sign in again (`?add=1&again=1`, from a step that needs a recent sign-in: adding a passkey, linking,
   deleting the account) sends `prompt=login` instead of `select_account`, so Microsoft asks for the
   credentials and does not continue with the session the browser has there. The parameter is in the
-  browser's address, so it stops a click-through, not someone who edits the address: the ID token's
-  `auth_time` would prove it, and uier does not request that optional claim.
+  browser's address and can be edited, so the token decides: an attempt it does not show to be new
+  starts no session and returns `microsoft=not_recent`.
 - Each uier user can link one Microsoft identity. An identity belonging to another user is refused.
   Unlinking removes the user-side record first; sign-in requires that it and the unique identity
   claim agree. A leftover claim cannot continue signing in after an interrupted unlink.
@@ -107,6 +118,8 @@ signatures, and Graph's photo endpoint for its own access tokens (`photo: true` 
 Playwright starts it on `PORT + 8000`. The three `MICROSOFT_OAUTH_*` overrides (`AUTHORIZE_URL`,
 `TOKEN_URL`, `AUTHORITY`) and `MICROSOFT_GRAPH_PHOTO_URL` accept loopback addresses only in local
 runtime and are ignored on deployments. Infrastructure rejects these overrides.
+The stub adds `auth_time` when its form's "Signed in here just now" is ticked, which it is when the
+request has `prompt=login`.
 
 After `pnpm build`, run:
 

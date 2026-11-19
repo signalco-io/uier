@@ -16,6 +16,7 @@ const problems: Record<string, string> = {
     too_fast: 'Too many sign-in attempts. Try again later.',
     taken: 'That Google account is linked to another uier account.',
     other_account: 'Your uier account is linked to a different Google account. Use that one, or sign in with your email.',
+    not_recent: 'Google did not confirm a new sign-in. Use a passkey or an email code.',
     unavailable: 'Google sign-in is not available here. Sign in with your email.'
 };
 
@@ -35,13 +36,15 @@ export async function GoogleSignInProblem({ outcome }: { outcome?: string | stri
 }
 
 /** "Google" ("Sign in with Google" to assistive technologies), the same outline button as the other options (`SignInForm`'s `alternatives`) */
-export async function GoogleSignInButton({ next, lastUsed, addingAccount = false }: { next?: string; lastUsed?: boolean; addingAccount?: boolean }) {
+export async function GoogleSignInButton({ next, lastUsed, addingAccount = false, again = false }: { next?: string; lastUsed?: boolean; addingAccount?: boolean; again?: boolean }) {
     const { t } = await getAppI18n();
     if (!isGoogleSignInConfigured())
         return null;
     const params = new URLSearchParams();
     if (next) params.set('next', next);
     if (addingAccount) params.set('add', '1');
+    // Sign in again: it counts only when Google shows the sign-in to be new
+    if (again) params.set('again', '1');
     return (
         // A plain link: a full navigation, never prefetched (the route starts a sign-in).
         <a href={`${KnownPages.AppSignInGoogle}${params.size ? `?${params}` : ''}`}

@@ -31,7 +31,7 @@ export function googleSubject() {
 }
 
 export async function startGoogleStub(port = 0, { clientId = 'google-test-client', clientSecret = 'google-test-secret' } = {}) {
-    const flows = new Map<string, { redirectUri: string; state: string; challenge: string; nonce: string }>();
+    const flows = new Map<string, { redirectUri: string; state: string; challenge: string; nonce: string; authTime: boolean }>();
     const codes = new Map<string, Grant>();
     const tokenCalls: { code: string; status: number }[] = [];
     let url = '';
@@ -72,7 +72,9 @@ export async function startGoogleStub(port = 0, { clientId = 'google-test-client
                     || !/^[A-Za-z0-9_-]{43}$/.test(challenge) || !params.get('state') || !params.get('nonce'))
                     return send(response, { error: 'invalid_request' }, 400);
                 const flow = randomUUID();
-                flows.set(flow, { redirectUri: params.get('redirect_uri')!, state: params.get('state')!, challenge, nonce: params.get('nonce')! });
+                // Google says when the person authenticated only where the request asks for it
+                flows.set(flow, { redirectUri: params.get('redirect_uri')!, state: params.get('state')!, challenge, nonce: params.get('nonce')!,
+                    authTime: (params.get('claims') ?? '').includes('"auth_time"') });
                 response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
                 return response.end(`<!doctype html><html lang="en"><head><title>Google test sign-in</title></head><body><main>
 <h1>Choose a Google test account</h1><p>This local stand-in signs in to uier with the account below.</p>
@@ -83,6 +85,7 @@ export async function startGoogleStub(port = 0, { clientId = 'google-test-client
 <p><label>Hosted domain <input name="hd"></label></p>
 <p><label>Name <input name="name"></label></p>
 <p><label>Picture <input name="picture"></label></p>
+<p><label><input name="fresh" type="checkbox" value="true"> Signed in here just now</label></p>
 <button name="decision" value="allow">Allow</button> <button name="decision" value="deny">Cancel</button>
 </form></main></body></html>`);
             }
@@ -100,7 +103,7 @@ export async function startGoogleStub(port = 0, { clientId = 'google-test-client
                         sub: params.get('sub') || undefined, email: params.get('email') || undefined,
                         email_verified: params.get('email_verified') === 'true', hd: params.get('hd') || undefined, name: params.get('name') || undefined,
                         picture: params.get('picture') || undefined
-                    } });
+                    }, ...(flow.authTime && params.get('fresh') === 'true' ? { claims: { auth_time: Math.floor(Date.now() / 1000) } } : {}) });
                     redirect.searchParams.set('code', code);
                     redirect.searchParams.set('scope', 'openid email profile');
                 } else redirect.searchParams.set('error', 'access_denied');

@@ -8,7 +8,7 @@ import { confirmSignIn, confirmSignInCode, SIGN_IN_LINK_TTL_SECONDS } from '../s
 import { signInRequestToken } from '../src/lib/app/signInCookie';
 import { randomToken, sha256Hex, signToken } from '../src/lib/app/tokens';
 import { findOrCreateUser, findUserByEmail, getUser } from '../src/lib/app/users';
-import { SESSION_TTL_SECONDS, sessionSignedInAt } from '../src/lib/app/sessionIdentity';
+import { SESSION_TTL_SECONDS, sessionSignedInAt, sessionToken } from '../src/lib/app/sessionIdentity';
 import { googleConfig, googleRedirectUri, isGoogleSignInConfigured } from '../src/lib/app/google/config';
 import { boundGoogleRecordId, googleBindingToken } from '../src/lib/app/google/cookie';
 import { findUserByGoogleSubject, getGoogleAccount, linkGoogleAccount, unlinkGoogleAccount } from '../src/lib/app/google/identity';
@@ -17,7 +17,7 @@ import { GOOGLE_ACCOUNT_ID, googleIdentityPk, googleLinkPk, googleSignInPk, type
     type DbUserIdentity } from '../src/lib/app/google/model';
 import { beginGoogleSignIn, finishGoogleSignIn, googleIdTokenClaims, googleIsAuthoritative, GOOGLE_SIGN_IN_TTL_SECONDS,
     type GoogleSignInOutcome } from '../src/lib/app/google/signIn';
-import { PASSKEY_RECENT_SIGN_IN_SECONDS } from '../src/lib/app/passkeys';
+import { PASSKEY_RECENT_SIGN_IN_SECONDS, requireRecentSignIn } from '../src/lib/app/passkeys';
 import { googleSubject, startGoogleStub, stubPicturePng, type GoogleStub, type StubGoogleIdentity } from './support/googleStub';
 import { getAvatarImage, normalizeAvatar, removeUserAvatar, saveUserAvatar, type AvatarImage } from '../src/lib/app/avatars';
 import { uniqueEmail } from './support/app';
@@ -49,7 +49,7 @@ test.afterAll(() => {
 });
 
 type Session = { userId: string; signedInAt: number };
-type Options = { next?: string; linkUserId?: string; signedInAt?: number; session?: Session | null; claims?: Record<string, unknown> };
+type Options = { next?: string; linkUserId?: string; signedInAt?: number; session?: Session | null; claims?: Record<string, unknown>; reauth?: boolean };
 
 const nowSeconds = () => Math.floor(Date.now() / 1000);
 /** Google is authoritative for Gmail, so these sign in (or up) without an email code */
@@ -61,7 +61,7 @@ const gmail = (label: string) => `${label}-${randomUUID().slice(0, 8)}@gmail.com
  */
 async function viaGoogle(google: GoogleStub, identity: StubGoogleIdentity, options: Options = {}) {
     const link = options.linkUserId ? { userId: options.linkUserId, signedInAt: options.signedInAt ?? nowSeconds() } : undefined;
-    const started = await beginGoogleSignIn({ next: options.next, link, baseUrl });
+    const started = await beginGoogleSignIn({ next: options.next, link, baseUrl, reauth: options.reauth });
     const { code, state } = google.approve(started.url, identity, options.claims);
     const callback = { binding: started.binding, state, code, error: null, baseUrl, session: options.session !== undefined ? options.session : link ?? null };
     return { started, callback, outcome: await finishGoogleSignIn(callback) };
@@ -100,6 +100,8 @@ test('the authorization request uses S256 PKCE, a nonce, the registered callback
     const params = url.searchParams;
     expect(Object.fromEntries(params)).toMatchObject({ client_id: google.clientId, redirect_uri: `${baseUrl}/app/sign-in/google/callback`,
         response_type: 'code', scope: 'openid email profile', code_challenge_method: 'S256', prompt: 'select_account' });
+    // Google cannot be asked to authenticate again; it is asked when it last did
+    expect(JSON.parse(params.get('claims')!)).toEqual({ id_token: { auth_time: { essential: true } } });
     expect(params.get('code_challenge')).toMatch(/^[A-Za-z0-9_-]{43}$/);
     expect(params.get('state')).toMatch(/^[A-Za-z0-9_-]{43}$/);
     expect(params.get('nonce')).toMatch(/^[A-Za-z0-9_-]{43}$/);
@@ -534,12 +536,13 @@ test.describe('routes', () => {
             const back = new URL(signedOut.headers().location!);
             expect(`${back.pathname}${back.search}`).toBe('/app/sign-in?next=%2Fapp%2Faccount%2Fsign-in');
 
-            // A Gmail account signs up through the stub: the server has the user and a fresh session
+            // A Gmail account signs up through the stub, and Google says the person authenticated just now:
+            // the server has the user and a fresh session
             const start = await fresh.get('/app/sign-in/google', { maxRedirects: 0 });
             const authorize = start.headers().location!;
             const flow = /name="flow" value="([^"]+)"/.exec(await (await fresh.get(authorize)).text())![1]!;
             const decision = await fresh.post(new URL('/decision', authorize).href, { form: { flow, sub: googleSubject(),
-                email: gmail('google-recent-route'), email_verified: 'true', decision: 'allow' }, maxRedirects: 0 });
+                email: gmail('google-recent-route'), email_verified: 'true', fresh: 'true', decision: 'allow' }, maxRedirects: 0 });
             expect((await fresh.get(decision.headers().location!, { maxRedirects: 0 })).status()).toBe(302);
 
             const link = await fresh.get('/app/sign-in/google?intent=link', { maxRedirects: 0 });
@@ -585,4 +588,46 @@ test.describe('routes', () => {
             }
         } finally { await request.dispose(); }
     });
+});
+
+test('a Google sign-in is as recent as Google says the person authenticated', async ({ google }) => {
+    const email = gmail('google-auth-time'); const sub = googleSubject();
+    const first = signedIn((await viaGoogle(google, { sub, email })).outcome);
+    expect(first.authenticatedAt).toBeNull();
+    const hourAgo = nowSeconds() - 3600;
+    expect(signedIn((await viaGoogle(google, { sub, email }, { claims: { auth_time: hourAgo } })).outcome).authenticatedAt).toBe(hourAgo);
+    // A time that cannot be is no time
+    for (const auth_time of [nowSeconds() + 3600, -5, '1700000000', null])
+        expect(signedIn((await viaGoogle(google, { sub, email }, { claims: { auth_time } })).outcome).authenticatedAt).toBeNull();
+
+    // The session is as recent as that time, and never recent without one. A passkey or email sign-in is its own time.
+    const signedInAt = (authenticatedAt?: number | null) => sessionSignedInAt(sessionToken(first.userId, undefined, authenticatedAt).token)!.signedInAt;
+    expect(signedInAt()).toBeGreaterThanOrEqual(nowSeconds() - 5);
+    expect(signedInAt(null)).toBe(0);
+    expect(signedInAt(hourAgo)).toBe(hourAgo);
+    expect(signedInAt(nowSeconds() + 600)).toBeLessThanOrEqual(nowSeconds());
+    expect(() => requireRecentSignIn(signedInAt(null))).toThrow();
+    expect(() => requireRecentSignIn(signedInAt(hourAgo))).toThrow();
+    expect(() => requireRecentSignIn(signedInAt(nowSeconds() - 30))).not.toThrow();
+    // Linking from Account asks the same of the session: a Google sign-in without a time cannot start it
+    await expect(beginGoogleSignIn({ baseUrl, link: { userId: first.userId, signedInAt: signedInAt(null) } })).rejects.toMatchObject({ code: 'sign_in_again' });
+});
+
+test('Sign in again counts only a sign-in Google shows to be new', async ({ google }) => {
+    const email = gmail('google-again'); const sub = googleSubject();
+    const userId = signedIn((await viaGoogle(google, { sub, email })).outcome).userId;
+    // No time, or an old one: nothing changes, and the attempt goes back to the Sign in again card
+    for (const claims of [undefined, { auth_time: nowSeconds() - 3600 }])
+        expect((await viaGoogle(google, { sub, email }, { reauth: true, next: '/app/account', claims })).outcome)
+            .toEqual({ kind: 'problem', problem: 'not_recent', next: '/app/account', linking: false, reauth: true });
+    // No account is made on the way
+    const stranger = gmail('google-again-stranger');
+    expect((await viaGoogle(google, { sub: googleSubject(), email: stranger }, { reauth: true })).outcome).toMatchObject({ problem: 'not_recent' });
+    expect(await findUserByEmail(stranger)).toBeNull();
+    const justNow = nowSeconds() - 30;
+    expect((await viaGoogle(google, { sub, email }, { reauth: true, claims: { auth_time: justNow } })).outcome)
+        .toMatchObject({ kind: 'signed_in', userId, authenticatedAt: justNow });
+    // Linking from Account is its own flow
+    const linking = await beginGoogleSignIn({ baseUrl, reauth: true, link: { userId, signedInAt: nowSeconds() } });
+    expect((await flowRecord(linking.binding))?.doc.reauth).toBeUndefined();
 });

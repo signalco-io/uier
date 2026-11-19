@@ -11,6 +11,8 @@ import { appLinkMetadata, describeAppLink } from '@/src/lib/metadata';
 import { SignedInAccounts } from '@/src/components/app/shell/SignedInAccounts';
 import { ACCOUNT_LIMIT_MESSAGE } from '@/src/lib/app/browserAccounts';
 import { isAccountDeletedNotice } from '@/src/lib/app/accountDeletedNotice';
+import { isGoogleSignInConfigured } from '@/src/lib/app/google/config';
+import { isMicrosoftSignInConfigured } from '@/src/lib/app/microsoft/config';
 import { Alert, AlertDescription } from '@/src/components/ui/alert';
 import { SignInForm } from './SignInForm';
 import { GoogleSignInButton, GoogleSignInProblem } from './GoogleSignIn';
@@ -33,12 +35,15 @@ async function SignInPageContent({ searchParams }: PageProps<'/app/sign-in'>) {
     if (add !== '1' && await getSessionUser())
         redirect(nextPath ?? KnownPages.App);
     const [lastUsed, accounts] = await Promise.all([getLastSignInMethod(), getBrowserAccounts()]);
+    // Sign in again, from a step that needs a recent sign-in (`KnownPageLinks.signInAgain`)
+    const signingInAgain = add === '1' && again === '1';
 
     // The form renders the card: once the email is sent, the code step has its own header
     return (
         <>
         <SignedInAccounts accounts={accounts} next={nextPath} />
-        <SignInForm addingAccount={add === '1'} again={add === '1' && again === '1'} next={nextPath} withEmail={method === 'email'} lastUsed={lastUsed}
+        <SignInForm addingAccount={add === '1'} again={signingInAgain} providersNeedProof={signingInAgain && (isGoogleSignInConfigured() || isMicrosoftSignInConfigured())}
+            next={nextPath} withEmail={method === 'email'} lastUsed={lastUsed}
             problems={<>
                 {isAccountDeletedNotice(deleted, null) && <Alert role="status"><AlertDescription>{t('Your account has been deleted.')}</AlertDescription></Alert>}
                 {accountProblem === 'full' && <Alert role="alert"><AlertDescription>{t(ACCOUNT_LIMIT_MESSAGE)}</AlertDescription></Alert>}
@@ -46,8 +51,8 @@ async function SignInPageContent({ searchParams }: PageProps<'/app/sign-in'>) {
                 <MicrosoftSignInProblem outcome={microsoft} />
             </>}
             alternatives={<>
-                <GoogleSignInButton addingAccount={add === '1'} next={nextPath} lastUsed={lastUsed === 'google'} />
-                <MicrosoftSignInButton addingAccount={add === '1'} again={add === '1' && again === '1'} next={nextPath} lastUsed={lastUsed === 'microsoft'} />
+                <GoogleSignInButton addingAccount={add === '1'} again={signingInAgain} next={nextPath} lastUsed={lastUsed === 'google'} />
+                <MicrosoftSignInButton addingAccount={add === '1'} again={signingInAgain} next={nextPath} lastUsed={lastUsed === 'microsoft'} />
             </>} />
         </>
     );

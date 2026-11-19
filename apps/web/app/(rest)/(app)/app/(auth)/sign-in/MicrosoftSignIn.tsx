@@ -15,6 +15,7 @@ const problems: Record<string, string> = {
     too_fast: 'Too many sign-in attempts. Try again later.',
     taken: 'That Microsoft account is linked to another uier account.',
     other_account: 'Your uier account is linked to a different Microsoft account. Use that one, or sign in with your email.',
+    not_recent: 'Microsoft did not confirm a new sign-in. Use a passkey or an email code.',
     unavailable: 'Microsoft sign-in is not available here. Sign in with your email.'
 };
 

@@ -28,10 +28,11 @@ like the integrations' OAuth (no auth framework):
    state Google sends back, can recreate it. The browser gets a signed HttpOnly SameSite=Lax cookie
    that holds only the record id (`appCookieOptions`, `__Host-` and Secure outside local runtime).
 2. Google's authorization endpoint gets `scope=openid email profile`, the state, the nonce, the S256
-   challenge and `prompt=select_account`. Sign in again (a step that needs a recent sign-in) gets the
-   same request: Google has no parameter that makes a person authenticate again ("Google does not
-   support Google Account reauth requests"), so a Google session in the browser continues after the
-   account is chosen. Microsoft is asked with `prompt=login` ([Microsoft sign-in](microsoft-sign-in.md)).
+   challenge, `prompt=select_account` and `claims={"id_token":{"auth_time":{"essential":true}}}`.
+   Google has no parameter that makes a person authenticate again ("Google does not support Google
+   Account reauth requests"): a Google session in the browser continues after the account is chosen.
+   So Google is asked when the person last authenticated, and the sign-in is as recent as that
+   ([session age claims](#session-age-claims)).
 3. `GET /app/sign-in/google/callback` reads and clears the binding cookie. The record must exist,
    match the state's hash and still be inside its 10 minutes; a delete uses it up, and only the
    winner of that delete exchanges the code. A missing or foreign binding, a replayed callback and a
@@ -87,7 +88,8 @@ checked first.
    that outlives the 30-day session and survives sign-out. The start route checks it, and the
    callback checks it again against the request's creation time, in the session that started it.
    An older sign-in gets the passkeys' "Sign in again" on Account (`signInAgainAction`), which signs
-   out and returns there after signing in. The callback links to the user who started it, whatever the Google address is. A `sub` linked
+   out and returns there after signing in. A sign-in with Google or Microsoft is recent only when the
+   provider says the person authenticated in that time ([session age claims](#session-age-claims)). The callback links to the user who started it, whatever the Google address is. A `sub` linked
    to another user is refused (`taken`), and so is a second Google account (`other_account`).
    Unlinking is always allowed.
 
@@ -166,6 +168,23 @@ For local development, create a separate client (`uier local`) with the redirect
 `http://localhost:4004/app/sign-in/google/callback` and put its id and secret in `apps/web/.env.local`.
 Never copy the production client to a local or preview environment.
 
+## Session age claims
+
+A step that needs a recent sign-in (adding a passkey, linking a provider, deleting the account) asks
+when the person authenticated. Google continues the session a browser has with it and cannot be asked
+to authenticate again, so a Google sign-in alone shows nothing. Every authorization request asks for
+the ID token's `auth_time`, and the callback puts it in the session (`aat`,
+[sign in again](../apps/web/docs/sign-in.md#sign-in-again)): the sign-in counts as recent only when
+that time is in the last 10 minutes. A token without it, or with a time that cannot be, counts as
+never.
+
+Google sends `auth_time` only when it is switched on for the client. An owner does this once: in the
+Google Auth Platform, **Settings → Advanced Settings**, turn on **Session age claims**. The app has
+to be *In production* (Audience) and *Verified* (Verification Center). Until then every Google
+sign-in still works, and none of them is a recent sign-in: those steps ask for a passkey or an email
+code. Sign in again with Google (`?add=1&again=1`) that Google does not show to be new starts no
+session and returns `google=not_recent`.
+
 ## Tests
 
 `e2e/support/googleStub.ts` stands in for Google's authorization and token endpoints (on `PORT + 7000`
@@ -174,6 +193,9 @@ in `playwright.config.ts`, which points `GOOGLE_OAUTH_AUTHORIZE_URL`, `GOOGLE_OA
 covers every linking rule, state, nonce and PKCE replay and expiry, missing and foreign browser
 bindings, a `sub` linked to another user, the ID token checks, return paths, rate limits and the
 routes, including the recent sign-in rule for linking, and when Google's picture is imported (the stub
-serves one PNG for its `pictureUrl`). `e2e/google-sign-in.spec.ts` (full suite) signs
+serves one PNG for its `pictureUrl`), and how recent a sign-in is with and without `auth_time`. The
+stub adds `auth_time` when the request asks for it and its form's "Signed in here just now" is ticked.
+`e2e/google-sign-in.spec.ts` (full suite) signs
 in through the stub with a non-Gmail address, confirms it by email code, unlinks on Account and
-cancels a consent.
+cancels a consent; and with a Gmail address, where Sign in again with Google is refused and an email
+code is accepted.

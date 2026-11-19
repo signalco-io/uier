@@ -39,9 +39,9 @@ const test = base.extend<{ microsoft: MicrosoftStub }>({ microsoft: async ({}, u
 
 type Session = { userId: string; signedInAt: number };
 async function viaMicrosoft(microsoft: MicrosoftStub, identity: StubMicrosoftIdentity, options: {
-    next?: string; link?: Session; session?: Session | null; claims?: Record<string, unknown>;
+    next?: string; link?: Session; session?: Session | null; claims?: Record<string, unknown>; reauth?: boolean;
 } = {}) {
-    const started = await beginMicrosoftSignIn({ next: options.next, link: options.link, baseUrl });
+    const started = await beginMicrosoftSignIn({ next: options.next, link: options.link, baseUrl, reauth: options.reauth });
     const { code, state } = microsoft.approve(started.url, identity, options.claims);
     const callback = { binding: started.binding, state, code, error: null, baseUrl, session: options.session === undefined ? options.link : options.session };
     return { started, callback, outcome: await finishMicrosoftSignIn(callback) };
@@ -230,4 +230,24 @@ test('routes reject cross-site and prefetch starts and strip callback secrets', 
     expect(response.status()).toBe(302); expect(response.headers().location).not.toMatch(/secret-code|secret-state/);
     expect(new URL(response.headers().location!).searchParams.get('microsoft')).toBe('expired');
     expect(response.headers()['cache-control']).toBe('no-store');
+});
+
+test('a Microsoft sign-in is as recent as its token says, and Sign in again counts only a new one', async ({ microsoft }) => {
+    const sub = randomUUID(); const email = uniqueEmail('microsoft-auth-time');
+    const request = await emailRequest(email, (await getMicrosoftLink(pending((await viaMicrosoft(microsoft, { sub })).outcome)))!.id);
+    const userId = (await confirmSignInCode(request.requestId, request.code, request.binding))!.user.id;
+    const now = Math.floor(Date.now() / 1000);
+    // Without the app registration's optional claim there is no time: the sign-in is never recent
+    expect((await viaMicrosoft(microsoft, { sub })).outcome).toEqual({ kind: 'signed_in', userId, next: undefined, authenticatedAt: null });
+    expect((await viaMicrosoft(microsoft, { sub }, { claims: { auth_time: now - 3600 } })).outcome).toMatchObject({ authenticatedAt: now - 3600 });
+    expect((await viaMicrosoft(microsoft, { sub }, { claims: { auth_time: now + 3600 } })).outcome).toMatchObject({ authenticatedAt: null });
+
+    // Sign in again: the address asks for the credentials, and only the token shows they were given
+    for (const claims of [undefined, { auth_time: now - 3600 }])
+        expect((await viaMicrosoft(microsoft, { sub }, { reauth: true, next: '/app/account', claims })).outcome)
+            .toEqual({ kind: 'problem', problem: 'not_recent', next: '/app/account', linking: false, reauth: true });
+    expect((await viaMicrosoft(microsoft, { sub: randomUUID(), email: uniqueEmail('microsoft-again-stranger') }, { reauth: true })).outcome)
+        .toMatchObject({ kind: 'problem', problem: 'not_recent' });
+    expect((await viaMicrosoft(microsoft, { sub }, { reauth: true, claims: { auth_time: now - 30 } })).outcome)
+        .toEqual({ kind: 'signed_in', userId, next: undefined, authenticatedAt: now - 30 });
 });
