@@ -99,8 +99,12 @@ PDF processing uses bundled PDF.js and local English OCR assets with no
 external calls. The prebuilt packaging step traces the canvas loader from
 PDF.js's own module path, preserving the pnpm link and the build platform's
 native binding. It also carries Tesseract's local model and standalone
-WebAssembly files. CI renders a private PDF and runs OCR and text extraction
-using only the assembled files for each participating function. Run
+WebAssembly files. CI checks the processor files in the browser and MCP
+finalization functions, the email relay that shares the finalizer, and the
+scheduled retry worker in production. It renders the private PDF and checks
+OCR, text extraction and privacy once per distinct processor file map.
+The check selects those functions by their deployment aliases because
+Vercel can share the same dependency map with many page and RSC aliases. Run
 `node .github/scripts/check_proof_pdf_prebuilt.mjs` after packaging a local
 prebuilt artifact to repeat the check.
 

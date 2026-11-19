@@ -147,7 +147,9 @@ jobs:
         if: matrix.suite == 'checks'
         run: |
           python3 .github/scripts/test_prebuilt.py
-          node --test .github/scripts/package_prebuilt.test.mjs .github/scripts/package_schedules.test.mjs .github/scripts/search-index.test.mjs .github/scripts/deployment-current.test.mjs .github/scripts/turbo-cache.test.mjs
+          node --test .github/scripts/check_proof_pdf_prebuilt.test.mjs .github/scripts/package_prebuilt.test.mjs \
+            .github/scripts/package_schedules.test.mjs .github/scripts/search-index.test.mjs \
+            .github/scripts/deployment-current.test.mjs .github/scripts/turbo-cache.test.mjs
 
       - name: Package the standalone worker
         if: matrix.suite == 'checks'
