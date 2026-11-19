@@ -14,12 +14,12 @@ on:
         options: [html, mail]
         required: true
       deployment:
-        description: Exact built Vercel deployment URL for the HTML alias
+        description: Exact generated Vercel deployment URL (HTML only)
         type: string
         required: false
 permissions: {}
 concurrency:
-  group: file-proof-providers-${{ inputs.target }}
+  group: file-proof-providers
   cancel-in-progress: false
 jobs:
   configure:
@@ -31,11 +31,9 @@ jobs:
       contents: read
     env:
       PROOF_TARGET: ${{ inputs.target }}
-      VERCEL_ORG_ID: team_Ade0MlfC3211ml3wYJZ4c9hn
-      VERCEL_PROJECT_ID: prj_0uRTXTGHFdN9SlHnFfNiahIgX3mc
-      VERCEL_TELEMETRY_DISABLED: '1'
-      VERCEL_CLI_VERSION: '65.17.0'
-      WRANGLER_VERSION: '4.165.0'
+      UIER_PROOF_HTML_ORIGIN_PREVIEW: ${{ vars.UIER_PROOF_HTML_ORIGIN_PREVIEW }}
+      UIER_PROOF_HTML_ORIGIN_PRODUCTION: ${{ vars.UIER_PROOF_HTML_ORIGIN_PRODUCTION }}
+      UIER_PROOF_APP_ORIGIN: ${{ vars.UIER_PROOF_APP_ORIGIN }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -43,30 +41,24 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version-file: .nvmrc
-      - name: Install provider CLIs before loading credentials
-        run: |
-          npm install --global --ignore-scripts --no-audit --no-fund --prefix "$RUNNER_TEMP/proof-clis" "vercel@$VERCEL_CLI_VERSION" "wrangler@$WRANGLER_VERSION"
-          mkdir -p .vercel
-          cp .github/vercel-project.json .vercel/project.json
-      - name: Attach the isolated prototype host to the intended deployment
+      - name: Check provider setup with local fixtures
+        run: node --test .github/proofs/*.test.mjs
+      - name: Attach and probe the isolated proof hostname
         if: inputs.feature == 'html'
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           UIER_PROOF_DEPLOYMENT: ${{ inputs.deployment }}
-          UIER_PROOF_HTML_ORIGIN_PREVIEW: ${{ vars.UIER_PROOF_HTML_ORIGIN_PREVIEW }}
-          UIER_PROOF_HTML_ORIGIN_PRODUCTION: ${{ vars.UIER_PROOF_HTML_ORIGIN_PRODUCTION }}
+          UIER_PROOF_VERCEL_BYPASS: ${{ secrets.UIER_PROOF_VERCEL_BYPASS }}
+        run: node .github/proofs/configure.mjs html
+      - name: Install and validate Wrangler before loading credentials
+        if: inputs.feature == 'mail'
+        env:
+          # renovate: datasource=npm depName=wrangler
+          WRANGLER_VERSION: '4.165.0'
+          WRANGLER_SEND_METRICS: 'false'
         run: |
-          : "${VERCEL_TOKEN:?Missing Vercel project token}"
-          if [ "$PROOF_TARGET" = 'production' ]; then
-            export UIER_PROOF_HTML_ORIGIN="$UIER_PROOF_HTML_ORIGIN_PRODUCTION"
-          else
-            export UIER_PROOF_HTML_ORIGIN="$UIER_PROOF_HTML_ORIGIN_PREVIEW"
-          fi
-          node .github/proofs/configure.mjs html
-          host="${UIER_PROOF_HTML_ORIGIN#https://}"
-          "$RUNNER_TEMP/proof-clis/bin/vercel" alias set "$UIER_PROOF_DEPLOYMENT" "$host"
-          status=$(curl -sS --max-time 20 -o /dev/null -w '%{http_code}' "$UIER_PROOF_HTML_ORIGIN/")
-          test "$status" = 404 || { echo 'The isolated host should reject the app root. Check the target build, DNS and deployment protection.'; exit 1; }
+          npm install --global --ignore-scripts --include=optional --no-audit --no-fund --prefix "$RUNNER_TEMP/proof-clis" "wrangler@$WRANGLER_VERSION"
+          "$RUNNER_TEMP/proof-clis/bin/wrangler" deploy .github/proofs/mail-worker.mjs --name uier-proof-mail-check --compatibility-date 2026-11-19 --autoconfig=false --dry-run --outdir "$RUNNER_TEMP/proof-mail-bundle"
       - name: Configure the designated inbound mail alias
         if: inputs.feature == 'mail'
         env:
@@ -75,16 +67,13 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.UIER_PROOF_CLOUDFLARE_ACCOUNT_ID }}
           UIER_PROOF_EMAIL_ALIAS: ${{ vars.UIER_PROOF_EMAIL_ALIAS }}
           UIER_PROOF_EMAIL_ZONE_ID: ${{ vars.UIER_PROOF_EMAIL_ZONE_ID }}
-          UIER_PROOF_APP_ORIGIN: ${{ vars.UIER_PROOF_APP_ORIGIN }}
           UIER_PROOF_EMAIL_SECRET: ${{ secrets.UIER_PROOF_EMAIL_SECRET }}
           UIER_PROOF_VERCEL_BYPASS: ${{ secrets.UIER_PROOF_VERCEL_BYPASS }}
+          WRANGLER_SEND_METRICS: 'false'
         run: |
-          : "${VERCEL_TOKEN:?Missing Vercel project token}" "${CLOUDFLARE_API_TOKEN:?Missing dedicated Cloudflare token}"
-          work=$(mktemp -d)
+          work=$(mktemp -d "$RUNNER_TEMP/proof-mail.XXXXXX")
           trap 'rm -rf "$work"' EXIT
           node .github/proofs/configure.mjs mail "$work"
-          cli="$RUNNER_TEMP/proof-clis/bin/vercel"
-          printf '%s' "$UIER_PROOF_EMAIL_ALIAS" | "$cli" env add UIER_PROOF_EMAIL_ALIAS "$PROOF_TARGET" --force
-          printf '%s' "$UIER_PROOF_EMAIL_SECRET" | "$cli" env add UIER_PROOF_EMAIL_SECRET "$PROOF_TARGET" --force --sensitive
-          "$RUNNER_TEMP/proof-clis/bin/wrangler" deploy --config "$work/wrangler.json" --secrets-file "$work/proof-secrets.json"
+          env -u VERCEL_TOKEN -u UIER_PROOF_EMAIL_SECRET -u UIER_PROOF_VERCEL_BYPASS \
+            "$RUNNER_TEMP/proof-clis/bin/wrangler" deploy --config "$work/wrangler.json" --autoconfig=false --secrets-file "$work/proof-secrets.json"
           node .github/proofs/configure.mjs mail-rule
