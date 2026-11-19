@@ -521,7 +521,7 @@ test('a duplicate finds the receipt in every ordering with the request that took
     await scenario('get', { behind: ['get'] });
 });
 
-test('a request is the same request for the stated 30 days, and what it reserved expires', async () => {
+test('a request is the same request for the stated 30 days; its receipt and marker expire, a project\'s code never does', async () => {
     const day = 24 * 60 * 60 * 1000;
     expect(PROJECT_RECEIPT_SECONDS).toBe(30 * 24 * 60 * 60);
     const f = await fixture();
@@ -531,8 +531,9 @@ test('a request is the same request for the stated 30 days, and what it reserved
     const context = { user: f.user, member: (await getMember(own, f.user.id))!, workspace, isAdmin: true, memberships: [] } as AppContext;
     const limit = siteProjectsLimit(f.user.id);
     const site = (name: string) => ({ name: 'Site', urls: [`https://${name}.example`] });
-    const others = async () => (await listProjects(own)).filter(project => project.id !== f.project.id).map(project => project.id);
+    const others = async () => (await listProjects(own)).filter(project => project.id !== f.project.id).map(project => project.id).sort();
     const records = async () => (await Promise.all(['project-receipt', 'project-receipt-slot'].map(type => store.query({ type, pk: `project-receipt:${f.user.id}` })))).flat();
+    const code = async (id: string) => (await store.get<AppDoc>(projectRefPk(id), id))?.doc;
     const now = Date.now, start = now();
     try {
         Date.now = () => start;
@@ -541,22 +542,25 @@ test('a request is the same request for the stated 30 days, and what it reserved
         const receipt = await reserveProjectCreation(owner, site('deleted'), attempt, limit);
         const created = await createProject(owner, site('deleted'), { receipt });
         expect(created).toMatchObject({ id: receipt.projectId, urls: ['https://deleted.example'] });
-        // The claim was made permanent and the project says so
-        expect((await store.get<AppDoc>(projectRefPk(created.id), created.id))?.doc).toMatchObject({ type: 'project-ref', workspaceId: own, ttl: -1 });
-        expect((await store.get<AppDoc & { codeClaim?: string }>(workspacePk(own), created.id))?.doc.codeClaim).toBeUndefined();
         await deleteProject(context, created.id, 'Site');
+        // The store commits the project and its marker, and the request stops before it reads anything back
+        const committed = await reserveProjectCreation(owner, site('committed'), random(), limit);
+        await expect(createProject(owner, site('committed'), { receipt: committed, store: { ...store,
+            createAll: async docs => { await store.createAll(docs); throw new Error('stopped after the commit'); } } })).rejects.toThrow('stopped after the commit');
         // A request that stopped after claiming its code: no project, no marker
         const stopped = await reserveProjectCreation(owner, site('stopped'), random(), limit);
         await expect(createProject(owner, site('stopped'), { receipt: stopped, store: { ...store, createAll: async () => { throw new Error('stopped'); } } })).rejects.toThrow('stopped');
-        const claim = (await store.get<AppDoc>(projectRefPk(stopped.projectId), stopped.projectId))!.doc;
-        expect(claim).toMatchObject({ type: 'project-ref', workspaceId: own, ttl: PROJECT_RECEIPT_SECONDS + 24 * 60 * 60 });
         expect(await store.get(workspacePk(own), stopped.projectId)).toBeNull();
-        // One that finished nineteen days later: its marker and claim still end with the receipt, not later
+        // Every claim is permanent from the moment it is made: none carries an expiry
+        for (const id of [committed.projectId, stopped.projectId]) {
+            expect(await code(id)).toMatchObject({ type: 'project-ref', workspaceId: own });
+            expect((await code(id))!.ttl).toBeUndefined();
+        }
+        // One that finished nineteen days later: its marker still ends a day after the receipt, not later
         const late = await reserveProjectCreation(owner, site('late'), random(), limit);
         Date.now = () => start + 19 * day;
         const finished = await createProject(owner, site('late'), { receipt: late });
         expect((await store.get<AppDoc>(workspacePk(own), `created_${finished.id}`))?.doc.ttl).toBe(12 * 24 * 60 * 60);
-        expect((await store.get<AppDoc>(projectRefPk(finished.id), finished.id))?.doc.ttl).toBe(-1);
 
         // Through the whole stated period the deleted project's request is that request: gone, never a new project
         for (const elapsed of [29.5 * day, 30 * day - 1000]) {
@@ -564,33 +568,83 @@ test('a request is the same request for the stated 30 days, and what it reserved
             const again = await reserveProjectCreation(owner, site('deleted'), attempt, limit);
             expect(again).toMatchObject({ id: receipt.id, projectId: receipt.projectId });
             await expect(createProject(owner, site('deleted'), { receipt: again })).rejects.toThrow('This project no longer exists.');
-            expect(await others()).toEqual([finished.id]);
+            expect(await others()).toEqual([committed.projectId, finished.id].sort());
         }
         // After it the receipts are gone; the markers that guard their codes outlast them by a day
         Date.now = () => start + 30 * day + 1000;
         expect(await records()).toEqual([]);
         expect((await store.get<AppDoc>(workspacePk(own), `created_${created.id}`))?.doc).toMatchObject({ type: 'project-created', projectId: created.id });
-        expect((await store.get<AppDoc>(projectRefPk(stopped.projectId), stopped.projectId))?.doc.type).toBe('project-ref');
         Date.now = () => start + 31 * day + 1000;
         expect(await store.query({ type: 'project-created', pk: workspacePk(own) })).toEqual([]);
-        // The code of the project that was never created is free again; codes of real projects stay claimed or retired
-        expect(await store.get(projectRefPk(stopped.projectId), stopped.projectId)).toBeNull();
-        expect((await store.get<AppDoc>(projectRefPk(finished.id), finished.id))?.doc).toMatchObject({ type: 'project-ref', ttl: -1 });
-        expect((await store.get<AppDoc>(projectRefPk(created.id), created.id))?.doc.type).toBe('project-ref-retired');
-        expect((await findProject(finished.id))?.id).toBe(finished.id);
 
-        // A creation that stopped before its claim was made permanent is finished by the next read of the project
-        Date.now = () => start + 40 * day;
-        const interrupted = await createProject(owner, site('interrupted'), { receipt: await reserveProjectCreation(owner, site('interrupted'), random(), limit) });
-        const ref = (await store.get<AppDoc>(projectRefPk(interrupted.id), interrupted.id))!;
-        expect(await store.replace({ ...ref.doc, ttl: 600 }, ref.etag)).toBe('ok');
-        await updateDoc<AppDoc & { codeClaim?: string }>(workspacePk(own), interrupted.id, project => ({ ...project, codeClaim: 'pending' }));
-        expect((await listProjects(own)).map(project => project.id)).toContain(interrupted.id);
-        expect((await store.get<AppDoc>(projectRefPk(interrupted.id), interrupted.id))?.doc.ttl).toBe(-1);
-        expect((await store.get<AppDoc & { codeClaim?: string }>(workspacePk(own), interrupted.id))?.doc.codeClaim).toBeUndefined();
-        Date.now = () => start + 80 * day;
-        expect((await findProject(interrupted.id))?.id).toBe(interrupted.id);
+        // Long after every receipt and marker: the project whose creation stopped after its commit is found by its
+        // code, without any read having repaired it, and still moves and deletes as any project
+        Date.now = () => start + 90 * day;
+        expect(await findProject(committed.projectId)).toMatchObject({ id: committed.projectId, workspaceId: own, urls: ['https://committed.example'] });
+        expect(await findProject(finished.id)).toMatchObject({ id: finished.id });
+        const target = await createWorkspace(f.user, 'Client work');
+        await transferProject(context, committed.projectId, target.id, 'Site');
+        expect((await findProject(committed.projectId))?.workspaceId).toBe(target.id);
+        expect(await store.get(workspacePk(own), committed.projectId)).toBeNull();
+        // Deleted projects keep their retired code; the code of the request that never made a project stays claimed
+        expect((await code(created.id))?.type).toBe('project-ref-retired');
+        expect(await code(stopped.projectId)).toMatchObject({ type: 'project-ref', workspaceId: own });
+        expect(await findProject(stopped.projectId)).toBeNull();
     } finally { Date.now = now; }
+});
+
+test('a duplicate across the hourly rollover finds the receipt its original committed to the old hour', async () => {
+    const base = getAppStore();
+    const userId = `u_${randomUUID()}`, workspaceId = `w_${randomUUID()}`, attempt = random();
+    const limit = siteProjectsLimit(userId);
+    const request = (store = base, value = attempt) => reserveProjectReceipt({ userId, workspaceId, attempt: value, setup: ['Site', ['https://rollover.example'], ''],
+        projectId: () => randomUUID().replace(/-/g, '').slice(0, 12), limit }, store);
+    const now = Date.now;
+    // Ten minutes before the hour ends
+    const start = (Math.floor(now() / 1000 / limit.windowSeconds) + 1) * limit.windowSeconds * 1000 - 10 * 60 * 1000;
+    try {
+        Date.now = () => start;
+        // The original chooses a unit of the old hour and is held before its transaction
+        let release!: () => void;
+        const held = new Promise<void>(resolve => { release = resolve; });
+        const original = request({ ...base, createAll: async docs => { await held; return base.createAll(docs); } });
+        await new Promise(resolve => setTimeout(resolve, 20));
+        // The hour turns, and thirty other submissions take every unit of the new one
+        Date.now = () => start + 15 * 60 * 1000;
+        for (let index = 0; index < limit.limit; index++) await request(base, random());
+        // Before the original commits there is no receipt: a duplicate is one more submission in a full hour
+        await expect(request()).rejects.toMatchObject({ status: 429 });
+        release();
+        const committed = await original;
+        // Another instance's session: it sees the new hour's thirty slots and not yet the receipt in the old one
+        let behind = 2;
+        const other = { ...base, get: (async (pk: string, id: string) => id === committed.id && behind-- > 0 ? null : base.get(pk, id)) as typeof base.get };
+        expect(await request(other)).toMatchObject({ id: committed.id, projectId: committed.projectId, createdAt: committed.createdAt });
+        expect(behind).toBeLessThanOrEqual(0);
+        // A session that keeps missing it never answers 429 for it either
+        const blind = { ...base, get: (async (pk: string, id: string) => id === committed.id ? null : base.get(pk, id)) as typeof base.get };
+        await expect(request(blind)).rejects.toMatchObject({ status: 409 });
+        // The new hour is full for everyone else, and nothing was reserved twice
+        await expect(request(base, random())).rejects.toMatchObject({ status: 429 });
+        expect(await base.query({ type: 'project-receipt', pk: `project-receipt:${userId}` })).toHaveLength(limit.limit + 1);
+    } finally { Date.now = now; }
+});
+
+test('a replay answers 410 for a project that lost the address, and the form sent again creates a new one', async () => {
+    const f = await renewableFixture('create-projects');
+    const own = f.project.workspaceId, token = f.credentials.token;
+    const submit = (attempt: string) => extensionWrite(request('projects', token, { origin: 'https://moved-on.example', name: 'Site', workspaceId: own, attempt }));
+    const attempt = random();
+    const first = await (await submit(attempt)).json() as { projectId: string };
+    expect((await submit(attempt)).status).toBe(201);
+    await updateProject(own, first.projectId, { urls: ['https://elsewhere.example'] });
+    const replay = await submit(attempt);
+    expect(replay.status).toBe(410);
+    expect(await replay.json()).toMatchObject({ error: 'not_found', message: 'The project created for this address no longer includes it. Try again to create a new one.' });
+    expect((await findProject(first.projectId))?.urls).toEqual(['https://elsewhere.example']);
+    const second = await (await submit(random())).json() as { projectId: string };
+    expect(second.projectId).not.toBe(first.projectId);
+    expect((await projectsForSite(f.user.id, 'https://moved-on.example')).projects.map(project => project.projectId)).toEqual([second.projectId]);
 });
 
 test('scoped access derives the origin and rechecks address removal, comments off and revocation', async () => {

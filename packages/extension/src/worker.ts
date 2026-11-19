@@ -277,12 +277,13 @@ async function start(tabId: number, projectId: string, publicId: string) {
 }
 type CreatedProject = { id: string; projectId: string; name: string; access: string; workspaceId: string; workspaceName: string };
 /**
- * The saved attempt of one submission (a site, a name and a workspace) in one sign-in. `projectId` is set once uier's
- * whole answer was read: the project exists, and only discovery listing it ends the record.
+ * The saved attempt of one submission (a site, a name and a workspace) in one sign-in. It stays for as long as any
+ * popup could still show that form: until sign-out or the end of the browser session, which clear this storage,
+ * or until uier answers that its project is gone. So every send of the submission, from whichever window and
+ * however late, is the same request to uier.
  */
-type ProjectAttempt = { attempt: string; sessionId: string; origin: string; savedAt: number; projectId?: string };
+type ProjectAttempt = { attempt: string };
 const projectAttemptPrefix = 'project-attempt:v1:';
-const projectAttemptDays = 7;
 const tabMoved = 'This tab moved to another address. Check the address and try again.';
 /** Its own record for every submission of every sign-in: one never replaces or clears another's */
 async function projectAttemptKey(sessionId: string, origin: string, name: string, workspaceId: string) {
@@ -291,9 +292,8 @@ async function projectAttemptKey(sessionId: string, origin: string, name: string
 }
 /**
  * Every read-then-write of an attempt record: one at a time, in the queue that orders credential writes with
- * sign-out, and only while the sign-in the work began in (`epoch`) is still the current one. So two tabs sending
- * the same submission get one attempt, and work that outlived its sign-in (a discovery answer that arrives after a
- * new sign-in, a create that finishes after sign-out) touches no record of the next one.
+ * sign-out, and only while the sign-in the work began in (`epoch`) is still the current one. So two windows
+ * sending the same submission get one attempt, and work that outlived its sign-in touches no record of the next.
  */
 function withProjectAttempts<T>(epoch: number, operation: () => Promise<T>) {
     return writeAuth(async () => { assertAuthEpoch(epoch); return operation(); });
@@ -304,38 +304,17 @@ async function projectAttempt(epoch: number, sessionId: string, origin: string, 
     const record = await withProjectAttempts(epoch, async () => {
         const saved = (await browser.storage.session.get(key))[key] as ProjectAttempt | undefined;
         if (saved) return saved;
-        const fresh: ProjectAttempt = { attempt: random(), sessionId, origin, savedAt: Date.now() };
+        const fresh: ProjectAttempt = { attempt: random() };
         await browser.storage.session.set({ [key]: fresh });
         return fresh;
     });
     return { key, record };
 }
-/** Changes the record under `key` only while it still holds `attempt`: never one a later submission saved there */
-function updateProjectAttempt(epoch: number, key: string, attempt: string, change: (record: ProjectAttempt) => ProjectAttempt | undefined) {
+/** Ends the record under `key` only while it still holds `attempt`: never one a later submission saved there */
+function forgetProjectAttempt(epoch: number, key: string, attempt: string) {
     return withProjectAttempts(epoch, async () => {
         const saved = (await browser.storage.session.get(key))[key] as ProjectAttempt | undefined;
-        if (saved?.attempt !== attempt) return;
-        const next = change(saved);
-        if (next) await browser.storage.session.set({ [key]: next });
-        else await browser.storage.session.remove(key);
-    }).catch(() => {});
-}
-/**
- * Ends saved attempts with what uier's discovery just listed for `origin` in this sign-in: those of this sign-in
- * and site whose project is in the list (the person can see and start it, so the form is not offered again), and
- * those older than a week, which no receipt outlives by much. An attempt whose answer never arrived stays for its
- * retry. Records of an earlier sign-in need no pass here: sign-out clears them.
- */
-function settleProjectAttempts(epoch: number, sessionId: string, origin: string, projects: { projectId: string }[]) {
-    return withProjectAttempts(epoch, async () => {
-        const saved = await browser.storage.session.get(null);
-        const ended = Object.entries(saved).filter(([key, value]) => {
-            if (!key.startsWith(projectAttemptPrefix)) return false;
-            const record = value as ProjectAttempt;
-            return record.savedAt < Date.now() - projectAttemptDays * 24 * 3600 * 1000
-                || (record.sessionId === sessionId && record.origin === origin && Boolean(record.projectId) && projects.some(project => project.projectId === record.projectId));
-        }).map(([key]) => key);
-        if (ended.length) await browser.storage.session.remove(ended);
+        if (saved?.attempt === attempt) await browser.storage.session.remove(key);
     }).catch(() => {});
 }
 /** The site the tab is on now, as the browser reports it; none while it leaves for another site or cannot be reviewed */
@@ -353,16 +332,18 @@ async function liveOrigin(tabId: number) {
  * app does.
  *
  * The attempt is saved before the request, as the refresh attempt is, in a record of this sign-in and this
- * submission, whichever tab or window sends it. Nothing the request does ends it: not the status line, not an answer that broke off, not an error.
- * So a lost or interrupted answer, a suspended worker or a second press sends the same attempt again, and uier
- * answers with the one project. The record ends when discovery lists its project (`settleProjectAttempts`), or
- * when uier says that project was removed since (410), which makes the same form a new submission.
+ * submission, whichever tab or window sends it. Nothing that happens afterwards makes the same form a new request:
+ * not a lost or interrupted answer, not an error, not a success another popup has since seen in its list. A form
+ * that is still open somewhere sends the saved attempt, and uier answers with the one project. Only uier's answer
+ * that this project is gone (410) ends the record, which makes the same form a new submission.
+ *
+ * Everything belongs to the sign-in it began in (`epoch`). After another sign-in or a sign-out, its answer is
+ * not delivered and no review starts: the project was created for the earlier account.
  * A review that cannot start (a closed helper, a tab that moved on) leaves the project: the popup lists it with the
  * reason, ready for Start review.
  */
-async function createSiteProject(tabId: number, shown: string, name: string, workspaceId: string) {
+async function createSiteProject(epoch: number, tabId: number, shown: string, name: string, workspaceId: string) {
     if (await liveOrigin(tabId) !== shown) throw new Error(tabMoved);
-    const epoch = authEpoch;
     const { id: sessionId, token } = await session();
     const { key, record } = await projectAttempt(epoch, sessionId, shown, name, workspaceId);
     // Read again after the waits above: what is sent is what the browser says now, and it must be what was shown
@@ -371,26 +352,31 @@ async function createSiteProject(tabId: number, shown: string, name: string, wor
     const response = await api('projects', token, 'POST', { origin, name, workspaceId, attempt: record.attempt });
     // Only a whole answer counts: the status line alone proves nothing, and a body that broke off keeps the attempt
     const answer = await response.json().catch(() => undefined) as Partial<CreatedProject> & { message?: string } | undefined;
+    assertAuthEpoch(epoch);
     if (!answer || (response.ok && (typeof answer.projectId !== 'string' || typeof answer.id !== 'string')))
         throw new Error('The answer from uier was interrupted. Try again.');
     if (!response.ok) {
-        // The attempt's project was removed since: final, so the same form is a new submission
-        if (response.status === 410) await updateProjectAttempt(epoch, key, record.attempt, () => undefined);
+        // The attempt's project is gone or no longer has this address: final, so the same form is a new submission
+        if (response.status === 410) await forgetProjectAttempt(epoch, key, record.attempt);
         throw new Error(answer.message || 'The extension could not connect.');
     }
     const project = answer as CreatedProject;
-    await updateProjectAttempt(epoch, key, record.attempt, saved => ({ ...saved, projectId: project.projectId }));
     if (await liveOrigin(tabId) !== shown) return { project, error: 'The project was created. This tab moved to another address, so its review did not start.' };
+    assertAuthEpoch(epoch);
     try { await start(tabId, project.projectId, project.id); return { project }; }
     catch (error) { return { project, error: error instanceof Error ? error.message : 'The review could not start.' }; }
 }
-/** One submission at a time: the same form sent twice (two popups, a second press) is one request and one answer */
+/**
+ * One request at a time for the same form in the same tab and sign-in: a second press joins the first and gets
+ * its answer. Never across sign-ins: the same form after another sign-in is that account's own request.
+ */
 const creations = new Map<string, ReturnType<typeof createSiteProject>>();
 function createProject(tabId: number, shown: string, name: string, workspaceId: string) {
-    const key = JSON.stringify([tabId, shown, name, workspaceId]);
+    const epoch = authEpoch;
+    const key = JSON.stringify([epoch, tabId, shown, name, workspaceId]);
     let pending = creations.get(key);
     if (!pending) {
-        pending = createSiteProject(tabId, shown, name, workspaceId);
+        pending = createSiteProject(epoch, tabId, shown, name, workspaceId);
         creations.set(key, pending);
         void pending.finally(() => { if (creations.get(key) === pending) creations.delete(key); }).catch(() => {});
     }
@@ -446,11 +432,7 @@ async function handle(input: unknown, sender: chrome.runtime.MessageSender) {
             }
             const tab = await activeTab(signedIn);
             if (!('origin' in tab)) return tab;
-            // The sign-in this discovery is for: its answer settles attempts only while that is still the current one
-            const epoch = authEpoch;
-            const current = await session();
-            const result = await json<any>(await api(`projects?${new URLSearchParams({ origin: tab.origin })}`, current.token));
-            if (Array.isArray(result.projects)) await settleProjectAttempts(epoch, current.id, tab.origin, result.projects);
+            const result = await json<any>(await api(`projects?${new URLSearchParams({ origin: tab.origin })}`, (await session()).token));
             // The review can end while uier answers: read it again.
             const binding = await getBinding(tab.tabId);
             return { ...result, ...tab, binding: Boolean(binding), reviewing: binding?.projectId };

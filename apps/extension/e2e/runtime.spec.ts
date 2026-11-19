@@ -246,14 +246,14 @@ test('an admin creates a project for an unlisted site in the popup and its revie
     const moved = 'This tab moved to another address. Check the address and try again.';
     // The worker's saved attempts: one record for each submission of this sign-in
     const attempts = () => worker.evaluate(async () => Object.entries(await chrome.storage.session.get(null))
-        .filter(([key]) => key.startsWith('project-attempt:v1:')).map(([, value]) => value as { attempt: string; origin: string; projectId?: string }));
+        .filter(([key]) => key.startsWith('project-attempt:v1:')).map(([, value]) => (value as { attempt: string }).attempt).sort());
     expect(await send({ type: 'create-project', tabId, origin, name: 'Forged', workspaceId: 'w_uier_public' })).toEqual({ ok: false, error: 'Only admins of this workspace can create projects.' });
     expect(await send({ type: 'create-project', tabId, origin: 'https://elsewhere.example', name: 'Forged', workspaceId: clientWork })).toEqual({ ok: false, error: moved });
     expect((await send({ type: 'create-project', tabId, name: 'Forged', workspaceId: clientWork })).ok).toBe(false);
     expect((await reviewed.evaluate(() => 'chrome' in window && Boolean((window as any).chrome?.runtime?.sendMessage)))).toBe(false);
     // What uier refused keeps its attempt (a refusal is not a project); what the worker never sent saved none
     const refused = await attempts();
-    expect(refused).toMatchObject([{ origin }]);
+    expect(refused).toHaveLength(1);
 
     // The tab moves on between the form and its submit, to a site the worker can always read (uier's own): the
     // form's address is the one the person confirmed, so nothing is created and the popup shows the tab as it is now.
@@ -296,9 +296,8 @@ test('an admin creates a project for an unlisted site in the popup and its revie
     await expect(actionPopup.getByRole('alert')).toHaveText('The answer from uier was interrupted. Try again.', { timeout: 30_000 });
     await expect(form).toBeVisible();
     await expect(reviewed.locator('#uier-toolbar')).toHaveCount(0);
-    const kept = (await attempts()).filter(record => record.attempt !== refused[0]!.attempt);
-    expect(kept).toMatchObject([{ origin }]);
-    expect(kept[0]!.projectId).toBeUndefined();
+    const kept = (await attempts()).filter(attempt => attempt !== refused[0]);
+    expect(kept).toHaveLength(1);
 
     // The retry sends the saved attempt and gets the project uier already created. Sent twice at once (a second
     // popup, a second press), it is still one request and one project.
@@ -313,8 +312,8 @@ test('an admin creates a project for an unlisted site in the popup and its revie
     const binding = await worker.evaluate(async () => Object.values(await chrome.storage.session.get(null)).find((value: any) => value?.projectId && value?.activation) as { projectId: string; origin: string });
     expect(binding.origin).toBe(origin);
     expect(await twin).toMatchObject({ ok: true, value: { project: { projectId: binding.projectId, name: 'Created in the popup' } } });
-    // Discovery listed the project to the popup: only now is the attempt over
-    await expect.poll(attempts, { timeout: 30_000 }).toEqual(refused);
+    // The popup lists the project now, and the attempt stays: a form still open elsewhere would send it again
+    expect(await attempts()).toEqual([...refused, ...kept].sort());
     await app.goto('/app/projects');
     await expect(app.getByRole('button', { name: 'Workspace: Client work', exact: false })).toBeVisible();
     await expect(app.getByRole('main').getByRole('link', { name: /Created in the popup/ })).toHaveCount(1);

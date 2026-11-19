@@ -70,7 +70,8 @@ const submission = { type: 'create-project', origin: site, name: 'Site', workspa
 /** uier's usual answers: the project for a create, nothing to start a review with (the test is not about reviews) */
 const usual = request => request.path === 'projects' && request.method === 'POST' ? json(project, 201)
     : request.path.startsWith('projects?') ? json({ projects: [], workspaces: [{ id: 'w_1', name: 'Personal' }], canSetUp: true })
-        : json({ error: 'forbidden', message: 'No review in this test.' }, 403);
+        : request.path === 'session' ? new Response(null, { status: 204 })
+            : json({ error: 'forbidden', message: 'No review in this test.' }, 403);
 
 test('two windows sending one submission at once share one attempt', async () => {
     const current = await worker();
@@ -89,6 +90,38 @@ test('two windows sending one submission at once share one attempt', async () =>
     assert.notEqual(current.creates()[2].body.attempt, sent[0].body.attempt);
 });
 
+/** Signs the worker in again as another account (`token-b`): consent approves at once */
+async function signInAgain(current, others = usual) {
+    current.api.answer = request => request.path === 'token' ? json({ token: 'token-b', expiresAt: Date.now() + 600_000, refreshToken: 'refresh-b', refreshExpiresAt: Date.now() + 86_400_000 })
+        : others(request);
+    assert.deepEqual(await current.send({ type: 'sign-in' }), { ok: true });
+    assert.notEqual(current.session.values.get('extension-session-v1').id, 'session-a');
+}
+
+test('discovery in one popup leaves the attempt another popup still needs', async () => {
+    const current = await worker();
+    // Two windows show the form and send it. uier commits once; the second window's answer is lost on the way
+    let lose = true;
+    current.api.answer = request => request.path === 'projects' && request.method === 'POST' && request.body && lose && current.creates().length === 2
+        ? Promise.reject(new TypeError('Failed to fetch')) : usual(request);
+    const [first, second] = await Promise.all([current.send({ ...submission, tabId: 1 }), current.send({ ...submission, tabId: 2 })]);
+    assert.equal(first.value.project.projectId, project.projectId);
+    assert.equal(second.ok, false);
+    const [sent] = current.creates();
+    // The first popup refreshes and sees the project in its list
+    current.api.answer = request => request.path.startsWith('projects?') ? json({ projects: [project], workspaces: [], canSetUp: true }) : usual(request);
+    assert.deepEqual((await current.send({ type: 'state' })).value.projects, [project]);
+    assert.deepEqual(current.attempts(), [{ attempt: sent.body.attempt }]);
+    // The second popup's own refresh fails, so its form is still there. Its retry is the same request, now and later
+    lose = false;
+    current.api.answer = request => request.path.startsWith('projects?') ? Promise.reject(new TypeError('Failed to fetch')) : usual(request);
+    assert.equal((await current.send({ type: 'state' })).ok, false);
+    assert.equal((await current.send({ ...submission, tabId: 2 })).value.project.projectId, project.projectId);
+    assert.equal((await current.send({ ...submission, tabId: 2 })).value.project.projectId, project.projectId);
+    assert.deepEqual(current.creates().map(request => request.body.attempt), Array(4).fill(sent.body.attempt));
+    assert.deepEqual(current.attempts(), [{ attempt: sent.body.attempt }]);
+});
+
 test('a discovery answer of an earlier sign-in leaves the next sign-in\'s attempt alone', async () => {
     const current = await worker();
     // The first sign-in asks uier for the site's projects; the answer is on its way
@@ -100,26 +133,51 @@ test('a discovery answer of an earlier sign-in leaves the next sign-in\'s attemp
     assert.deepEqual(current.requests.map(request => [request.path, request.token]), [[`projects?origin=${encodeURIComponent(site)}`, 'Bearer token-a']]);
 
     // Meanwhile the person signs in again, and that sign-in's create is committed by uier but its answer is lost
-    current.api.answer = request => request.path === 'token' ? json({ token: 'token-b', expiresAt: Date.now() + 600_000, refreshToken: 'refresh-b', refreshExpiresAt: Date.now() + 86_400_000 })
-        : request.path === 'session' ? new Response(null, { status: 204 })
-            : request.path === 'projects' && request.method === 'POST' ? Promise.reject(new TypeError('Failed to fetch')) : usual(request);
-    assert.deepEqual(await current.send({ type: 'sign-in' }), { ok: true });
-    assert.notEqual(current.session.values.get('extension-session-v1').id, 'session-a');
+    await signInAgain(current);
+    current.api.answer = request => request.path === 'projects' && request.method === 'POST' ? Promise.reject(new TypeError('Failed to fetch')) : usual(request);
     assert.equal((await current.send({ ...submission, tabId: 1 })).ok, false);
     const [lost] = current.creates();
     assert.equal(lost.token, 'Bearer token-b');
-    assert.deepEqual(current.attempts().map(record => record.attempt), [lost.body.attempt]);
+    assert.deepEqual(current.attempts(), [{ attempt: lost.body.attempt }]);
 
-    // Now the old answer arrives. It says nothing about the new sign-in: the attempt stays for the retry
-    arrive(json({ projects: [], workspaces: [], canSetUp: true }));
+    // Now the old answer arrives, listing that very project. It says nothing to the new sign-in's records
+    arrive(json({ projects: [project], workspaces: [], canSetUp: true }));
     assert.equal((await discovery).ok, true);
-    assert.deepEqual(current.attempts().map(record => record.attempt), [lost.body.attempt]);
+    assert.deepEqual(current.attempts(), [{ attempt: lost.body.attempt }]);
     current.api.answer = usual;
     assert.equal((await current.send({ ...submission, tabId: 1 })).value.project.projectId, project.projectId);
     assert.equal(current.creates()[1].body.attempt, lost.body.attempt);
 });
 
-test('an attempt ends when discovery lists its project, and only then', async () => {
+test('the same form after another sign-in is that account\'s own request, and the earlier one delivers nothing', async () => {
+    const current = await worker();
+    // The first account's create reaches uier; its answer is on its way
+    let arrive;
+    const delayed = new Promise(resolve => { arrive = resolve; });
+    current.api.answer = request => request.path === 'projects' && request.method === 'POST' ? delayed : usual(request);
+    const earlier = current.send({ ...submission, tabId: 1 });
+    await new Promise(resolve => setTimeout(resolve, 20));
+    assert.deepEqual(current.creates().map(request => request.token), ['Bearer token-a']);
+
+    // Another account signs in and sends the same form from the same tab: its own request, with its own credential
+    await signInAgain(current, request => request.path === 'projects' && request.method === 'POST' ? delayed : usual(request));
+    const theirs = { ...project, id: 'public-b', projectId: 'bbbbbbbbbbbb' };
+    current.api.answer = request => request.path === 'projects' && request.method === 'POST' ? json(theirs, 201) : usual(request);
+    assert.equal((await current.send({ ...submission, tabId: 1 })).value.project.projectId, theirs.projectId);
+    const sent = current.creates();
+    assert.deepEqual(sent.map(request => request.token), ['Bearer token-a', 'Bearer token-b']);
+    assert.notEqual(sent[1].body.attempt, sent[0].body.attempt);
+    const reviews = () => current.requests.filter(request => request.path === 'scope').map(request => [request.token, request.body.projectId]);
+    assert.deepEqual(reviews(), [['Bearer token-b', theirs.projectId]]);
+
+    // The first account's answer arrives now. Nobody gets its project, and no review starts for it in this sign-in
+    arrive(json(project, 201));
+    assert.deepEqual(await earlier, { ok: false, error: 'This sign-in has ended.' });
+    assert.deepEqual(reviews(), [['Bearer token-b', theirs.projectId]]);
+    assert.deepEqual(current.attempts(), [{ attempt: sent[1].body.attempt }]);
+});
+
+test('an attempt outlives refusals, broken answers and success, and ends when uier says its project is gone', async () => {
     const current = await worker();
     // A refusal and an answer that broke off keep the attempt
     current.api.answer = request => request.path === 'projects' ? json({ error: 'rate_limited', message: 'Too many new projects. Try again later.' }, 429) : usual(request);
@@ -128,24 +186,25 @@ test('an attempt ends when discovery lists its project, and only then', async ()
     assert.deepEqual(await current.send({ ...submission, tabId: 1 }), { ok: false, error: 'The answer from uier was interrupted. Try again.' });
     current.api.answer = usual;
     await current.send({ ...submission, tabId: 1 });
-    const sent = current.creates().map(request => request.body.attempt);
-    assert.deepEqual(sent, [sent[0], sent[0], sent[0]]);
-    assert.deepEqual(current.attempts().map(record => [record.attempt, record.projectId]), [[sent[0], project.projectId]]);
-    // Discovery without the project (another site's answer, a list that does not have it yet) ends nothing
-    assert.equal((await current.send({ type: 'state' })).ok, true);
-    assert.equal(current.attempts().length, 1);
+    // So does success, and discovery listing the project: a form still open somewhere stays the same request
     current.api.answer = request => request.path.startsWith('projects?') ? json({ projects: [project], workspaces: [], canSetUp: true }) : usual(request);
     assert.equal((await current.send({ type: 'state' })).ok, true);
-    assert.deepEqual(current.attempts(), []);
-    // uier says the attempt's project was removed since: the same form is a new submission
-    current.api.answer = usual;
-    await current.send({ ...submission, tabId: 2, name: 'Removed' });
+    await current.send({ ...submission, tabId: 2 });
+    const sent = current.creates().map(request => request.body.attempt);
+    assert.deepEqual(sent, Array(4).fill(sent[0]));
+    assert.deepEqual(current.attempts(), [{ attempt: sent[0] }]);
+    // uier says the attempt's project was removed since: the same form is a new submission, for every window
     current.api.answer = request => request.path === 'projects' ? json({ error: 'not_found', message: 'This project no longer exists.' }, 410) : usual(request);
-    assert.deepEqual(await current.send({ ...submission, tabId: 2, name: 'Removed' }), { ok: false, error: 'This project no longer exists.' });
+    assert.deepEqual(await current.send({ ...submission, tabId: 2 }), { ok: false, error: 'This project no longer exists.' });
     assert.deepEqual(current.attempts(), []);
     current.api.answer = usual;
-    await current.send({ ...submission, tabId: 2, name: 'Removed' });
-    const removed = current.creates().filter(request => request.body.name === 'Removed').map(request => request.body.attempt);
-    assert.equal(removed[0], removed[1]);
-    assert.notEqual(removed[2], removed[0]);
+    await current.send({ ...submission, tabId: 2 });
+    await current.send({ ...submission, tabId: 1 });
+    const later = current.creates().slice(5).map(request => request.body.attempt);
+    assert.equal(later.length, 2);
+    assert.notEqual(later[0], sent[0]);
+    assert.equal(later[1], later[0]);
+    // Sign-out ends every record
+    assert.deepEqual(await current.send({ type: 'sign-out' }), { ok: true });
+    assert.deepEqual(current.attempts(), []);
 });

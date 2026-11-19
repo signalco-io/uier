@@ -253,11 +253,6 @@ export type DbProject = AppDoc & {
      * (`isLiveProject`). Cleared once the move is finished or abandoned.
      */
     transfer?: { from: string; to: string };
-    /**
-     * Created with a receipt (`projectReceipts.ts`): its code claim may still carry the expiry it was claimed with.
-     * The next read makes the claim permanent and clears this (`ensureProjectCode`).
-     */
-    codeClaim?: 'pending';
     createdBy: string;
     createdAt: string;
     updatedAt: string;

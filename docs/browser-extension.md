@@ -188,16 +188,19 @@ no choice, several need one made before **Create project and start review** is a
   the page and sends no path or query. A tab that moved on shows its new state with the reason.
 - **One project per submission.** Before it sends, the worker saves a random attempt in session
   storage, in a record of its own for this sign-in and this submission (site, name and workspace),
-  whichever tab or window sends it. Every read-then-write of these records runs one at a time in the
-  queue that orders credential writes with sign-out, and only while the sign-in the work began in is
-  still current: two windows sending the same form get one attempt, and a discovery answer or a
-  create that outlived its sign-in touches no record of the next. Nothing the request does ends the
-  record: not the status line, not an answer that broke off, not a refusal. A lost or interrupted
-  answer, a suspended worker or a second press sends the same attempt, and uier answers with the one
-  project. The record ends when discovery lists its project to the popup, when uier answers that the
-  project was removed since (410), with the sign-in, or after a week (uier keeps the receipt for 30
-  days). `packages/extension/scripts/worker.test.mjs` runs the worker with stand-in browser APIs for
-  these orderings.
+  whichever tab or window sends it. Records are read and written one at a time in the queue that
+  orders credential writes with sign-out, and only while the sign-in the work began in is current, so
+  two windows sending the same form get one attempt. The record stays for as long as any popup could
+  still show that form: until sign-out or the end of the browser session, which clear this storage.
+  Nothing else makes the same form a new request: not a lost or interrupted answer, not a refusal,
+  and not a success that another popup has since seen in its list. uier answers every send with the
+  one project. Only uier's answer that the project is gone or no longer includes the address (410)
+  ends the record. uier keeps the receipt for 30 days.
+- **One sign-in.** A create belongs to the sign-in it began in. A second press of the same form in
+  the same tab joins the request in flight; the same form after another sign-in is that account's own
+  request with its own credential. An answer that arrives after a sign-out or another sign-in is not
+  delivered and starts no review. `packages/extension/scripts/worker.test.mjs` runs the worker with
+  stand-in browser APIs for these orderings.
 - **Creation.** uier checks the stored admin membership again and creates the project with the app's
   own creation service, so it is invited-only with that one address
   ([server rules](../apps/web/docs/browser-extension.md)). The worker then starts the review as

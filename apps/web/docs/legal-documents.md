@@ -28,11 +28,12 @@ wording before merge. Prepare the tested text for review; do not infer that pass
 The privacy policy's 13 November 2026 update describes explicit screen recordings, browser-memory
 drafts, private video storage, access and cleanup. Its changed wording needs the same owner review
 before merge. Other policies retain their existing dates. The 19 November 2026 text also covers projects created
-from the browser extension: what the request sends, the identifier-only receipt kept for 30 days
+from the browser extension: what the request sends, the random request id the extension keeps in session storage
+until sign-out or the end of the browser session, the identifier-only receipt kept for 30 days
 (`PROJECT_RECEIPT_SECONDS`) that prevents a second project, the workspace marker (project id and time) kept until 31
-days after the request, both kept through deletion and transfer, and the reserved project code released after the
-same 31 days when no project was created. That paragraph needs the same owner review; change it with those
-constants. `legal.spec.ts` guards the project/privacy distinction, identity fallback,
+days after the request, both kept through deletion and transfer, and the project code that stays reserved with the
+workspace id when a request stopped before its project existed and was never sent again. That paragraph needs the
+same owner review; change it with those constants and with the worker's attempt records. `legal.spec.ts` guards the project/privacy distinction, identity fallback,
 analytics status and erasure limitations.
 
 The privacy policy's 14 November 2026 update also describes optional workspace Notion project imports

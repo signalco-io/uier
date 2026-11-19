@@ -70,7 +70,8 @@ export async function projectsForSite(userId: string, origin: string) {
  * `attempt` is the worker's random value for this submission. Its receipt (`reserveProjectCreation`) is written
  * before anything of the project, together with one unit of the hourly budget: the first request takes the unit,
  * and that request again, or several of it at once, find the receipt, take nothing and create or return the one
- * project. A project that was created and then deleted or transferred answers 410, never a second project.
+ * project. A project that was created and then deleted or transferred, or that lost this address, answers 410:
+ * the worker forgets the attempt, and never a second project is created for one attempt.
  */
 export async function createSiteProject(request: Request) {
     const session = await extensionSession(request);
@@ -87,6 +88,10 @@ export async function createSiteProject(request: Request) {
     try {
         const receipt = await reserveProjectCreation(creator, input, attempt, siteProjectsLimit(user.id));
         const project = await createProject(creator, input, { receipt });
+        // A replay answers with the project as it is now. One that has lost this address since is not what the form
+        // asks for: final for the attempt, like a removed project, so the form sent again creates one that has it.
+        if (!projectOrigins(project).includes(origin))
+            throw new ApiError(410, 'not_found', 'The project created for this address no longer includes it. Try again to create a new one.');
         return Response.json({ id: project.publicId, projectId: project.id, name: project.name, access: project.access,
             workspaceId: workspace.id, workspaceName: workspace.name }, { status: 201 });
     } catch (error) {

@@ -113,13 +113,14 @@ credential), an exact origin, a name, a workspace id and an attempt. In order:
 - **Receipt and budget.** `reserveProjectCreation` writes the attempt's receipt before anything of the project
   exists, in one transaction with one unit of `siteProjectsLimit` (30 new projects an hour per account, 429 with
   `Retry-After` beyond it). The same attempt again, or several of it at once, find that receipt and take no unit,
-  so a duplicate is never refused while the original commits and a retry after a partial write costs nothing.
-  A request is refused only on a window that is full without it, whatever order its reads and the original's
-  write come in ([projects](projects.md)). The receipt answers for 30 days.
+  so a retry after a partial write costs nothing. Before answering 429 the server asks the store, with a write that
+  changes nothing, whether the attempt's receipt exists: a duplicate of a request that already committed is never
+  refused, in the same hour or across its end ([projects](projects.md)). The receipt answers for 30 days.
 - **Creation.** The app's `createProject` with the receipt ([projects](projects.md)), so address and name
   validation, the invited-only default, the public id and the client record are the app's. Keep new creation rules
-  in `createProject` so both paths get them. A project that was created and then deleted or transferred answers
-  410 (`ProjectGoneError`): the worker forgets that attempt, and nothing is created again under the old code.
+  in `createProject` so both paths get them. A project that was created and then deleted or transferred, or that
+  no longer includes the address, answers 410: the worker forgets that attempt, and nothing is created again under
+  the old code.
 
 `GET projects` adds `workspaces` (id and name of each workspace the account may create in, oldest membership
 first) beside `canSetUp`, which installed packages still read; the list is a label and grants nothing. A session
@@ -127,8 +128,9 @@ without the capability gets an empty list and `approveCreate: true` when the acc
 `extension.api.spec.ts` covers the capability (legacy, renewable and renewed sessions, an exchange that asks for
 it), the roles, stale and removed memberships, credentials, validation, replay and concurrent requests of one
 attempt (also with one unit of the budget left, in every ordering of a duplicate's reads with the original's write,
-and after a request that stopped), replays after deletion, in deletion's gap and after a transfer, the 30-day
-period and the expiry of each record, the budget and the route; the packaged runtime suite reads the consent line, moves the tab between the form
+across the end of the hour, and after a request that stopped before or after its commit), replays after deletion,
+in deletion's gap, after a transfer and after the address was removed, the 30-day period, the expiry of receipt and
+marker and the permanent code, the budget and the route; the packaged runtime suite reads the consent line, moves the tab between the form
 and its submit, breaks off the answer of a committed create and fails the refresh after it, sends the retry twice and
 reviews with the one created project.
 
