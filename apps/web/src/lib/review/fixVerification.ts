@@ -15,6 +15,7 @@ import { assertEligibleParticipant } from './participants';
 import { changeComment, projectPartition } from './comments';
 import { fixVerificationSchema } from './fixVerificationSchema';
 import { assertFileVerificationRequest, guestCanReviewProof } from '../proofs/threadAccess';
+import { matchesStagingThread, memberStagingPair } from '../proofs/staging';
 import type { CommentsStore } from '../repo/commentsStore';
 
 export { verificationDetails, verificationPermissions } from './fixVerificationDto';
@@ -60,8 +61,13 @@ export async function changeFixVerification(project: DbProject, actor: ProjectAc
                 || (comment.assetTarget && !await guestCanReviewProof(currentProject, comment)))
                 throw apiErrors.forbidden('Choose a member who still has access.');
             if (comment.assetTarget) await assertFileVerificationRequest(currentProject, comment, input.evidence);
+            const after = input.afterScreenshotItemId;
+            if (after && !comment.thread.items.slice(1).some(item => String(item.id) === after && !item.deletedAt && item.screenshot))
+                throw apiErrors.invalidRequest('Choose a reply with an attached screenshot.');
             const updated: DbComment = { ...withThreadActivity(comment, me), resolved: false, workflowStatusId: (selected ?? defaultStatus(workflow, 'ready')).id, verification: {
                 id: randomUUID(), revision: randomUUID(), requester: me, reviewer, requestedAt: now, outcome: 'pending',
+                ...(after ? { stagingEvidence: { afterItemId: after, requestReceipt: attempt?.id,
+                    ...(comment.screenshot ? { beforeRevision: comment.screenshot.revision ?? null } : {}) } } : {}),
                 ...(input.evidence ? { evidence: input.evidence, proofRequestReceipt: attempt?.id } : {}),
                 ...(input.summary ? { summary: input.summary } : {}), ...(input.fixUrl ? { fixUrl: fixDestination(currentProject, input.fixUrl) } : {})
             } };
@@ -83,7 +89,8 @@ export async function changeFixVerification(project: DbProject, actor: ProjectAc
             }
         }
         const updated: DbComment = { ...withThreadActivity(comment, me), resolved: input.action === 'confirm', ...(input.action === 'confirm' ? { completedAt: now } : {}), verification: {
-            ...v, revision: randomUUID(), outcome: input.action === 'confirm' ? 'confirmed' : input.action === 'reject' ? 'needs-work' : 'canceled',
+            ...v, ...(v.stagingEvidence ? { stagingEvidence: { ...v.stagingEvidence, decisionReceipt: attempt?.id } } : {}),
+            revision: randomUUID(), outcome: input.action === 'confirm' ? 'confirmed' : input.action === 'reject' ? 'needs-work' : 'canceled',
             ...(comment.assetTarget ? { proofDecisionReceipt: attempt?.id } : {}),
             decision: { kind: input.action, actorId: me, at: now, override: input.action !== 'cancel' && input.override === true }
         } };
@@ -96,7 +103,20 @@ export async function changeFixVerification(project: DbProject, actor: ProjectAc
         if (selected && selected.category !== category) throw apiErrors.invalidRequest('Choose a status in the target category.');
         updated.workflowStatusId = (selected ?? defaultStatus(workflow, category)).id;
         return withNotificationEvent(updated, me, input.action === 'confirm' ? 'verification-confirmed' : input.action === 'reject' ? 'verification-rejected' : 'verification-canceled', now, [v.requester, v.reviewer], actor.kind === 'member' ? actor.agent : undefined, { verificationOverride: input.override === true });
-    }, attempt, { expected: null, value: () => null, requireComments: true, requireVerification: input.action !== 'cancel' }, store);
+    }, attempt, { expected: null, value: () => null, requireComments: true, requireVerification: input.action !== 'cancel',
+        authorize: async (comment, currentProject) => {
+            const usesStagingEvidence = input.action === 'request' ? input.afterScreenshotItemId : input.action !== 'cancel' && comment.verification?.stagingEvidence;
+            if (!usesStagingEvidence) return;
+            if (!comment.stagingDesign || actor.kind !== 'member') throw apiErrors.notFound();
+            const { pair } = await memberStagingPair(currentProject.id, comment.stagingDesign.pairingId, actor.userId);
+            if (!matchesStagingThread(comment, pair)) throw apiErrors.notFound();
+        }
+    }, store);
+    const stagingEvidence = saved.verification?.stagingEvidence;
+    if (input.action === 'request' && input.afterScreenshotItemId && stagingEvidence?.requestReceipt !== attempt?.id)
+        throw apiErrors.conflict();
+    if (input.action !== 'request' && stagingEvidence && stagingEvidence.decisionReceipt !== attempt?.id)
+        throw apiErrors.conflict();
     if (saved.assetTarget) {
         const v = saved.verification;
         const receipt = input.action === 'request' ? v?.proofRequestReceipt : v?.proofDecisionReceipt;

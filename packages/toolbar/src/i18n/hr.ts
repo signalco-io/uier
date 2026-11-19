@@ -11,6 +11,22 @@ const p = (count: number, one: string, few: string, other: string) => pluralHr(c
 const panelPlaces: Record<PanelDock, string> = { left: 'lijevo', right: 'desno', 'left-top': 'gore lijevo', 'right-top': 'gore desno', 'left-bottom': 'dolje lijevo', 'right-bottom': 'dolje desno' };
 
 export const hr: Messages = {
+    staging: {
+        report: "Prijavi odstupanje",
+        label: "Usporedba dizajna",
+        unavailable: "Pregled pripremnog okruženja nije dostupan.",
+        toggle: "Usporedi odobreni dizajn",
+        viewport: (width: number, height: number) => `Ciljni prikaz: ${width} × ${height} px`,
+        currentViewport: (width: number, height: number) => `Trenutačni prikaz: ${width} × ${height} px`,
+        opacity: "Vidljivost dizajna",
+        preview: "Pretpregled odobrenog dizajna",
+        linkedComment: "Ovaj komentar povezan je s odobrenim dizajnom.",
+        approvedDesign: "Odobreni dizajn",
+        before: "Snimka zaslona prije",
+        after: "Snimka zaslona poslije",
+        noScreenshot: "Nije odabrana snimka zaslona",
+        replyImage: (number: number) => `Snimka zaslona iz odgovora ${number}`,
+    },
     consentPanel: {
         about: "O ovoj kartici",
         groups: { cookie: "Kolačići", local: "Lokalna pohrana", session: "Pohrana sesije", request: "Zahtjevi poznatim alatima za praćenje" },

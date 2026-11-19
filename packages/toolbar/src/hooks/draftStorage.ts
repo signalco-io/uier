@@ -10,7 +10,7 @@ export const draftLifetimeMs = 7 * 24 * 60 * 60 * 1000;
 export type DraftDetails = {
     mentions?: Mention[];
     /** `drawing`: a canvas mode comment's area; its shapes stay in memory */
-    anchor?: { kind: 'comment' | 'rewrite' | 'drawing'; position: CommentAnchor };
+    anchor?: { kind: 'comment' | 'rewrite' | 'drawing'; position: CommentAnchor; stagingPairingId?: string };
     originalText?: string;
     proposalDraft?: ProposalDraft;
     /** Earlier drafts stored only the validated payload. */
@@ -142,6 +142,8 @@ export function createDraftStore(scope: string[], onWrite?: () => void, persiste
                 || (typeof l === 'object' && l !== null && selector(l.opener)
                     && (l.label === undefined || (typeof l.label === 'string' && l.label.length <= 120))
                     && (l.nested === undefined || (Array.isArray(l.nested) && l.nested.length > 0 && l.nested.length <= 7 && l.nested.every(selector))));
+            if (a.stagingPairingId !== undefined && (typeof a.stagingPairingId !== 'string' || !/^[a-f0-9]{64}$/.test(a.stagingPairingId)))
+                delete a.stagingPairingId;
             if (!p || !['comment', 'rewrite', 'drawing'].includes(a.kind) || !layer(p.layer)
                 || !(p.type === 'point' ? selector(p.selector) && fraction(p.xNormal) && fraction(p.yNormal)
                     && ((p.widthNormal === undefined && p.heightNormal === undefined) || (fraction(p.widthNormal) && fraction(p.heightNormal)))

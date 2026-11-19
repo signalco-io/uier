@@ -74,3 +74,32 @@ second rendered page, and reopens that exact quote through the thread permalink.
 The two-thread [verification spec](../e2e/proof-verification.spec.ts) places revised locations on the
 same point on touch and checks focus when the reviewer advances. Placement and pan own pointer
 input while active. Pins open their threads in Browse.
+
+## From an approved design to staging
+
+Open **Design to staging** in a published file's viewer, on the PDF page, Figma
+frame or image to compare. After all required reviewers explicitly approve that
+version, a project member can pair it with an address on one of the project's
+origins. The width and height are the intended CSS viewport pixels. The address
+must follow the project's [page state policy](review-api.md). The Files library
+opens the regular viewer for each version. A discrepancy's **Approved design**
+link opens the exact version and surface, even after a newer version is published.
+
+**Open paired live review** starts the usual website toolbar on the actual staging
+page. **Compare approved design** places the approved reference over the live page,
+aligned from the document origin at the saved width. The overlay scrolls with the
+page. The control shows both viewport sizes when they differ. Resize the browser or
+choose a matching device viewport for a responsive comparison. When the site blocks
+outgoing frames, the same control offers a first-party approved design link to open
+beside the live page. Staging can deny being framed by other sites.
+
+**Report discrepancy** uses the usual point or area composer. The linked thread has
+the same number, status, review permissions and notifications as website feedback.
+The paired surface lists links to its staging discrepancies. To document a fix,
+attach a screenshot of the updated staging page to a reply, then select that reply
+image when requesting verification. The original screenshot and the selected reply
+image appear next to the request, subject to the usual screenshot permissions and
+later redaction.
+
+The [staging review API](proof-review.md#design-to-staging) describes the access and
+retention rules.

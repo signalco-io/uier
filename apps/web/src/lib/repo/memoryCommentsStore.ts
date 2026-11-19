@@ -180,12 +180,12 @@ export function getMemoryCommentsStore(): CommentsStore {
                 .slice(0, limit)
                 .map(clone);
         },
-        async listPage(domain, { limit, before, path, originFilter, authorId, archive, visibility, proof }) {
+        async listPage(domain, { limit, before, path, originFilter, authorId, archive, visibility, proof, stagingPairingId }) {
             return domainComments(domain)
                 .filter(comment => matchesProofThread(comment, proof) && typeof comment.path === 'string' && typeof comment.createdAt === 'string'
                     && (path === undefined || pathMatches(comment, path)) && matchesVisibility(comment, visibility)
                     && matchesOrigin(comment.origin, originFilter) && matchesAuthor(comment, authorId) && matchesArchive(comment, archive)
-                    && isAfterCursor(comment, before))
+                    && (!stagingPairingId || comment.stagingDesign?.pairingId === stagingPairingId) && isAfterCursor(comment, before))
                 .sort(newestCommentFirst)
                 .slice(0, Math.max(1, Math.min(1000, Math.trunc(limit))))
                 .map(clone);

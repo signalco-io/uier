@@ -29,6 +29,8 @@ export async function proxy(request: NextRequest) {
         return new NextResponse(null, { status: 404 });
     }
     if (pathname.startsWith('/proof-preview/')) return new NextResponse(null, { status: 404 });
+    // The private design frame and its first-party approval each send their own framing policy.
+    if (/^\/(?:api\/review\/[A-Za-z0-9_-]+\/staging-preview|app\/staging-preview\/[A-Za-z0-9_-]+)\/[a-f0-9]{64}$/.test(pathname)) return NextResponse.next();
     if (pathname.toLowerCase() === botIdPath || pathname.toLowerCase().startsWith(`${botIdPath}/`))
         return proxyBotId(request);
     const appPage = pathname === '/app' || pathname.startsWith('/app/');

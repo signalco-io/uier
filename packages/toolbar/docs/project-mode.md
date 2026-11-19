@@ -27,3 +27,14 @@ toolbar without a review link.
 ([installation](../../../apps/web/docs/onboarding.md)). It reports the public configuration and status, within a
 bounded lifetime, with browser CSP evidence and the read API and verification proof. It never posts a test
 comment or sends tokens in a diagnostic report.
+
+## Paired design review
+
+A member arriving with an authorized `uier-design` link sees the comparison
+controls and **Report discrepancy**. The shipped embed and extension use the same
+project review API and ordinary point-mode composer. The pair applies only on
+its authorized page and origin. A new linked draft keeps its pairing across
+resumes; a revoked pairing cannot be posted. The comparison puts only the
+app-origin reference in a frame and leaves the staging site top-level. A
+member's direct link can open the private reference beside the page if frame
+loading is blocked.

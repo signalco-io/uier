@@ -33,6 +33,7 @@ const handler = extensionHandler(async request => {
     if (path === 'comments') return request.method === 'GET' ? review.listReviewComments(context) : review.createReviewComment(context);
     if (path === 'comments/activity') return reviewActivitySummary(context);
     if (path === 'comments/read') return readReviewComments(context);
+    if (path === 'staging') return review.getReviewStaging(context);
     if (path === 'statuses') return review.getReviewStatuses(context);
     if (path === 'participants') return review.listReviewParticipants(context);
     if (path === 'rewrite') return review.suggestReviewRewrites(context);
@@ -47,6 +48,7 @@ const handler = extensionHandler(async request => {
     if (suffix === 'replies') return !itemId ? review.replyToReviewComment(context, { id })
         : request.method === 'PATCH' ? review.editReviewCommentItem(context, { id, itemId }) : review.deleteReviewCommentItem(context, { id, itemId });
     if (suffix === 'screenshot') return request.method === 'GET' ? review.getReviewScreenshot(context, { id }) : review.replaceReviewScreenshot(context, { id });
+    if (suffix === 'verification') return review.verifyReviewFix(context, { id });
     if (suffix === 'priority') return review.prioritizeReviewComment(context, { id });
     if (suffix === 'reactions') return reactToReviewComment(context, { id });
     if (suffix === 'assignee') return review.assignReviewComment(context, { id });

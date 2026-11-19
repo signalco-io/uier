@@ -170,10 +170,13 @@ export type DbVerification = {
     /** Actor-scoped receipt hashes used to correlate a retried proof action with the saved request. */
     proofRequestReceipt?: string;
     proofDecisionReceipt?: string;
+    stagingEvidence?: { beforeRevision?: string | null; afterItemId: string; requestReceipt?: string; decisionReceipt?: string };
     decision?: { kind: 'confirm' | 'reject' | 'cancel'; actorId: string; at: string; override: boolean };
 };
 
 export type DbComment = {
+    /** An ordinary website thread may refer to one immutable approved design surface. */
+    stagingDesign?: import('../proofs/stagingModel').StagingDesignReference;
     /** File threads are canonical project comments with an immutable original and separate relocations. */
     assetTarget?: import('../proofs/threadModel').ProofThreadTarget & { authorShareId?: string };
     recording?: DbCommentRecording;

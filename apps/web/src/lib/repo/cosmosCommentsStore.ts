@@ -181,15 +181,16 @@ export function createCosmosCommentsStore(getContainer: () => Container = cosmos
                 [...filter.parameters, ...author.parameters, { name: '@limit', value: limit }]);
             return resources.map(resource => withoutSystemProperties<DbComment>(resource));
         },
-        async listPage(domain, { limit, before, path, originFilter, authorId, archive, visibility, proof }) {
+        async listPage(domain, { limit, before, path, originFilter, authorId, archive, visibility, proof, stagingPairingId }) {
             const origin = originSql(originFilter);
             const author = authorSql(authorId);
             const visible = visibilitySql(visibility);
             const target = proofThreadSql(proof);
             const cursor = commentPageCursorSql(before);
             const where = `c.domain = @domain AND IS_STRING(c.path) AND IS_STRING(c.createdAt)${path === undefined ? '' : ` AND ${pathFilter}`}`
-                + `${target.clause}${visible.clause}${origin.clause}${author.clause}${archiveSql(archive)}${cursor.clause}`;
+                + `${target.clause}${visible.clause}${origin.clause}${author.clause}${archiveSql(archive)}${cursor.clause}${stagingPairingId ? ' AND c.stagingDesign.pairingId = @stagingPairingId' : ''}`;
             const parameters = [...target.parameters, ...visible.parameters, ...origin.parameters, ...author.parameters, ...cursor.parameters,
+                ...(stagingPairingId ? [{ name: '@stagingPairingId', value: stagingPairingId }] : []),
                 ...(path === undefined ? [] : pathParameters(path)), { name: '@limit', value: Math.max(1, Math.min(1000, Math.trunc(limit))) }];
             const read = async (operation: string, query: string, extra: SqlParameter[] = []) =>
                 (await queryAll<Record<string, unknown>>(operation, domain, query, [...parameters, ...extra])).map(resource => withoutSystemProperties<DbComment>(resource));

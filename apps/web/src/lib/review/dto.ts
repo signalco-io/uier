@@ -48,6 +48,7 @@ export type ReviewAssignee = { id?: string; name: string; isMe: boolean; unavail
 
 export type ReviewCommentDto = CommentDto & {
     labelIds?: string[];
+    hasDesignReference?: true;
     verificationEnabled?: boolean;
     workflowStatusId?: string; archiveStatusId?: string;
     history?: ThreadHistoryEntry[];
@@ -83,6 +84,7 @@ export function toReviewCommentDto(comment: DbComment, actor: ProjectActor, name
     const items = Array.isArray(comment.thread?.items) ? comment.thread.items : [];
     return {
         ...dto,
+        ...(actor.kind === 'member' && comment.stagingDesign ? { hasDesignReference: true as const } : {}),
         verificationEnabled: project?.verificationEnabled === true,
         workflowStatusId: comment.workflowStatusId, archiveStatusId: comment.archiveStatusId,
         ...(actor.kind === 'member' ? { history: threadHistoryView(comment, { member: true, authorId, admin: actor.isAdmin }, participants) } : {}),
