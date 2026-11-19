@@ -342,7 +342,7 @@ test('the connector serves the plugin skills with their files to clients that re
         expect(orchestrator.resources.map(resource => resource.uri)).toContain('skill://uier-orchestrator/scripts/orchestrator.mjs');
         const monitor = listed.skills.find(skill => skill.frontmatter.name === 'uier-monitor')!;
         expect(monitor.uri).toBe('skill://uier-monitor/SKILL.md');
-        expect(monitor.resources.map(resource => resource.uri)).toEqual(expect.arrayContaining(['skill://uier-monitor/SKILL.md', 'skill://uier-monitor/scripts/monitor.mjs']));
+        expect(monitor.resources.map(resource => resource.uri)).toEqual(expect.arrayContaining(['skill://uier-monitor/SKILL.md', 'skill://uier-monitor/scripts/monitor.mjs', 'skill://uier-monitor/scripts/store.mjs']));
         // The same files the plugin installs: the content matches the published digest.
         const script = monitor.resources.find(resource => resource.uri.endsWith('/monitor.mjs'))!;
         const read = await client.readResource({ uri: script.uri });

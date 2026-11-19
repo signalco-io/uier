@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // uier monitor helper for the uier-monitor skill: a background watcher that costs no model
-// tokens while nothing happens, plus small helpers for the monitor's state file.
-// No dependencies; Node 18 or later. Run `node monitor.mjs help`.
+// tokens while nothing happens, plus small helpers for the monitor's state.
+// No dependencies; Node 24 or later. Run `node monitor.mjs help`.
 //
 // Source of truth: plugins/uier/skills/uier-monitor/scripts/monitor.mjs in the uier repository.
 // After an edit, bump VERSION (and MONITOR_VERSION in SKILL.md), then run
@@ -10,16 +10,17 @@
 
 import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
-import { homedir } from 'node:os';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 
-const VERSION = '1.9.0';
+import { activeGroupCount, addActivity, appendInbox, canonical, clearInbox, databasePath, monitorHome, readConfig, readEntities, readInbox, readRecord, readSlots, readState, registrations, stateSnapshot, transaction, writeRecord, writeSlots, writeState } from './store.mjs';
+
+const VERSION = '2.0.0';
 const DEFAULT_ENDPOINT = 'https://uier.io/api/mcp';
 const KEYCHAIN_SERVICE = 'uier-mcp';
-const BOOLEAN_FLAGS = new Set(['replace', 'screenshots', 'help', 'persistent', 'take', 'detach', 'apply', 'allow-model-polling', 'worker', 'inbox-only']);
+const BOOLEAN_FLAGS = new Set(['replace', 'screenshots', 'help', 'persistent', 'take', 'detach', 'apply', 'allow-model-polling', 'worker', 'inbox-only', 'recover']);
 const SLOT_STATES = new Set(['building', 'fixing', 'reviewing']);
 const MACHINE_MAX = 12;          // sessions working at once across every monitor on this machine
 const CLAIM_MS = 15 * 60_000;    // a slot claimed for a session that was never recorded
@@ -43,7 +44,7 @@ Options may come before or after the command.
                           the event cursor.
   watch [--replace] [--max-minutes N] [--interval SECONDS]
                           Wait without model tokens. Exits with one JSON line when there is
-                          something to do; the details go to inbox.json. Keeps the agent
+                          something to do; the details go to the event inbox. Keeps the agent
                           attached and its working spinner renewed for groups.*.agentLease.
                           --batch-seconds N coalesces ordinary events (default 10, max 30).
                           --persistent --thread ID wakes a local T3 thread via its CLI.
@@ -59,8 +60,9 @@ Options may come before or after the command.
                           Records merges itself, closes comments after their deploy when the
                           group has a closing draft, and wakes only for what needs a decision.
   --inbox-only            With persistent watch, queue events for a managed orchestrator worker.
-  take                    Print and clear inbox.json.
-  context [--take]         Compact active snapshot; --take consumes events and prints only
+  registry                List project registrations in the machine database.
+  take                    Print and clear the event inbox.
+  context [--take|--recover]         Compact active snapshot; --take consumes events and prints only
                           changed state since the last context. Saves a recovery receipt.
   detail SECTION ID...     Read selected items, groups or PRs, or a named top-level field.
   status                  Compact view of sessions, leases, queue, PRs, deploys, open questions,
@@ -76,7 +78,7 @@ Options may come before or after the command.
   usage                   Per-monitor requests, bytes, time, measured database RU and idle wakes.
                           Optional --ru-price-per-million N --currency CODE estimates RU cost
                           only; missing server measurements remain unknown.
-  patch '<json>' | -      Apply a JSON merge patch (RFC 7386) to state.json.
+  patch '<json>' | -      Apply a JSON merge patch (RFC 7386) to the monitor state.
   packet ID... [--out DIR] [--screenshots]
                           Save feedback packets (and original/reply images) for fix sessions.
   call TOOL '<json>' | -  Call one uier tool with the watcher's token and print its result, for
@@ -88,16 +90,14 @@ Options may come before or after the command.
   stop                    Stop a running watcher.
 
 --project ID uses <git common dir>/uier-monitor/ID as the state directory.
-The watcher announces its state directory in ~/.uier-monitor/monitors (UIER_MONITOR_HOME overrides
-the folder) and keeps an activity history in events.jsonl. The machine's session limit is in
-~/.uier-monitor/settings.json (maxSessions), its claims and queue in slots.json. dashboard.mjs, next to this file, shows
-every monitor on the machine from those: node dashboard.mjs
+SQLite stores monitor data in ~/.uier-monitor/monitor.sqlite (UIER_MONITOR_HOME overrides the folder).
+Run node dashboard.mjs for a read-only view of every registered monitor.
 The token comes from UIER_MCP_TOKEN or the keychain (service "${KEYCHAIN_SERVICE}", account: the
 project id, its workspace id or "default"). UIER_MCP_URL overrides ${DEFAULT_ENDPOINT}.
 `;
 
 const { command, opts } = parseArgs(process.argv.slice(2));
-const commands = { help: () => print(HELP), version, check, watch, take, context: contextCommand, detail, status, usage, patch, packet, call, token, cleanup, stop, slot, capacity };
+const commands = { registry: () => print(registrations()), help: () => print(HELP), version, check, watch, take, context: contextCommand, detail, status, usage, patch, packet, call, token, cleanup, stop, slot, capacity };
 
 // ---------------------------------------------------------------- arguments and files
 
@@ -189,37 +189,11 @@ function logger(dir) {
     return message => { try { appendFileSync(file, `${new Date().toISOString()} ${message}\n`); } catch { /* best effort */ } };
 }
 
-// Files every monitor on this machine shares: the dashboard's registry, reply cooldowns and the
-// machine's session limit, claims and queue.
-function monitorHome() {
-    return process.env.UIER_MONITOR_HOME || join(homedir(), '.uier-monitor');
-}
-
-// ---------------------------------------------------------------- dashboard feed
-// dashboard.mjs reads what these write. Both are best effort: nothing here may stop the monitor.
-
-// Announces this monitor: one small file per state folder under ~/.uier-monitor/monitors, so a
-// dashboard finds every monitor on the machine, whichever repository it runs in.
-function register(dir, state) {
-    try {
-        const file = join(monitorHome(), 'monitors', `${createHash('sha256').update(dir).digest('hex').slice(0, 16)}.json`);
-        const entry = { stateDir: dir, project: pick(state.project, ['id', 'name']), repo: state.repo?.slug };
-        const { registeredAt, ...before } = readJson(file, {});
-        if (JSON.stringify(before) !== JSON.stringify(entry)) writeJson(file, { ...entry, registeredAt: new Date().toISOString() });
-    } catch { /* the dashboard is optional */ }
-}
-
-// The activity history (events.jsonl): one JSON line per event, wake and state change.
+// The journal is diagnostic. Preserve the observed timestamp separately from the remote event.
 function journal(dir, entries) {
-    try {
-        if (!entries.length) return;
-        const file = join(dir, 'events.jsonl');
-        try { if (statSync(file).size > 2_000_000) renameSync(file, `${file}.1`); } catch { /* new journal */ }
-        const at = new Date().toISOString();
-        // An event's own `at` is when it happened in uier; the journal's is when the monitor saw it.
-        appendFileSync(file, entries.map(({ foundAt, at: eventAt, message, ...entry }) => `${JSON.stringify({ at, ...entry,
-            ...(eventAt ? { eventAt } : {}), ...(message ? { message: String(message).slice(0, 200) } : {}) })}\n`).join(''));
-    } catch { /* best effort */ }
+    const at = new Date().toISOString();
+    addActivity(dir, entries.map(({ foundAt, at: eventAt, message, ...entry }) => ({ at, ...entry,
+        ...(eventAt ? { eventAt } : {}), ...(message ? { message: String(message).slice(0, 200) } : {}) })));
 }
 
 // Numeric counters only. A separate lock/file avoids overwriting orchestrator or watcher state.
@@ -234,9 +208,8 @@ function usageTotals(value = {}) {
 async function recordUsage(dir, delta, now = Date.now()) {
     if (!dir) return;
     try {
-        await withLock(dir, 'usage', () => {
-            const file = join(dir, 'usage.json');
-            const before = readJson(file, {});
+        transaction(() => {
+            const before = readRecord(dir, 'usage', {});
             const today = new Date(now).toISOString().slice(0, 10);
             const cutoff = new Date(now - 30 * DAY).toISOString().slice(0, 10);
             const days = Object.fromEntries(Object.entries(before.days ?? {})
@@ -244,13 +217,13 @@ async function recordUsage(dir, delta, now = Date.now()) {
                 .map(([day, counts]) => [day, usageTotals(counts)]));
             const counts = days[today] ??= usageTotals();
             for (const key of USAGE_FIELDS) if (Number.isFinite(delta[key]) && delta[key] >= 0) counts[key] += delta[key];
-            writeJson(file, { version: 1, since: before.since ?? new Date(now).toISOString(), days });
+            writeRecord(dir, 'usage', { version: 1, since: before.since ?? new Date(now).toISOString(), days });
         });
     } catch { /* Accounting must never fail feedback delivery. */ }
 }
 
 function usageSnapshot(dir, now = Date.now()) {
-    const saved = readJson(join(dir, 'usage.json'), {});
+    const saved = readRecord(dir, 'usage', {});
     const cutoff = new Date(now - 30 * DAY).toISOString().slice(0, 10);
     const today = new Date(now).toISOString().slice(0, 10);
     const days = Object.entries(saved.days ?? {}).filter(([day]) => day >= cutoff && day <= today);
@@ -277,12 +250,12 @@ function usage(options) {
 }
 
 // Group state and item decision or stage changes between two states, for the journal.
-function transitions(before, after) {
+function transitions(before, after, linkedItems = {}) {
     const changes = [];
     for (const [id, group] of Object.entries(after.groups ?? {})) {
         const from = before.groups?.[id]?.state;
         if (group?.state && group.state !== from) changes.push({ type: 'group', group: id, from, to: group.state,
-            numbers: (group.items ?? []).map(item => after.items?.[item]?.number).filter(Boolean), ...(group.pr ? { pr: group.pr } : {}) });
+            numbers: (group.items ?? []).map(item => (Object.hasOwn(after.items ?? {}, item) ? after.items[item] : linkedItems[item])?.number).filter(Boolean), ...(group.pr ? { pr: group.pr } : {}) });
     }
     for (const [id, item] of Object.entries(after.items ?? {})) for (const field of ['decision', 'stage']) {
         const from = before.items?.[id]?.[field];
@@ -300,12 +273,14 @@ function version() {
 
 async function take(options) {
     const dir = stateDir(options);
-    const items = await withLock(dir, 'inbox', () => {
-        const inbox = readJson(join(dir, 'inbox.json'), []);
-        if (inbox.length) writeJson(join(dir, 'inbox.json'), []);
+    const items = transaction(() => {
+        const inbox = readInbox(dir);
+        if (inbox.length) {
+            clearInbox(dir);
+            journal(dir, [{ type: 'taken', events: inbox.length }]);
+        }
         return inbox;
     });
-    if (items.length) journal(dir, [{ type: 'taken', events: items.length }]);
     print({ now: new Date().toISOString(), items });
 }
 
@@ -370,15 +345,16 @@ function contextPacket(state, events, previous = null) {
 
 async function contextCommand(options) {
     const dir = stateDir(options);
-    const result = await withLock(dir, 'context', () => withLock(dir, 'inbox', () => {
-        const state = readJson(join(dir, 'state.json'), {});
-        const events = coalesceEvents(readJson(join(dir, 'inbox.json'), []));
-        const saved = readJson(join(dir, 'context.json'), null);
+    if (options.recover) return print(readRecord(dir, 'context', {})?.recovery ?? null);
+    const result = transaction(() => {
+        const state = readState(dir, {});
+        const events = coalesceEvents(readInbox(dir));
+        const saved = readRecord(dir, 'context', null);
         const previous = options.take ? saved?.baseline : null;
         const result = contextPacket(state, events, previous);
         // Tell the orchestrator once about a stretch when its wakes could not be delivered. Only the
         // watcher writes notification.json; the receipt remembers which outage was reported.
-        const outage = readJson(join(dir, 'notification.json'), {}).lastOutage;
+        const outage = readRecord(dir, 'notification', {}).lastOutage;
         result.outageReported = saved?.outageReported;
         if (outage?.until && outage.until !== saved?.outageReported) {
             result.packet.wakeOutage = pick(outage, ['since', 'until', 'failures']);
@@ -392,27 +368,29 @@ async function contextCommand(options) {
         if (capacity) result.packet.capacity = capacity;
         result.recovery = events.length ? result.packet : saved?.recovery;
         if (!events.length && result.recovery && !(Date.parse(state.updatedAt) > Date.parse(result.recovery.now)))
-            result.packet.recoverFrom = join(dir, 'context.json');
+            result.packet.recoverFrom = 'context --recover';
         // Persist both the packet and its baseline before draining, so interrupted output is recoverable.
-        writeJson(join(dir, 'context.json'), result);
+        writeRecord(dir, 'context', result);
         if (options.take && events.length) {
-            writeJson(join(dir, 'inbox.json'), []);
+            clearInbox(dir);
             journal(dir, [{ type: 'taken', events: events.length }]);
         }
         return result.packet;
-    }));
+    });
     print(result);
 }
 
 function detail(options) {
     const [section, ...ids] = options._;
     if (!section || ['__proto__', 'constructor', 'prototype'].includes(section)) fail('Pass a state field and optional ids.');
-    const state = readJson(join(stateDir(options), 'state.json'), {});
+    const dir = stateDir(options);
+    const state = readConfig(dir) ?? {};
     if (!Object.hasOwn(state, section)) fail('That state field does not exist.');
     if (ids.length) {
         if (!['items', 'groups', 'prs'].includes(section) || ids.length > 10) fail('Select 1–10 ids from items, groups or prs.');
-        print(Object.fromEntries(ids.filter(id => Object.hasOwn(state[section] ?? {}, id)).map(id => [id, state[section][id]])));
-    } else print(state[section]);
+        print(readEntities(dir, section, ids));
+    } else if (['items', 'groups', 'prs'].includes(section) && state[section] && typeof state[section] === 'object' && !Array.isArray(state[section])) print(readEntities(dir, section));
+    else print(state[section]);
 }
 
 async function patch(options) {
@@ -421,21 +399,28 @@ async function patch(options) {
     let change;
     try { change = JSON.parse(raw); } catch (error) { fail(`The patch is not JSON: ${error.message}`); }
     if (change === null || typeof change !== 'object' || Array.isArray(change)) fail('The patch must be a JSON object.');
-    await withLock(dir, 'state', () => {
-        const file = join(dir, 'state.json');
-        const before = readJson(file, {});
+    transaction(() => {
+        const before = readConfig(dir) ?? {};
+        // A merge patch only needs the old rows it touches. Replacing a whole section
+        // also needs its old keys so that removed rows can be deleted.
+        for (const section of ['items', 'groups', 'prs']) {
+            if (!Object.hasOwn(change, section) || !before[section] || typeof before[section] !== 'object' || Array.isArray(before[section])) continue;
+            const value = change[section];
+            const ids = value && typeof value === 'object' && !Array.isArray(value) ? Object.keys(value) : undefined;
+            before[section] = readEntities(dir, section, ids);
+        }
         const next = mergePatch(before, change);
         next.updatedAt = new Date().toISOString();
-        writeJson(file, next);
-        journal(dir, transitions(before, next));
-        register(dir, next);
+        writeState(dir, next, before);
+        const linkedIds = Object.values(next.groups ?? {}).flatMap(group => group?.items ?? []);
+        journal(dir, transitions(before, next, linkedIds.length ? readEntities(dir, 'items', linkedIds) : {}));
     });
     print('ok');
 }
 
 function token(options) {
     const dir = stateDir(options, false);
-    const state = dir ? readJson(join(dir, 'state.json'), {}) : {};
+    const state = dir ? readConfig(dir) ?? {} : {};
     const account = typeof options.account === 'string' ? options.account
         : state.project?.id ?? (typeof options.project === 'string' ? options.project : 'default');
     if (typeof options['from-file'] !== 'string') fail('Pass --from-file FILE (a file that holds only the token).');
@@ -633,28 +618,30 @@ async function allPages(ctx, name, args, maxPages = 40, limit = 25) {
 
 async function check(options) {
     const dir = stateDir(options);
-    const state = readJson(join(dir, 'state.json'), {});
+    const state = readState(dir, {});
     const projectId = typeof options.project === 'string' ? options.project : state.project?.id;
-    if (!projectId) fail('state.json has no project.id yet. Patch it first, or pass --project ID.');
+    if (!projectId) fail('the monitor state has no project.id yet. Patch it first, or pass --project ID.');
     const ctx = connection(state, projectId, dir);
     if (!ctx) { print({ ok: false, reason: 'no-token', version: VERSION }); return; }
     try {
         const projects = await allPages(ctx, 'list_projects', {}, 4);
         const project = projects.items.find(item => item.id === projectId);
         if (!project) { print({ ok: false, reason: 'project-not-granted', actingAs: projects.actingAs, reachable: projects.items.map(item => item.name).slice(0, 20) }); return; }
-        const watchFile = join(dir, 'watch.json');
-        const seen = readJson(watchFile, {});
-        const before = JSON.stringify(seen);
+        const seen = readRecord(dir, 'watch', {});
         if (!seen.cursor) {
             seen.cursor = (await tool(ctx, 'list_feedback_events', { projectId, cursor: null })).cursor;
             seen.forceReconcile = true;
         }
         const { assign, status: canStatus, reply } = await probeScopes(ctx, projectId);
         // A new token can bring the Assign operation; let the watcher try leases again.
-        if (assign === true && seen.leases === 'unsupported') delete seen.leases;
-        if (assign === false) seen.leases = 'unsupported';
         // Write only on a change, so a running watcher's cursor isn't overwritten.
-        if (JSON.stringify(seen) !== before) writeJson(watchFile, seen);
+        transaction(() => {
+            const latest = readRecord(dir, 'watch', {});
+            if (!latest.cursor && seen.cursor) Object.assign(latest, { cursor: seen.cursor, forceReconcile: true });
+            if (assign === true && latest.leases === 'unsupported') delete latest.leases;
+            if (assign === false) latest.leases = 'unsupported';
+            writeRecord(dir, 'watch', latest);
+        });
         print({ ok: true, version: VERSION, actingAs: projects.actingAs, project: { id: project.id, name: project.name, workspace: project.workspace }, cursor: 'set',
             assign, lease: assign === true ? 'available' : assign === false ? 'unsupported' : 'unknown',
             status: canStatus, reply, writes: canStatus && reply ? 'available' : canStatus === false || reply === false ? 'missing' : 'unknown' });
@@ -687,7 +674,7 @@ async function probeScopes(ctx, projectId) {
 // connection acts as another account. The token never leaves this process.
 async function call(options) {
     const dir = stateDir(options);
-    const state = readJson(join(dir, 'state.json'), {});
+    const state = readState(dir, {});
     const [name, ...rest] = options._;
     if (!name || !/^[a-z_]+$/.test(name)) fail(`Pass a uier tool name, for example: call set_feedback_status '{"commentId":"…","status":"done","idempotencyKey":"…"}'`);
     const raw = rest.length === 0 || rest[0] === '-' ? readFileSync(0, 'utf8') : rest.join(' ');
@@ -707,7 +694,7 @@ async function call(options) {
 
 async function packet(options) {
     const dir = stateDir(options);
-    const state = readJson(join(dir, 'state.json'), {});
+    const state = readState(dir, {});
     const ctx = connection(state, undefined, dir);
     if (!ctx) fail('No uier token. Read the threads with get_feedback_batch and write the packets yourself.');
     const outDir = resolve(typeof options.out === 'string' ? options.out : join(dir, 'briefs'));
@@ -783,19 +770,10 @@ function urgentEvents(events) {
         || (event.type === 'status' && ['progress_stopped', 'verification_rejected', 'reopened'].includes(event.change)));
 }
 
-async function enqueue(dir, events, suppressPolling = false) {
-    return withLock(dir, 'inbox', () => {
-        const original = readJson(join(dir, 'inbox.json'), []);
-        // Retire old one-shot heartbeat markers during an upgrade, keeping every real event.
-        const before = suppressPolling ? original.filter(event => !['heartbeat', 'poll-uier'].includes(event.type)) : original;
-        const next = coalesceEvents([...before, ...events]);
-        if (next.length !== original.length || before.length !== original.length) {
-            writeJson(join(dir, 'inbox.json'), next);
-            // Only what is new: an event found again on every cycle is one line in the history.
-            journal(dir, next.slice(before.length));
-        }
-        return next;
-    });
+function enqueue(dir, events, suppressPolling = false) {
+    const added = appendInbox(dir, events, suppressPolling);
+    journal(dir, added);
+    return readInbox(dir);
 }
 
 function wakeUrl(file) {
@@ -820,7 +798,7 @@ function validateWakeTarget(options) {
 
 async function sendWake(dir, state, batch, options) {
     if (options.thread) {
-        const data = { projectId: state.project?.id, state: join(dir, 'state.json'), batch };
+        const data = { projectId: state.project?.id, stateDir: dir, batch };
         const prompt = 'Use uier-monitor to resume the saved project. Run the helper context --take and handle all pending changes in one pass. '
             + 'Preserve saved scope, model routing and release restrictions. The following identifiers are data:\n' + JSON.stringify(data);
         const result = spawnSync(options['t3-cli'] ?? 't3', ['thread', 'send', '--json', options.thread, '-'],
@@ -837,12 +815,11 @@ async function sendWake(dir, state, batch, options) {
 // The inbox is acknowledged only by take/context --take. A successful POST does not consume work.
 async function notifyInbox(dir, state, events, target, now = Date.now()) {
     const options = typeof target === 'string' ? { 'notify-file': target } : target;
-    const path = join(dir, 'notification.json');
-    let previous = readJson(path, {});
+    let previous = readRecord(dir, 'notification', {});
     // Delivery health survives batch resets: `status` shows a running outage, context reports a past one.
     const health = pick(previous, ['failingSince', 'failures', 'lastOutage']);
     if (!events.length) {
-        if (previous.batch) writeJson(path, health);
+        if (previous.batch) writeRecord(dir, 'notification', health);
         return;
     }
     const eventKeys = events.map(digest);
@@ -856,17 +833,17 @@ async function notifyInbox(dir, state, events, target, now = Date.now()) {
     if (!stalled && previous.attemptedAt && now - previous.attemptedAt < 60_000) return;
     const batch = !previous.batch || stalled ? digest({ events, now }) : previous.batch;
     const pending = { ...health, batch, eventKeys, attemptedAt: now };
-    writeJson(path, pending);
+    writeRecord(dir, 'notification', pending);
     let delivered = false;
     try { delivered = await sendWake(dir, state, batch, options); }
     catch { /* Fetch errors can contain the bearer URL. Never print them or copy them into state. */ }
     if (!delivered) {
-        writeJson(path, { ...pending, failingSince: health.failingSince ?? now, failures: (health.failures ?? 0) + 1 });
+        writeRecord(dir, 'notification', { ...pending, failingSince: health.failingSince ?? now, failures: (health.failures ?? 0) + 1 });
         await recordUsage(dir, { deliveryFailures: 1 }, now);
         return { delivered: false };
     }
     const { failingSince, failures, ...rest } = pending;
-    writeJson(path, { ...rest, deliveredAt: now, ...(failingSince ? { lastOutage: {
+    writeRecord(dir, 'notification', { ...rest, deliveredAt: now, ...(failingSince ? { lastOutage: {
         since: new Date(failingSince).toISOString(), until: new Date(now).toISOString(), failures } } : {}) });
     await recordWake(dir, events, now);
     return { delivered: true };
@@ -909,7 +886,7 @@ async function watch(options) {
     const dir = stateDir(options);
     mkdirSync(dir, { recursive: true });
     const log = logger(dir);
-    const initial = readJson(join(dir, 'state.json'), {});
+    const initial = readState(dir, {});
     options = watchOptions(options, initial);
     if (options.persistent && !options['inbox-only']) validateWakeTarget(options);
     if (options.detach && !options.persistent) throw new Error('--detach requires --persistent and a wake target.');
@@ -932,7 +909,7 @@ async function watch(options) {
             for (const key of ['interval', 'batch-seconds', 't3-cli']) if (options[key] !== undefined) args.push(`--${key}`, String(options[key]));
             if (options['allow-model-polling']) args.push('--allow-model-polling');
             const child = spawn(process.execPath, [fileURLToPath(import.meta.url), ...args], { detached: true, stdio: 'ignore' });
-            // Report startup, not readiness. status/watch.json proves the child entered its loop.
+            // Report startup, not readiness. status proves the child entered its loop.
             await new Promise((resolve, reject) => { child.once('spawn', resolve); child.once('error', reject); });
             child.unref();
             print({ started: child.pid, persistent: true, health: 'pending; check status once' });
@@ -954,13 +931,12 @@ async function watch(options) {
     let batchStarted = null;
     log(`watch ${VERSION} started, pid ${process.pid}`);
     journal(dir, [{ type: 'watcher', event: 'started', pid: process.pid, version: VERSION, persistent: Boolean(options.persistent) }]);
-    register(dir, readJson(join(dir, 'state.json'), {}));
 
     for (;;) {
-        const state = readJson(join(dir, 'state.json'), {});
-        const seen = readJson(join(dir, 'watch.json'), {});
+        const state = stateSnapshot(dir, {});
+        const seen = readRecord(dir, 'watch', {});
         const settings = state.watch ?? {};
-        const supervisor = options['inbox-only'] ? readJson(join(monitorHome(), 'orchestrator.json'), {}) : null;
+        const supervisor = options['inbox-only'] ? readRecord(null, 'orchestrator', {}) : null;
         const registration = supervisor?.projects?.[state.project?.id];
         const paused = supervisor && !(supervisor.enabled && registration?.allowed && registration.run
             && registration.run === state.orchestrator?.run);
@@ -989,7 +965,7 @@ async function watch(options) {
                 lastGithub = Date.now();
                 const deployed = pollDeploys(state, seen, found, updates) ?? [];
                 pollPullRequests(state, seen, found, updates);
-                for (const release of deployed) await closeDeployed(ctx, state, seen, found, updates, release, log, () => readJson(join(dir, 'state.json'), {}));
+                for (const release of deployed) await closeDeployed(ctx, state, seen, found, updates, release, log, () => readState(dir, {}));
             }
             failures = 0;
             delete seen.pollError;
@@ -1001,7 +977,6 @@ async function watch(options) {
                 found.push({ type: 'error', message: String(error.message).slice(0, 300) });
             }
         }
-        if (updates.length) await updateState(dir, updates).catch(error => log(`state update failed: ${error.message}`));
         // A monitor the machine's limit held back wakes when a slot is free for it.
         await capacityTurn(dir, found).catch(error => log(`capacity check failed: ${error.message}`));
         const now = Date.now();
@@ -1016,16 +991,19 @@ async function watch(options) {
             else if (!options.persistent && now - startedAt >= maxMinutes * 60_000) found.push({ type: 'heartbeat' });
         }
         prune(seen, now);
-        const stamped = found.map(item => ({ ...item, foundAt: new Date(now).toISOString() }));
-        if (found.some(event => !['heartbeat', 'poll-uier'].includes(event.type))) seen.lastActivityAt = new Date(now).toISOString();
-        const inbox = await enqueue(dir, stamped, options.persistent && !options['allow-model-polling']);
+        const inbox = transaction(() => {
+            updateState(dir, updates);
+            const stamped = found.map(item => ({ ...item, foundAt: new Date(now).toISOString() }));
+            if (found.some(event => !['heartbeat', 'poll-uier'].includes(event.type))) seen.lastActivityAt = new Date(now).toISOString();
+            seen.heartbeatAt = new Date(now).toISOString();
+            seen.eventIntervalSeconds = eventInterval(state, seen, now, intervalMs) / 1000;
+            writeRecord(dir, 'watch', seen);
+            return enqueue(dir, stamped, options.persistent && !options['allow-model-polling']);
+        });
         // Quiet events (merges and closings the watcher handled) ride along with the next wake.
         const loud = inbox.filter(item => !item.quiet);
         if (loud.length && batchStarted === null) batchStarted = now;
         if (!loud.length) batchStarted = null;
-        seen.heartbeatAt = new Date(now).toISOString();
-        seen.eventIntervalSeconds = eventInterval(state, seen, now, intervalMs) / 1000;
-        writeJson(join(dir, 'watch.json'), seen);
         if (loud.length && (urgentEvents(loud) || now - batchStarted >= batchMs)) {
             if (options.persistent) {
                 const delivery = !options['inbox-only'] && await notifyInbox(dir, state, inbox, options, now);
@@ -1039,7 +1017,7 @@ async function watch(options) {
                 journal(dir, [{ type: 'wake', delivered: true, events: inbox.length }]);
                 await recordWake(dir, inbox, now);
                 release();
-                print({ wake: brief, inbox: join(dir, 'inbox.json'), next: 'Run: node monitor.mjs context --take' });
+                print({ wake: brief, stateDir: dir, next: 'Run: node monitor.mjs context --take' });
                 return;
             }
         }
@@ -1200,7 +1178,7 @@ async function reconcile(ctx, state, seen, found, updates = []) {
 // state: "working" | "done", clear? } and sleeps while the session builds. The watcher attaches the
 // agent with its own token (set_feedback_agent), renews the five-minute working lease
 // (set_feedback_agent_working) and, once the lease is done, clears the spinner (and the agent for
-// items in clear). Its progress per item lives in watch.json under agentLeases, never in state.json.
+// items in clear). Its progress per item lives in the watcher checkpoint under agentLeases, never in the monitor state.
 
 function leaseKey(state, commentId, action) {
     const number = state.items?.[commentId]?.number ?? commentId;
@@ -1673,15 +1651,14 @@ async function closeDeployed(ctx, state, seen, found, updates, { entry, run }, l
 
 // Apply the watcher's own bookkeeping to fresh state under the same lock `patch` uses.
 // updatedAt stays the orchestrator's, so recovery receipts still tell whether it saw a packet.
-async function updateState(dir, updates) {
+function updateState(dir, updates) {
     if (!updates.length) return;
-    await withLock(dir, 'state', () => {
-        const file = join(dir, 'state.json');
-        const before = readJson(file, {});
-        const next = readJson(file, {});
+    transaction(() => {
+        const before = readState(dir, {});
+        const next = structuredClone(before);
         for (const update of updates) update(next);
         next.watcherUpdatedAt = new Date().toISOString();
-        writeJson(file, next);
+        writeState(dir, next, before);
         journal(dir, transitions(before, next));
     });
 }
@@ -1788,7 +1765,7 @@ function removableWorktrees(state, cwd, here = process.cwd()) {
 
 function cleanup(options) {
     const dir = stateDir(options);
-    const state = readJson(join(dir, 'state.json'), {});
+    const state = readState(dir, {});
     const cwd = repoCwd(state);
     const before = diskFree(cwd);
     const worktrees = removableWorktrees(state, cwd);
@@ -1802,7 +1779,7 @@ function cleanup(options) {
 }
 
 // ---------------------------------------------------------------- machine capacity
-// Every monitor on this machine shares one limit on sessions working at once (settings.json
+// Every monitor on this machine shares one limit on sessions working at once (setting
 // `maxSessions`, default MACHINE_MAX), on top of each monitor's own `max`. A group in a slot state
 // counts where it is. A claim (`slot GROUP`) covers the moment between deciding to start a session
 // and the patch that records it: it counts while its group keeps the state it had when claimed, for
@@ -1810,10 +1787,6 @@ function cleanup(options) {
 // it when a slot is free for it, and a woken monitor that claims nothing within TURN_MS loses its
 // place. Only monitors whose watcher checked in lately and that have room of their own hold a place,
 // so a stopped, crashed or full monitor never blocks the others.
-
-function canonical(dir) {
-    try { return realpathSync(dir); } catch { return resolve(dir); }
-}
 
 function monitorKey(dir) {
     return createHash('sha256').update(dir).digest('hex').slice(0, 16);
@@ -1823,45 +1796,20 @@ function objectOr(value, fallback = {}) {
     return value && typeof value === 'object' && !Array.isArray(value) ? value : fallback;
 }
 
-// Another monitor's files may be half written or gone; they never stop this one.
-function quietRead(file, fallback) {
-    try { return objectOr(readJson(file, fallback), fallback); } catch { return fallback; }
-}
-
 function machineMax() {
-    const value = Number(quietRead(join(monitorHome(), 'settings.json'), {}).maxSessions);
+    const value = Number(readRecord(null, 'settings', {}).maxSessions);
     return Number.isInteger(value) && value > 0 ? value : MACHINE_MAX;
 }
 
-function readSlots() {
-    const saved = quietRead(join(monitorHome(), 'slots.json'), {});
-    return { claims: { ...objectOr(saved.claims) }, waiting: { ...objectOr(saved.waiting) } };
-}
-
-// Every announced monitor and this one: the groups that hold a slot and whether its watcher runs.
-// A monitor nobody touched for a day was left behind; its groups hold no slot.
 function machineMonitors(self, now) {
-    const dirs = new Set(self ? [self] : []);
-    const registry = join(monitorHome(), 'monitors');
-    let names = [];
-    try { names = readdirSync(registry).filter(name => name.endsWith('.json')); } catch { /* none announced yet */ }
-    for (const name of names) {
-        const dir = quietRead(join(registry, name), {}).stateDir;
-        if (typeof dir === 'string') dirs.add(canonical(dir));
-    }
     const monitors = new Map();
-    for (const dir of dirs) {
-        let touched;
-        try { touched = statSync(join(dir, 'state.json')).mtimeMs; } catch { continue; }
-        const state = quietRead(join(dir, 'state.json'), null);
-        if (!state) continue;
-        const heartbeat = Date.parse(quietRead(join(dir, 'watch.json'), {}).heartbeatAt ?? '') || 0;
-        const groups = objectOr(state.groups);
-        const abandoned = dir !== self && now - Math.max(touched, heartbeat) > DAY;
-        monitors.set(monitorKey(dir), { dir, key: monitorKey(dir), groups, name: state.project?.name ?? state.project?.id ?? null,
-            working: abandoned ? 0 : Object.values(groups).filter(group => SLOT_STATES.has(group?.state)).length,
-            claims: 0, max: Number(state.max) || 6, stopped: Boolean(state.stopped || state.watch?.stopped),
-            watching: now - heartbeat < WATCHER_FRESH_MS });
+    for (const entry of registrations()) {
+        const dir = entry.stateDir;
+        const heartbeat = Date.parse(entry.heartbeat ?? '') || 0;
+        const abandoned = dir !== self && now - Math.max(entry.touched, heartbeat) > DAY;
+        monitors.set(monitorKey(dir), { dir, key: monitorKey(dir), name: entry.name ?? entry.id,
+            working: abandoned ? 0 : activeGroupCount(dir), claims: 0, max: Number(entry.max) || 6,
+            stopped: Boolean(entry.stopped), watching: now - heartbeat < WATCHER_FRESH_MS });
     }
     return monitors;
 }
@@ -1869,7 +1817,7 @@ function machineMonitors(self, now) {
 function liveClaim(claim, monitors, now) {
     const monitor = monitors.get(claim?.monitor);
     if (!monitor || !(now - Number(claim.at) < CLAIM_MS)) return false;
-    const current = monitor.groups[claim.group]?.state ?? null;
+    const current = readEntities(monitor.dir, 'groups', [claim.group])[claim.group]?.state ?? null;
     return current === (claim.from ?? null) && !SLOT_STATES.has(current);
 }
 
@@ -1925,12 +1873,13 @@ async function slot(options) {
     const [verb, ...rest] = options._;
     const ids = ['release', 'leave'].includes(verb) ? rest : options._;
     if (verb === 'leave' ? ids.length : !ids.length) fail('Pass group ids: slot GROUP..., slot release GROUP... or slot leave.');
-    const state = readJson(join(dir, 'state.json'), {});
-    const unknown = ids.filter(id => !Object.hasOwn(objectOr(state.groups), id));
-    if (verb !== 'release' && unknown.length) fail(`No such group: ${unknown.join(', ')}.`);
     const self = canonical(dir);
     const key = monitorKey(self);
-    const answer = await withLock(monitorHome(), 'slots', () => {
+    const answer = transaction(() => {
+        const state = readConfig(self) ?? {};
+        const groups = readEntities(self, 'groups', ids);
+        const unknown = ids.filter(id => !Object.hasOwn(groups, id));
+        if (verb !== 'release' && unknown.length) throw new Error(`No such group: ${unknown.join(', ')}.`);
         const now = Date.now();
         const view = capacityView(self, now);
         const { claims, waiting } = view.slots;
@@ -1944,7 +1893,6 @@ async function slot(options) {
         } else {
             const here = ownSlots(view, key);
             const before = ahead(view, key);
-            const groups = view.monitors.get(key)?.groups ?? {};
             let used = view.used;
             let reason = null;
             let claimed = 0;
@@ -1969,7 +1917,7 @@ async function slot(options) {
             else delete waiting[key];
             if (reason) result.reason = reason;
         }
-        writeJson(join(monitorHome(), 'slots.json'), view.slots);
+        writeSlots(view.slots);
         return result;
     });
     const summary = capacitySummary(dir);
@@ -1983,7 +1931,7 @@ async function capacityTurn(dir, found, now = Date.now()) {
     const self = canonical(dir);
     const key = monitorKey(self);
     if (!readSlots().waiting[key]) return;
-    await withLock(monitorHome(), 'slots', () => {
+    transaction(() => {
         const view = capacityView(self, now);
         const place = view.slots.waiting[key];
         if (place && !place.notifiedAt) {
@@ -1994,17 +1942,17 @@ async function capacityTurn(dir, found, now = Date.now()) {
                 found.push({ type: 'capacity', free });
             }
         }
-        writeJson(join(monitorHome(), 'slots.json'), view.slots);
+        writeSlots(view.slots);
     });
 }
 
 async function capacity(options) {
     const dir = stateDir(options, false);
-    const settings = join(monitorHome(), 'settings.json');
+    const settings = databasePath();
     if (options.max !== undefined) {
         const value = Number(options.max);
         if (!Number.isInteger(value) || value < 1 || value > 100) fail('Pass --max as a whole number from 1 to 100.');
-        await withLock(monitorHome(), 'slots', () => writeJson(settings, { ...quietRead(settings, {}), maxSessions: value }));
+        transaction(() => writeRecord(null, 'settings', { ...readRecord(null, 'settings', {}), maxSessions: value }));
     }
     const view = capacityView(dir ? canonical(dir) : null);
     const names = key => view.monitors.get(key)?.name ?? key;
@@ -2018,13 +1966,13 @@ async function capacity(options) {
 
 function status(options) {
     const dir = stateDir(options);
-    const state = readJson(join(dir, 'state.json'), null);
+    const state = readState(dir, null);
     if (!state) { print(`No state in ${dir} yet.`); return; }
-    const seen = readJson(join(dir, 'watch.json'), {});
-    const inbox = readJson(join(dir, 'inbox.json'), []);
+    const seen = readRecord(dir, 'watch', {});
+    const inbox = readInbox(dir);
     const pid = watcherPid(dir);
     const watcher = pid ? readJson(join(dir, 'watch.pid'), {}) : {};
-    const notification = readJson(join(dir, 'notification.json'), {});
+    const notification = readRecord(dir, 'notification', {});
     const free = diskFree(repoCwd(state));
     const machine = capacitySummary(dir);
     const since = at => new Date(at).toISOString().slice(0, 16).replace('T', ' ');
@@ -2080,7 +2028,7 @@ function status(options) {
 }
 
 // Last, so every module-level constant above is initialized before a command runs.
-export { connection, monitorHome, readJson, tool, watcherPid, withLock, writeJson };
+export { connection, tool, watcherPid, withLock };
 
 if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url))
     Promise.resolve((commands[command] ?? (() => fail(`Unknown command "${command}". Run: node monitor.mjs help`)))(opts))
