@@ -1,4 +1,4 @@
-import { createContext } from 'react';
+import { createContext, useContext } from 'react';
 import type { ToolbarMode } from '../config';
 import type { ReviewSession } from '../review';
 
@@ -18,3 +18,12 @@ export const CommentsBootstrapperContext = createContext<CommentsBootstrapperCon
     review: null,
     path: '/'
 });
+
+export const ModalPortalContext = createContext<HTMLDialogElement | null>(null);
+
+/** A native modal makes portals outside its subtree inert. Mount them above the dialog's scroll area. */
+export function useToolbarPortalContainer(preferred?: HTMLElement | null) {
+    const modal = useContext(ModalPortalContext);
+    const { rootElement } = useContext(CommentsBootstrapperContext);
+    return modal ?? preferred ?? rootElement;
+}

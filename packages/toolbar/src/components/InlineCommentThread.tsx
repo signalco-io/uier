@@ -12,6 +12,7 @@ import { CommentErrorBoundary } from './CommentErrorBoundary';
 import type { CommentItem } from './@types/Comments';
 import { adoptToolbarStyles, prepareToolbarRoot } from '../stylesheet';
 import { useLangAttribute, useMessages } from '../i18n';
+import { stopProposalSession } from '../proposalSession';
 
 /** An optional, live thread in the page's layout; uses the toolbar's styles, cache and identity. */
 function InlineCommentThread({ comment, target }: { comment: CommentItem; target: HTMLElement }) {
@@ -49,8 +50,9 @@ function InlineCommentThread({ comment, target }: { comment: CommentItem; target
 
     return container && createPortal(
         <section aria-label={t.inline.label} className="overflow-hidden rounded-xl border bg-card text-card-foreground">
-            <CommentThread commentItem={comment} onPage />
+            <CommentThread commentItem={comment} onPage previewOnPage />
             <Divider />
+            <div onFocusCapture={stopProposalSession}>
             <CommentComposer
                 label={t.inline.replyLabel} placeholder={t.thread.replyPlaceholder} submitLabel={t.thread.postReply}
                 draftKey={comment.id} error={reply.error}
@@ -62,6 +64,7 @@ function InlineCommentThread({ comment, target }: { comment: CommentItem; target
                     recording.clear(sentRecording);
                     announce(t.thread.replyPosted);
                 }} />
+            </div>
         </section>, container);
 }
 

@@ -568,7 +568,8 @@ redaction and automatic copies to integrations or AI providers are separate feat
 
 ## Draft recovery and submission retries
 
-The toolbar keeps unsent comment, rewrite, page feedback, bug, reply and edit text in the reviewed
+The toolbar keeps unsent comment, rewrite, page feedback, bug, reply and edit text, plus raw element
+suggestion inputs, in the reviewed
 site's local storage for seven days after the last change. Versioned `uier:draft:v1:` keys include
 the API, project, server-authorized reviewer scope, canonical page key (`@uier/toolbar/page-state`)
 and thread/item. Pinned drafts retain their element/text anchor and return as closed pins without taking focus; edits retain the original text
@@ -600,8 +601,10 @@ capture status, the per-comment screenshot choice and the name of an attached im
 Saved screenshots keep their expandable thumbnail behavior.
 
 Create/reply requests from the toolbar and app reply actions carry a random `idempotencyKey`, kept with the draft.
-Unchanged retries keep it, including after reload; changing the submitted text/anchor/kind starts
-a new attempt. Pending sends share a lock across composer instances. This is recovery of authored
+Unchanged retries keep it, including after reload. Changing the submitted text, anchor, kind or proposal starts
+a new attempt. Interrupted element suggestions remain drafts until the reviewer retries or discards them. The
+retry uses the receipt for that specific attempt even when another suggestion has the same CSS and anchor.
+Pending sends share a lock across composer instances. This is recovery of authored
 work, with an explicit send action, not a background queue. Both comments APIs accept optional
 keys (16–128 URL-safe characters). Receipts are scoped to the server actor and partition, shared
 across create/reply operations, and reject conflicting content with 409. Capture/device changes
@@ -764,6 +767,23 @@ external processing is added. Server checks enforce partition/project, author/ad
 page key, original allowed origin and existing selector/offset limits. ETag retries retain concurrent
 replies/status changes and recheck authorization; anchor revisions reject stale choices. No cross-page
 migration or AI relocation is provided.
+
+## Preview text and style changes
+
+With **Text rewrites** available to you in the project's toolbar, choose **Add comment**, point at one
+element and choose **Suggest a change**. Preview up to 1,000 characters of replacement text where the
+existing markup allows it. Use supported CSS values for text and background colors, font size and
+weight, padding and corner radius. **Side padding** sets left and right together. **Padding details**
+lets you set each side. Select words and choose **Rewrite** to preview a text replacement. Forms,
+editable fields, page and area anchors, drawings, toolbar controls, and elements inside frames or
+shadow roots are outside the element suggestion workflow.
+
+Switch between **Original** and **Proposed**, then post with an optional note. The preview is local to your
+browser and ends when you post, close it or leave the page. Automatic screenshots capture the original
+page. When someone opens the saved thread on the original page, they can replay the proposal if the target
+and the captured values still match. **Exact values** shows the saved original and proposed text and CSS
+even when replay is unavailable. Authorized reviewers can also copy the proposed values from the app's thread
+detail. Your team implements and publishes the change in the site's source.
 
 ## Feedback environments
 

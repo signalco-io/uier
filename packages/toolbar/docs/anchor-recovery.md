@@ -63,3 +63,44 @@ a lazy, whitespace-free page index is shared by every comment, with one record p
 missing and ambiguous results persist until the DOM version changes; geometry and visibility are remeasured on
 layout frames (the versions are `hooks/useLayoutVersion.ts`). No pin for a missing, ambiguous or hidden anchor
 (the saved opener of a closed layer is the one fallback, above), and it never throws.
+
+## Anchors for change previews
+
+`proposalPreview.ts` reads and replays point text against the element's whole visible label. An old
+label that survives as a substring of a longer label is stale. Text selections require the complete
+saved selection at valid offsets in uniquely matched elements. Replay verifies the original label or
+selection and the computed values of every proposed property before it applies any change. Page and area
+anchors, toolbar UI, forms and editable content are ineligible.
+
+Point suggestions with structural selectors also check the target's label. When the reviewer picks
+the element, the toolbar fingerprints its complete, bounded visible label if that label distinguishes
+it from elements on the same path with different ordinals. The point stores only the fingerprint.
+Replay requires the exact selector and label to agree and the label to remain unique within those
+paths. A legacy point suggestion can use its original text or a stable selector identifying the
+target itself. A legacy CSS-only suggestion on a structural selector stays available in Exact values.
+The same identity check runs during a preview and uses the original text of nodes edited by uier.
+
+Selected text can match its exact source or the rendered quote after CSS whitespace collapse. The
+resolver checks the whitespace mode of each text node. For `white-space: pre-line`, spaces and tabs
+can collapse while line breaks must still match. Browsers can retain a single collapsed space at a
+selection edge or next to a preserved line break. Nonbreaking spaces and whitespace in preserving
+modes must match exactly. Legacy rewrite quotes can also use the verified quote with outer
+collapsible whitespace trimmed. The same match maps the changed portion of the quote back to raw
+text offsets across text nodes, preserving indentation, line breaks and spaces outside the edit.
+A replacement may span adjacent text nodes. When the changed words would need to be reassigned
+across markup boundaries, the proposal is unavailable.
+The internal `trackPreviewTextRange` helper gives the pin and selection highlight the edited range,
+including a caret-sized position for a deletion, until the preview stops.
+
+Only one preview can be active. The engine applies allowlisted literal CSS values as inline
+declarations and restores their original values and priorities. An authored inline shorthand must
+expose each affected declaration through the CSSOM so it can be restored independently. The engine
+settles CSS transitions that start in the target's light DOM subtree when applying or restoring
+declarations, including inherited effects on descendants and pseudo-elements. It repeats the
+browser's subtree query if settling a transition exposes another one. Unrelated host transitions
+and animations continue, and event listeners stay attached. The original is available before capture
+or immediate replay. The engine observes the edited nodes and restores the parts it still owns.
+New text written by the page and unrelated inline edits survive cleanup. A replacement node stays
+under the page's control. The toolbar calls the returned cleanup when its preview UI goes away.
+[`proposal-preview-engine.spec.ts`](../../../apps/web/e2e/proposal-preview-engine.spec.ts) covers the
+browser-side contract.

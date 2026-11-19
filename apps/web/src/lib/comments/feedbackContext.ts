@@ -78,6 +78,7 @@ export function feedbackExport(dto: Omit<CommentDto, 'thread'> & { thread: { ite
             }
             : { type: 'text', selector: position.startSelector, text: position.text, startOffset: position.startOffset, endOffset: position.endOffset, endSelector: position.endSelector, ...opener(position.layer) },
         ...(available && dto.drawing ? { drawing: feedbackDrawing(dto.drawing) } : {}),
+        ...(available && dto.proposal ? { proposal: dto.proposal } : {}),
         source: { path: dto.path, ...(options.environment ? { environment: options.environment } : {}), ...(options.pageUrl ? { origin: new URL(options.pageUrl).origin } : {}) },
         links: { page: options.pageUrl, comment: options.commentUrl },
         reproduction: available ? {

@@ -22,7 +22,7 @@ function attributeValue(value: string) {
     return value.replace(/["\\,]/g, character => `\\${character}`);
 }
 
-function semanticSegments(element: Element) {
+function semanticSegments(element: Element, identityOnly = false) {
     const tag = element.tagName.toLowerCase();
     const segments: string[] = [];
     // Keep CSS.escape's simple identifier form within the API grammar (a leading digit needs a hex escape).
@@ -30,6 +30,7 @@ function semanticSegments(element: Element) {
         segments.push(`#${CSS.escape(element.id).replace(/[^\x00-\x7f]/gu, character => `\\${character}`)}`);
     }
     for (const name of stableAttributes) {
+        if (identityOnly && (name === 'role' || name === 'data-slot' || name === 'data-component')) continue;
         const value = element.getAttribute(name);
         if (value && stableValue(value)) segments.push(`${tag}[${name}="${attributeValue(value)}"]`);
     }
@@ -39,6 +40,18 @@ function semanticSegments(element: Element) {
         segments.unshift(`${tag}[role="${attributeValue(role)}"][aria-label="${attributeValue(label)}"]`);
     }
     return segments;
+}
+
+/** A selector alternative that identifies the element itself survives a change in its position. */
+export function hasIndependentAnchorSelector(selector: string, element: Element) {
+    const alternatives = selector.match(/(?:\\[\s\S]|"(?:[^"\\]|\\[\s\S])*"|[^,"\\])+/g) ?? [];
+    const identities = semanticSegments(element, true);
+    return alternatives.some(alternative => identities.includes(alternative));
+}
+
+/** Candidates from the same stored paths, including the elements that could swap ordinal positions. */
+export function withoutAnchorOrdinals(selector: string) {
+    return selector.replace(/(\\[\s\S]|"(?:[^"\\]|\\[\s\S])*")|:nth-of-type\(\d+\)/gi, '$1');
 }
 
 /** A few independently unique selectors in the existing comma-list format, within the API limit. */

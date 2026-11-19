@@ -1,6 +1,6 @@
 'use client';
 
-import { useContext, useEffect, useId, useRef, useState, type KeyboardEvent, type PointerEvent, type Ref } from 'react';
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type PointerEvent, type Ref } from 'react';
 import { Popper } from '@signalco/ui-primitives/Popper';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { cx } from '@signalco/ui-primitives/cx';
@@ -10,7 +10,7 @@ import { useReaction } from '../hooks/useReactions';
 import { rovingIndex } from '../keyboard';
 import { toolbarSurface } from '../toolbarReview';
 import { useIconTooltip } from './IconTooltip';
-import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
+import { useToolbarPortalContainer } from './CommentsBootstrapperContext';
 import { floatingShadowClassName, type CommentItem, type CommentItemThreadItem } from './@types/Comments';
 
 // Emoji reactions to one message (the first one or a reply), the app's `MessageReactions` in the toolbar: the
@@ -124,7 +124,7 @@ export function ReactionList({ comment, item }: { comment: CommentItem; item: Co
  * it and gives the focus back to Add reaction.
  */
 export function ReactionPicker({ comment, item, disabled }: { comment: CommentItem; item: CommentItemThreadItem; disabled?: boolean }) {
-    const { rootElement } = useContext(CommentsBootstrapperContext);
+    const container = useToolbarPortalContainer();
     const t = useMessages();
     const [open, setOpen] = useState(false);
     const toggle = useToggle(comment, item as ReactableItem);
@@ -149,7 +149,7 @@ export function ReactionPicker({ comment, item, disabled }: { comment: CommentIt
     };
     return (
         <>{tip.tooltip}<Popper
-            container={rootElement}
+            container={container}
             open={open}
             onOpenChange={setOpen}
             align="end"

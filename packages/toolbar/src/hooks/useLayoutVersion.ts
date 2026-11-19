@@ -128,6 +128,8 @@ function subscribe(listener: () => void) {
 export function getDomVersion() { return domVersion; }
 
 /** Changes after the page scrolled, the window was resized or the page changed */
-export function useLayoutVersion() {
-    return useSyncExternalStore(subscribe, () => version);
+const idle = () => () => {};
+
+export function useLayoutVersion(enabled = true) {
+    return useSyncExternalStore(enabled ? subscribe : idle, () => version);
 }

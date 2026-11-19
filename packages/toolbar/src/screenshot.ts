@@ -28,6 +28,7 @@ import { toolbarReviewTarget, toolbarReviewSurfaces } from './toolbarReview';
 import { getToolbarHost } from './mount';
 import type { CommentDrawing } from './drawing';
 import { paintDrawing } from './canvas/paint';
+import { holdProposalSessions, stopProposalSession } from './proposalSession';
 
 /** A screenshot sent to the API as a data URL; shown only on saved feedback. */
 export type CapturedScreenshot = {
@@ -472,6 +473,15 @@ async function farFromWindow(view: { width: number; height: number }, slice: () 
  * reviewing uier's own controls include its review surfaces, without annotations or instructions.
  */
 export async function captureScreenshot(region: ScreenshotRegion, exclude: Element | null, includeToolbar = false, signal?: AbortSignal, drawing?: ScreenshotDrawing): Promise<CapturedScreenshot> {
+    const release = holdProposalSessions();
+    try {
+        return await captureOriginalScreenshot(region, exclude, includeToolbar, signal, drawing);
+    } finally {
+        release();
+    }
+}
+
+async function captureOriginalScreenshot(region: ScreenshotRegion, exclude: Element | null, includeToolbar: boolean, signal?: AbortSignal, drawing?: ScreenshotDrawing): Promise<CapturedScreenshot> {
     if (runtimeAdapters()) {
         const captured = await runtimeAdapters()!.capture(region);
         return drawing ? withDrawing(captured, region, drawing, signal) : captured;
@@ -594,6 +604,7 @@ const runningCaptures = new WeakMap<Promise<string | undefined>, AbortController
  * A comment's drawing is painted over its area.
  */
 export function captureCommentScreenshot(position: CommentItemPosition, rootElement: HTMLElement | undefined, drawing?: CommentDrawing): Promise<string | undefined> {
+    stopProposalSession();
     const controller = new AbortController();
     // Where the drawing's area is now, like the region
     const area = drawing ? getCommentItemRects(position)[0] : undefined;

@@ -20,6 +20,7 @@ import { pagePath } from '@uier/toolbar/page-state';
 import { mcpAccounts, mcpProject, requireMcpScope, type McpIdentity } from './credentials';
 import { accessCovers, listAccessibleWorkspaces } from './oauth/grants';
 import { ApiError, apiErrors } from '../comments/http';
+import { commentProposal } from '../comments/dto';
 import { MAX_SCREENSHOT_BYTES } from '../comments/limits';
 import { idempotencyKeySchema, reviewPathSchema, textSchema } from '../comments/validation';
 import { getProjectComment, getProjectScreenshot, listProjectComments, MAX_PROJECT_COMMENTS, replyToProjectComment, setProjectCommentAssignee, setProjectCommentAssignees, setProjectCommentResolved, setProjectCommentStatus, setProjectCommentArchived } from '../review/comments';
@@ -276,6 +277,7 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
             const first = comment.thread.items[0];
             const { path, source, assignee, assignees, activity } = projectCommentRouting(comment, project, participants, authorId, reads.get(comment.id));
             return { verification: verificationDetails(comment, project, actor, participants), id: comment.id, number: comment.number, kind: comment.kind ?? 'comment', ...(feedbackTypeSnapshot(comment.feedbackType, comment.kind) ? { feedbackType: feedbackTypeSnapshot(comment.feedbackType, comment.kind) } : {}),
+                ...(commentProposal(comment) ? { hasProposal: true } : {}),
                 ...(commentCheck(comment.check) ? { check: commentCheck(comment.check) } : {}), priority: commentPriority(comment.priority), workflowStatus: statusForComment(workflow, comment), labels: labelsForComment(labels, comment), archivedAt: comment.archivedAt, resolved: Boolean(comment.resolved), stage: feedbackStage({ ...comment, verificationEnabled: project.verificationEnabled === true }), private: Boolean(comment.private),
                 title: threadTitle(comment, titles)?.text, summary: first?.deletedAt ? 'Comment deleted' : first?.text.slice(0, 240), updatedAt: comment.updatedAt,
                 path, environment: { id: source.environment, label: source.label }, anchorType: comment.position.type, assignee: assignee ?? null, assignees,
@@ -317,7 +319,7 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
         return result({ actingAs, contentTrust: 'untrusted', ...packet,
             ...screenshotResources(project.id, input.commentId, packet.context, identity.scopes.includes('screenshots:read')) });
     });
-    server.registerTool('get_feedback', { description: `Read an authorized thread, anchor and reproduction context. ${untrusted}`, inputSchema: thread, annotations: readAnnotations }, readFeedback);
+    server.registerTool('get_feedback', { description: `Read an authorized thread, anchor, saved change proposal and reproduction context. ${untrusted}`, inputSchema: thread, annotations: readAnnotations }, readFeedback);
     server.registerTool('show_feedback', {
         description: `Show a read-only thread card with its current status, assignees and latest reply. Compatible MCP Apps clients render the card and can refresh it through get_feedback while connected. Other clients receive the same thread context and Markdown as get_feedback; use those for a readable summary with the uier link. Reading never marks feedback read. ${untrusted}`,
         inputSchema: thread, annotations: readAnnotations,

@@ -21,6 +21,8 @@ import { subscribeToComments, type RealtimeTicket } from '../realtime';
 import { runtimeAdapters } from '../adapters';
 import { uploadRecording, type RecordingClip } from '../recordings';
 import { completeDeviceInfo } from '../components/info/getDeviceInfo';
+import type { ChangeProposal } from '../changeProposal';
+import { stopProposalSession } from '../proposalSession';
 
 export { CommentsApiError, type CommentsApiErrorCode, type CommentsRateLimitReason } from './api';
 
@@ -56,6 +58,7 @@ export type CreateCommentInput = {
     text: string;
     mentions?: Mention[];
     quotedText?: string;
+    proposal?: ChangeProposal;
     /** The page check it was posted from (the Accessibility and SEO panels' quick action) */
     check?: import('../feedbackTypes').CommentCheck;
     /** Shapes drawn on the page (canvas mode), with an area position */
@@ -133,9 +136,9 @@ function optimisticComment(path: string, input: CreateCommentInput, authorName: 
     const createdAt = new Date().toISOString();
     const id = input.localId ?? newLocalId();
     return {
-        id, path, position: input.position, kind: input.kind ?? 'comment', feedbackType: input.feedbackType, check: input.check, drawing: input.drawing, pending: true,
+        id, path, position: input.position, kind: input.kind ?? 'comment', feedbackType: input.feedbackType, check: input.check, drawing: input.drawing, proposal: input.proposal, pending: true,
         ...(input.screenshot ? { screenshot: sendingScreenshot } : {}),
-        thread: { items: [{ id: `${id}-0`, text: input.text, mentions: input.mentions, quotedText: input.quotedText, author: { name: authorName, isMe: true }, createdAt, canDelete: false, canEdit: false, pending: true }] },
+        thread: { items: [{ id: `${id}-0`, text: input.text || messages().proposal.suggestion, mentions: input.mentions, quotedText: input.quotedText, author: { name: authorName, isMe: true }, createdAt, canDelete: false, canEdit: false, pending: true }] },
         device: input.device && { size: input.device.size, windowSize: input.device.windowSize },
         resolved: false, isMine: true, createdAt, verificationEnabled,
         // Nothing to change before it is saved
@@ -199,7 +202,8 @@ function uploadCommentRecording(recording: RecordingClip, revision: number) {
     }, revision);
 }
 
-async function createComment(path: string, policy: PageStatePolicy, { idempotencyKey, position, kind, text, mentions, quotedText, check, drawing, device, screenshot, recording }: CreateCommentInput) {
+async function createComment(path: string, policy: PageStatePolicy, { idempotencyKey, position, kind, text, mentions, quotedText, proposal, check, drawing, device, screenshot, recording }: CreateCommentInput) {
+    stopProposalSession();
     const revision = currentReviewerRevision();
     const [image, deviceInfo, recordingId] = await Promise.all([
         screenshot, device && completeDeviceInfo(device), recording && uploadCommentRecording(recording, revision)
@@ -207,7 +211,9 @@ async function createComment(path: string, policy: PageStatePolicy, { idempotenc
     if (recording && revision !== currentReviewerRevision()) throw new CommentsApiError('sign_in_required', 'The review session changed.', 401);
     return required(await apiRequest<CommentItem>(commentsApiUrl, {
         method: 'POST',
-        body: { idempotencyKey, path, sourcePath: sourcePath(path, policy), position, kind, text, mentions, quotedText, check, drawing, device: deviceInfo, screenshot: image, recordingId, authorName: guestAuthorName(), queryKeys: queryKeys(path) }
+        body: { idempotencyKey, path, sourcePath: sourcePath(path, policy), position, kind,
+            text: kind === 'comment' && proposal && !text ? undefined : text,
+            mentions, quotedText, proposal, check, drawing, device: deviceInfo, screenshot: image, recordingId, authorName: guestAuthorName(), queryKeys: queryKeys(path) }
     }));
 }
 
@@ -217,6 +223,7 @@ export function getCommentScreenshot(commentId: string, itemId?: string) {
 }
 
 async function replyToComment({ commentId, text, mentions, screenshot, recording, idempotencyKey }: ReplyInput & { idempotencyKey?: string }) {
+    stopProposalSession();
     const revision = currentReviewerRevision();
     const recordingId = recording ? await uploadCommentRecording(recording, revision) : undefined;
     if (recording && revision !== currentReviewerRevision()) throw new CommentsApiError('sign_in_required', 'The review session changed.', 401);
@@ -619,7 +626,7 @@ export function useComments(refreshOnMount = false): {
     const verification = useMutation({
         mutationFn: async ({ commentId, input }: { commentId: string; input: unknown }) => authorizedList(client, () =>
             apiRequest<CommentItem>(`${commentUrl(commentId)}/verification`, { method: 'POST', body: input }).then(required)),
-        onMutate: () => currentReviewerRevision(),
+        onMutate: () => { stopProposalSession(); return currentReviewerRevision(); },
         onSuccess: (comment, _input, revision) => { if (revision === currentReviewerRevision()) handleCommentChanged(comment); },
         onSettled: handleSettled
     });

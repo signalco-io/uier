@@ -69,6 +69,8 @@ type CommentComposerProps = {
     label: string;
     placeholder: string;
     submitLabel: string;
+    /** A valid structured suggestion can be posted with an empty note. */
+    allowEmpty?: boolean;
     /** Unsent text is kept under this key (see hooks/useDrafts.tsx) */
     draftKey: string;
     /** Selected page text the new comment is about */
@@ -116,7 +118,7 @@ type CommentComposerProps = {
  * box styled like the kit's `Input` (bordered, radius 8, blue focus ring), with its hint or counter and buttons.
  * Enter sends, Shift+Enter adds a new line; Markdown typed and Ctrl/⌘+B, I, E format the text.
  */
-export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey, quote, autoFocus, pending, holdSubmit = false, waiting = false, image, recording, attachments, beforeText, tall = false, error, onSubmit, onImageDrop, onDiscard, discardable = false, initialText, initialMentions, commentId, onCancel }: CommentComposerProps) {
+export function CommentComposer({ ref, label, placeholder, submitLabel, allowEmpty = false, draftKey, quote, autoFocus, pending, holdSubmit = false, waiting = false, image, recording, attachments, beforeText, tall = false, error, onSubmit, onImageDrop, onDiscard, discardable = false, initialText, initialMentions, commentId, onCancel }: CommentComposerProps) {
     holdSubmit = holdSubmit || Boolean(recording?.busy);
     const formRef = useRef<HTMLFormElement>(null);
     const editorRef = useRef<MarkdownEditorHandle>(null);
@@ -221,7 +223,8 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
         const text = drafts.get(draftKey) ?? initialText ?? '';
         const mentions = drafts.details(draftKey)?.mentions ?? (text === initialText ? initialMentions ?? noMentions : noMentions);
         const trimmedText = text.trim();
-        if (!trimmedText.length || busy || holdSubmit || waiting || drafts.pending(draftKey) || submittingRef.current) {
+        if ((!trimmedText && !allowEmpty) || busy || holdSubmit || waiting || drafts.pending(draftKey) || submittingRef.current
+            || (allowEmpty && drafts.details(draftKey)?.sending?.length)) {
             return;
         }
         if (askName) {
@@ -397,7 +400,7 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
                             type="submit"
                             className="size-7 rounded-md pointer-coarse:size-11"
                             aria-label={submitLabel}
-                            disabled={!trimmedText.length || busy || holdSubmit || waiting || sharedPending}>
+                            disabled={(!trimmedText && !allowEmpty) || busy || holdSubmit || waiting || sharedPending}>
                             <Send size={14} />
                         </IconButton></IconTooltip>}
                     </Row>

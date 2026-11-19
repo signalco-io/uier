@@ -44,6 +44,34 @@ test('first-write response loss, concurrent replay and conflicting public create
     } finally { await client.dispose(); }
 });
 
+test('rejects incomplete proposals and recovers only the matching blank-note submission key', async ({ playwright, baseURL }) => {
+    const client = await playwright.request.newContext({ baseURL, extraHTTPHeaders: { 'X-Uier-Visitor': randomBytes(32).toString('base64url') } });
+    try {
+        const path = `/proposal-retry-${key()}`;
+        const proposal = {
+            text: { original: 'Book a table', proposed: 'Reserve a table' },
+            styles: { color: { original: 'rgb(0, 0, 0)', proposed: '#fff' } }
+        };
+        const pending = { path, position, kind: 'comment', proposal, idempotencyKey: key() };
+        const older = await client.post('/api/comments', { data: { ...pending, text: 'Earlier note', idempotencyKey: key() } });
+        expect(older.status()).toBe(201);
+
+        const invalid = { ...proposal, styles: { color: { ...proposal.styles.color, proposed: '#ff' } } };
+        expect((await client.post('/api/comments', { data: { ...pending, proposal: invalid } })).status()).toBe(400);
+        expect(await (await client.get(`/api/comments?path=${path}`)).json()).toHaveLength(1);
+
+        const accepted = await client.post('/api/comments', { data: pending });
+        expect(accepted.status()).toBe(201);
+        const saved = await accepted.json();
+        expect(saved.id).not.toBe((await older.json()).id);
+        expect(saved.proposal).toEqual(proposal);
+        const retry = await client.post('/api/comments', { data: pending });
+        expect(retry.status()).toBe(201);
+        expect((await retry.json()).id).toBe(saved.id);
+        expect(await (await client.get(`/api/comments?path=${path}`)).json()).toHaveLength(2);
+    } finally { await client.dispose(); }
+});
+
 test('atomic receipts recover a lost database acknowledgement and preserve concurrent replies', async () => {
     const store = getMemoryCommentsStore();
     const domain = `receipts-${key()}.localhost`;

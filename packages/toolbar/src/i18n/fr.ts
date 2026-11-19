@@ -579,6 +579,41 @@ export const fr: Messages = {
         limited: (retry: string) => `Plus de suggestions pour le moment. Réessayez ${retry}. Vous pouvez toujours écrire la vôtre.`,
         suggestions: 'Suggestions'
     },
+    proposal: {
+        suggest: 'Proposer une modification',
+        suggestion: 'Modification proposée',
+        draft: 'Brouillon de proposition',
+        remove: 'Retirer la proposition',
+        note: 'Note (facultative)',
+        text: 'Texte de remplacement',
+        preview: 'Aperçu sur la page',
+        original: 'Original',
+        proposed: 'Proposition',
+        preparing: 'Préparation de l’aperçu…',
+        values: 'Valeurs exactes',
+        stale: 'La page ne correspond plus à l’original enregistré. Les valeurs enregistrées figurent ci-dessous.',
+        unavailable: 'Cette cible ne peut pas être prévisualisée ici.',
+        invalid: 'Saisissez une valeur CSS prise en charge dans chaque champ modifié.',
+        empty: 'Texte vide',
+        copied: 'Copié dans le presse-papiers.',
+        copyText: (side: string) => `Copier le texte (${side})`,
+        copyCss: (side: string) => `Copier le CSS (${side})`,
+        sidePadding: 'Marge intérieure latérale',
+        paddingDetails: 'Détails des marges intérieures',
+        mixedValues: 'Valeurs différentes',
+        chooseColor: (property: string) => `Choisir ${property}`,
+        properties: {
+            'color': 'Couleur du texte',
+            'background-color': 'Couleur de fond',
+            'font-size': 'Taille du texte',
+            'font-weight': 'Graisse du texte',
+            'padding-top': 'Marge intérieure haute',
+            'padding-right': 'Marge intérieure droite',
+            'padding-bottom': 'Marge intérieure basse',
+            'padding-left': 'Marge intérieure gauche',
+            'border-radius': 'Rayon des coins'
+        }
+    },
     selection: {
         label: 'Texte sélectionné',
         rewrite: 'Réécrire'

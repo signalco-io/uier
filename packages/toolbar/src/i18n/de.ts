@@ -579,6 +579,41 @@ export const de: Messages = {
         limited: (retry: string) => `Vorerst keine weiteren Vorschläge. Versuchen Sie es ${retry} erneut. Sie können weiterhin selbst schreiben.`,
         suggestions: 'Vorschläge'
     },
+    proposal: {
+        suggest: 'Änderung vorschlagen',
+        suggestion: 'Vorgeschlagene Änderung',
+        draft: 'Vorschlagsentwurf',
+        remove: 'Vorschlag entfernen',
+        note: 'Notiz (optional)',
+        text: 'Ersatztext',
+        preview: 'Vorschau auf der Seite',
+        original: 'Original',
+        proposed: 'Vorschlag',
+        preparing: 'Vorschau wird vorbereitet…',
+        values: 'Exakte Werte',
+        stale: 'Die Seite entspricht nicht mehr dem gespeicherten Original. Die gespeicherten Werte stehen unten.',
+        unavailable: 'Für dieses Ziel ist hier keine Vorschau verfügbar.',
+        invalid: 'Geben Sie für jedes geänderte Feld einen unterstützten CSS-Wert ein.',
+        empty: 'Leerer Text',
+        copied: 'In die Zwischenablage kopiert.',
+        copyText: (side: string) => `Text kopieren (${side})`,
+        copyCss: (side: string) => `CSS kopieren (${side})`,
+        sidePadding: 'Seitlicher Innenabstand',
+        paddingDetails: 'Details zum Innenabstand',
+        mixedValues: 'Unterschiedliche Werte',
+        chooseColor: (property: string) => `${property} auswählen`,
+        properties: {
+            'color': 'Textfarbe',
+            'background-color': 'Hintergrundfarbe',
+            'font-size': 'Schriftgröße',
+            'font-weight': 'Schriftstärke',
+            'padding-top': 'Innenabstand oben',
+            'padding-right': 'Innenabstand rechts',
+            'padding-bottom': 'Innenabstand unten',
+            'padding-left': 'Innenabstand links',
+            'border-radius': 'Eckenradius'
+        }
+    },
     selection: {
         label: 'Markierter Text',
         rewrite: 'Umformulieren'

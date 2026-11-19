@@ -19,7 +19,7 @@ export const GET = commentsApiHandler(async (context) => {
     return Response.json(await listComments(context, path.data, false, archiveFilter(params.get('archive'))));
 });
 
-// POST /api/comments - create a comment { path, position, text, quotedText?, device? }
+// POST /api/comments - create a comment, optionally with proposed text or CSS for its anchor
 export const POST = commentsApiHandler(async (context) => {
     await assertNotBot();
     // A screenshot and a drawing make the body larger than other writes

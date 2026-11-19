@@ -11,6 +11,9 @@ import { aiCatalog, discoveryResponse, serverCard } from '../src/lib/mcp/serverC
 import { feedbackSkill } from '../src/lib/mcp/workflows';
 import { createMcpCredential, revokeMcpCredential, authenticateMcp, mcpProject, mcpScopes, type McpCredential } from '../src/lib/mcp/credentials';
 import { getAppStore } from '../src/lib/app/store';
+import { loadProjectComment } from '../src/lib/app/projectComments';
+import { randomToken, sha256Hex, signToken } from '../src/lib/app/tokens';
+import type { CommentDto } from '../src/lib/comments/dto';
 import { findOrCreateUser } from '../src/lib/app/users';
 import { ensureOwnWorkspace } from '../src/lib/app/workspaces';
 import { createProject, updateProject, getProject } from '../src/lib/app/projects';
@@ -30,6 +33,9 @@ import { PUBLIC_PROJECT_ID, PUBLIC_WORKSPACE_ID, USER_FEEDBACK_PROJECT_ID, joinP
 import { pngImage, jpegImage } from './support/images';
 import { screenshotBytes } from '../src/lib/screenshots/blobStore';
 import { aiTitleSource } from '../src/lib/titles/model';
+import { POST as postReviewComment } from '../app/api/review/[projectId]/comments/route';
+import { DELETE as deleteReviewComment, GET as getReviewComment } from '../app/api/review/[projectId]/comments/[id]/route';
+import { projectFeedbackExport } from '../src/lib/review/feedbackContext';
 
 const originalEnv = { UIER_LOCAL: process.env.UIER_LOCAL, UIER_COMMENTS_SECRET: process.env.UIER_COMMENTS_SECRET, UIER_BASE_URL: process.env.UIER_BASE_URL };
 const base = 'http://127.0.0.1:6514';
@@ -63,6 +69,64 @@ async function connect(token: string, handle = POST) {
 }
 function data(result: Awaited<ReturnType<Client['callTool']>>) { return result.structuredContent as Record<string, any>; }
 const idempotencyKey = () => randomUUID();
+
+test('project proposals reach the inbox and authorized MCP handoff, and deletion redacts their values', async () => {
+    const f = await fixture();
+    const projectId = f.project.publicId ?? f.project.id;
+    const origin = f.project.urls[0]!;
+    await updateProject(f.project.workspaceId, f.project.id, { access: 'guests' });
+    const author = randomToken();
+    const makeRequest = (method: string, suffix: string, visitor: string, body?: object) => new Request(`${base}/api/review/${projectId}/comments${suffix}`, {
+        method, headers: { Origin: origin, 'X-Uier-Visitor': visitor, ...(body ? { 'Content-Type': 'application/json' } : {}),
+            ...(method === 'GET' ? {} : { 'X-Uier-Verification': signToken('review-verification', { projectId: f.project.id, origin, authorId: sha256Hex(visitor) }, 300) }) },
+        ...(body ? { body: JSON.stringify(body) } : {})
+    });
+    const proposal = { text: { original: 'Old pricing copy', proposed: 'Try the new plan' }, styles: { 'font-weight': { original: '400', proposed: '600' } } };
+    const response = await postReviewComment(makeRequest('POST', '', author, {
+        path: '/plans', position: { type: 'point', selector: 'h2', xNormal: 0.5, yNormal: 0.5 }, authorName: 'Reviewer', proposal
+    }), { params: Promise.resolve({ projectId }) });
+    expect(response.status, await response.clone().text()).toBe(201);
+    const saved = await response.json() as CommentDto, id = saved.id;
+    const params = { params: Promise.resolve({ projectId, id }) };
+    const args = { projectId: f.project.id, commentId: id };
+    expect(saved.proposal).toEqual(proposal);
+    expect(response.headers.get('access-control-allow-origin')).toBe(origin);
+    expect((await loadProjectComment(f.context, f.project, id))?.proposal).toEqual(proposal);
+
+    await setProjectCommentPrivate(f.project, f.actor, id, true);
+    const guestRead = await getReviewComment(makeRequest('GET', `/${id}`, author), params);
+    expect(guestRead.status).toBe(200);
+    expect((await guestRead.json() as CommentDto).proposal).toEqual(proposal);
+    const guestExport = await projectFeedbackExport(f.project, { kind: 'guest', visitorId: sha256Hex(author) }, id, origin, base);
+    expect(guestExport.context.proposal).toEqual(proposal);
+    expect((await getReviewComment(makeRequest('GET', `/${id}`, randomToken()), params)).status).toBe(404);
+
+    const { token } = await createMcpCredential(f.context, { name: 'Proposal handoff', projectIds: [f.project.id], scopes: ['feedback:read'], days: 7 });
+    const client = await connect(token);
+    try {
+        const list = () => client.callTool({ name: 'list_feedback', arguments: { projectId: f.project.id } }).then(data);
+        const read = () => client.callTool({ name: 'get_feedback', arguments: args }).then(data);
+        expect((await list()).items.find((item: { id: string }) => item.id === id)).toHaveProperty('hasProposal', true);
+        const packet = await read();
+        expect(packet.context.proposal).toEqual(proposal);
+        expect(packet.markdown).toContain('font-weight: 600;');
+        const batch = data(await client.callTool({ name: 'get_feedback_batch', arguments: { projectId: f.project.id, commentIds: [id] } }));
+        expect(batch.items[0].context.proposal).toEqual(proposal);
+
+        await replyToProjectComment(new Request(base), f.project, f.actor, id, { text: 'Acknowledged' });
+        const removed = await deleteReviewComment(makeRequest('DELETE', `/${id}`, author), params);
+        expect(removed.status, await removed.clone().text()).toBe(200);
+        expect(await removed.json()).not.toHaveProperty('proposal');
+        expect(await getProjectComment(f.project, f.actor, id)).not.toHaveProperty('proposal');
+        expect((await loadProjectComment(f.context, f.project, id))?.proposal).toBeUndefined();
+        expect((await list()).items.find((item: { id: string }) => item.id === id)).not.toHaveProperty('hasProposal');
+        const redacted = await read();
+        expect(redacted.context.feedback.deleted).toBe(true);
+        expect(redacted.context).not.toHaveProperty('proposal');
+        expect(redacted.markdown).not.toContain('Old pricing copy');
+        expect(redacted.markdown).not.toContain('Try the new plan');
+    } finally { await client.close(); }
+});
 
 test('single and batch feedback expose reply images as scoped resources with the saved bytes', async () => {
     const f = await fixture();

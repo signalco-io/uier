@@ -1,6 +1,5 @@
-import { useContext } from 'react';
 import { Popper } from '@signalco/ui-primitives/Popper';
-import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
+import { useToolbarPortalContainer } from './CommentsBootstrapperContext';
 import { floatingShadowClassName } from './@types/Comments';
 import { Button } from '@signalco/ui-primitives/Button';
 import { Avatar } from '@signalco/ui-primitives/Avatar';
@@ -67,7 +66,7 @@ function OverflowCount({ count, workingUntil, compact = false }: { count: number
  * `CommentAssigneeOptions` under the header.
  */
 export function CommentAssignee({ comment, className }: { comment: CommentItem; className?: string }) {
-    const { rootElement } = useContext(CommentsBootstrapperContext);
+    const container = useToolbarPortalContainer();
     const t = useMessages();
     const people = commentAssignees(comment);
     useAgentWorking(people.flatMap(person => assigneeAgents(person).map(agent => agent.workingUntil)));
@@ -83,7 +82,7 @@ export function CommentAssignee({ comment, className }: { comment: CommentItem; 
     </>;
     // Agents are projected only for members. Older attachments without a link keep their tooltip.
     if (!people.some(person => assigneeAgents(person).some(agent => agentSessionLink(agent.sessionUrl)))) return avatars;
-    return <Popper container={rootElement} side="bottom" sideOffset={8} aria-label={t.assignment.details}
+    return <Popper container={container} side="bottom" sideOffset={8} aria-label={t.assignment.details}
         className={cx('max-h-[min(32rem,80dvh)] w-64 overflow-y-auto rounded-xl p-3 text-xs', floatingShadowClassName)}
         trigger={<Button variant="plain" size="sm" aria-label={t.assignment.details} className="rounded-full p-0">{avatars}</Button>}>
         <div className="flex flex-col gap-3">

@@ -6,6 +6,7 @@ import { Button } from '@signalco/ui-primitives/Button';
 import { cx } from '@signalco/ui-primitives/cx';
 import { ArrowUpRight, File, MapPin } from '@signalco/ui-icons';
 import { CommentThread } from '../CommentThread';
+import { stopProposalSession } from '../../proposalSession';
 import { CommentErrorBoundary } from '../CommentErrorBoundary';
 import { CommentsErrorMessage } from '../CommentsErrorMessage';
 import { CommentsBootstrapperContext } from '../CommentsBootstrapperContext';
@@ -161,7 +162,7 @@ function InboxThread({ comment }: { comment: CommentItem }) {
         {/* Reply's icon lines up with the message text (uier #373): the thread's 16 px padding, the 24 px avatar and
             its 8 px gap, less the button's own 12 px padding */}
         {replying ? <InboxReply comment={comment} onClose={() => setReplying(false)} /> : <div className="pb-2 pl-9">
-            <Button variant="plain" size="sm" disabled={comment.pending} onClick={() => setReplying(true)}
+            <Button variant="plain" size="sm" disabled={comment.pending} onClick={() => { stopProposalSession(); setReplying(true); }}
                 className="text-muted-foreground hover:text-foreground pointer-coarse:min-h-11"
                 startDecorator={<ReplyIcon />}
                 {...{ 'data-uier-reply': '' }}>{t.inbox.reply}</Button>

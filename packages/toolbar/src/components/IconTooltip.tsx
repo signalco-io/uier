@@ -1,15 +1,9 @@
-import { cloneElement, createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type FocusEvent, type KeyboardEvent, type MouseEvent, type PointerEvent, type ReactElement } from 'react';
+import { cloneElement, useEffect, useLayoutEffect, useRef, useState, type FocusEvent, type KeyboardEvent, type MouseEvent, type PointerEvent, type ReactElement } from 'react';
 import { createPortal } from 'react-dom';
 import { cx } from '@signalco/ui-primitives/cx';
-import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
+import { useToolbarPortalContainer } from './CommentsBootstrapperContext';
 
 const showDelayMs = 300;
-
-/**
- * Where tooltips go instead of the shadow root's container: a modal dialog (`ComposerModal`), whose
- * top layer would otherwise cover them
- */
-export const TooltipContainerContext = createContext<HTMLElement | null>(null);
 const gap = 6;
 const margin = 8;
 
@@ -25,8 +19,7 @@ const margin = 8;
  * holds words the control's `aria-describedby` reads, and `prose` sets it as text, not a name.
  */
 export function useIconTooltip(label: string, shortcut?: string, { tap = false, prose = false }: { tap?: boolean; prose?: boolean } = {}) {
-    const { rootElement: shadowContainer } = useContext(CommentsBootstrapperContext);
-    const rootElement = useContext(TooltipContainerContext) ?? shadowContainer;
+    const container = useToolbarPortalContainer();
     const [anchor, setAnchor] = useState<DOMRect>();
     const [placement, setPlacement] = useState<{ left: number; top: number }>();
     const tooltipRef = useRef<HTMLSpanElement>(null);
@@ -88,7 +81,7 @@ export function useIconTooltip(label: string, shortcut?: string, { tap = false, 
             onBlur: hide,
             onKeyDown: (event: KeyboardEvent) => { if (event.key === 'Escape') hide(); }
         },
-        tooltip: anchor && rootElement ? createPortal(
+        tooltip: anchor && container ? createPortal(
             <span ref={tooltipRef} aria-hidden="true" data-uier-tooltip=""
                 className={cx('pointer-events-none fixed z-[90] max-w-64 rounded-md bg-foreground px-2 py-1 text-xs text-background shadow-sm', prose ? 'font-normal' : 'font-medium')}
                 style={{ left: placement?.left ?? -9999, top: placement?.top ?? -9999 }}>
@@ -96,7 +89,7 @@ export function useIconTooltip(label: string, shortcut?: string, { tap = false, 
                 {/* Mono means machine (BRAND.md); the control names it with `aria-keyshortcuts` */}
                 {shortcut && <kbd className="ml-2 font-mono font-normal opacity-70">{shortcut}</kbd>}
             </span>,
-            rootElement
+            container
         ) : null
     };
 }

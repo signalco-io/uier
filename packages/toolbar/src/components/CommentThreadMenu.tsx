@@ -1,6 +1,6 @@
 'use client';
 
-import { useContext, useRef, useState, type ReactNode, type Ref } from 'react';
+import { useLayoutEffect, useRef, useState, type ReactNode, type Ref } from 'react';
 import { Popper } from '@signalco/ui-primitives/Popper';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { Button } from '@signalco/ui-primitives/Button';
@@ -8,7 +8,7 @@ import { Stack } from '@signalco/ui-primitives/Stack';
 import { cx } from '@signalco/ui-primitives/cx';
 import { Row } from '@signalco/ui-primitives/Row';
 import { ArrowDownToLine, ArrowUp, Check, Delete, Edit, ExternalLink, Mail, MoreHorizontal, Mute, MyLocation, Pin, PinOff, Undo, User, Verified, Volume2 } from '@signalco/ui-icons';
-import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
+import { useToolbarPortalContainer } from './CommentsBootstrapperContext';
 import { destructiveTextClassName, floatingShadowClassName } from './@types/Comments';
 import { useIconTooltip } from './IconTooltip';
 import { commentPriority, priorities, type CommentPriority } from '../triage';
@@ -64,16 +64,17 @@ function MenuButton({ icon, buttonRef, onClick, disabled, label, href, className
  * the ink scope, so it stays dark like the thread it belongs to.
  */
 export function CommentThreadMenu({ className, actions, triggerRef }: { className?: string; actions: ThreadMenuActions; triggerRef?: Ref<HTMLButtonElement> }) {
-    const { rootElement } = useContext(CommentsBootstrapperContext);
-    const inkContainer = useInkContainer();
+    const container = useToolbarPortalContainer(useInkContainer());
     const t = useMessages();
     const [open, setOpen] = useState(false);
     const [choosingPriority, setChoosingPriority] = useState(false);
     const [confirming, setConfirming] = useState(false);
     const firstRef = useRef<HTMLButtonElement>(null);
     const confirmRef = useRef<HTMLButtonElement>(null);
-    // Edit opens the editor in the thread, which takes the focus: the menu must not give it back to its button
+    // The edit form and reattachment panel take focus as they open.
     const leaveFocus = useRef(false);
+    const requestVerification = useRef<(() => void) | undefined>(undefined);
+    useLayoutEffect(() => () => { requestVerification.current = undefined; }, []);
     const { triggerProps, tooltip } = useIconTooltip(t.thread.options);
     const { message, assign, priority, verify, follow, mute, markUnread, archive, openInApp } = actions;
     const edit = message?.onEdit, reattach = message?.onReattach, remove = message?.delete;
@@ -86,15 +87,22 @@ export function CommentThreadMenu({ className, actions, triggerRef }: { classNam
     const contentProps = {
         onOpenAutoFocus: (event: Event) => {
             event.preventDefault();
-            firstRef.current?.focus();
+            const target = event.target;
+            const first = firstRef.current;
+            if (first && !first.disabled) first.focus();
+            else if (target instanceof HTMLElement) target.querySelector<HTMLElement>('button:not(:disabled), a[href]')?.focus();
         },
         onCloseAutoFocus: (event: Event) => {
-            if (!leaveFocus.current) {
+            const request = requestVerification.current;
+            requestVerification.current = undefined;
+            if (!leaveFocus.current && !request) {
                 keepMovedFocus(event);
                 return;
             }
             leaveFocus.current = false;
             event.preventDefault();
+            // As with Ready to verify in the status menu, open the form after the menu closes.
+            request?.();
         }
     };
     let first = true;
@@ -102,13 +110,13 @@ export function CommentThreadMenu({ className, actions, triggerRef }: { classNam
 
     return <>
         <Popper
-            container={inkContainer ?? rootElement}
+            container={container}
             open={open}
             onOpenChange={next => { if (next) setOpen(true); else close(); }}
             align="end"
             aria-label={t.thread.options}
             // Like a menu: ↑ and ↓ move between its buttons
-            onKeyDown={moveFocusInMenu}
+            onKeyDown={event => { if (event.key === 'Escape') event.stopPropagation(); else moveFocusInMenu(event); }}
             // Bounded by the window's room on its side and scrolling inside, so every item (Delete last) stays reachable on a short screen
             {...toolbarSurface('uier-thread-menu', cx('z-[70] max-h-[var(--radix-popover-content-available-height)] w-60 max-w-[calc(100vw-1rem)] overflow-y-auto overscroll-contain rounded-xl p-1', floatingShadowClassName))}
             trigger={(
@@ -139,7 +147,7 @@ export function CommentThreadMenu({ className, actions, triggerRef }: { classNam
                     <MenuButton buttonRef={takeFirst()} icon={<Edit size={16} />} disabled={message?.disabled} onClick={() => { leaveFocus.current = true; run(edit); }}>{t.common.edit}</MenuButton>
                 )}
                 {reattach && (
-                    <MenuButton buttonRef={takeFirst()} icon={<MyLocation size={16} />} disabled={message?.disabled} onClick={() => run(reattach)}>{t.thread.reattach}</MenuButton>
+                    <MenuButton buttonRef={takeFirst()} icon={<MyLocation size={16} />} disabled={message?.disabled} onClick={() => { leaveFocus.current = true; run(reattach); }}>{t.thread.reattach}</MenuButton>
                 )}
                 {assign && (
                     // The visible words are part of the name: "Assigned to you. Change assignee"
@@ -168,7 +176,8 @@ export function CommentThreadMenu({ className, actions, triggerRef }: { classNam
                     )}
                 </>}
                 {verify && (
-                    <MenuButton buttonRef={takeFirst()} icon={<Verified size={16} />} onClick={() => run(verify.onRequest)}>{verify.label}</MenuButton>
+                    <MenuButton buttonRef={takeFirst()} icon={<Verified size={16} />}
+                        onClick={() => run(() => { requestVerification.current = verify.onRequest; })}>{verify.label}</MenuButton>
                 )}
                 {follow && (
                     <MenuButton buttonRef={takeFirst()} icon={follow.following ? <PinOff size={16} /> : <Pin size={16} />} disabled={follow.pending} onClick={() => run(follow.onToggle)}>

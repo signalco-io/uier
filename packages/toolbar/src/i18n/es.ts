@@ -580,6 +580,41 @@ export const es: Messages = {
         limited: (retry: string) => `No hay más sugerencias por ahora. Inténtalo de nuevo ${retry}. Puedes escribir la tuya.`,
         suggestions: 'Sugerencias'
     },
+    proposal: {
+        suggest: 'Sugerir un cambio',
+        suggestion: 'Cambio sugerido',
+        draft: 'Borrador de sugerencia',
+        remove: 'Quitar sugerencia',
+        note: 'Nota (opcional)',
+        text: 'Texto de reemplazo',
+        preview: 'Vista previa en la página',
+        original: 'Original',
+        proposed: 'Propuesta',
+        preparing: 'Preparando la vista previa…',
+        values: 'Valores exactos',
+        stale: 'La página ya no coincide con el original guardado. Los valores guardados aparecen abajo.',
+        unavailable: 'No hay vista previa para este elemento.',
+        invalid: 'Introduce un valor CSS válido en cada campo modificado.',
+        empty: 'Texto vacío',
+        copied: 'Copiado al portapapeles.',
+        copyText: (side: string) => `Copiar texto (${side})`,
+        copyCss: (side: string) => `Copiar CSS (${side})`,
+        sidePadding: 'Relleno lateral',
+        paddingDetails: 'Detalles del relleno',
+        mixedValues: 'Valores distintos',
+        chooseColor: (property: string) => `Elegir ${property}`,
+        properties: {
+            'color': 'Color del texto',
+            'background-color': 'Color de fondo',
+            'font-size': 'Tamaño del texto',
+            'font-weight': 'Grosor del texto',
+            'padding-top': 'Relleno superior',
+            'padding-right': 'Relleno derecho',
+            'padding-bottom': 'Relleno inferior',
+            'padding-left': 'Relleno izquierdo',
+            'border-radius': 'Radio de las esquinas'
+        }
+    },
     selection: {
         label: 'Texto seleccionado',
         rewrite: 'Reescribir'

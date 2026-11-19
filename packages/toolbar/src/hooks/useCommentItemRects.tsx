@@ -42,6 +42,14 @@ export function resolveAnchorElement(position: CommentItemPosition | null | unde
     }
 }
 
+/** Fresh, unique selector evidence for a preview. Closed-layer opener placement is not a target. */
+export function resolvePreviewAnchor(position: CommentAnchor): { element: Element; end: Element } | null {
+    const starts = position.type === 'point' ? pointMatches(position) : selectorMatches(position.startSelector);
+    const ends = position.type === 'text' && position.endSelector ? selectorMatches(position.endSelector) : starts;
+    if (starts.length !== 1 || ends.length !== 1 || !isShown(starts[0]) || !isShown(ends[0])) return null;
+    return { element: starts[0]!, end: ends[0]! };
+}
+
 function textNodesOf(root: Node): Text[] {
     const nodes: Text[] = [];
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
@@ -69,7 +77,7 @@ export function textOffsetWithin(element: Element, node: Node, offset: number) {
 }
 
 /** The text node and offset at a character offset within the element's text */
-function pointAtTextOffset(element: Element, offset: number): { node: Node; offset: number } | null {
+function pointAtTextOffset(element: Element, offset: number, strict: boolean): { node: Node; offset: number } | null {
     const nodes = textNodesOf(element);
     let remaining = Number.isFinite(offset) ? Math.max(Math.trunc(offset), 0) : 0;
     for (const node of nodes) {
@@ -79,7 +87,7 @@ function pointAtTextOffset(element: Element, offset: number): { node: Node; offs
         remaining -= node.length;
     }
     const last = nodes.at(-1);
-    return last ? { node: last, offset: last.length } : null;
+    return last && !strict ? { node: last, offset: last.length } : null;
 }
 
 /** Largest valid range offset in the node: characters in text nodes, children in elements */
@@ -96,9 +104,10 @@ function clampOffset(node: Node, offset: number) {
     return Math.min(Math.max(value, 0), maxOffset(node));
 }
 
-function boundaryPoint(element: Element, type: CommentSelection['startType'], offset: number) {
+function boundaryPoint(element: Element, type: CommentSelection['startType'], offset: number, strict: boolean) {
+    if (strict && (!Number.isSafeInteger(offset) || offset < 0 || (type === 'element' && offset > maxOffset(element)))) return null;
     return type === 'text'
-        ? pointAtTextOffset(element, offset)
+        ? pointAtTextOffset(element, offset, strict)
         : { node: element, offset: clampOffset(element, offset) };
 }
 
@@ -116,35 +125,112 @@ function rangeHasText(range: Range, position: CommentSelection) {
 }
 
 /** The range the stored selectors and offsets describe */
-function rangeFromOffsets(position: CommentSelection): Range | null {
-    if (selectorMatches(position.startSelector).length !== 1
-        || (position.endSelector && selectorMatches(position.endSelector).length !== 1)) return null;
-    const startElement = safeQuerySelector(position.startSelector);
-    const endElement = position.endSelector?.length
-        ? safeQuerySelector(position.endSelector)
-        : startElement;
-    if (!startElement || !endElement) {
-        return null;
-    }
-
-    let start = boundaryPoint(startElement, position.startType, position.startOffset);
-    let end = boundaryPoint(endElement, position.endType, position.endOffset);
+function rangeFromElements(position: CommentSelection, startElement: Element, endElement: Element, strict: boolean): Range | null {
+    const start = boundaryPoint(startElement, position.startType, position.startOffset, strict);
+    const end = boundaryPoint(endElement, position.endType, position.endOffset, strict);
     if (!start || !end) {
         return null;
     }
 
-    // A selection made backwards (from its end to its start)
-    const reversed = start.node === end.node
-        ? start.offset > end.offset
-        : Boolean(start.node.compareDocumentPosition(end.node) & Node.DOCUMENT_POSITION_PRECEDING);
-    if (reversed) {
-        [start, end] = [end, start];
-    }
-
     const range = document.createRange();
     range.setStart(start.node, start.offset);
-    range.setEnd(end.node, end.offset);
+    // Compare the actual boundaries, including when one node contains the other.
+    if (range.comparePoint(end.node, end.offset) < 0) {
+        range.setStart(end.node, end.offset);
+        range.setEnd(start.node, start.offset);
+    } else {
+        range.setEnd(end.node, end.offset);
+    }
     return range;
+}
+
+function rangeFromOffsets(position: CommentSelection): Range | null {
+    const starts = selectorMatches(position.startSelector);
+    const ends = position.endSelector ? selectorMatches(position.endSelector) : starts;
+    return starts.length === 1 && ends.length === 1 ? rangeFromElements(position, starts[0]!, ends[0]!, false) : null;
+}
+
+const collapsiblePreviewWhitespace = /[ \t\r\n]+/g;
+const collapsibleHorizontalWhitespace = /[ \t]+/g;
+
+function rangeWhitespaceRuns(range: Range, raw: string) {
+    const root = range.commonAncestorContainer;
+    const nodes = root instanceof Text ? [root] : textNodesOf(root).filter(node => range.intersectsNode(node));
+    const runs: { start: number; end: number }[] = [];
+    const modes = new Map<Element, string>();
+    let offset = 0;
+    for (const node of nodes) {
+        const start = node === range.startContainer ? range.startOffset : 0;
+        const end = node === range.endContainer ? range.endOffset : node.length;
+        const text = node.data.slice(start, end);
+        const parent = node.parentElement;
+        if (parent && /[ \t\r\n]/.test(text)) {
+            const mode = modes.get(parent) ?? getComputedStyle(parent).whiteSpaceCollapse;
+            modes.set(parent, mode);
+            const whitespace = mode === 'collapse' ? collapsiblePreviewWhitespace
+                : mode === 'preserve-breaks' ? collapsibleHorizontalWhitespace : undefined;
+            for (const match of whitespace ? text.matchAll(whitespace) : []) {
+                const start = offset + match.index;
+                const end = start + match[0].length;
+                const last = runs.at(-1);
+                if (last?.end === start) last.end = end;
+                else runs.push({ start, end });
+            }
+        }
+        offset += text.length;
+    }
+    return offset === raw.length ? runs : null;
+}
+
+type SourceOffsets = (start: number, end: number) => readonly [number, number];
+
+function renderedSourceOffsets(raw: string, quote: string, runs: NonNullable<ReturnType<typeof rangeWhitespaceRuns>>): SourceOffsets | null {
+    const characters: { start: number; end: number }[] = [];
+    let source = 0;
+    function consumeLiteral(end: number) {
+        if (!quote.startsWith(raw.slice(source, end), characters.length)) return false;
+        for (; source < end; source++) characters.push({ start: source, end: source + 1 });
+        return true;
+    }
+
+    for (const [index, run] of runs.entries()) {
+        if (!consumeLiteral(run.start)) return null;
+        // Engines can retain one collapsed space at a selection edge or beside a preserved
+        // line break. Check the following literal so an optional space cannot consume it.
+        const optional = run.start === 0 || run.end === raw.length || raw[run.start - 1] === '\n' || raw[run.end] === '\n';
+        const literal = raw.slice(run.end, runs[index + 1]?.start ?? raw.length);
+        if (quote[characters.length] === ' ' && (!optional || quote.startsWith(' ' + literal, characters.length))) {
+            characters.push(run);
+        } else if (!optional) {
+            return null;
+        }
+        source = run.end;
+    }
+    if (!consumeLiteral(raw.length) || characters.length !== quote.length || !characters.length) return null;
+
+    return (start, end) => {
+        // Use the visible characters on each side of an edit to leave any omitted whitespace
+        // outside that span intact. Offsets and slices both use UTF-16.
+        const first = characters[start]?.start ?? characters.at(-1)!.end;
+        return [first, start === end ? first : characters[end - 1]!.end];
+    };
+}
+
+/** Proposals require the complete saved selection at its offsets, without page-wide text recovery. */
+export function resolvePreviewTextRange(position: CommentSelection, start: Element, end: Element) {
+    const range = rangeFromElements(position, start, end, true);
+    if (!range || !position.text.trim()) return null;
+
+    const raw = range.toString();
+    let runs: ReturnType<typeof rangeWhitespaceRuns> | undefined;
+    const match = (quote: string): SourceOffsets | null => {
+        if (raw === quote) return (start, end) => [start, end];
+        if (runs === undefined) runs = rangeWhitespaceRuns(range, raw);
+        return runs && renderedSourceOffsets(raw, quote, runs);
+    };
+    const saved = match(position.text);
+    if (!saved) return null;
+    return { range, offsetsFor: (quote: string) => quote === position.text ? saved : match(quote) };
 }
 
 /** Shorter texts are not searched for: they would be found in too many places */
@@ -207,6 +293,31 @@ function findText(text: string): Range | 'ambiguous' | null {
 export type AnchorState = 'exact' | 'restored' | 'hidden' | 'missing' | 'ambiguous' | 'page' | 'closed';
 
 const resolvedText = new WeakMap<CommentSelection, { version: number; result: { range: Range | null; state: AnchorState } }>();
+let previewText: { position: CommentSelection; range: () => Range | null; element: Element } | undefined;
+
+/** Keep the selection pin on its edited range for the lifetime of a text preview. */
+export function trackPreviewTextRange(position: CommentSelection, element: Element, range: () => Range | null) {
+    const entry = { position, range, element };
+    previewText = entry;
+    return () => { if (previewText === entry) previewText = undefined; };
+}
+
+function previewPlacement(position: CommentSelection): CommentPlacement | undefined {
+    const preview = previewText;
+    if (!preview) return undefined;
+    const original = preview.position;
+    if (position.startSelector !== original.startSelector || position.endSelector !== original.endSelector
+        || position.startType !== original.startType || position.endType !== original.endType
+        || position.startOffset !== original.startOffset || position.endOffset !== original.endOffset
+        || position.text !== original.text || !isShown(preview.element)) return undefined;
+    const range = preview.range();
+    if (!range) return undefined;
+    const rects = shownRangeRects(range).filter(rect => rect.width > 0 && rect.height > 0);
+    if (rects.length) return { rects, state: 'exact' };
+    // An empty replacement has no line box of its own. Keep its pin at the edited location.
+    const caret = range.getClientRects()[0] ?? preview.element.getClientRects()[0];
+    return caret ? { rects: [new DOMRect(caret.x, caret.y, 1, Math.max(caret.height, 1))], state: 'exact' } : undefined;
+}
 
 /** Stored offsets are evidence. Text search is used only when it has one possible match. */
 function resolveText(position: CommentSelection): { range: Range | null; state: AnchorState } {
@@ -300,6 +411,8 @@ export function getCommentItemRects(position: CommentItemPosition | null | undef
     try {
         switch (position.type) {
             case 'text': {
+                const preview = previewPlacement(position);
+                if (preview) return preview.rects;
                 const range = resolveTextRange(position);
                 return range ? shownRangeRects(range) : [];
             }
@@ -353,6 +466,8 @@ export function getCommentPlacement(position: CommentItemPosition | null | undef
             return rects.length ? { rects, state: 'exact' }
                 : closedLayerPlacement(position) ?? { rects, state: matches.length ? 'hidden' : 'missing' };
         }
+        const preview = previewPlacement(position);
+        if (preview) return preview;
         const { range, state } = resolveText(position);
         const rects = range ? shownRangeRects(range).filter(rect => rect.width > 0 && rect.height > 0) : [];
         const shownState = range && !rects.length ? 'hidden' : state;
