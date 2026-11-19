@@ -276,9 +276,34 @@ async function start(tabId: number, projectId: string, publicId: string) {
     } catch (error) { if ((await getBinding(tabId))?.activation === binding.activation) await clearBinding(tabId); throw error; }
 }
 type CreatedProject = { id: string; projectId: string; name: string; access: string; workspaceId: string; workspaceName: string };
-type ProjectAttempt = { attempt: string; origin: string; name: string; workspaceId: string };
-const projectAttemptKey = 'project-attempt-v1';
+/**
+ * The saved attempt of one submission (a site, a name and a workspace) in one sign-in. `projectId` is set once uier's
+ * whole answer was read: the project exists, and only discovery listing it ends the record.
+ */
+type ProjectAttempt = { attempt: string; sessionId: string; origin: string; savedAt: number; projectId?: string };
+const projectAttemptPrefix = 'project-attempt:v1:';
+const projectAttemptDays = 7;
 const tabMoved = 'This tab moved to another address. Check the address and try again.';
+/** Its own record for every submission of every sign-in: one never replaces or clears another's */
+async function projectAttemptKey(sessionId: string, origin: string, name: string, workspaceId: string) {
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify([origin, name, workspaceId])));
+    return `${projectAttemptPrefix}${sessionId}:${btoa(String.fromCharCode(...new Uint8Array(digest))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')}`;
+}
+/**
+ * Ends saved attempts, with what uier's discovery just listed for `origin` in this sign-in: those whose project is
+ * in the list (the person can see and start it, so the form is not offered again), and those of an earlier sign-in
+ * or older than a week, which nothing can send any more. An attempt whose answer never arrived stays for its retry.
+ */
+async function settleProjectAttempts(sessionId: string, origin: string, projects: { projectId: string }[]) {
+    const saved = await browser.storage.session.get(null);
+    const ended = Object.entries(saved).filter(([key, value]) => {
+        if (!key.startsWith(projectAttemptPrefix)) return false;
+        const record = value as ProjectAttempt;
+        return record.sessionId !== sessionId || record.savedAt < Date.now() - projectAttemptDays * 24 * 3600 * 1000
+            || (record.origin === origin && Boolean(record.projectId) && projects.some(project => project.projectId === record.projectId));
+    }).map(([key]) => key);
+    if (ended.length) await browser.storage.session.remove(ended);
+}
 /** The site the tab is on now, as the browser reports it; none while it leaves for another site or cannot be reviewed */
 async function liveOrigin(tabId: number) {
     const tab = await browser.tabs.get(tabId).catch(() => undefined);
@@ -293,26 +318,38 @@ async function liveOrigin(tabId: number) {
  * this sign-in approved creating projects and the person's admin membership of the workspace, and creates it as the
  * app does.
  *
- * The attempt is saved before the request, as the refresh attempt is: a lost answer, a suspended worker or a second
- * press sends the same attempt again and uier answers with the one project. Only a definite answer ends it.
+ * The attempt is saved before the request, as the refresh attempt is, in a record of this sign-in and this
+ * submission. Nothing the request does ends it: not the status line, not an answer that broke off, not an error.
+ * So a lost or interrupted answer, a suspended worker or a second press sends the same attempt again, and uier
+ * answers with the one project. The record ends when discovery lists its project (`settleProjectAttempts`), or
+ * when uier says that project was removed since (410), which makes the same form a new submission.
  * A review that cannot start (a closed helper, a tab that moved on) leaves the project: the popup lists it with the
  * reason, ready for Start review.
  */
 async function createSiteProject(tabId: number, shown: string, name: string, workspaceId: string) {
     if (await liveOrigin(tabId) !== shown) throw new Error(tabMoved);
     const epoch = authEpoch;
-    const token = (await session()).token;
-    const saved = (await browser.storage.session.get(projectAttemptKey))[projectAttemptKey] as ProjectAttempt | undefined;
-    const attempt = saved && saved.origin === shown && saved.name === name && saved.workspaceId === workspaceId ? saved.attempt : random();
+    const { id: sessionId, token } = await session();
+    const key = await projectAttemptKey(sessionId, shown, name, workspaceId);
+    const saved = (await browser.storage.session.get(key))[key] as ProjectAttempt | undefined;
+    const record: ProjectAttempt = saved ?? { attempt: random(), sessionId, origin: shown, savedAt: Date.now() };
     assertAuthEpoch(epoch);
-    await browser.storage.session.set({ [projectAttemptKey]: { attempt, origin: shown, name, workspaceId } satisfies ProjectAttempt });
+    if (!saved) await browser.storage.session.set({ [key]: record });
     // Read again after the waits above: what is sent is what the browser says now, and it must be what was shown
     const origin = await liveOrigin(tabId);
     if (origin !== shown) throw new Error(tabMoved);
-    const response = await api('projects', token, 'POST', { origin, name, workspaceId, attempt });
-    // A refusal created nothing and a success is final. A server error may have created the project: keep the attempt.
-    if (response.status < 500) await browser.storage.session.remove(projectAttemptKey);
-    const project = await json<CreatedProject>(response);
+    const response = await api('projects', token, 'POST', { origin, name, workspaceId, attempt: record.attempt });
+    // Only a whole answer counts: the status line alone proves nothing, and a body that broke off keeps the attempt
+    const answer = await response.json().catch(() => undefined) as Partial<CreatedProject> & { message?: string } | undefined;
+    if (!answer || (response.ok && (typeof answer.projectId !== 'string' || typeof answer.id !== 'string')))
+        throw new Error('The answer from uier was interrupted. Try again.');
+    if (!response.ok) {
+        // The attempt's project was removed since: final, so the same form is a new submission
+        if (response.status === 410 && epoch === authEpoch) await browser.storage.session.remove(key);
+        throw new Error(answer.message || 'The extension could not connect.');
+    }
+    const project = answer as CreatedProject;
+    if (epoch === authEpoch) await browser.storage.session.set({ [key]: { ...record, projectId: project.projectId } satisfies ProjectAttempt });
     if (await liveOrigin(tabId) !== shown) return { project, error: 'The project was created. This tab moved to another address, so its review did not start.' };
     try { await start(tabId, project.projectId, project.id); return { project }; }
     catch (error) { return { project, error: error instanceof Error ? error.message : 'The review could not start.' }; }
@@ -379,7 +416,9 @@ async function handle(input: unknown, sender: chrome.runtime.MessageSender) {
             }
             const tab = await activeTab(signedIn);
             if (!('origin' in tab)) return tab;
-            const result = await json<any>(await api(`projects?${new URLSearchParams({ origin: tab.origin })}`, (await session()).token));
+            const current = await session();
+            const result = await json<any>(await api(`projects?${new URLSearchParams({ origin: tab.origin })}`, current.token));
+            if (Array.isArray(result.projects)) await settleProjectAttempts(current.id, tab.origin, result.projects);
             // The review can end while uier answers: read it again.
             const binding = await getBinding(tab.tabId);
             return { ...result, ...tab, binding: Boolean(binding), reviewing: binding?.projectId };

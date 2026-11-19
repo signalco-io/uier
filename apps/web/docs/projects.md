@@ -48,12 +48,18 @@
   cannot overwrite an address another admin has already added.
 - `createProject` is the one way a person creates a project: the app's form (`createProjectAction`) and the
   browser extension's popup (`createSiteProject`, [browser extension](browser-extension.md)) both call it after
-  their own admin check. It needs only the user and the workspace of the context. With `attempt` (a random value
-  its caller keeps for retries) the creation is repeatable: the project's code is a keyed hash of the person, the
-  workspace, the attempt and the validated input (`attemptProjectId`), so a repeated or concurrent request claims
-  the same `project-ref`, finds the project or finishes creating it, and every request returns the one project.
-  No receipt record is stored. A changed input is another project; a code retired by deletion or moved by a
-  transfer is refused, never created again. `attemptedProject` reads it for callers that count new projects.
+  their own admin check. It needs only the user and the workspace of the context.
+- **Repeatable creation** (`projectReceipts.ts`), for a caller that may send its request again. It reserves a
+  receipt first (`reserveProjectCreation`: person, workspace, attempt and validated input) and hands it to
+  `createProject`. The `project-receipt` lives in the person's partition and is written in one transaction with a
+  `project-receipt-slot`, one unit of the caller's budget in the current window: the first request takes the unit
+  and a random project code, every other request of the attempt finds the receipt. The project document is
+  created in one transaction with a `project-created` marker in the workspace's partition, so only where no marker
+  is: once. A receipt without its project is unfinished when there is no marker (the retry creates it) and removed
+  when there is one (`ProjectGoneError`; a retired or moved code says the same earlier). Deletion and transfer
+  must leave the marker: removing it would let a replay that started before them create the document again under
+  the old code. Receipts expire after 29 days, markers after 30, slots with their window; all hold identifiers
+  and hashes only ([project deletion](../../../docs/project-deletion.md), [transfer](../../../docs/project-transfer.md)).
 - Project addresses use `normalizeSiteUrl` in `src/lib/app/projects.ts`: schemeless localhost,
   `.localhost` subdomains and loopback IPs default to HTTP, other hosts to HTTPS. Explicit schemes
   and ports are preserved. Review CORS and redirects still require an exact configured origin.

@@ -110,20 +110,24 @@ credential), an exact origin, a name, a workspace id and an attempt. In order:
 - **Permission.** The person must be a stored admin of that workspace, and uier's own workspace is never accepted
   (`mayCreateProjects`): the same rule as the app's Create project. A missing workspace, a removed member and a
   commenter get the same 403.
-- **Replay.** `attemptedProject` finds the project an earlier request with this attempt created; it is returned
-  without counting against the budget.
-- **Budget.** `siteProjectsLimit`: 30 new projects an hour per account, 429 with `Retry-After` beyond it.
-- **Creation.** The app's `createProject` with the attempt ([projects](projects.md)), so address and name
+- **Receipt and budget.** `reserveProjectCreation` writes the attempt's receipt before anything of the project
+  exists, in one transaction with one unit of `siteProjectsLimit` (30 new projects an hour per account, 429 with
+  `Retry-After` beyond it). The same attempt again, or several of it at once, find that receipt and take no unit,
+  so a duplicate is never refused while the original commits and a retry after a partial write costs nothing.
+- **Creation.** The app's `createProject` with the receipt ([projects](projects.md)), so address and name
   validation, the invited-only default, the public id and the client record are the app's. Keep new creation rules
-  in `createProject` so both paths get them.
+  in `createProject` so both paths get them. A project that was created and then deleted or transferred answers
+  410 (`ProjectGoneError`): the worker forgets that attempt, and nothing is created again under the old code.
 
 `GET projects` adds `workspaces` (id and name of each workspace the account may create in, oldest membership
 first) beside `canSetUp`, which installed packages still read; the list is a label and grants nothing. A session
 without the capability gets an empty list and `approveCreate: true` when the account has such a workspace.
 `extension.api.spec.ts` covers the capability (legacy, renewable and renewed sessions, an exchange that asks for
 it), the roles, stale and removed memberships, credentials, validation, replay and concurrent requests of one
-attempt, the budget and the route; the packaged runtime suite reads the consent line, moves the tab between the form
-and its submit, sends one submission twice and reviews with the created project.
+attempt (also with one unit of the budget left and after a request that stopped), replays after deletion, in
+deletion's gap and after a transfer, the budget and the route; the packaged runtime suite reads the consent line, moves the tab between the form
+and its submit, breaks off the answer of a committed create and fails the refresh after it, sends the retry twice and
+reviews with the one created project.
 
 Workflow discovery uses the allowlisted `GET statuses` operation and the same member-only handler as the embed review API. Guests cannot retrieve workflow names, descriptions or defaults.
 

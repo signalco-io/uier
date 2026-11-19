@@ -1,16 +1,15 @@
 import { z } from 'zod';
-import { attemptedProject, createProject, projectOrigins, findProject, listProjects } from '../app/projects';
+import { createProject, ProjectGoneError, projectOrigins, findProject, listProjects, reserveProjectCreation } from '../app/projects';
 import { hasExtensionCapability } from './sessions';
 import { getMember, getWorkspace, listUserMemberships } from '../app/workspaces';
 import type { DbMember } from '../app/model';
 import { UserFacingError } from '../app/actionErrors';
 import { PUBLIC_WORKSPACE_ID } from '../comments/publicProjectPolicy';
-import { consume, APP_COUNTERS_PARTITION, type Limit } from '../comments/rateLimits';
-import { getCommentsStore } from '../repo/commentsStore';
+import type { Limit } from '../comments/rateLimits';
 import { getUser } from '../app/users';
 import { ensureProjectPublicId } from '../app/projectPublicIds';
 import { memberActor } from '../review/actor';
-import { apiErrors, parseJsonBody } from '../comments/http';
+import { ApiError, apiErrors, parseJsonBody } from '../comments/http';
 import { extensionSession, loadExtensionSession, readScope, scopeToken } from './auth';
 import type { ReviewApiContext } from '../review/http';
 
@@ -64,11 +63,14 @@ export async function projectsForSite(userId: string, origin: string) {
 }
 /**
  * A project for the site the extension is on, in a workspace the person chose: the app's own `createProject`, so
- * the same address and name rules apply and it starts invited-only. Three things are checked for every request:
- * the sign-in approved creating projects (a session that approved reviewing alone keeps reviewing and gets no
- * more), the stored admin membership (the list `projectsForSite` gave the popup grants nothing), and the hourly
- * budget. `attempt` is the worker's random value for this submission: its retries and concurrent copies return the
- * one project and count once.
+ * the same address and name rules apply and it starts invited-only. Checked for every request: the sign-in
+ * approved creating projects (a session that approved reviewing alone keeps reviewing and gets no more) and the
+ * stored admin membership (the list `projectsForSite` gave the popup grants nothing).
+ *
+ * `attempt` is the worker's random value for this submission. Its receipt (`reserveProjectCreation`) is written
+ * before anything of the project, together with one unit of the hourly budget: the first request takes the unit,
+ * and that request again, or several of it at once, find the receipt, take nothing and create or return the one
+ * project. A project that was created and then deleted or transferred answers 410, never a second project.
  */
 export async function createSiteProject(request: Request) {
     const session = await extensionSession(request);
@@ -83,15 +85,13 @@ export async function createSiteProject(request: Request) {
     if (!user || !workspace || !member || !mayCreateProjects(member)) throw apiErrors.forbidden('Only admins of this workspace can create projects.');
     const creator = { user, workspace }, input = { mode: 'website' as const, name, urls: [origin] };
     try {
-        // An answer that was lost is asked for again: the same project, outside the budget it already used
-        let project = await attemptedProject(creator, input, attempt);
-        if (!project) {
-            await consume(getCommentsStore(), APP_COUNTERS_PARTITION, siteProjectsLimit(user.id));
-            project = await createProject(creator, input, { attempt });
-        }
+        const receipt = await reserveProjectCreation(creator, input, attempt, siteProjectsLimit(user.id));
+        const project = await createProject(creator, input, { receipt });
         return Response.json({ id: project.publicId, projectId: project.id, name: project.name, access: project.access,
             workspaceId: workspace.id, workspaceName: workspace.name }, { status: 201 });
     } catch (error) {
+        // Final for this attempt: the worker forgets it, and the same form sent again is a new project
+        if (error instanceof ProjectGoneError) throw new ApiError(410, 'not_found', error.message);
         // The app's form shows these messages; the popup shows them the same way
         if (error instanceof UserFacingError) throw apiErrors.invalidRequest(error.message);
         if (error instanceof z.ZodError) throw apiErrors.invalidRequest(error.issues[0]?.message ?? 'Check the project and try again.');

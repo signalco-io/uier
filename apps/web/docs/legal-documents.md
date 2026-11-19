@@ -27,7 +27,9 @@ Issue [#289](https://github.com/signalco-io/uier/issues/289) requires owner revi
 wording before merge. Prepare the tested text for review; do not infer that passing checks approve it.
 The privacy policy's 13 November 2026 update describes explicit screen recordings, browser-memory
 drafts, private video storage, access and cleanup. Its changed wording needs the same owner review
-before merge. Other policies retain their existing dates. `legal.spec.ts` guards the project/privacy distinction, identity fallback,
+before merge. Other policies retain their existing dates. The 19 November 2026 text also covers projects created
+from the browser extension: what the request sends and the 30-day identifier-only receipt that prevents a second
+project, kept through deletion and transfer. That sentence needs the same owner review. `legal.spec.ts` guards the project/privacy distinction, identity fallback,
 analytics status and erasure limitations.
 
 The privacy policy's 14 November 2026 update also describes optional workspace Notion project imports

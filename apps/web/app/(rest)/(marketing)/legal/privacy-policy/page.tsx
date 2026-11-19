@@ -30,6 +30,13 @@ export default function PrivacyPolicyPage() {
                 the visible viewport for feedback evidence and requests no browser history or cookie access.
             </p>
             <p>
+                When you create a project from the extension, it sends the site origin, the project name and
+                the workspace you choose. The server keeps a receipt of that request for up to 30 days, so a
+                repeated request creates no second project. The receipt holds your account id, the project and
+                workspace ids, a hash of the request and its time, and no name or address. It stays for those
+                30 days if the project is deleted or transferred.
+            </p>
+            <p>
                 The extension stores its refresh credential and pending renewal attempt in restricted
                 extension local storage to keep you signed in across browser restarts. Access credentials,
                 active tabs and unsent text drafts stay in extension session storage, separate from the
