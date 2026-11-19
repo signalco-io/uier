@@ -90,8 +90,8 @@ the separately bundled review toolbar owns its own query cache.
   skeleton carries the loaded page's `data-page-width="wide"` and `data-header-wide`, which widen the shell's column
   and the project header. `CommentsLoading` (comments/) draws the search row (search, the list's status tabs, Filter,
   List/Board), the count line's own row where it has one, then the list with the first thread beside it, or the board's
-  columns every workflow has (Open, In progress and Done, each with its status's dot) and the Archive toggle in the header
-  (a faint edge, no fill), from the left. The search row needs no data, so it is drawn for real but
+  columns every workflow has (Open, In progress and Done, each with its status's dot), from the left. The header has no
+  Archive: it is in the Filter popover (uier #485). The search row needs no data, so it is drawn for real but
   `inert` and `aria-hidden` (search, the status tabs with the address's tab pressed and their counts loading, Filter,
   List/Board with the opening view pressed; [uier #362](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_Wg-1DSXTyPI9bQLuSCxHj)).
   A loading state shows only what every project has; what only some projects or people have appears with the loaded
@@ -139,13 +139,17 @@ the separately bundled review toolbar owns its own query cache.
   Sort and Group (`recent`, `alphabetical`, `recent.client`, `alphabetical.client`) are the same strings and read
   back as the same choice; anything else is the default. The shell layout reads it, so the first render is already
   in order. The shell layout
-  renders on every refresh (`RealtimeComments` too): keep its reads point reads or bounded aggregates, and list them in
+  uses point reads or bounded aggregates when it renders: list them in
   [Cosmos query costs](../../../docs/cosmos-query-costs.md#shell-layout-sidebar-project-order).
 - **Sidebar open counts (uier #463).** Each listed project has a quiet `SidebarMenuBadge` for unfinished,
   unarchived comments visible to the current member. Zero and unavailable counts render no badge; the link
   describes the count to screen readers. Counts refresh with the shell, in every sort/group, using
   partition-scoped `COUNT(1)` with at most four count queries in flight. Only authorized projects from
   `listVisibleProjects` reach this loader.
+  When the comments page receives a newer full snapshot (uier #488), it also updates that project's
+  open count and recent-activity position in the mounted sidebar and the shell's loading hints.
+  The shell keeps these values across navigation within the same account and workspace and prefers
+  a newer shell read over an older page snapshot.
 - **Workspace area** (`workspace/`): the workspace's name above `LinkTabs` (`workspace/(tabs)/layout.tsx`,
   `WorkspaceHeader`, `workspaceTabs`): Users, Teams, Clients, Usage, Activity and Settings for admins, Clients and Usage for everyone
   else and in the uier workspace ([Usage](usage.md)). `/app/workspace` opens the first tab. A team's and a person's own pages (`workspace/teams/[teamId]`,
@@ -168,7 +172,8 @@ the separately bundled review toolbar owns its own query cache.
   Settings has General (the name), a [Workspace logo](project-settings.md#workspace-logo) and Email domains
   ([access and membership](access-and-membership.md#email-domains)).
   The uploaded logo replaces the 32 px uier icon in the current workspace's switcher, including the collapsed
-  sidebar and mobile sheet. The uier icon shows while the image loads, on failure and without a logo.
+  sidebar and mobile sheet. The uier icon shows while the image loads, on failure and without a logo, unless this
+  browser has a copy of that version ([local shell cache](#local-shell-cache)).
   Activity renders access events as sentences (`teams/activityText.ts`, pure, with names from
   `teams/activityNames.ts`, which also looks up people who left, archived teams and who accepted an
   invitation); never show raw actions, ids or before/after JSON. Users shows its filters only past
@@ -196,7 +201,8 @@ the separately bundled review toolbar owns its own query cache.
   runs as a uier.io page. Tests set `UIER_SITE_ICONS_TEST_UPSTREAM` (local runtime only) to send every icon
   request to `e2e/support/siteIconsStub.ts`; `e2e/site-icons.api.spec.ts` covers the resolver. The icon keeps
   2 px of padding inside the 16 px tile (larger tiles set their own with `[&>img]:p-*`), so icons drawn
-  edge to edge stay clear of the border and the rounded corners. The image fills the tile inside its 1 px
+  edge to edge stay clear of the border and the rounded corners. This browser keeps a copy of each icon, drawn until
+  the image loads ([local shell cache](#local-shell-cache)). The image fills the tile inside its 1 px
   border, so the 16 px tile draws a favicon at 10 px. The sidebar's active projects use a 20 px tile with
   the same 2 px padding (uier #87: with 1 px the favicon filled the tile edge to edge), so the favicon shows
   at 14 px clear of the border, like the project header and the projects list; a negative margin keeps
@@ -302,7 +308,7 @@ board policy and the current project's navigation fields. The route is `private,
 by Cookie and rejects cross-site browser requests. The live project-members load is shared only
 within that snapshot request; there is no positive authorization cache between requests.
 
-Other projects' names, client grouping and recent-activity order update on navigation. The five-minute
+Other projects' names, client grouping and activity still come from their shell or page reads. The five-minute
 safety check now refreshes only project comment data and metadata (uier #410), keeping the mounted
 shell intact during background loads. `realtime.spec.ts` checks the cadence, read/render races and
 late hidden-tab responses; `app-comments-snapshot.api.spec.ts` checks revision privacy, read-state,
@@ -334,6 +340,48 @@ state and redirect to the provider), coding-tool return URLs, review links (sing
 new tab on the reviewed site), external sites and downloads. Sign-out keeps its session-ending
 server action and redirect. Crossing between marketing and `/app` keeps the document-policy
 boundary: CSP and COOP belong to a document and must change together.
+
+### Local shell cache
+
+The shell keeps a copy of what its sidebar shows in this browser's IndexedDB (`uier-app`,
+`src/lib/app/browserCache.ts`), so opening the app and switching accounts or workspaces draw the workspace, its
+projects and the account at once instead of after the server's reads. The server's render then replaces the copy and
+saves the new version, so a copy is never more than one load behind.
+
+- **What is kept.** `AppSidebar` saves its props and the projects it lists per account and workspace (`shellCache.ts`,
+  `shell:<user>:<workspace>`, `CachedSidebar`): the switcher's workspaces (names, logo URLs, roles, which one is the
+  person's own), the projects with their client, first address and open count (newer counts the comments publish
+  included), the order, the signed-in accounts, and the person's name, email and avatar URL. The cached shell passes
+  its projects to `AppSidebar` in place of `useSidebarProjects`. Also the language's catalog (`catalog:<language>`, once per document) and `shell-current`, the
+  copy the next load draws. Project favicons and workspace logos are kept as blobs by URL (`imageCache.ts`,
+  `image:<url>`): their responses are private and vary by Cookie, so the new cookie of every switch misses the HTTP
+  cache. No comments, page data or credentials. A save is skipped when nothing changed.
+- **Loads.** `CachedShell` sits beside the shell layout's Suspense boundary, not in its fallback: a streamed fallback is
+  never hydrated, so nothing in it could read the database. Once hydrated it reads `shell-current` and, while the live
+  shell has not arrived, draws the copy with the real `AppSidebar`, `AppBreadcrumbs` and the frame's top bar and title
+  outline, inert and `aria-hidden` like `ShellFrame` (whose status stays). `global.css` hides the frame while the copy
+  draws and hides the copy as soon as `[data-app-shell]` (the live `SidebarProvider`) is in the document; a
+  `MutationObserver` then unmounts it, so the two are never in the document together for long. Without its language's
+  catalog the copy is not drawn, rather than speaking English first. Its words come from `CachedAppI18nProvider`,
+  which leaves the document's language and `[data-app-language]` to the live app.
+- **Switches.** Choosing a workspace (`WorkspaceSwitcher`) or an account (`changeAccount`) draws the destination's copy
+  over the live shell (`data-switching` hides the live one, which stays mounted) when this browser has one, while the
+  server opens it. A workspace switch ends when the live shell renders another workspace, or when its transition ends
+  without one (it failed). An account switch predicts the workspace the way `getAppContext` picks it (the selected one
+  when the account is in it, else its own, from the account's last copy) and points the next document's
+  `shell-current` at it; a failed switch points it back. A 20-second guard ends any switch that neither renders nor fails.
+- **Images.** A mark keeps one `<img>` with its usual `src` and `srcset`; until that image loads, the copy draws as a
+  background in the letter's place (`ProjectMark`) or the uier icon's (`WorkspaceMark`), and stays there offline. Larger
+  tiles pad both layers with `[&>[data-mark-icon]]:p-*`. A copy older than a day is refetched in the background; marks
+  inside the cached shell (`CachedShellContext`) draw their copy and request nothing.
+- **Privacy.** Signing out removes the account's copies, and so does deleting the account; signing out of the last or
+  of every account removes every copy and image. The sign-in page forgets `shell-current` (and every copy when no account is left), so someone signing
+  in never sees another account's copy. The first save in each document removes the copies of accounts no longer signed
+  in to this browser, and copies older than 30 days are never drawn. The cookie policy lists the database.
+- **Never a source of truth.** The copy is inert; pages and actions read and authorize for themselves.
+
+`e2e/shell-cache.spec.ts` covers both switches with the server held, a load into the shell with the server's render
+held (in Croatian, favicon included) and the removal on sign-out.
 
 ### Account selection
 

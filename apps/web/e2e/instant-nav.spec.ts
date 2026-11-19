@@ -182,7 +182,6 @@ test('A project\'s Comments and Page checks tabs load as wide as they will be, s
             await expect(skeleton.locator('[data-board-column-loading]')).toHaveCount(3);
             await expect(skeleton.locator('[data-board-column-loading] [data-status-dot]')).toHaveCount(3);
             await expect(skeleton.locator('[data-board-column-loading] button')).toHaveCount(0);
-            await expect(skeleton.locator('button[aria-label="Archive"]')).toBeVisible();
             await capture(page, info, 'board-loading');
             loading = await width();
         });

@@ -14,7 +14,7 @@ const root = realpathSync(mkdtempSync(join(tmpdir(), 'uier-orchestrator-')));
 const home = join(root, 'home');
 process.env.UIER_MONITOR_HOME = home;
 process.env.UIER_MCP_TOKEN = 'local-fixture-token';
-const { eligible, inspect, unfinished } = await import('./orchestrator.mjs');
+const { eligible, eligibleForAccounts, inspect, tokenKey, unfinished } = await import('./orchestrator.mjs');
 const helper = fileURLToPath(new URL('./orchestrator.mjs', import.meta.url));
 const monitor = fileURLToPath(new URL('../../uier-monitor/scripts/monitor.mjs', import.meta.url));
 const account = 'u_fixture';
@@ -56,6 +56,19 @@ test('discovery requires the enrolled account and every page, including a comple
     await assert.rejects(eligible(p, () => ({ ...page([], null), actingAs: {} })), /different account/);
 });
 
+test('discovery reads every enrolled account with its own token and merges the rows', async () => {
+    const p = { id: 'test00000001', account, accounts: [account, 'u_other'], scope: 'mine' };
+    const reader = acting => async () => ({ items: [open('shared'), open('by-' + acting)], nextCursor: null, actingAs: { userId: acting } });
+    const found = await eligibleForAccounts(p, reader);
+    assert.deepEqual(found.map(row => row.id).sort(), ['by-u_fixture', 'by-u_other', 'shared']);
+    // One token for both accounts, or none for the second, never reads as an empty project.
+    await assert.rejects(eligibleForAccounts(p, () => reader(account)), /Discovery token for u_other acts as a different account/);
+    await assert.rejects(eligibleForAccounts(p, acting => acting === 'u_other' ? null : reader(acting)), /Missing discovery token for u_other/);
+    // Registrations saved before multi-account support read their single account.
+    assert.equal((await eligibleForAccounts({ id: p.id, account, scope: 'mine' }, reader)).length, 2);
+    assert.equal(tokenKey(p.id, 'u_other'), 'test00000001:u_other');
+});
+
 test('every unfinished delivery keeps the project alive', () => {
     for (const state of [
         { items: { c: { decision: 'asked', stage: 'open' } } }, { items: { c: { stage: 'ready' } } },
@@ -65,6 +78,25 @@ test('every unfinished delivery keeps the project alive', () => {
         { items: { c: { stage: 'done', writePending: ['reply'] } } }
     ]) assert.equal(unfinished({ project: {}, ...state }), true);
     assert.equal(unfinished({ project: {}, items: { c: { stage: 'done' } }, groups: { g: { state: 'closed' } } }), false);
+});
+
+test('the T3 supervisor saves its pin receipt until the matching thread is unpinned', () => {
+    const env = { ...process.env, UIER_MONITOR_HOME: join(root, 'pin-home') };
+    const command = (...args) => JSON.parse(execFileSync(process.execPath, [helper, ...args], { env, encoding: 'utf8' }));
+    // Seed a legacy supervisor record without launching a detached process.
+    execFileSync(process.execPath, ['--input-type=module', '-e', `
+        import { writeRecord } from ${JSON.stringify(new URL('../../uier-monitor/scripts/store.mjs', import.meta.url).href)};
+        writeRecord(null, 'orchestrator', { enabled: true, harness: 't3', projects: {} });
+    `], { env });
+    assert.equal(command('status').t3Thread, undefined);
+    const { t3Thread } = command('record-pin', 'supervisor-thread');
+    assert.equal(t3Thread.id, 'supervisor-thread');
+    assert.equal(new Date(t3Thread.pinnedAt).toISOString(), t3Thread.pinnedAt);
+    assert.deepEqual(command('clear-pin', 'different-thread').t3Thread, t3Thread);
+    command('stop');
+    assert.deepEqual(command('status').t3Thread, t3Thread);
+    assert.equal(command('clear-pin', 'supervisor-thread').t3Thread, null);
+    assert.equal(command('status').t3Thread, undefined);
 });
 
 for (const [index, harness] of ['t3', 'codex', 'claude'].entries()) test(harness + ' reserves one session per burst, retires it, then opens a fresh session', async t => {
@@ -178,6 +210,57 @@ test('a pause, independent monitor or human stop prevents discovery and launches
     assert.equal(status.projects[id].allowed, false);
     assert.equal(status.running, false);
     assert.equal(JSON.parse(execFileSync(process.execPath, [monitor, 'version'])).version, '2.0.0');
+});
+
+test('a multi-account enrollment hands off only a saved monitor with the same accounts', () => {
+    const id = 'test00000006', repo = join(root, 'accounts');
+    mkdirSync(repo); execFileSync('git', ['init', '-q', repo]);
+    assert.throws(() => execFileSync(process.execPath, [helper, 'allow', id, account + ',bad', repo], { cwd: repo, stdio: 'ignore' }));
+    assert.deepEqual(cli(repo, 'allow', id, account + ',u_other,' + account, repo, 'mine', 'Accounts', 'takeover-stopped').accounts, [account, 'u_other']);
+    const { dir } = project(id);
+    assert.equal(project(id).account, account);
+    mkdirSync(dir, { recursive: true });
+    change(s => { Object.assign(s, { enabled: true }); Object.assign(s.projects[id], { run: 'accounts-run', phase: 'starting' }); });
+    const saved = me => store.writeState(dir, { project: { id }, me, stopped: true, watch: { stopped: true, stoppedBy: 'person' } });
+    const enter = () => JSON.parse(execFileSync(process.execPath, [helper, 'enter', id, 'accounts-run'], { cwd: repo, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }));
+    for (const me of [{ id: account }, { id: 'u_other', also: [{ id: account }, { id: 'u_third' }] }, { also: [{ id: account }] }]) {
+        saved(me);
+        assert.throws(enter, /accounts differ/);
+    }
+    // The primary need not be the saved monitor's `me`; the set of accounts must match.
+    saved({ id: 'u_other', also: [{ id: account }] });
+    const entered = enter();
+    assert.deepEqual(entered.accounts, [account, 'u_other']);
+    assert.equal(store.readState(dir).orchestrator.run, 'accounts-run');
+    cli(repo, 'remove', id);
+});
+
+test('a comment the watcher missed goes to the worker inbox instead of parking', async t => {
+    const id = 'test00000007', repo = join(root, 'missed');
+    mkdirSync(repo); execFileSync('git', ['init', '-q', repo]);
+    cli(repo, 'allow', id, account, repo);
+    const { dir } = project(id);
+    mkdirSync(dir, { recursive: true });
+    store.writeState(dir, { project: { id }, orchestrator: { run: 'missed-run' }, items: { done: { stage: 'done' } } });
+    change(s => { Object.assign(s, { enabled: true, instance: 'test-loop' }); Object.assign(s.projects[id], { run: 'missed-run', phase: 'monitoring', harness: 'claude', thread: 'missed-run', sentAt: new Date().toISOString() }); });
+    const dummy = join(repo, 'monitor.mjs');
+    writeFileSync(dummy, 'setInterval(() => {}, 1000);');
+    const watcher = spawn(process.execPath, [dummy], { stdio: 'ignore' });
+    t.after(() => { watcher.kill(); });
+    writeFileSync(join(dir, 'watch.pid'), JSON.stringify({ pid: watcher.pid, inboxOnly: true }));
+    rows.set(id, [{ id: 'private', number: 9, stage: 'open', private: true, updatedAt: '2026-01-01T00:00:00Z' }]);
+    const tick = () => inspect({ ...project(id), driver: 'claude', executable: 'claude', instance: 'test-loop' });
+    await tick();
+    assert.equal(project(id).phase, 'monitoring');
+    assert.deepEqual(store.readInbox(dir).map(event => [event.type, event.commentId, event.private]), [['untracked', 'private', true]]);
+    assert.equal(store.readState(dir).stopped, undefined);
+    // Once the worker records it, the drained project parks.
+    store.transaction(() => store.clearInbox(dir));
+    store.writeState(dir, { ...store.readState(dir), items: { done: { stage: 'done' }, private: { decision: 'skipped' } } });
+    change(s => { s.projects[id].checkedAt = null; });
+    await tick();
+    assert.equal(project(id).phase, 'parking');
+    cli(repo, 'remove', id);
 });
 
 test('the actual managed watcher exits before polling a revoked registration', async () => {

@@ -65,7 +65,7 @@ async function PersonPageContent({ params }: PageProps<'/app/workspace/users/[us
                             {projects.map(({ project, sources }) => (
                                 <Item key={project.id} role="listitem" className="rounded-none">
                                     <ItemMedia>
-                                        <ProjectMark name={project.name} projectId={project.id} url={project.urls[0]} iconSize={projectIconSizes.memberProjects} className="size-8 rounded-lg text-sm [&>img]:p-1.5" />
+                                        <ProjectMark name={project.name} projectId={project.id} url={project.urls[0]} iconSize={projectIconSizes.memberProjects} className="size-8 rounded-lg text-sm [&>[data-mark-icon]]:p-1.5" />
                                     </ItemMedia>
                                     <ItemContent className="min-w-0">
                                         <ItemTitle>

@@ -3,7 +3,8 @@
 - `ThreadActivity` adds a compact, initially closed Activity section as the open thread's card footer in the app
   (the kit's `CardFooter` under a divider: the muted band down to the card's edge, after Reply).
   The toolbar's `CommentActivity` fits the same section into pin popovers and inbox threads.
-  Each shows authorized entries oldest first, with relative times and a bounded scrolling list.
+  Each shows authorized entries with relative times in a bounded scrolling list. The app's list is a timeline,
+  newest first (uier #486): a hairline rail joins a ring per entry, and the newest entry's ring is filled and its text ink.
   It adds no reads or acknowledgements. See [thread history](read-state-and-activity.md#thread-history)
   for retention, write paths and private-period filtering. Guests receive no history section.
 

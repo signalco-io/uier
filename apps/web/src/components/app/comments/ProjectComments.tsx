@@ -24,6 +24,8 @@ import type { ProjectAccess } from '../../../lib/app/model';
 import { projectAccessLabels } from '../projects/projectLabels';
 import { KnownPageLinks } from '../../../knownPages';
 import { InviteButton } from '../users/InviteDialog';
+import { usePublishSidebarCommentSummary } from '../shell/ShellInfo';
+import type { SidebarCommentSummary } from '@/src/lib/app/sidebarProjects';
 import type { AssigneeOption } from './CommentCard';
 import { CommentFilters, countLineInHeader } from './CommentFilters';
 import { pageMatches } from './pageFilter';
@@ -86,6 +88,7 @@ type ProjectCommentsProps = {
     initialView?: CommentsView;
     collapsedColumns?: string[];
     revision: string;
+    sidebarSummary?: SidebarCommentSummary;
     paging: ProjectCommentPaging;
     openedComment?: ProjectCommentView;
     /** Each board column's sort, saved on the project for everyone (`lib/app/boardSort.ts`) */
@@ -110,7 +113,13 @@ type ProjectCommentsProps = {
 /** The project's comments in a list (a status tab) or on a board (a column per status), filtered by people and page. */
 export function ProjectComments(props: ProjectCommentsProps) {
     const [fresh, setFresh] = useState<{ source: ProjectCommentsProps; snapshot: Partial<ProjectCommentsProps> }>();
-    return <ProjectCommentsView {...props} {...(fresh?.source === props ? fresh.snapshot : {})}
+    const current = fresh?.source === props ? { ...props, ...fresh.snapshot } : props;
+    const { projectId, userId, sidebarSummary } = current;
+    const publish = usePublishSidebarCommentSummary();
+    useEffect(() => {
+        if (sidebarSummary) publish?.(projectId, userId, sidebarSummary);
+    }, [publish, projectId, userId, sidebarSummary]);
+    return <ProjectCommentsView {...current}
         onSnapshot={snapshot => setFresh({ source: props, snapshot })} />;
 }
 

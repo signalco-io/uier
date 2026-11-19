@@ -122,6 +122,8 @@ The page the browser continues on says the account was deleted: Account for anot
 the sign-in page otherwise. Its `deleted` value is a signed token that lasts two minutes and names the
 account the browser continues as (`accountDeletedNotice.ts`), so a link someone wrote cannot tell a
 person their account is gone.
+The browser also drops its copies of the deleted account's sidebar ([app shell](app-shell.md)), as it does on
+sign-out, and every copy when no account is left.
 
 The service checks every workspace before deleting the user. A shared workspace needs a remaining
 admin. A sole member can transfer or explicitly delete projects first. Their project-free workspace

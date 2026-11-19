@@ -9,6 +9,7 @@ import { getBrowserAccounts, getLastSignInMethod, getSessionUser } from '@/src/l
 import { safeNextPath } from '@/src/lib/app/signIn';
 import { appLinkMetadata, describeAppLink } from '@/src/lib/metadata';
 import { SignedInAccounts } from '@/src/components/app/shell/SignedInAccounts';
+import { ForgetShellCache } from '@/src/components/app/shell/ForgetShellCache';
 import { ACCOUNT_LIMIT_MESSAGE } from '@/src/lib/app/browserAccounts';
 import { isAccountDeletedNotice } from '@/src/lib/app/accountDeletedNotice';
 import { isGoogleSignInConfigured } from '@/src/lib/app/google/config';
@@ -41,6 +42,7 @@ async function SignInPageContent({ searchParams }: PageProps<'/app/sign-in'>) {
     // The form renders the card: once the email is sent, the code step has its own header
     return (
         <>
+        <ForgetShellCache everything={accounts.length === 0} />
         <SignedInAccounts accounts={accounts} next={nextPath} />
         <SignInForm addingAccount={add === '1'} again={signingInAgain} providersNeedProof={signingInAgain && (isGoogleSignInConfigured() || isMicrosoftSignInConfigured())}
             next={nextPath} withEmail={method === 'email'} lastUsed={lastUsed}

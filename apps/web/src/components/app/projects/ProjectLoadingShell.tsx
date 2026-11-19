@@ -26,7 +26,7 @@ export function ProjectLoadingHeader() {
     return (
         <PageHeader
             className={headerClassName}
-            media={<ProjectMark name={project.name} projectId={projectId} url={project.url} iconSize={projectIconSizes.header} className="size-14 rounded-xl text-xl [&>img]:p-2.5" />}
+            media={<ProjectMark name={project.name} projectId={projectId} url={project.url} iconSize={projectIconSizes.header} className="size-14 rounded-xl text-xl [&>[data-mark-icon]]:p-2.5" />}
             title={project.name}
             description={<span aria-hidden="true" className="flex h-5 items-center"><Bar className="h-4 w-36" /></span>} />
     );

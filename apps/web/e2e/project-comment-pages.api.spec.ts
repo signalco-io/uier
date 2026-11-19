@@ -41,6 +41,7 @@ test('project pages are bounded, count the entire authorized project and defer a
     expect(board.comments).toHaveLength(25);
     expect(board.paging.statusCounts).toMatchObject({ open: 1105, active: 1105, all: 1105 });
     expect(board.paging.lanes.open?.total).toBe(1105);
+    expect(board.sidebarSummary).toMatchObject({ openCount: 1105 });
     expect(board.paging.archiveCount).toBe(40);
     expect(board.paging.lanes.archive).toBeUndefined();
     expect(board.comments.every(comment => comment.summary && !comment.replies.length && !comment.history && !comment.screenshot)).toBe(true);
@@ -50,10 +51,26 @@ test('project pages are bounded, count the entire authorized project and defer a
     const archived = await f.load({ view: 'board', archive: 'only', status: 'open' });
     expect(archived.comments.every(comment => comment.archivedAt)).toBe(true);
     expect(archived.paging.statusCounts).toMatchObject({ open: 40, done: 0, all: 40 });
+    expect(archived.sidebarSummary).toMatchObject({ openCount: 1106 });
     expect((await f.load({ status: 'archived' })).paging.lanes.list?.ids).toEqual(archived.paging.lanes.list?.ids);
     await expect(f.load({ archive: 'only', status: 'done' })).resolves.toMatchObject({ comments: [], paging: { archiveCount: 40 } });
     expect(archived.comments).toHaveLength(25);
     expect(archived.paging.lanes.list?.total).toBe(40);
+});
+
+test('sidebar summaries retain project-wide activity and counts in a scoped comments view', async () => {
+    const f = await fixture();
+    const latestVisible = '2099-01-01T00:00:00.000Z';
+    await f.store.create(f.row(0));
+    await f.store.create(f.row(1, { origin: 'https://other.example.test', updatedAt: latestVisible }));
+    await f.store.create(f.row(2, { private: true, authorId: 'user:admin', updatedAt: '2099-02-01T00:00:00.000Z' }));
+    const viewer = { ...f.context, user: { ...f.context.user, id: 'member' }, isAdmin: false };
+    const query = parseCommentsQuery({ environment: `origin:${new URL(f.project.urls[0]!).origin}`, q: 'Feedback 0' });
+    const data = (await loadAppCommentsSnapshot(viewer, f.project, query))!;
+    expect(data.paging.scopeTotal).toBe(1);
+    expect(data.sidebarSummary).toMatchObject({ openCount: 2, activityAt: latestVisible });
+    const probe = (await loadAppCommentsSnapshot(viewer, f.project, query, undefined, undefined, { revisionOnly: true }))!;
+    expect(probe.sidebarSummary).toBeUndefined();
 });
 
 test('refresh depths restore multiple lanes with one scan and one read/subscription load', async () => {

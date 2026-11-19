@@ -339,6 +339,7 @@ const messages = {
     "Oldest first": "Oldest first",
     "On": "On",
     "Only admins and the author see this comment now.": "Only admins and the author see this comment now.",
+    "Only archived": "Only archived",
     "Only unread": "Only unread",
     "Only workspace admins and the author can see this thread. Other members and guests cannot.": "Only workspace admins and the author can see this thread. Other members and guests cannot.",
     "Open": "Open",

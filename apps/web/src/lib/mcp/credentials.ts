@@ -273,7 +273,8 @@ export function requireMcpScope(identity: McpIdentity, scope: McpScope) {
     if (!identity.scopes.includes(scope)) throw new McpScopeError(scope);
 }
 
-export async function mcpProject(identity: McpIdentity, projectId: string, scope: McpScope = 'feedback:read') {
+/** `accountId` limits resolution to that one selected account; it never adds access the account lacks. */
+export async function mcpProject(identity: McpIdentity, projectId: string, scope: McpScope = 'feedback:read', accountId?: string) {
     if (scope !== 'proofs:read' && scope !== 'proofs:upload') {
         if (identity.proofAssetIds) throw apiErrors.forbidden('This token is limited to selected proof files.');
         requireMcpScope(identity, 'feedback:read');
@@ -284,6 +285,7 @@ export async function mcpProject(identity: McpIdentity, projectId: string, scope
     const project = workspaceId ? await getProject(workspaceId, projectId) : await findProject(projectId);
     if (project && project.id === projectId) {
         for (const account of accounts) {
+            if (accountId && account.user.id !== accountId) continue;
             if (!accessCovers(account.access, project.workspaceId, project.id)) continue;
             const actor = await memberActor(project, account.user.id);
             if (actor?.kind !== 'member') continue;

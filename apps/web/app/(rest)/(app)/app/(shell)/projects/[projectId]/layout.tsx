@@ -51,7 +51,7 @@ async function ProjectLayoutContent({ children, params }: LayoutProps<'/app/proj
         <div className="group/project flex flex-col [--project-tabs:2.5rem]">
             <PageHeader
                 className="min-w-0 pb-4 group-has-[[data-header-wide]]/project:page-wide"
-                media={<ProjectMark name={project.name} projectId={project.id} url={project.urls[0]} iconSize={projectIconSizes.header} className="size-14 rounded-xl text-xl [&>img]:p-2.5" />}
+                media={<ProjectMark name={project.name} projectId={project.id} url={project.urls[0]} iconSize={projectIconSizes.header} className="size-14 rounded-xl text-xl [&>[data-mark-icon]]:p-2.5" />}
                 title={project.name}
                 description={(
                     <span className="flex flex-wrap items-center gap-x-4 gap-y-1">

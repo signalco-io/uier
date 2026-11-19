@@ -82,7 +82,7 @@ async function ProjectsPageContent({ searchParams }: PageProps<'/app/projects'>)
                                     {/* The project header's layout: the favicon beside the name and the row under it (client, who can comment,
                                         then the open count). The small actions sit on the name's line, so the row under it has the card's width */}
                                     <CardHeader className="grid-cols-[auto_minmax(0,1fr)_auto] gap-x-3 gap-y-1">
-                                        <ProjectMark name={project.name} projectId={project.id} url={project.urls[0]} iconSize={projectIconSizes.card} className="row-span-2 size-11 rounded-lg text-base [&>img]:p-2" />
+                                        <ProjectMark name={project.name} projectId={project.id} url={project.urls[0]} iconSize={projectIconSizes.card} className="row-span-2 size-11 rounded-lg text-base [&>[data-mark-icon]]:p-2" />
                                         <CardTitle className="truncate">
                                             {/* The whole card opens the project; the buttons sit above the link */}
                                             <Link

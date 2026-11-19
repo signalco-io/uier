@@ -21,17 +21,19 @@ export const crawlerSections: readonly SectionDefinition[] = [crawlerSection];
 function AiCrawlers({ crawlers }: { crawlers: AiCrawlerVerdict[] }) {
     const t = useMessages().sections.crawler;
     return (
-        <details className="group pl-6">
+        <details className="group @container pl-6">
             <summary className="-mx-1 flex min-h-8 cursor-pointer list-none items-center gap-2 rounded-md px-1 text-sm text-muted-foreground transition-colors duration-[120ms] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:min-h-11 [&::-webkit-details-marker]:hidden">
                 <Down size={16} aria-hidden="true" className="-rotate-90 transition-transform duration-150 ease-out group-open:rotate-0 motion-reduce:transition-none" />
                 {t.each}
             </summary>
-            <ul aria-label={t.list} className="m-0 flex list-none flex-col gap-1 p-0 pb-1">
+            {/* Aligned columns shared by every row through subgrid: name, what it is for and the verdict side by
+                side, or on a narrow panel the name and verdict with what it is for below */}
+            <ul aria-label={t.list} className="m-0 grid list-none grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1.5 p-0 pb-1 @min-[18rem]:grid-cols-[max-content_minmax(0,1fr)_auto]">
                 {crawlers.map(crawler => (
-                    <li key={crawler.token} className="flex min-w-0 flex-wrap items-baseline gap-x-2 text-xs" data-uier-crawler={crawler.token}>
-                        <span className="font-mono text-foreground">{crawler.token}</span>
-                        <span className="min-w-0 flex-1 text-muted-foreground">{crawler.by}, {t.uses[crawler.use as keyof typeof t.uses] ?? crawler.use}</span>
-                        <span className={crawler.allowed ? 'text-muted-foreground' : 'break-words text-foreground'}>
+                    <li key={crawler.token} className="col-span-full grid grid-cols-subgrid items-baseline text-xs" data-uier-crawler={crawler.token}>
+                        <span className="col-start-1 row-start-1 break-all font-mono text-foreground @min-[18rem]:break-normal">{crawler.token}</span>
+                        <span className="col-span-2 col-start-1 row-start-2 min-w-0 text-muted-foreground @min-[18rem]:col-span-1 @min-[18rem]:col-start-2 @min-[18rem]:row-start-1">{crawler.by}, {t.uses[crawler.use as keyof typeof t.uses] ?? crawler.use}</span>
+                        <span className={`col-start-2 row-start-1 max-w-32 text-right @min-[18rem]:col-start-3 ${crawler.allowed ? 'text-muted-foreground' : 'break-words text-foreground'}`}>
                             {crawler.allowed ? t.allowed : t.blockedBy(crawler.rule ?? 'robots.txt')}
                         </span>
                     </li>

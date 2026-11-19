@@ -105,6 +105,13 @@ const items = [
         duration: 'One year'
     },
     {
+        name: 'uier-app',
+        type: 'IndexedDB',
+        when: 'You open the signed-in app',
+        purpose: 'Keeps a copy of what the app’s sidebar last showed for each account and workspace signed in on this browser: workspace names and logos, your role, the projects with their favicons and open comment counts, the signed-in accounts’ names and email addresses, and the words of the app’s language. The app shows it while it loads or switches accounts and workspaces, then replaces it with what the server sends. It holds no comments, passwords or sign-in tokens and never grants access.',
+        duration: 'Until you sign out of that account (signing out of every account removes all of it). A copy not updated for 30 days is no longer used.'
+    },
+    {
         name: 'uier:showcase-hint-dismissed',
         type: 'Local storage',
         when: 'You close the “Try uier on this page” hint',
