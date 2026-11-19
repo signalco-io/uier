@@ -7,7 +7,7 @@ import { PinnedSpecimen } from '@/src/components/marketing/LandingSpecimens';
 import { guides } from '@/src/lib/guides';
 import { bugReportExample, bugReportTemplate } from '@/src/lib/guides/reviewResources';
 import { publicPageMetadata } from '@/src/lib/metadata';
-import { KnownPages } from '@/src/knownPages';
+import { KnownPageLinks, KnownPages } from '@/src/knownPages';
 
 export const metadata = publicPageMetadata(guides.bugReport.path, guides.bugReport);
 const sections = {
@@ -38,7 +38,7 @@ export default function BugReportTemplatePage() {
                 <PinnedSpecimen />
                 <Panel className="md:grid-cols-2">
                     <Tile title="Keep the discussion together"><p>Reply in the app or toolbar inbox when someone needs more detail. A saved thread keeps its page, anchor and permitted context together.</p></Tile>
-                    <Tile title="Choose the destination"><p>Paste Copy issue into the tool your team uses, or configure an <InlineLink href={KnownPages.Integrations}>integration</InlineLink>. Check its verified scope and setup; outside recipients keep their own copies.</p></Tile>
+                    <Tile title="Choose the destination"><p>Paste the copied report into your tracker. To create an issue from shared feedback, connect <InlineLink href={KnownPageLinks.integration('github')}>GitHub Issues</InlineLink> or <InlineLink href={KnownPageLinks.integration('linear')}>Linear</InlineLink>. Check the <InlineLink href={KnownPages.Integrations}>integration guide</InlineLink> for setup and permissions. Recipients keep their own copies.</p></Tile>
                 </Panel>
                 <StepText muted>Only authorized members see detailed reproduction context. A copied report is not automatic diagnosis or a promise that another person can access its protected screenshot.</StepText>
             </GuideStep>

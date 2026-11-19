@@ -21,6 +21,23 @@ test('the integrations index leads to the five setup guides', async ({ page }) =
     await assertAccessibility(page, '/integrations');
 });
 
+test.describe('integration guides without JavaScript', () => {
+    test.use({ javaScriptEnabled: false });
+
+    test('each provider renders its workflow and setup on the first visit', async ({ page }) => {
+        for (const [provider, guide] of Object.entries(integrationCatalog)) {
+            const response = await page.goto(`/integrations/${provider}`);
+            expect(response?.status(), provider).toBe(200);
+            await expect(page.getByRole('heading', { level: 1 })).toHaveText(guide.title);
+            const overview = page.getByRole('region', { name: guide.result, exact: true });
+            await expect(overview.getByText(guide.detail, { exact: true })).toBeVisible();
+            const steps = page.getByRole('region', { name: 'Get connected' }).getByRole('listitem');
+            await expect(steps).toHaveText(guide.steps);
+            await expect(steps.last()).toBeVisible();
+        }
+    });
+});
+
 for (const provider of ['notion', 'github', 'linear', 'azure-devops', 'slack']) {
     test(`${provider} has a public setup, permissions and support guide`, async ({ page }, testInfo) => {
         const response = await page.goto(`/integrations/${provider}`);
@@ -97,8 +114,10 @@ test('unknown integration guides return a missing page', async ({ page }) => {
     await expect(page.getByRole('heading', { level: 1 })).toContainText('not');
 });
 
-test('guide preflight uses the decoded provider pathname', async ({ page }) => {
-    expect((await page.goto('/integrations/%67ithub'))?.status()).toBe(200);
+test('encoded guide links keep the provider page and canonical URL', async ({ page }) => {
+    expect((await page.goto('/integrations/%67ithub?from=guide'))?.status()).toBe(200);
+    await expect(page).toHaveURL(/%67ithub\?from=guide$/);
+    await expect(page.locator('link[rel=canonical]')).toHaveAttribute('href', `${brand.url}/integrations/github`);
     await expect(page.getByRole('heading', { level: 1, name: integrationCatalog.github.title })).toBeVisible();
     expect((await page.goto('/integrations/%75nknown'))?.status()).toBe(404);
 });

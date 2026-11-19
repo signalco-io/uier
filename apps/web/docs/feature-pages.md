@@ -81,6 +81,8 @@ and the coding-agent question. Its cover (`AgentCover`) plays a coding agent cal
 `server.ts` names, the thread going in progress with the agent under its assignee, then the agent's own approval question
 before it links the pull request and requests verification. `e2e/ai-page.spec.ts` covers its copy,
 links and accessibility; `e2e/feature-pages.api.spec.ts` its metadata and social card.
+The sidebar example cites [PR #809](https://github.com/signalco-io/uier/pull/809) for the
+implementation and test results. The public page describes the request and its anchor in prose.
 Its rewrite list and privacy answer also describe admin-saved workspace style guidance and project
 additions/replacements ([settings pattern](project-settings.md#workspace-defaults-and-project-settings)).
 The settings remain private to admins; the reviewer still supplies their own optional instruction.

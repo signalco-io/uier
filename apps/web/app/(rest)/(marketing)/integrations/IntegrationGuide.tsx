@@ -1,31 +1,18 @@
 import { publicPageMetadata } from '@/src/lib/metadata';
-import type { Metadata } from 'next';
-import { Suspense } from 'react';
-import { notFound } from 'next/navigation';
 import { Button } from '@signalco/ui-primitives/Button';
 import { brand } from '@uier/brand';
-import { Chip, InlineLink, PageHeader, PageSection, Panel, Tile } from '../../../../../src/components/marketing/ContentPage';
-import { IntegrationLogo } from '../../../../../src/components/app/integrations/IntegrationLogo';
-import { KnownPages } from '../../../../../src/knownPages';
-import { integrationCatalog, isIntegrationCatalogKey } from '../../../../../src/lib/integrations/catalog';
+import { Chip, InlineLink, PageHeader, PageSection, Panel, Tile } from '@/src/components/marketing/ContentPage';
+import { IntegrationLogo } from '@/src/components/app/integrations/IntegrationLogo';
+import { KnownPageLinks, KnownPages } from '@/src/knownPages';
+import { integrationCatalog } from '@/src/lib/integrations/catalog';
+import type { IntegrationProviderId } from '@/src/lib/integrations/model';
 import { integrationEvidenceUrl, integrationPublication, integrationPublicationUrl, replySyncQualification } from '@/src/lib/integrations/publication';
 
-type Props = { params: Promise<{ provider: string }> };
-
-export function generateStaticParams() {
-    return Object.keys(integrationCatalog).map(provider => ({ provider }));
+export function integrationGuideMetadata(provider: IntegrationProviderId) {
+    return publicPageMetadata(KnownPageLinks.integration(provider), integrationCatalog[provider]);
 }
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
-    const { provider } = await params;
-    if (!isIntegrationCatalogKey(provider)) return {};
-    const integration = integrationCatalog[provider];
-    return publicPageMetadata(`/integrations/${provider}`, { title: integration.title, description: integration.description });
-}
-
-async function IntegrationContent({ params }: Props) {
-    const { provider } = await params;
-    if (!isIntegrationCatalogKey(provider)) notFound();
+export function IntegrationGuide({ provider }: { provider: IntegrationProviderId }) {
     const integration = integrationCatalog[provider];
     const publication = integrationPublication[provider];
     return <main className="flex flex-col pb-16">
@@ -87,11 +74,4 @@ async function IntegrationContent({ params }: Props) {
             <p className="text-sm leading-relaxed text-muted-foreground">You can also <InlineLink href={brand.issues}>report a product issue</InlineLink>, <InlineLink href={`${KnownPages.Integrations}#suggest`}>suggest an integration</InlineLink> or read about <InlineLink href={KnownPages.Security}>security</InlineLink>.</p>
         </PageSection>
     </main>;
-}
-
-export default function IntegrationPage(props: Props) {
-    return <Suspense fallback={<main className="flex flex-col pb-16">
-        <PageHeader title="Integrations" lead="Connect website feedback to Notion, GitHub, Linear, Azure DevOps and Slack." />
-        <p className="py-8" role="status">Loading integration guide…</p>
-    </main>}><IntegrationContent {...props} /></Suspense>;
 }

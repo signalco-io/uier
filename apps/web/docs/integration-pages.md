@@ -1,6 +1,6 @@
 # Integration pages
 
-Public `/integrations` and `/integrations/[provider]` pages use the shared marketing building
+The public `/integrations` index and its provider pages use the shared marketing building
 blocks and `src/lib/integrations/catalog.ts` for actual provider capabilities, features, configurable
 settings and setup steps. The catalog's `features` also render on the project's page for the provider
 in the app (`IntegrationFeatures`, with On/Off for two-way status sync and reply sync) and its optional
@@ -20,10 +20,11 @@ provider acceptance or listing decision justifies a stronger claim. Never refres
 `e2e/integration-pages.spec.ts` covers the public guides, their features and settings, the logos, the suggestion
 form, support/setup links and accessibility.
 
-The provider parameter resolves below Suspense. The shared shell shows the Integrations header and
-loading status before the provider's guide resolves. Proxy rejects unknown public provider paths
-with the existing 404 page before streaming, while the page still checks the catalog itself for RSC
-navigations. The five catalog providers remain statically generated; no mutable data cache is added.
+Each provider has a static page that passes its catalog key to `IntegrationGuide`. The heading,
+workflow, permissions and setup steps must be visible on a direct visit with JavaScript disabled.
+Each route has a colocated social card. The older parameterized image route continues to serve
+previously shared cards. Proxy rewrites an encoded catalog name to the same static page, and
+unknown guide URLs return 404.
 
 The index's services are tiles in one panel, three to a row on wide screens and two on tablets: the logo, the
 name, the catalog's description, its optional features under "Optional" and "Set up <service>", whose link covers the

@@ -17,7 +17,7 @@ No legacy full-prefetch preservation cases were invented. `LinkTabs` is the only
 | Sidebar `NavItem`, `ProjectItem`, `GroupLinkAction`; account menu and breadcrumbs | Existing layout and destination loading UI | Authorized names, counts and page data |
 | Project/workspace/account `LinkTabs`, `SettingsLayout`, page/form links | Shared shell with existing loading boundaries | Fresh permitted forms and records |
 | `LinkTabs` with `query` (Projects Active/Done) | Existing local view; `prefetch={false}` | URL changes locally; no server work |
-| Public `PageNav`, `SiteFooter`/`Footer1`, signalco Link/Button | Public navigation, footer and static content | Live Status checks; URL-specific guide content |
+| Public `PageNav`, `SiteFooter`/`Footer1`, signalco Link/Button | Public navigation, footer and static content | Live Status checks |
 | `InlineLink`, integration tiles, external links, OAuth starts, review-code links | Existing document navigation | Existing destination behavior |
 
 The pinned signalco Link forwards props to Next Link without a prefetch default; Button forwards
@@ -31,9 +31,8 @@ document boundaries remain deliberate. Public/app document-policy crossings reta
 
 ## Rendering and freshness
 
-`/integrations/[provider]` puts its params read behind Suspense with a useful Integrations header
-and loading status. The five catalog guides remain statically generated. Unknown provider document
-requests receive 404 before streaming; the page retains its independent catalog check.
+The five public integration guides use literal routes. Each shell includes that provider’s
+catalog content, including its setup steps. Unknown provider document requests receive 404.
 Session reads wait for the navigation's `connection()` before clock-based expiry checks. No shared
 mutable-data cache, cache lifetime, provider activation or additional full-prefetch policy is introduced.
 

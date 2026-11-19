@@ -18,6 +18,9 @@ test('the AI page explains the coding tool connection and rewrite suggestions', 
     for (const name of ['How it works', 'Connect your coding tool', 'What your agent can do', 'Prompts and a skill', 'You stay in control', 'Rewrite suggestions', 'Try it', 'Questions'])
         await expect(page.getByRole('region', { name, exact: true }), name).toBeVisible();
 
+    const example = page.getByRole('region', { name: 'From a sidebar comment to a merged fix' });
+    await expect(example.getByRole('link', { name: /pull request 809/ })).toHaveAttribute('href', `${brand.repository}/pull/809`);
+
     const main = page.getByRole('main');
     await expect(main.getByRole('link', { name: 'Get started' })).toHaveAttribute('href', '/app');
     await main.getByRole('link', { name: 'Connect a coding tool' }).click();
