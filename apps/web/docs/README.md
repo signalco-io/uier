@@ -26,6 +26,7 @@ Product contracts, API references and runbooks stay in the repository's [`docs/`
 
 ## The app
 
+- [Proof threads and verification](proof-review.md): canonical file comments, viewer integration and reviewer queue.
 - [App languages](localization.md): supported languages, browser defaults, profile preference and catalogs.
 
 - [App shell](app-shell.md): sidebar, sidebar project order, workspace area, project header, `ProjectMark`, projects list, My work.
@@ -58,6 +59,7 @@ Product contracts, API references and runbooks stay in the repository's [`docs/`
 - [AI agents under the assignee](assignee-agents.md): `assigneeAgent`, its UI and MCP tools.
 - [AI thread titles](ai-titles.md): `aiTitle`, the Haiku call, when titles are made and who sees them.
 - [Read state and activity](read-state-and-activity.md): bounded thread history, read cursors, bulk read, adaptive refresh.
+- [File proof API](proof-api.md): asset access, immutable versions, uploads, derivatives, sharing and storage maintenance.
 - [Review API and comment records](review-api.md): anchors on uier's pages, review SSO, edits, image replacement, page state.
 - [Anchor updates](anchor-updates.md): reattaching a comment's anchor.
 - [Project review briefs](project-review-briefs.md): the project brief.

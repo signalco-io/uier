@@ -4,6 +4,7 @@ import { cosmosDataContainerApp, cosmosDataContainerComments } from '../db/clien
 import { getScreenshotBlobStore } from '../screenshots/blobStore';
 import { getRecordingBlobs } from '../recordings/blobStore';
 import { sweepRecordings } from '../recordings/service';
+import { sweepProofStorage } from '../proofs/cleanup';
 import { sweepCommentCleanup } from '../comments/cleanup';
 import { sweepProjectDeletions } from '../app/projectDeletion';
 import { sweepProjectTransfers } from '../app/projectTransfer';
@@ -78,6 +79,10 @@ function phasesFor(options: WorkerOptions, baseUrl: string, now: () => number): 
         } }, { name: 'recording-cleanup', async run() {
             const result = await sweepRecordings(comments, getRecordingBlobs(), 'production');
             console.info(`[recordings] Swept ${result.removed} orphan recordings; ${result.failed} cleanups need retry.`);
+            return result.failed;
+        } }, { name: 'proof-cleanup', async run(deadline) {
+            const result = await sweepProofStorage({ deadline: Math.min(deadline - 60_000, now() + 60_000), now: now() });
+            if (result.failed) console.error(`[proofs] ${result.failed} proof uploads or cleanups need retry.`);
             return result.failed;
         } }, { name: 'notifications', async run(deadline) {
             if (!process.env.ACS_CONNECTION_STRING || !process.env.UIER_EMAIL_SENDER) {

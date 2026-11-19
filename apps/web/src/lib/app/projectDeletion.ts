@@ -28,6 +28,7 @@ import { forgetScreenshot } from '../comments/service';
 import { getCommentsStore, type CommentsStore } from '../repo/commentsStore';
 import { deleteProjectThread, projectPartition } from '../review/comments';
 import { cleanupRemovedRecordings } from '../recordings/service';
+import { deleteProjectProofs, retireProofProject } from '../proofs/cleanup';
 import { notificationPk } from '../notifications/preferences';
 import { removeProjectFromMcpAccess } from '../mcp/credentials';
 import { deleteProjectPageChecks } from '../pageChecks/store';
@@ -119,6 +120,7 @@ export async function queueProjectDeletion(project: DbProject, requestedBy: stri
 export async function runProjectDeletion(intent: ProjectDeletion, { app = getAppStore(), comments = getCommentsStore() }: Stores = {}) {
     assertMutableProject(intent.workspaceId, intent.id);
     if (!intent.complete) {
+        await retireProofProject(intent.id, app);
         await unpublishProject(intent, app);
         await removeProjectAccess(intent, app);
         await removeProjectFromMcpAccess(intent.workspaceId, intent.id, app);
@@ -126,6 +128,7 @@ export async function runProjectDeletion(intent: ProjectDeletion, { app = getApp
     await deleteProjectThreads(intent, comments);
     await comments.deleteSequence(projectPartition(intent.id));
     await deleteProjectRecords(intent, app);
+    if (!await deleteProjectProofs(intent.id, app)) return;
     const current = await app.get<ProjectDeletion>(deletionPk, intent.id);
     if (current && !current.doc.complete)
         await app.replace({ ...current.doc, complete: true, completedAt: new Date().toISOString(), ttl: 24 * 60 * 60 }, current.etag);
