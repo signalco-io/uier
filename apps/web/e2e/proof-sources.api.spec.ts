@@ -441,7 +441,7 @@ test('Cloudflare setup reads back its literal Worker rule and preserves protecte
         const path = pathname.split('/email/routing')[1] ?? '';
         if (init?.method === 'POST') {
             expect(path).toBe('/rules');
-            const payload = JSON.parse(String(init.body));
+            const payload = JSON.parse(String(init.body)) as Record<string, unknown>;
             writes.push(payload);
             rule = { ...payload, id: 'proof-rule', source: 'api' };
             return Response.json({ success: true, result: rule });
