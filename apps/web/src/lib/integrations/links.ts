@@ -39,7 +39,7 @@ export async function loadIntegrationLinks(project: DbProject, actor: ProjectAct
                 if (!visibleIds.has(ledger.threadId) || ledger.workspaceId !== project.workspaceId || ledger.provider !== adapter.provider
                     || ledger.status === 'suppressed' || ledger.tombstoned || ledger.deletion) return;
                 const source = (await comments.get(`project:${project.id}`, ledger.threadId))?.comment;
-                if (!source || source.private || isPrivateAppFeedback(source)) return;
+                if (!source || source.assetTarget || source.private || isPrivateAppFeedback(source)) return;
                 try {
                     const value = externalLink(connection, ledger);
                     if (!value) return;

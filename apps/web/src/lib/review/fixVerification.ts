@@ -14,6 +14,7 @@ import { actorAuthorId, type ProjectActor } from './actor';
 import { assertEligibleParticipant } from './participants';
 import { changeComment, projectPartition } from './comments';
 import { fixVerificationSchema } from './fixVerificationSchema';
+import { assertFileVerificationRequest, guestCanReviewProof } from '../proofs/threadAccess';
 import type { CommentsStore } from '../repo/commentsStore';
 
 export { verificationDetails, verificationPermissions } from './fixVerificationDto';
@@ -39,12 +40,15 @@ export async function changeFixVerification(project: DbProject, actor: ProjectAc
     const me = actorAuthorId(actor);
     if (!me) throw apiErrors.forbidden('Sign in or use your original guest identity.');
     const attempt = submission(projectPartition(project.id), me, input.idempotencyKey, { operation: 'verification', id, ...input });
-    return changeComment(project, actor, id, () => true, async (comment, currentProject) => {
+    const saved = await changeComment(project, actor, id, () => true, async (comment, currentProject) => {
         const workflow = await loadStatusWorkflow(currentProject);
         const selected = 'statusId' in input && input.statusId ? workflow.statuses.find(status => status.id === input.statusId) : undefined;
         if ('statusId' in input && input.statusId && !selected) throw apiErrors.invalidRequest('This status is no longer available.');
         const v = comment.verification;
         if ((v?.revision ?? null) !== input.expectedRevision) throw apiErrors.conflict();
+        if (comment.assetTarget && comment.archivedAt) throw apiErrors.conflict();
+        if (!comment.assetTarget && (input.action === 'request' ? input.evidence : input.targetVersionId))
+            throw apiErrors.invalidRequest('File evidence requires a file thread.');
         const now = new Date().toISOString();
         if (input.action === 'request') {
             if (selected && selected.category !== 'ready') throw apiErrors.invalidRequest('Choose a Ready to verify status.');
@@ -52,15 +56,19 @@ export async function changeFixVerification(project: DbProject, actor: ProjectAc
             const reviewer = input.reviewerId === 'author' ? comment.authorId : `user:${input.reviewerId}`;
             if (!reviewer || reviewer === me) throw apiErrors.forbidden('Choose another reviewer.');
             if (reviewer.startsWith('user:')) await assertEligibleParticipant(currentProject, comment, reviewer.slice(5));
-            else if (reviewer !== comment.authorId || comment.thread.items[0]?.deletedAt || currentProject.access !== 'guests')
+            else if (reviewer !== comment.authorId || comment.thread.items[0]?.deletedAt || currentProject.access !== 'guests'
+                || (comment.assetTarget && !await guestCanReviewProof(currentProject, comment)))
                 throw apiErrors.forbidden('Choose a member who still has access.');
+            if (comment.assetTarget) await assertFileVerificationRequest(currentProject, comment, input.evidence);
             const updated: DbComment = { ...withThreadActivity(comment, me), resolved: false, workflowStatusId: (selected ?? defaultStatus(workflow, 'ready')).id, verification: {
                 id: randomUUID(), revision: randomUUID(), requester: me, reviewer, requestedAt: now, outcome: 'pending',
+                ...(input.evidence ? { evidence: input.evidence, proofRequestReceipt: attempt?.id } : {}),
                 ...(input.summary ? { summary: input.summary } : {}), ...(input.fixUrl ? { fixUrl: fixDestination(currentProject, input.fixUrl) } : {})
             } };
-            return withNotificationEvent(updated, me, 'verification-requested', now, [reviewer], actor.agent);
+            return withNotificationEvent(updated, me, 'verification-requested', now, [reviewer], actor.agent, comment.assetTarget ? { verificationId: updated.verification!.id } : {});
         }
         if (!v || v.outcome !== 'pending' || comment.resolved) throw apiErrors.conflict();
+        if (comment.assetTarget && (!v.evidence || v.evidence.after.versionId !== input.targetVersionId)) throw apiErrors.conflict();
         const admin = actor.kind === 'member' && actor.isAdmin;
         if (input.action === 'cancel') {
             if (me !== v.requester && !admin) throw apiErrors.forbidden('Only the requester or an admin can cancel.');
@@ -76,6 +84,7 @@ export async function changeFixVerification(project: DbProject, actor: ProjectAc
         }
         const updated: DbComment = { ...withThreadActivity(comment, me), resolved: input.action === 'confirm', ...(input.action === 'confirm' ? { completedAt: now } : {}), verification: {
             ...v, revision: randomUUID(), outcome: input.action === 'confirm' ? 'confirmed' : input.action === 'reject' ? 'needs-work' : 'canceled',
+            ...(comment.assetTarget ? { proofDecisionReceipt: attempt?.id } : {}),
             decision: { kind: input.action, actorId: me, at: now, override: input.action !== 'cancel' && input.override === true }
         } };
         // Still needs work: someone continues the fix. A cancel goes where it was asked to, else back to
@@ -88,4 +97,13 @@ export async function changeFixVerification(project: DbProject, actor: ProjectAc
         updated.workflowStatusId = (selected ?? defaultStatus(workflow, category)).id;
         return withNotificationEvent(updated, me, input.action === 'confirm' ? 'verification-confirmed' : input.action === 'reject' ? 'verification-rejected' : 'verification-canceled', now, [v.requester, v.reviewer], actor.kind === 'member' ? actor.agent : undefined, { verificationOverride: input.override === true });
     }, attempt, { expected: null, value: () => null, requireComments: true, requireVerification: input.action !== 'cancel' }, store);
+    if (saved.assetTarget) {
+        const v = saved.verification;
+        const receipt = input.action === 'request' ? v?.proofRequestReceipt : v?.proofDecisionReceipt;
+        if (!receipt || receipt !== attempt?.id) throw apiErrors.conflict();
+        const outcome = input.action === 'confirm' ? 'confirmed' : input.action === 'reject' ? 'needs-work' : 'canceled';
+        if (input.action !== 'request' && v?.outcome !== outcome) throw apiErrors.conflict();
+        if (input.action !== 'request' && input.override && actor.kind === 'member' && !actor.isAdmin) throw apiErrors.forbidden();
+    }
+    return saved;
 }

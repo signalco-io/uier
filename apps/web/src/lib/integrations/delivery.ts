@@ -112,7 +112,7 @@ export async function processIntegrationDelivery(candidate: IntegrationSync, bas
             return;
         }
         const { connection, project, source, actor } = snapshot;
-        const mode = ledger.deletion || !source || source.private || isPrivateAppFeedback(source) ? 'cleanup' : 'sync';
+        const mode = ledger.deletion || !source || source.assetTarget || source.private || isPrivateAppFeedback(source) ? 'cleanup' : 'sync';
         if (statusOnly && ((!connection.twoWaySync && !connection.replySync?.enabled) || mode !== 'sync' || !source
             || (source.syncVersion ?? 0) > ledger.processedVersion || ledger.requestedVersion > ledger.processedVersion
             || ledger.requestRevision > ledger.processedRequestRevision)) {
@@ -176,7 +176,7 @@ export async function processIntegrationDelivery(candidate: IntegrationSync, bas
                 throw new IntegrationControlError('temporarily_unavailable');
             if (connectionHash(latest.connection) !== connectionHash(connection)) throw new IntegrationControlError('projection_changed');
             if (latest.connection.pausedUntil && Date.parse(latest.connection.pausedUntil) > clock()) throw new IntegrationControlError('budget_exhausted');
-            const latestMode = ledger.deletion || !latest.source || latest.source.private || isPrivateAppFeedback(latest.source) ? 'cleanup' : 'sync';
+            const latestMode = ledger.deletion || !latest.source || latest.source.assetTarget || latest.source.private || isPrivateAppFeedback(latest.source) ? 'cleanup' : 'sync';
             // Old uncertain creates may be reconciled, but clearing their receipt does not grant
             // permission to export an old forced selection into a different destination.
             if (write && latestMode === 'sync' && !ledger.attempt && ledger.reconcileDestinationRevision !== undefined
@@ -252,7 +252,7 @@ export async function processIntegrationDelivery(candidate: IntegrationSync, bas
             if (result.status === 'accepted') {
                 await boundary(true, false);
                 const current = await comments.get(`project:${project.id}`, ledger.threadId);
-                if (!current || (current.comment.syncVersion ?? 0) !== sourceVersion || current.comment.private
+                if (!current || (current.comment.syncVersion ?? 0) !== sourceVersion || current.comment.assetTarget || current.comment.private
                     || isPrivateAppFeedback(current.comment)) throw new IntegrationControlError('projection_changed');
                 const at = new Date(clock()).toISOString();
                 const imported = withImportedReplies(current.comment, connection, { resolved: incomingStatus, replies: incomingReplies, at });

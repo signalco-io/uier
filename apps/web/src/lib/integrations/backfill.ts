@@ -63,7 +63,7 @@ export async function queueIntegrationBackfills(provider: IntegrationProviderId,
             const current = (await store.get<IntegrationConnection>(connection.pk, connection.id))?.doc;
             if (!current || !current.enabled || current.destinationRevision !== connection.destinationRevision || current.backfill?.id !== request.id) break;
             const source = (await comments.get(`project:${project.id}`, request.threadIds[index]!))?.comment;
-            if (source && !source.private && !isPrivateAppFeedback(source)) await enqueueIntegrationSync(project, provider,
+            if (source && !source.assetTarget && !source.private && !isPrivateAppFeedback(source)) await enqueueIntegrationSync(project, provider,
                 connection.id, source.id, source.syncVersion ?? 0, { store, requestId: request.id, destinationRevision: connection.destinationRevision });
             const saved = await updateDoc<IntegrationConnection>(connection.pk, connection.id, row => {
                 if (row.backfill?.id !== request.id || row.destinationRevision !== connection.destinationRevision) return row;

@@ -170,7 +170,7 @@ async function deleteProjectThreads(intent: ProjectDeletion, comments: CommentsS
     // No integration targets: the project's services were disconnected first
     const project = { id: intent.id, integrations: {} } satisfies Pick<DbProject, 'id' | 'integrations'>;
     for (let pass = 0; pass < 1000; pass++) {
-        const threads = await comments.listAll(domain, 1000);
+        const threads = await comments.listAll(domain, 1000, undefined, undefined, undefined, { includeProofs: true });
         if (!threads.length) return;
         let deleted = 0;
         const queue = [...threads];

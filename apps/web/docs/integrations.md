@@ -62,7 +62,7 @@ outbound progress or recreates external objects. Slack has no task-status sync.
 [`docs/integrations.md`](../../../docs/integrations.md). Every eligible non-public project mutation
 records its source signal in the same write, including an unbound request snapshot; do not gate
 that write on cached settings. Hard deletes use the conditional delete+tombstone batch. The
-public showcase, private-only changes and no-ops remain excluded. Ordinary DTOs/reads never
+public showcase, private-only changes, [asset threads](proof-review.md) and no-ops are excluded. Ordinary DTOs/reads never
 contain signals or tombstones.
 
 Discovery is bounded and cursor-paged by indexed `syncKey`. Acknowledge only after every target

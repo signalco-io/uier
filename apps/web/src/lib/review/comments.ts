@@ -81,8 +81,14 @@ function isAdmin(actor: ProjectActor) {
 // Permissions of project comments. Members review together: any member can mark a comment done.
 // The author and the workspace admins can edit and delete it; only admins make it private.
 
-export function canSeeComment(comment: Pick<DbComment, 'private' | 'authorId' | 'domain' | 'path'>, actor: ProjectActor) {
+export function canSeeCommentPrivacy(comment: Pick<DbComment, 'private' | 'authorId' | 'domain' | 'path'>, actor: ProjectActor) {
     return !(comment.private || isPrivateAppFeedback(comment)) || isAdmin(actor) || isAuthor(comment.authorId, actor);
+}
+
+/** Match the target in both directions. File grants carry no authority over website threads. */
+export function canSeeComment(comment: Pick<DbComment, 'private' | 'authorId' | 'domain' | 'path' | 'assetTarget'>, actor: ProjectActor) {
+    const scoped = comment.assetTarget ? actor.proofThread?.assetId === comment.assetTarget.assetId && Boolean(actor.proofThread) : !actor.proofThread;
+    return scoped && canSeeCommentPrivacy(comment, actor);
 }
 
 /** `canSeeComment` as a storage filter for the partition, for aggregates that never load threads (`undefined`: all) */
@@ -158,6 +164,7 @@ async function updateComment<T extends DbComment | null>(
             throw apiErrors.notFound();
 
         const currentProject = await refreshMutationActor(project, actor);
+        visibleOrThrow(stored.comment, actor);
         const updated = await update({ ...stored.comment, activity: threadActivity(stored.comment) }, currentProject);
         const result = updated
             ? await store.replace(updated, stored.etag)
@@ -183,6 +190,7 @@ function visibleOrThrow(comment: DbComment, actor: ProjectActor) {
 export async function listProjectComments(project: DbProject, actor: ProjectActor, path?: string, originFilter?: OriginFilter, authorId?: string, onWindow?: (capped: boolean) => void, archive: ArchiveFilter = 'all') {
     const store = getCommentsStore();
     const partition = projectPartition(project.id);
+    if (actor.proofThread) return [];
     if (authorId !== undefined && !isAdmin(actor))
         throw apiErrors.forbidden('Only admins can filter by author.');
     const comments = path === undefined
@@ -199,41 +207,51 @@ export async function listProjectComments(project: DbProject, actor: ProjectActo
  */
 export async function listProjectCommentsPage(project: DbProject, actor: ProjectActor, page: { limit: number; before?: CommentPageCursor },
     path?: string, originFilter?: OriginFilter, archive: ArchiveFilter = 'all') {
+    if (actor.proofThread) return { comments: [], stored: [] };
     const domain = projectPartition(project.id);
     const stored = await getCommentsStore().listPage(domain, { ...page, path, originFilter, archive, visibility: commentVisibilityFilter(domain, actor) });
     return { comments: stored.filter(comment => canSeeComment(comment, actor)), stored };
 }
 
 export async function getProjectComment(project: DbProject, actor: ProjectActor, id: string) {
+    const current = actor.proofThread ? (await actor.proofThread.refresh(false)).actor : actor;
     const stored = await getStoredComment(getCommentsStore(), projectPartition(project.id), id);
-    return stored ? visibleOrThrow(stored.comment, actor) : null;
+    return stored ? visibleOrThrow(stored.comment, current) : null;
 }
 
 export type NewProjectComment = CreateCommentInput & {
     pageStateVersion?: 1;
     /** Unapproved query field names seen on the page (no values), for the page state suggestions */
     queryKeys?: string[];
-    /** Origin of the site it was left on (one of the project's addresses) */
-    origin: string;
     mentions?: DbMention[];
     /** Guests: the name they gave */
     authorName?: string;
-};
+} & (
+    // Website writes carry an address from the project's configured origins.
+    | { origin: string; assetTarget?: never; private?: never }
+    | { origin?: never; assetTarget: NonNullable<DbComment['assetTarget']>; private?: boolean }
+);
 
 export async function createProjectComment(request: Request, project: DbProject, actor: ProjectActor, input: NewProjectComment) {
     const authorId = actorAuthorId(actor);
     if (!authorId)
         throw apiErrors.invalidRequest('Comments need a visitor id.');
 
+    if (input.assetTarget?.assetId !== actor.proofThread?.assetId) throw apiErrors.notFound();
+    if (input.private && !canMakeCommentPrivate(actor)) throw apiErrors.forbidden();
+    if (actor.proofThread) await refreshMutationActor(project, actor, true);
     const store = getCommentsStore();
     const partition = projectPartition(project.id);
     const attempt = submission(partition, authorId, input.idempotencyKey ?? input.recordingId, {
         operation: 'create', path: input.path, position: input.position, kind: input.kind, text: input.text, mentions: input.mentions ?? [],
-        quotedText: input.quotedText, authorName: actor.kind === 'guest' ? input.authorName : undefined, origin: input.origin,
+        quotedText: input.quotedText, ...(input.assetTarget ? { assetTarget: input.assetTarget, private: input.private === true } : {}), authorName: actor.kind === 'guest' ? input.authorName : undefined, origin: input.origin,
         ...(input.drawing ? { drawing: input.drawing } : {}), ...(input.recordingId ? { recordingId: input.recordingId } : {})
     });
     const recovered = await recoverSubmission(store, attempt);
-    if (recovered) return visibleOrThrow(recovered, actor);
+    if (recovered) {
+        if (actor.proofThread) await refreshMutationActor(project, actor, true);
+        return visibleOrThrow(recovered, actor);
+    }
     const workflow = await loadStatusWorkflow(project);
     const initial = workflow.statuses.find(status => status.id === workflow.initialStatusId)!;
     const feedbackType = await feedbackTypeForSubmission(project, input.kind);
@@ -249,8 +267,9 @@ export async function createProjectComment(request: Request, project: DbProject,
         projectId: project.id,
         ...(isUierFeedbackProject(project.id) ? { ttl: commentTtlSeconds() } : {}),
         // An account's feedback on uier is between them and uier's staff
-        ...(isPrivateAppFeedback({ domain: partition, path: input.path }) || project.id === USER_FEEDBACK_PROJECT_ID ? { private: true } : {}),
-        origin: input.origin,
+        ...(input.private || isPrivateAppFeedback({ domain: partition, path: input.path }) || project.id === USER_FEEDBACK_PROJECT_ID ? { private: true } : {}),
+        ...(input.origin ? { origin: input.origin } : {}),
+        ...(input.assetTarget ? { assetTarget: input.assetTarget } : {}),
         path: input.path,
         ...(input.pageStateVersion === 1 ? { pageStateVersion: 1 as const } : {}),
         ...(input.sourcePath ? { sourcePath: input.sourcePath } : {}),
@@ -287,10 +306,12 @@ export async function createProjectComment(request: Request, project: DbProject,
     if (recording) comment.recording = recording.doc.metadata;
     const recorded = withSyncMark(project, null, withNotificationEvent(comment, authorId, 'comment', now, mentionRecipients(comment.thread.items[0]!.mentions), actor.kind === 'member' ? actor.agent : undefined, { itemId: comment.thread.items[0]!.id }));
     await refreshMutationActor(project, actor, true);
+    if (input.private && !canMakeCommentPrivate(actor)) throw apiErrors.forbidden();
     if (attempt) {
         const saved = await commitNewSubmission(store, attempt, recorded, screenshot ? screenshotDocument(recorded, screenshot) : undefined, attachRecording(recording, recorded.id));
         queueMcpEventDelivery(project.id);
         queueAiTitles(project, [saved], 'new');
+        if (actor.proofThread) await refreshMutationActor(project, actor, true);
         return visibleOrThrow(saved, actor);
     }
     await createWithScreenshot(store, recorded, screenshot);
@@ -369,7 +390,10 @@ async function appendProjectReply(request: Request, project: DbProject, actor: P
         operation: 'reply', id, text: input.text, mentions: input.mentions ?? [], authorName: actor.kind === 'guest' ? input.authorName : undefined
     });
     const recovered = await recoverSubmission(store, attempt);
-    if (recovered) return visibleOrThrow(recovered, actor);
+    if (recovered) {
+        if (actor.proofThread) await refreshMutationActor(project, actor, true);
+        return visibleOrThrow(recovered, actor);
+    }
     const stored = await getStoredComment(store, partition, id);
     if (!stored)
         throw apiErrors.notFound();
@@ -534,7 +558,7 @@ export async function setProjectCommentPrivate(project: DbProject, actor: Projec
             const visible: string[] = [];
             for (const userId of assignedUserIds(comment)) {
                 const recipient = await memberActor(project, userId);
-                if (recipient && canSeeComment(updated, recipient)) visible.push(userId);
+                if (recipient && canSeeCommentPrivacy(updated, recipient)) visible.push(userId);
             }
             if (visible.length !== assignedUserIds(comment).length) {
                 updated = assignmentChange(updated, visible, actor, nowIso());
@@ -635,7 +659,7 @@ export async function editProjectCommentItem(project: DbProject, actor: ProjectA
 /** The whole-thread delete: a durable cleanup intent, then the conditional delete with its integration tombstone */
 export async function deleteProjectThread(store: CommentsStore, project: Pick<DbProject, 'id' | 'integrations'>, comment: DbComment, etag: string) {
     await queueThreadCleanup(comment.domain, comment.id, true);
-    return !isUierFeedbackProject(project.id)
+    return !comment.assetTarget && !isUierFeedbackProject(project.id)
         ? store.deleteWithTombstone(comment.domain, comment.id, etag, syncTombstone(project, comment))
         : store.delete(comment.domain, comment.id, etag);
 }

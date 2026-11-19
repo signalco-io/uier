@@ -13,9 +13,9 @@ export function verificationPermissions(comment: DbComment, project: DbProject, 
     const me = actor.kind === 'member' ? `user:${actor.userId}` : actor.kind === 'guest' ? actor.visitorId : undefined;
     const v = comment.verification;
     const enabled = project.access !== 'disabled' && project.verificationEnabled === true;
-    const pending = enabled && !comment.resolved && v?.outcome === 'pending';
+    const pending = enabled && (!comment.assetTarget || !comment.archivedAt) && !comment.resolved && v?.outcome === 'pending';
     const distinct = Boolean(me && me !== v?.requester);
-    return { ...(actor.kind === 'member' ? { selfId: actor.userId } : {}), request: enabled && actor.kind === 'member',
+    return { ...(actor.kind === 'member' ? { selfId: actor.userId } : {}), request: enabled && actor.kind === 'member' && (!comment.assetTarget || !comment.archivedAt),
         respond: Boolean(pending && distinct && me === v?.reviewer && (actor.kind === 'member' ? members.has(actor.userId) : actor.kind === 'guest' && usableAuthor(comment, project, members) && me === comment.authorId)),
         cancel: Boolean(pending && (me === v?.requester || actor.kind === 'member' && actor.isAdmin)),
         override: Boolean(pending && distinct && actor.kind === 'member' && actor.isAdmin && me !== v?.reviewer),

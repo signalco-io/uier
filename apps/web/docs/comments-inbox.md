@@ -587,3 +587,6 @@ thread snapshot covers that sequence, including a receipt replay after reload wh
 was already present when Retry was pressed. The lost-response case in `e2e/app.spec.ts` guards this.
 
 On narrow screens, filters give way only to a thread still shown in the current list. If changing its status removes it from that list, the filters return and its open-thread URL is cleared, even while the broader scope retains its detail. The project-review management workflow covers reopening the last Done thread.
+
+My work includes [file checks and activity](proof-review.md) for visible assets. Pending
+checks open the requested version and ordinary activity opens the original thread location.

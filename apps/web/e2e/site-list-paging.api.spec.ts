@@ -131,7 +131,7 @@ test('Cosmos applies the cursor, filters and visibility before TOP, and complete
     });
     expect(page.map(comment => comment.id)).toEqual(['comment_d', 'comment_c']);
     expect(page[0]).not.toHaveProperty('_etag');
-    const where = 'c.domain = @domain AND IS_STRING(c.path) AND IS_STRING(c.createdAt) AND (NOT (IS_BOOL(c.private) AND c.private = true) OR c.authorId = @readerId)'
+    const where = 'c.domain = @domain AND IS_STRING(c.path) AND IS_STRING(c.createdAt) AND NOT IS_DEFINED(c.assetTarget) AND (NOT (IS_BOOL(c.private) AND c.private = true) OR c.authorId = @readerId)'
         + ' AND NOT IS_STRING(c.archivedAt) AND (c.createdAt < @beforeAt OR (c.createdAt = @beforeAt AND c.id < @beforeId))';
     expect(captured[0]!.query).toBe(`SELECT TOP @limit * FROM c WHERE ${where} ORDER BY c.createdAt DESC`);
     expect(captured[1]!.query).toBe(`SELECT TOP @limit * FROM c WHERE ${where} AND c.createdAt = @tieAt ORDER BY c.id DESC`);

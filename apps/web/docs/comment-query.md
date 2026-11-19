@@ -155,3 +155,7 @@ See [the inbox note](comments-inbox.md#paged-project-comments) for the app curso
 selection, local benchmark and the remaining native database paging/aggregate performance gate.
 
 The legacy project-board pages endpoint supports label/status cell keys (`status~labelId`, or `status~unlabeled`) when project grouping is enabled. It resolves effective catalogs before grouping; each cell has an independently bound cursor and exact total. This does not change query v1 or guest capabilities.
+
+Website feeds, aggregates, candidate queries and direct legacy IDs exclude canonical
+asset targets. The [proof thread query](proof-review.md) applies asset, version, privacy
+and reviewer scope before the keyset limit and exact pending count.
