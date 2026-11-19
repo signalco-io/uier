@@ -71,8 +71,8 @@ container width; narrower cards keep the wrapping item row. Keep new row content
   `joinWorkspaceByDomain`), checks `freshlyProvenEmail` and reads nothing without it. Without a fresh proof,
   Settings shows a "Sign in again" panel instead of Add, and the join page shows a Sign in again card, the same
   whether or not a workspace matches (`signInAgainWithEmailAction` in `shell/actions.ts`: sign out, email form,
-  back to `next`). The proxy refreshes the review SSO cookie on every app request, so a failed server action
-  refreshes the page: a Join refused for an old proof re-renders as that card, and a refused Add as the panel.
+  back to `next`). A Join refused for an old proof refreshes the page from its
+  action (`refresh()`), which re-renders it as that card; a refused Add turns the section into the panel in place.
 - **Matching** is exact on everything after the last `@`, lowercase ASCII (`emailDomainSchema`). No suffix or
   parent matching: a subdomain is its own domain and needs an admin with an email there.
 - **Records:** `workspace-domain` (`domain_<domain>`, the source of truth, written only through `mutateAccess`
