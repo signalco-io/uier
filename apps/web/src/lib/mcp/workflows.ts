@@ -37,6 +37,9 @@ ${workflow.instructions}` }));
 const toolScopes = [
     ['create_access_token', 'tokens:create', 'Create a named token within the connection’s projects and operations, for 1–30 days. Store the returned secret securely and never repeat it; retries return metadata only.'],
     ['list_projects', 'feedback:read', 'List granted projects.'],
+    ['list_proof_files', 'proofs:upload', 'List accessible proof files and their current version IDs.'],
+    ['begin_proof_upload', 'proofs:upload', 'Prepare an approved file revision. Use the current version ID and a stable request ID. Upload the bytes with the returned headers and keep the temporary URL private.'],
+    ['finalize_proof_upload', 'proofs:upload', 'Publish the staged revision and return its review link. Retry with the same version ID.'],
     ['list_feedback', 'feedback:read', 'List and search visible threads.'],
     ['list_feedback_labels', 'feedback:read', 'Read project label IDs, names, brand colors, optional icons and descriptions.'],
     ['set_feedback_labels', 'feedback:assign', 'Add or remove approved labels atomically; preserve other labels and reuse the same key/input on a retry.'],
