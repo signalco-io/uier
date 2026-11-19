@@ -160,10 +160,10 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
     const readAnnotations = { readOnlyHint: true, destructiveHint: false, openWorldHint: false };
     const writeAnnotations = { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false };
     server.registerTool('create_access_token', {
-        description: 'Create a named access token for an authorized script or watcher. Requires tokens:create. Choose 1–20 projects in one workspace and a subset of this connection’s operations. To narrow to individual files, send proofAssetIds, one project, and proofs:read without website or screenshot read. tokens:create can never be included. Lifetime: 1–30 days. The returned token is a secret: store it securely and never repeat it in chat, logs, feedback or source control. The secret is returned only once; retries with the same idempotencyKey return metadata only. Listed and revocable in Account → Coding agents → Access tokens. Limited to 5 creations per connection and 10 per account per hour.',
+        description: 'Create a named access token for an authorized script or watcher. Requires tokens:create. Choose 1–20 projects in one workspace and a subset of this connection’s operations. To narrow to individual files, send proofAssetIds, one project, and proofs:read without website or screenshot read. The token acts as the account list_projects shows for those projects; pass accountId to choose another of this connection’s selected accounts that can open every chosen project on its own. tokens:create can never be included. Lifetime: 1–30 days. The returned token is a secret: store it securely and never repeat it in chat, logs, feedback or source control. The secret is returned only once; retries with the same idempotencyKey return metadata only. Listed and revocable in Account → Coding agents → Access tokens. Limited to 5 creations per connection and 10 per account per hour.',
         inputSchema: createAccessTokenSchema, annotations: writeAnnotations
     }, input => safely(async () => {
-        const { user } = await mcpProject(identity, input.projectIds[0]!);
+        const { user } = await mcpProject(identity, input.projectIds[0]!, 'feedback:read', input.accountId);
         return result({ actingAs: actingAsFor(user), ...await createAccessToken(identity, input) });
     }));
     server.registerTool('list_proof_files', {

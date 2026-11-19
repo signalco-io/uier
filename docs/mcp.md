@@ -161,7 +161,10 @@ A connection granted **Create access tokens** (`tokens:create`) can call `create
 `name` (1–60 characters), `workspaceId`, `projectIds` (1–20 distinct projects in that workspace),
 `scopes`, `days` (integer 1–30) and an `idempotencyKey`. Projects must be in its own selection and
 still accessible under the same selected profile. The token retains that acting profile, while the
-connection's managing account owns its record and revocation controls. Operations must be a subset of the authenticating connection's
+connection's managing account owns its record and revocation controls. By default that is the profile
+`list_projects` shows for the projects. Pass `accountId` to choose another of the connection's selected
+accounts, for example a watcher that must see one account's private threads. That account must open
+every chosen project on its own; its access is never combined with another profile's. Operations must be a subset of the authenticating connection's
 operations; `tokens:create` can never be included. There are no all/future-project selections.
 The token is listed here as **Created by <connection>** and can be revoked like a hand-made token.
 For another profile it also shows **Acts as <account>**; the email and project names are shown only
@@ -471,7 +474,7 @@ against the live connection.
 
 | Tool | Scope | Behavior |
 | --- | --- | --- |
-| `create_access_token` | `tokens:create` | Create a named, one-workspace token for 1–30 days within this connection’s projects and operations; return its secret only once |
+| `create_access_token` | `tokens:create` | Create a named, one-workspace token for 1–30 days within this connection’s projects and operations, optionally acting as another selected account (`accountId`); return its secret only once |
 | `list_projects` | `feedback:read` or `proofs:read` | Projects the selected accounts can still access, with the acting account and workspace; optional `workspaceId` filter |
 | `list_proof_files` | `proofs:read` or `proofs:upload` | File discovery and current version IDs |
 | `list_proof_threads` | `proofs:read` | Page through visible threads on one file, optionally on a revision |
