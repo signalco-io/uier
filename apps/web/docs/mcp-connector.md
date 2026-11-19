@@ -570,6 +570,24 @@ replay without reapplying an old operation. Results include acting identity, com
 This creates ordinary thread activity/history without email or a dedicated label event.
 `thread-labels.api.spec.ts` and the labels case in `mcp.api.spec.ts` cover this contract.
 
+## File proof handoff
+
+`proofs:read` is explicit consent. `list_proof_files` lists the live published files
+available to the selected account. `list_proof_threads` uses the proof predicate and
+visibility before paging. For a direct read, a batch or an MCP Apps card, pass the
+owning `assetId` with the existing project and thread IDs. The packet links to the original
+location and, when requested and present, a saved location on the selected revision.
+The machine projection contains saved discussion and an anchor category. Media URLs,
+source manifests, anchor excerpts, guest identity and named decisions stay out of it.
+
+Replies, ordinary status and assignment reuse the existing scoped operations and
+idempotency receipts. The file actor refreshes the bearer, selected account, project,
+asset and publication on each conditional write and receipt retry. MCP does not confirm
+verification or approve a version. Website tools and event feeds keep their existing
+predicate. A file-only credential cannot read website threads or use website writes.
+`create_access_token` accepts up to 20 `proofAssetIds` for one project; discovery, reads
+and uploads all enforce that subset.
+
 ## File proof uploads
 
 `proofs:upload` is an explicit write scope in Coding agents and connected

@@ -687,7 +687,7 @@ export async function editProjectCommentItem(project: DbProject, actor: ProjectA
 /** The whole-thread delete: a durable cleanup intent, then the conditional delete with its integration tombstone */
 export async function deleteProjectThread(store: CommentsStore, project: Pick<DbProject, 'id' | 'integrations'>, comment: DbComment, etag: string) {
     await queueThreadCleanup(comment.domain, comment.id, true);
-    return !comment.assetTarget && !isUierFeedbackProject(project.id)
+    return !isUierFeedbackProject(project.id)
         ? store.deleteWithTombstone(comment.domain, comment.id, etag, syncTombstone(project, comment))
         : store.delete(comment.domain, comment.id, etag);
 }

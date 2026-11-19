@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Button } from '@/src/components/ui/button';
+import { Button, buttonVariants } from '@/src/components/ui/button';
 import { Input } from '@/src/components/ui/input';
 import { useAppI18n } from '@/src/lib/i18n/client';
 import { stagingApiPath, type StagingPairing } from '@/src/lib/proofs/stagingModel';
@@ -123,7 +123,7 @@ export function ProofStaging({ projectId, assetId, versionId, surfaceId, initial
                     <span className="break-all font-mono text-xs">{pair.url}</span>
                     <span className="text-sm text-muted-foreground">{pair.width} × {pair.height}</span>
                     <div className="flex flex-wrap gap-2">
-                        <Button variant="outline" nativeButton={false} className="pointer-coarse:min-h-11" render={<a href={path + '/open'} />}>{t('Open paired live review')}</Button>
+                        <a className={buttonVariants({ variant: 'outline', className: 'pointer-coarse:min-h-11' })} href={path + '/open'}>{t('Open paired live review')}</a>
                         {pair.canRevoke && <Button variant="ghost" disabled={busy} onClick={() => revoke(pair.pairingId)} className="pointer-coarse:min-h-11">{t('Revoke pairing')}</Button>}
                     </div>
                     <Discrepancies path={path + '/threads'} />

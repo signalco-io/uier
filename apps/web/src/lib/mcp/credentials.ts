@@ -7,7 +7,7 @@ import { randomToken, sha256Hex } from '../app/tokens';
 import { getUser } from '../app/users';
 import { memberActor } from '../review/actor';
 import { ApiError, apiErrors } from '../comments/http';
-import { mcpScopes, type McpScope } from './scopes';
+import { hasMcpReadScope, mcpScopes, type McpScope } from './scopes';
 import { accessCovers, grantedWorkspaceOf, isGrantActive, type AgentAccess, type McpGrant } from './oauth/grants';
 import { authenticateAccessToken, isAccessTokenFormat } from './oauth/tokens';
 import { mcpOauthEnabled } from './oauth/config';
@@ -18,24 +18,25 @@ export const credentialSchema = z.object({
     projectIds: z.array(z.string().regex(/^[a-z0-9]{12}$/)).min(1, 'Choose at least one project.').max(20, 'Choose at most 20 projects.'),
     scopes: z.array(z.enum(mcpScopes)).min(1).max(mcpScopes.length),
     days: z.union([z.literal(7), z.literal(30), z.literal(90)])
-}).refine(value => value.scopes.includes('feedback:read'), 'Read access is required.');
+}).refine(value => hasMcpReadScope(value.scopes), 'Choose website or file read access.');
 
 export type McpCredential = AppDoc & {
     type: 'mcp-credential'; userId: string; workspaceId: string; name: string;
     /** A derived token may act under another explicitly authorized account; userId still owns it. */
     actingUserId?: string;
+    proofAssetIds?: string[];
     projectIds: string[]; scopes: McpScope[]; createdAt: string; expiresAt: string; ttl: number;
     createdBy?: McpIdentity['connection'];
 };
-export type McpCredentialView = Pick<McpCredential, 'id' | 'name' | 'workspaceId' | 'projectIds' | 'scopes' | 'createdAt' | 'expiresAt' | 'createdBy' | 'actingUserId'>;
+export type McpCredentialView = Pick<McpCredential, 'id' | 'name' | 'workspaceId' | 'projectIds' | 'scopes' | 'createdAt' | 'expiresAt' | 'createdBy' | 'actingUserId' | 'proofAssetIds'>;
 /** Atomic creation receipt and audit, retained for 30 days; never contains the bearer secret. */
 export type McpCredentialCreation = AppDoc & {
     type: 'mcp-credential-creation'; inputHash: string; credential: McpCredentialView; ttl: number;
 };
 const credentialPk = (userId: string) => `mcp-user:${userId}`;
 
-export function mcpCredentialView({ id, name, workspaceId, projectIds, scopes, createdAt, expiresAt, createdBy, actingUserId }: McpCredential): McpCredentialView {
-    return { id, name, workspaceId, projectIds, scopes, createdAt, expiresAt, ...(createdBy ? { createdBy } : {}), ...(actingUserId ? { actingUserId } : {}) };
+export function mcpCredentialView({ id, name, workspaceId, projectIds, scopes, createdAt, expiresAt, createdBy, actingUserId, proofAssetIds }: McpCredential): McpCredentialView {
+    return { id, name, workspaceId, projectIds, scopes, createdAt, expiresAt, ...(createdBy ? { createdBy } : {}), ...(actingUserId ? { actingUserId } : {}), ...(proofAssetIds ? { proofAssetIds } : {}) };
 }
 
 /** Serialize all credential creation for an account, including hand-made tokens, at the 20-token cap. */
@@ -170,6 +171,7 @@ export type McpIdentity = {
     connection: { id: string; kind: 'credential' | 'oauth'; name: string; clientId?: string };
     scopes: McpScope[];
     access: AgentAccess;
+    proofAssetIds?: readonly string[];
     /** Authoritative when present. The top-level user owns the connection and its stored tokens. */
     accounts?: Array<{ user: DbUser; access: AgentAccess }>;
 };
@@ -193,7 +195,7 @@ async function credentialIdentity(user: DbUser, credential: McpCredential): Prom
     const access: AgentAccess = { kind: 'selected', workspaces: [{ workspaceId: credential.workspaceId, projects: credential.projectIds }] };
     const actingUser = credential.actingUserId ? (credential.actingUserId === user.id ? user : await getUser(credential.actingUserId)) : user;
     if (!actingUser) return null;
-    return { user, connection: { id: credential.id, kind: 'credential', name: credential.name }, scopes: credential.scopes, access,
+    return { user, connection: { id: credential.id, kind: 'credential', name: credential.name }, scopes: credential.scopes, access, proofAssetIds: credential.proofAssetIds,
         ...(credential.actingUserId ? { accounts: [{ user: actingUser, access }] } : {}) };
 }
 
@@ -259,6 +261,10 @@ export function requireMcpScope(identity: McpIdentity, scope: McpScope) {
 }
 
 export async function mcpProject(identity: McpIdentity, projectId: string, scope: McpScope = 'feedback:read') {
+    if (scope !== 'proofs:read' && scope !== 'proofs:upload') {
+        if (identity.proofAssetIds) throw apiErrors.forbidden('This token is limited to selected proof files.');
+        requireMcpScope(identity, 'feedback:read');
+    }
     requireMcpScope(identity, scope);
     const accounts = mcpAccounts(identity);
     const workspaceId = accounts.length === 1 ? grantedWorkspaceOf(accounts[0]!.access, projectId) : undefined;

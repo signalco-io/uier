@@ -103,14 +103,14 @@ export function CommentVerification({ comment, open, onOpenChange, returnFocus, 
                 <p id={`${id}-reviewer-help`} className="m-0 text-muted-foreground">{t.verification.noReviewers}</p>
             ) : <>
                 <div role="group" aria-label={t.verification.reviewer} className="flex flex-wrap gap-1">
-                    {p?.defaultReviewer && <Button size="sm" variant="outlined" aria-pressed={reviewer === 'author'} onClick={() => setReviewer('author')}>{t.verification.originalAuthor}</Button>}
-                    {reviewers.map(person => <Button key={person.id} size="sm" variant="outlined" aria-pressed={reviewer === person.id} onClick={() => setReviewer(person.id)}>{person.name}</Button>)}
+                    {p?.defaultReviewer && <Button type="button" size="sm" variant="outlined" aria-pressed={reviewer === 'author'} onClick={() => setReviewer('author')}>{t.verification.originalAuthor}</Button>}
+                    {reviewers.map(person => <Button key={person.id} type="button" size="sm" variant="outlined" aria-pressed={reviewer === person.id} onClick={() => setReviewer(person.id)}>{person.name}</Button>)}
                 </div>
                 {!reviewer && <p id={`${id}-reviewer-help`} className="m-0 text-muted-foreground">{people.isLoading && !p?.defaultReviewer ? t.verification.loadingReviewers : t.verification.chooseReviewer}</p>}
             </>}
             <CommentsErrorMessage error={people.error} />
             <div className="flex gap-1"><Button size="sm" type="submit" disabled={verification.isPending || !reviewer} aria-describedby={reviewer ? undefined : `${id}-reviewer-help`}>{t.verification.request}</Button>
-                <Button size="sm" variant="plain" disabled={verification.isPending} onClick={() => { setOpen(false); setRestoreFocus(true); }}>{t.common.cancel}</Button></div>
+                <Button type="button" size="sm" variant="plain" disabled={verification.isPending} onClick={() => { setOpen(false); setRestoreFocus(true); }}>{t.common.cancel}</Button></div>
         </form>}
         {verification.isPending && <p role="status" className="m-0">{t.verification.saving}</p>}
         <CommentsErrorMessage error={verification.error} />

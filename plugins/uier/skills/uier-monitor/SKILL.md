@@ -24,6 +24,13 @@ card, summarize the returned `markdown` and link `context.links.comment`. If `sh
 fails (often the connection can't see the comment), the comment link is enough: don't retry it
 through `M call`. A card never approves a write and doesn't start or resume monitoring.
 
+The watcher monitors website feedback. When the person separately asks about a file proof,
+use `list_proof_files` and `list_proof_threads` with a connection that has `proofs:read`.
+Pass its `assetId` alongside the owning `projectId` and `commentId` to `get_feedback` or
+`show_feedback`. Use `context.links.comment` for the original and `context.links.revision`
+for the requested revision. File replies, status and assignments require the corresponding
+operation scope and separate approval. Named approvals and verification confirmation happen in uier.
+
 ## Arguments
 
 The first argument is the uier project's name or id. Separate several projects with commas

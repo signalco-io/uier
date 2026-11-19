@@ -2,9 +2,10 @@ import { randomUUID } from 'node:crypto';
 import { projectRefPk, workspacePk, type AppDoc, type DbProject, type DbProjectRef, type DbRetiredProjectRef } from '../app/model';
 import { getAppStore, updateDoc, type AppStore } from '../app/store';
 import { sha256Hex } from '../app/tokens';
-import { isPrivateAppFeedback, isUierFeedbackProject } from '../comments/publicProject';
+import { isUierFeedbackProject } from '../comments/publicProject';
 import type { DbComment, DbSyncTombstone } from '../db/schema';
 import { getCommentsStore, type CommentsStore } from '../repo/commentsStore';
+import { canSyncThread } from './source';
 import { integrationTargets } from './syncSignal';
 import { integrationRegistry } from './registry';
 import type { IntegrationAdapter, IntegrationConnection, IntegrationProviderId, IntegrationSync } from './model';
@@ -152,7 +153,7 @@ export async function enqueueIntegrationBackfill(project: DbProject, provider: I
         || connection.projectId !== project.id) throw new Error('Integration backfill connection changed');
     let queued = 0;
     for (const source of sources) {
-        if (source.projectId !== project.id || source.domain !== `project:${project.id}` || source.private || isPrivateAppFeedback(source)) continue;
+        if (source.projectId !== project.id || source.domain !== `project:${project.id}` || !await canSyncThread(project, source, store)) continue;
         await enqueueIntegrationSync(project, provider, connectionId, source.id, source.syncVersion ?? 0,
             { store, requestId, destinationRevision: connection.destinationRevision });
         queued++;

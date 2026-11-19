@@ -70,10 +70,12 @@ An exact retry can return the saved action while that request is current. A stal
 retry on a superseded request returns a conflict.
 
 Website queries, badges, realtime, direct-ID reads and writes, and legacy exports
-require website targets. The file authorization scope works in the other direction
-too. A file-only session cannot act on a website thread. Existing integration sync
-excludes proof threads, and private exports use the same asset and thread checks as
-viewer reads. My work links authorized member activity to the source version and
+require website targets. File sessions check the owning asset on reads and writes.
+The browser export applies the same authorization as the viewer and uses a stable
+original link plus a revision link when the selected revision has a saved location.
+The [MCP handoff](mcp-connector.md#file-proof-handoff) and
+[tracker sync](integrations.md#synchronization) use redacted packets.
+My work links authorized member activity to the source version and
 pending checks to the version under review. Website-view guests receive no proof
 data. The guest proof session identifies the original reviewer without including
 their identity or share reference in DTOs. Revoked grants are rechecked for every

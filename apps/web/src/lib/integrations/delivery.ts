@@ -4,7 +4,9 @@ import { randomUUID } from 'node:crypto';
 import { memberId, userPk, workspacePk, type DbMember, type DbProject, type DbUser } from '../app/model';
 import { getAppStore, updateDoc, type AppStore } from '../app/store';
 import { sha256Hex } from '../app/tokens';
-import { isPrivateAppFeedback, isUierFeedbackProject } from '../comments/publicProject';
+import { isUierFeedbackProject } from '../comments/publicProject';
+import { canSyncThread } from './source';
+import { proofThreadHandoff } from '../proofs/threadHandoff';
 import { withSyncMark } from './syncSignal';
 import { getCommentsStore, type CommentsStore } from '../repo/commentsStore';
 import type { ProjectActor } from '../review/actor';
@@ -54,7 +56,7 @@ async function authority(ledger: IntegrationSync, store: AppStore, comments: Com
 
 function projectHash(project: DbProject) {
     // Source URL/environment changes can invalidate an export without changing its thread cursor.
-    return sha256Hex(JSON.stringify({ id: project.id, workspaceId: project.workspaceId, name: project.name,
+    return sha256Hex(JSON.stringify({ id: project.id, workspaceId: project.workspaceId, name: project.name, publicId: project.publicId,
         urls: project.urls, environments: project.environments, pageState: project.pageState, access: project.access }));
 }
 
@@ -112,7 +114,7 @@ export async function processIntegrationDelivery(candidate: IntegrationSync, bas
             return;
         }
         const { connection, project, source, actor } = snapshot;
-        const mode = ledger.deletion || !source || source.assetTarget || source.private || isPrivateAppFeedback(source) ? 'cleanup' : 'sync';
+        const mode = ledger.deletion || !source || !await canSyncThread(project, source, store) ? 'cleanup' : 'sync';
         if (statusOnly && ((!connection.twoWaySync && !connection.replySync?.enabled) || mode !== 'sync' || !source
             || (source.syncVersion ?? 0) > ledger.processedVersion || ledger.requestedVersion > ledger.processedVersion
             || ledger.requestRevision > ledger.processedRequestRevision)) {
@@ -136,7 +138,9 @@ export async function processIntegrationDelivery(candidate: IntegrationSync, bas
             return;
         }
         through = ledger.deletion?.version ?? source?.syncVersion ?? ledger.requestedVersion;
-        const feedback = mode === 'cleanup' || statusOnly ? null : await (options.exportFeedback ?? projectFeedbackExport)(project, actor, ledger.threadId, undefined, baseUrl);
+        const feedback = mode === 'cleanup' || statusOnly ? null : source?.assetTarget
+            ? proofThreadHandoff(project, source, baseUrl)
+            : await (options.exportFeedback ?? projectFeedbackExport)(project, actor, ledger.threadId, undefined, baseUrl);
         if (feedback && (feedback.context.assignee?.agent || feedback.context.assignees)) {
             // Trackers get the assignee's name, never the AI agent working under them or its session.
             if (feedback.context.assignee) feedback.context.assignee = { name: feedback.context.assignee.name };
@@ -176,7 +180,7 @@ export async function processIntegrationDelivery(candidate: IntegrationSync, bas
                 throw new IntegrationControlError('temporarily_unavailable');
             if (connectionHash(latest.connection) !== connectionHash(connection)) throw new IntegrationControlError('projection_changed');
             if (latest.connection.pausedUntil && Date.parse(latest.connection.pausedUntil) > clock()) throw new IntegrationControlError('budget_exhausted');
-            const latestMode = ledger.deletion || !latest.source || latest.source.assetTarget || latest.source.private || isPrivateAppFeedback(latest.source) ? 'cleanup' : 'sync';
+            const latestMode = ledger.deletion || !latest.source || !await canSyncThread(latest.project, latest.source, store) ? 'cleanup' : 'sync';
             // Old uncertain creates may be reconciled, but clearing their receipt does not grant
             // permission to export an old forced selection into a different destination.
             if (write && latestMode === 'sync' && !ledger.attempt && ledger.reconcileDestinationRevision !== undefined
@@ -252,8 +256,7 @@ export async function processIntegrationDelivery(candidate: IntegrationSync, bas
             if (result.status === 'accepted') {
                 await boundary(true, false);
                 const current = await comments.get(`project:${project.id}`, ledger.threadId);
-                if (!current || (current.comment.syncVersion ?? 0) !== sourceVersion || current.comment.assetTarget || current.comment.private
-                    || isPrivateAppFeedback(current.comment)) throw new IntegrationControlError('projection_changed');
+                if (!current || (current.comment.syncVersion ?? 0) !== sourceVersion || !await canSyncThread(project, current.comment, store)) throw new IntegrationControlError('projection_changed');
                 const at = new Date(clock()).toISOString();
                 const imported = withImportedReplies(current.comment, connection, { resolved: incomingStatus, replies: incomingReplies, at });
                 const changed = imported.comment; full = imported.full;

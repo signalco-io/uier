@@ -1345,3 +1345,91 @@ test('summary pages enrich only returned rows and reuse the live workspace title
         expect((await measuredPage(1)).response.items[0]).not.toHaveProperty('title');
     } finally { await client.close(); }
 });
+
+test('file handoff uses scoped standard tools, stable revision links and live retry authorization', async () => {
+    const { createAccessToken } = await import('../src/lib/mcp/createAccessToken');
+    const { proofStore } = await import('../src/lib/proofs/store');
+    const { authorizeProofThread } = await import('../src/lib/proofs/threadAccess');
+    const { sessionToken } = await import('../src/lib/app/sessionIdentity');
+    const { cookieName, cookieNames } = await import('../src/lib/cookieNames');
+    const f = await fixture();
+    const store = getAppStore();
+    const proofs = proofStore(f.project.id);
+    const comments = getCommentsStore();
+    const now = new Date().toISOString();
+    const assetId = randomUUID(), sibling = randomUUID();
+    const old = randomUUID().replaceAll('-', ''), current = randomUUID().replaceAll('-', '');
+    for (const id of [assetId, sibling]) await store.create({ id, pk: proofs.pk, type: 'proof-asset', name: 'Cover', collectionId: null,
+        currentVersionId: current, position: 0, createdAt: now, updatedAt: now });
+    for (const [id, number] of [[old, 1], [current, 2]] as const) await store.create({ id, pk: proofs.pk, type: 'proof-version',
+        projectId: f.project.id, assetId, status: 'published', number, createdAt: now,
+        manifest: { format: 'figma', surfaces: [{ id: 'private-source-node', sourceUrl: 'https://figma.test/private?token=source-token' }] } });
+    const cookie = `${cookieName(cookieNames.session)}=${sessionToken(f.user.id).token}`;
+    const proofRequest = new Request(base, { headers: { cookie } });
+    const auth = await authorizeProofThread(proofRequest, { projectId: f.project.id, assetId }, old, true);
+    const comment = await createProjectComment(proofRequest, auth.project, auth.actor, { path: '/proof', position: { type: 'page' }, kind: 'feedback',
+        text: 'Move the title', quotedText: 'private-quoted-text',
+        assetTarget: { assetId, authorShareId: 'private-guest-grant', source: { versionId: old, anchor: { kind: 'text', surfaceId: 'private-source-node', quote: 'private-anchor-evidence' } },
+            relocations: [{ versionId: current, anchor: { kind: 'point', surfaceId: 'private-source-node', x: 0.1, y: 0.2 } }] } });
+    const notes = await createProjectComment(proofRequest, auth.project, auth.actor, { path: '/proof', position: { type: 'page' }, kind: 'feedback',
+        text: 'Private staff note', private: true, assetTarget: { assetId, source: { versionId: old, anchor: { kind: 'general' } } } });
+    const reviewer = await findOrCreateUser(`proof-reader-${randomUUID()}@example.com`);
+    const member: DbMember = { ...f.context.member, id: memberId(reviewer.id), userId: reviewer.id, email: reviewer.email, role: 'commenter', projects: [f.project.id] };
+    await store.create(member);
+    const readOnly = await createMcpCredential({ ...f.context, user: reviewer, member, isAdmin: false },
+        { name: 'File reader', projectIds: [f.project.id], scopes: ['proofs:read'], days: 7 });
+    const site = await createMcpCredential(f.context, { name: 'Site reader', projectIds: [f.project.id], scopes: ['feedback:read'], days: 7 });
+    const issuer = await createMcpCredential(f.context, { name: 'File manager', projectIds: [f.project.id, f.other.id],
+        scopes: ['proofs:read', 'proofs:upload', 'feedback:reply', 'feedback:status', 'feedback:assign', 'tokens:create'], days: 7 });
+    const identity = await authenticateMcp(new Request(base, { headers: { authorization: `Bearer ${issuer.token}` } }), base);
+    const minted = await createAccessToken(identity, { workspaceId: f.project.workspaceId, projectIds: [f.project.id], proofAssetIds: [assetId],
+        scopes: ['proofs:read', 'proofs:upload', 'feedback:reply', 'feedback:status', 'feedback:assign'], days: 1, name: 'One file', idempotencyKey: randomUUID() });
+    if (!('token' in minted) || !minted.token) throw new Error('Expected new token');
+    const [me, reader, website] = await Promise.all([connect(minted.token), connect(readOnly.token), connect(site.token)]);
+    const args = { projectId: f.project.id, assetId, commentId: comment.id };
+    const call = async (client: Client, name: string, arguments_: Record<string, unknown>) => data(await client.callTool({ name, arguments: arguments_ }));
+    try {
+        expect((await me.listTools()).tools.map(tool => tool.name)).toContain('list_proof_threads');
+        expect((await call(me, 'list_projects', {})).items.map((item: { id: string }) => item.id)).toEqual([f.project.id]);
+        expect((await call(me, 'list_proof_files', { projectId: f.project.id })).items.map((item: { id: string }) => item.id)).toEqual([assetId]);
+        expect(await call(me, 'list_proof_threads', { projectId: f.project.id, assetId: sibling })).toMatchObject({ error: 'not_found' });
+        expect(await call(me, 'begin_proof_upload', { projectId: f.project.id, assetId: sibling, expectedVersionId: current,
+            filename: 'cover.png', contentType: 'image/png', size: 150, requestId: randomUUID() })).toMatchObject({ error: 'not_found' });
+        expect(await call(me, 'list_proof_files', { projectId: f.other.id })).toMatchObject({ error: 'not_found' });
+        const list = await call(reader, 'list_proof_threads', { projectId: f.project.id, assetId, versionId: current, limit: 1 });
+        expect(list.items).toMatchObject([{ id: comment.id, sourceVersionId: old, currentVersionId: current }]);
+        expect(list.nextCursor).toBeNull();
+        expect(await call(reader, 'get_feedback', { ...args, commentId: notes.id })).toMatchObject({ error: 'not_found' });
+        const original = `${base}/proof/${f.project.publicId}/${assetId}?version=${old}&thread=${comment.id}`;
+        const revision = original.replace(`version=${old}`, `version=${current}`);
+        const single = await call(me, 'get_feedback', { ...args, versionId: current });
+        expect(single.context).toMatchObject({ identity: { assetId }, links: { comment: original, revision },
+            proof: { sourceVersionId: old, versionId: current, anchorKind: 'point' } });
+        for (const denied of ['source-token', 'private-source-node', 'private-quoted-text', 'private-anchor-evidence', 'private-guest-grant', 'screenshotResource'])
+            expect(JSON.stringify(single)).not.toContain(denied);
+        expect((await call(me, 'show_feedback', args)).context.links.comment).toBe(original);
+        const batch = await call(me, 'get_feedback_batch', { projectId: f.project.id, assetId, commentIds: [comment.id, f.comment.id] });
+        expect(batch.items).toMatchObject([{ context: { links: { comment: original } } }, { commentId: f.comment.id, error: 'not_found' }]);
+        expect(await call(reader, 'reply_to_feedback', { ...args, text: 'Out of scope', idempotencyKey: randomUUID() })).toMatchObject({ error: 'forbidden' });
+        const reply = { ...args, text: 'Adjusted the title', idempotencyKey: randomUUID() };
+        const savedReply = await call(me, 'reply_to_feedback', reply);
+        expect(savedReply).toMatchObject({ saved: true, itemId: expect.any(String) });
+        expect(await call(me, 'reply_to_feedback', reply)).toEqual(savedReply);
+        expect(await call(me, 'set_feedback_status', { ...args, status: 'done', idempotencyKey: randomUUID() })).toMatchObject({ stage: 'done' });
+        expect((await call(me, 'list_assignees', args)).items).toEqual(expect.arrayContaining([expect.objectContaining({ id: reviewer.id })]));
+        expect(await call(me, 'assign_feedback', { ...args, assigneeId: reviewer.id, idempotencyKey: randomUUID() })).toMatchObject({ assigneeIds: [reviewer.id] });
+        expect((await call(me, 'get_feedback', args)).context.assignees).toEqual([{ name: reviewer.name }]);
+        expect(await call(me, 'get_feedback', { projectId: f.project.id, commentId: f.comment.id })).toMatchObject({ error: 'forbidden' });
+        expect(await call(me, 'set_feedback_status', { projectId: f.project.id, commentId: f.comment.id, status: 'done', idempotencyKey: randomUUID() })).toMatchObject({ error: 'forbidden' });
+        expect((await call(website, 'list_feedback', { projectId: f.project.id })).items).toMatchObject([{ id: f.comment.id }]);
+        expect(await call(website, 'get_feedback', args)).toMatchObject({ error: 'forbidden' });
+        expect(await call(website, 'get_feedback', { projectId: f.project.id, commentId: comment.id })).toMatchObject({ error: 'not_found' });
+        expect((await comments.get(comment.domain, comment.id))?.comment.thread.items).toHaveLength(2);
+        const saved = (await proofs.asset(assetId))!;
+        await store.replace({ ...saved.doc, deleted: true }, saved.etag);
+        expect(await call(me, 'get_feedback', args)).toMatchObject({ error: 'not_found' });
+        expect(await call(me, 'reply_to_feedback', reply)).toMatchObject({ error: 'not_found' });
+    } finally {
+        await Promise.all([me.close(), reader.close(), website.close()]);
+    }
+});

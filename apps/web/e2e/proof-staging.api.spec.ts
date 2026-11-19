@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
+import type { Container, SqlQuerySpec } from '@azure/cosmos';
 import sharp from 'sharp';
 import { ensureProjectPublicId } from '../src/lib/app/projectPublicIds';
 import { projectRefPk, type DbProject, type DbProjectRef } from '../src/lib/app/model';
@@ -16,6 +17,7 @@ import { stagingPreview } from '../src/lib/proofs/stagingPreview';
 import { proofStore } from '../src/lib/proofs/store';
 import { reviewApiHandler } from '../src/lib/review/http';
 import { createReviewComment, getReviewStaging } from '../src/lib/review/routes';
+import { createCosmosCommentsStore } from '../src/lib/repo/cosmosCommentsStore';
 import { getCommentsStore } from '../src/lib/repo/commentsStore';
 import type { StagingPairing } from '../src/lib/proofs/stagingModel';
 import { allowedExtensionOperation, extensionOperation } from '@uier/toolbar/extension-contract';
@@ -158,4 +160,24 @@ test('staging requires explicit approval and both authorities, and invalidates l
     await retireProofProject(project.id, store);
     expect((await pair('', 'POST', { ...input, requestId: randomUUID() })).status).toBe(404);
     expect((await getCommentsStore().get(`project:${project.id}`, thread.id))?.comment.id).toBe(thread.id);
+});
+
+test('the Cosmos backlink query scopes the page before applying its limit', async () => {
+    const queries: SqlQuerySpec[] = [];
+    const container = { id: 'comments', items: { query(input: SqlQuerySpec) {
+        queries.push(input);
+        let pending = true;
+        return { hasMoreResults: () => pending, async fetchNext() { pending = false; return { resources: [] }; } };
+    } } } as unknown as Container;
+    const pairingId = '1'.repeat(64);
+    await createCosmosCommentsStore(() => container).listPage('project:paired', {
+        limit: 20, path: '/checkout', stagingPairingId: pairingId, originFilter: { origins: [live] },
+        visibility: { authorId: 'user:reviewer' }
+    });
+    expect(queries).toHaveLength(1);
+    expect(queries[0]!.query).toContain('c.stagingDesign.pairingId = @stagingPairingId ORDER BY c.createdAt DESC');
+    expect(queries[0]!.query).toContain('NOT IS_DEFINED(c.assetTarget)');
+    expect(queries[0]!.parameters).toEqual(expect.arrayContaining([
+        { name: '@stagingPairingId', value: pairingId }, { name: '@readerId', value: 'user:reviewer' }, { name: '@limit', value: 20 }
+    ]));
 });

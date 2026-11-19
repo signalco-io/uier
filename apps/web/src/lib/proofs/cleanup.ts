@@ -2,6 +2,7 @@ import type { DbProject } from '../app/model';
 import { getAppStore, type AppStore } from '../app/store';
 import { ApiError } from '../comments/http';
 import { deleteStagingRecords } from './staging';
+import { retireDeletedProofThreads } from './deletedThreads';
 import { proofProject } from './access';
 import { deleteApprovalRecords, retireApprovalAuthority } from './approvals/storage';
 import { getProofBlobs, proofAssetPrefix, proofAttemptPrefix, proofVersionPrefix, type ProofBlobs } from './blobs';
@@ -149,7 +150,9 @@ export async function sweepProofStorage({ store = getAppStore(), blobs = getProo
         try {
             const proofs = proofStore(projectIdOf(asset.pk), store);
             const saved = await proofs.asset(asset.id);
-            if (saved?.doc.deleted && !await deleteAssetRecords(proofs, saved.doc, now, blobs))
+            if (!saved?.doc.deleted) continue;
+            const project = await proofProject(projectIdOf(asset.pk), store);
+            if (!await retireDeletedProofThreads(project, asset.id) || !await deleteAssetRecords(proofs, saved.doc, now, blobs))
                 await store.replace({ ...saved.doc, nextAttemptAt: new Date(now + proofBlobGraceMs).toISOString() }, saved.etag);
         } catch {
             failed++;

@@ -62,8 +62,19 @@ outbound progress or recreates external objects. Slack has no task-status sync.
 [`docs/integrations.md`](../../../docs/integrations.md). Every eligible non-public project mutation
 records its source signal in the same write, including an unbound request snapshot; do not gate
 that write on cached settings. Hard deletes use the conditional delete+tombstone batch. The
-public showcase, private-only changes, [asset threads](proof-review.md) and no-ops are excluded. Ordinary DTOs/reads never
+public showcase, private-only changes and no-ops are excluded. Ordinary DTOs/reads never
 contain signals or tombstones.
+
+Published [file proof threads](proof-review.md) use the same outbox and provider leases.
+The proof projection contains the nonprivate discussion, ordinary status and a uier link
+pinned to the original version. Providers receive no source credentials, guest identity,
+media URLs, captured quotes or named decisions. The link always checks the viewer's own
+access. Delivery, backfill and inbound updates recheck the current asset and published source
+version. Going private clears managed copies. Retiring an asset makes it unavailable at
+once and uses the deletion sweep to queue the existing thread tombstones and remote cleanup.
+Project transfer and project deletion retire delivery with their existing disconnect
+semantics. Copies already sent to a disconnected destination follow that provider's
+retention rules.
 
 Discovery is bounded and cursor-paged by indexed `syncKey`. Acknowledge only after every target
 is durable and source/binding checks still pass. Each provider gets independent leases, attempts,
