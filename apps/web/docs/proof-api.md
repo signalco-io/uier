@@ -120,11 +120,6 @@ runtime and its own identity.
 same handlers and workers with memory storage or configured disposable Cosmos
 and Azure Blob emulators. The local API fixtures cover scoped grants, format
 policy, racing publishers, retry, transfer and removal of private bytes.
-[Source tests](../e2e/proof-sources.api.spec.ts) exercise adapter publication,
-PDF privacy and evidence, provider access and replay, source rotation,
-prototype fencing and agent permissions. [Browser imports](../e2e/proof-imports.spec.ts)
-cover guest PDF page search and directory selection with an isolated host.
-
 
 ## Version approvals and review record
 
