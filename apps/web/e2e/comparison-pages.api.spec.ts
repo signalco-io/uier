@@ -25,7 +25,7 @@ test('comparison HTML links the scoped file proof and approval claims', async ({
         expect(response.status(), path).toBe(200);
         const html = await response.text();
         expect(html).toContain('Project-enabled file review');
-        expect(html).toContain('Review images, selected Figma frames, MP4 videos and EML uploads. Formats are enabled per project.');
+        expect(html).toContain('Review images, selected Figma frames, EML uploads and MP4, ProRes MOV or WebM videos. Play and seek video versions in the browser. ProRes MOV is converted for playback. Formats are enabled per project.');
         expect(html).toContain('Reviewing a finished fix');
         expect(html).toContain('Approving a file version');
         expect(html).toContain('Set a deadline for an approval round.');
@@ -52,6 +52,7 @@ test('comparison caveats and official evidence are present in crawler HTML', asy
     expect(html).toContain('edit mode is unavailable in web app projects');
     expect(html).not.toContain('No live site editing');
     expect(html).toContain('Custom statuses and labels');
+    expect(html).toContain('use the project-scoped REST API for a custom integration');
     expect(html).not.toContain('no custom statuses');
     expect(html).not.toContain('1,000 recent threads');
 });

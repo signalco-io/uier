@@ -38,7 +38,7 @@ for (const pair of pairs) {
         for (const gap of ['Session replay before a report', 'Console and network capture', 'Surveys and request voting'])
             await expect(uierCell(gap)).toContainText('Not supported');
         await expect(uierCell('File and design proofing')).toContainText('Has limits: Project-enabled file review');
-        await expect(uierCell('File and design proofing').locator('p').first()).toHaveText('Review images, selected Figma frames, MP4 videos and EML uploads. Formats are enabled per project.');
+        await expect(uierCell('File and design proofing').locator('p').first()).toHaveText('Review images, selected Figma frames, EML uploads and MP4, ProRes MOV or WebM videos. Play and seek video versions in the browser. ProRes MOV is converted for playback. Formats are enabled per project.');
         await expect(uierCell('Reviewing a finished fix')).toContainText('Has limits: Named reviewer per thread');
         const approvals = uierCell('Approving a file version');
         await expect(approvals).toContainText('Available: Named reviewers per version');
@@ -76,6 +76,7 @@ test('the full matrix retains caveats and source links behind keyboard disclosur
     await expect(main).toContainText('Unknown is not a missing feature.');
     await expect(main).toContainText('uier supports short screen recordings with explicit permission.');
     await expect(main).toContainText('Built-in capture has no audio and ends on full-page navigation.');
+    await expect(main.getByRole('region', { name: 'Where the workflows differ' })).toContainText('EML uploads and MP4, ProRes MOV or WebM videos.');
 });
 
 test('CSS and text details show the documented workflow and sources for each tool', async ({ page }) => {
@@ -110,7 +111,7 @@ test('the hub links every comparison and is linked from the public site', async 
     const main = page.getByRole('main');
     await expect(main).not.toContainText('Written by uier.');
     await expect(main.getByRole('region', { name: 'Start with the job' })).toContainText('Preview proposed text and style changes on the page');
-    await expect(main.getByRole('region', { name: 'Start with the job' })).toContainText('selected Figma frames, MP4 videos and EML uploads where enabled. Request approval on a specific version.');
+    await expect(main.getByRole('region', { name: 'Start with the job' })).toContainText('selected Figma frames, EML uploads and MP4, ProRes MOV or WebM videos where enabled. Request approval on a specific version.');
     await expect(main.getByRole('link', { name: 'approval rounds', exact: true })).toHaveAttribute('href', /\/proof-api\.md#version-approvals-and-review-record$/);
     const preview = main.getByRole('link', { name: 'on-page previews' });
     await expect(preview).toHaveAttribute('href', '/features/pinned-comments#preview-a-change');
@@ -135,6 +136,7 @@ test('the Pastel tradeoffs cover Figma revisions and separate approval decisions
     const tradeoffs = page.getByRole('region', { name: 'What changes if you switch' });
     await expect(tradeoffs).toContainText('Resync a Figma frame under the same review link, even after a rename. Existing threads keep their original version and location.');
     await expect(tradeoffs).toContainText('Named reviewers decide on the whole version in a separate approval round.');
+    await expect(tradeoffs).toContainText('EML uploads and MP4, ProRes MOV or WebM videos.');
     await expect(tradeoffs).toContainText('Share an EML upload with a client');
 });
 

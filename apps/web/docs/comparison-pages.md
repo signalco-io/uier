@@ -42,10 +42,14 @@ Change these entries with the product.
 ## File review and approval scope
 
 The release copy marks file proofing limited to formats enabled by project. The protected preview
-qualified member and guest image review, selected Figma frame import and rename resync, MP4 video,
+qualified member and guest image review, selected Figma frame import and rename resync,
 and an EML upload across two versions. A Figma resync keeps the review link and the existing thread
 retains its original version and location. The [file viewer](proof-viewer.md) and
 [format settings](proof-api.md#format-settings-and-processing) document those contracts.
+
+Hosted video qualification covered two versions each of MP4, ProRes MOV converted for playback,
+and WebM. The browser could play and seek all six versions. Authorized original downloads
+matched their source digests.
 
 Preview recorded two independent whole-version approvals and a separate fix verification on an
 existing thread. The matrix has separate rows for
@@ -55,9 +59,9 @@ request on the thread. An approval round may have a deadline, while tasks have n
 A new file version starts with fresh approval decisions.
 
 Publish this copy after the corresponding workflows deploy, following the
-[release plan](../../../docs/design/file-design-proofing.md#release-and-verification). PDF and HTML
-proof review and real SMTP ingress still need hosted qualification. Keep the email claim scoped to
-EML upload. The broader proofing claim requires all six formats and live ingress qualification.
+[release plan](../../../docs/design/file-design-proofing.md#release-and-verification). PDF review,
+isolated HTML proofing and real SMTP ingress still need hosted qualification. Keep the email
+claim scoped to EML upload. The broader proofing claim requires all six formats and live ingress qualification.
 
 The approval row points to official sources that distinguish actual decisions from version history
 and task status. BugHerd documents asset versions in beta. Marker.io documents an issue review status.
