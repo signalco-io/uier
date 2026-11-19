@@ -11,6 +11,7 @@ import seoHead from './seoHead';
 import seoPage from './seoPage';
 import site from './site';
 import verify from './verify';
+import changeProposals from './changeProposals';
 
 /** The fixtures by the name in their origin: `site.origin('fixture-<name>')` */
 export const fixtures: Record<string, PageFixture | undefined> = {
@@ -26,4 +27,5 @@ export const fixtures: Record<string, PageFixture | undefined> = {
     'seo-page': seoPage,
     'site': site,
     'verify': verify,
+    'change-proposals': changeProposals,
 };

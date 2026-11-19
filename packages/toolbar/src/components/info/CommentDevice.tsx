@@ -1,11 +1,11 @@
 import type { CommentDeviceSize, CommentItem } from '../@types/Comments';
-import { useContext, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Popper } from '@signalco/ui-primitives/Popper';
 import { Button } from '@signalco/ui-primitives/Button';
 import { cx } from '@signalco/ui-primitives/cx';
 import { Check, Copy, Desktop, Mobile, Tablet } from '@signalco/ui-icons';
 import { useAnnounce } from '../Announcer';
-import { CommentsBootstrapperContext } from '../CommentsBootstrapperContext';
+import { useToolbarPortalContainer } from '../CommentsBootstrapperContext';
 import { CommentTime } from '../CommentTime';
 import { floatingShadowClassName } from '../@types/Comments';
 import { useHoverPopover } from '../../hooks/useHoverPopover';
@@ -55,7 +55,7 @@ function CopyReproduction({ text }: { text: string }) {
  * get those, so they see the screen size icon only (and nothing when the size was not recorded).
  */
 export function CommentDevice({ device, reproduction }: DeviceProps) {
-    const { rootElement } = useContext(CommentsBootstrapperContext);
+    const container = useToolbarPortalContainer();
     const popover = useHoverPopover();
     const t = useMessages();
     if (!device?.size && !reproduction) {
@@ -75,7 +75,7 @@ export function CommentDevice({ device, reproduction }: DeviceProps) {
 
     return (
         <Popper
-            container={rootElement}
+            container={container}
             {...popover.root}
             align="start"
             aria-label={reproduction ? t.device.deviceAndBrowser : t.device.device}

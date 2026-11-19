@@ -580,6 +580,41 @@ export const it: Messages = {
         limited: (retry: string) => `Nessun altro suggerimento per ora. Riprova ${retry}. Puoi comunque scrivere il tuo.`,
         suggestions: 'Suggerimenti'
     },
+    proposal: {
+        suggest: 'Suggerisci una modifica',
+        suggestion: 'Modifica suggerita',
+        draft: 'Bozza del suggerimento',
+        remove: 'Rimuovi il suggerimento',
+        note: 'Nota (facoltativa)',
+        text: 'Testo sostitutivo',
+        preview: 'Anteprima sulla pagina',
+        original: 'Originale',
+        proposed: 'Proposta',
+        preparing: 'Preparazione dell’anteprima…',
+        values: 'Valori esatti',
+        stale: 'La pagina non corrisponde più all’originale salvato. I valori salvati sono disponibili qui sotto.',
+        unavailable: 'L’anteprima di questo elemento non è disponibile qui.',
+        invalid: 'Inserisci un valore CSS supportato in ogni campo modificato.',
+        empty: 'Testo vuoto',
+        copied: 'Copiato negli appunti.',
+        copyText: (side: string) => `Copia il testo (${side})`,
+        copyCss: (side: string) => `Copia il CSS (${side})`,
+        sidePadding: 'Spaziatura interna laterale',
+        paddingDetails: 'Dettagli della spaziatura interna',
+        mixedValues: 'Valori diversi',
+        chooseColor: (property: string) => `Scegli ${property}`,
+        properties: {
+            'color': 'Colore del testo',
+            'background-color': 'Colore di sfondo',
+            'font-size': 'Dimensione del testo',
+            'font-weight': 'Spessore del testo',
+            'padding-top': 'Spaziatura interna superiore',
+            'padding-right': 'Spaziatura interna destra',
+            'padding-bottom': 'Spaziatura interna inferiore',
+            'padding-left': 'Spaziatura interna sinistra',
+            'border-radius': 'Raggio degli angoli'
+        }
+    },
     selection: {
         label: 'Testo selezionato',
         rewrite: 'Riscrivi'

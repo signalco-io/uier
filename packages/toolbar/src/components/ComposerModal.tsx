@@ -6,7 +6,8 @@ import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { cx } from '@signalco/ui-primitives/cx';
-import { IconTooltip, TooltipContainerContext } from './IconTooltip';
+import { IconTooltip } from './IconTooltip';
+import { ModalPortalContext } from './CommentsBootstrapperContext';
 import { composerIconButtonClassName } from './ComposerAttachments';
 import { floatingShadowClassName } from './@types/Comments';
 
@@ -60,11 +61,13 @@ export function ExpandComposerButton({ expanded, onExpandedChange }: { expanded:
  * form goes on here and back in the popover. Escape and a press on the backdrop collapse it again.
  * Not a reviewable part of the toolbar: it holds the comment being written.
  */
-export function ComposerModal({ container, label, onCollapse, className, children, ...rest }: {
+export function ComposerModal({ container, label, onCollapse, className, bottomSheet = false, onPresented, children, ...rest }: {
     container: HTMLElement | null | undefined;
     label: string;
     onCollapse: () => void;
     className?: string;
+    bottomSheet?: boolean;
+    onPresented?: (dialog: HTMLDialogElement) => void;
     children: ReactNode;
 } & Record<`data-${string}`, string>) {
     const [dialog, setDialog] = useState<HTMLDialogElement | null>(null);
@@ -72,7 +75,12 @@ export function ComposerModal({ container, label, onCollapse, className, childre
     // itself to its text when it mounts
     const [shown, setShown] = useState(false);
     const collapseRef = useRef(onCollapse);
+    const presentedRef = useRef(onPresented);
     useLayoutEffect(() => { collapseRef.current = onCollapse; });
+    useLayoutEffect(() => { presentedRef.current = onPresented; });
+    useLayoutEffect(() => {
+        if (dialog?.open && shown) presentedRef.current?.(dialog);
+    }, [dialog, shown]);
 
     useLayoutEffect(() => {
         if (!dialog) return;
@@ -102,16 +110,20 @@ export function ComposerModal({ container, label, onCollapse, className, childre
             aria-label={label}
             {...rest}
             className={cx(
-                'm-auto h-fit max-h-[calc(100dvh-2rem)] w-[min(40rem,calc(100vw-2rem))] max-w-none overflow-visible border-0 bg-transparent p-0 text-foreground',
-                'backdrop:bg-black/10 backdrop:backdrop-blur-xs'
+                'h-fit max-w-none overflow-visible border-0 bg-transparent p-0 text-foreground',
+                bottomSheet
+                    ? 'fixed inset-x-0 top-auto bottom-0 m-0 max-h-[62dvh] w-full backdrop:bg-transparent backdrop:[backdrop-filter:none]'
+                    : 'm-auto max-h-[calc(100dvh-2rem)] w-[min(40rem,calc(100vw-2rem))] backdrop:bg-black/10 backdrop:backdrop-blur-xs'
             )}
             // A press on the backdrop is on the dialog itself
             onClick={event => { if (event.target === event.currentTarget) onCollapse(); }}>
-            <TooltipContainerContext value={dialog}>
-                <div className={cx('flex max-h-[calc(100dvh-2rem)] flex-col overflow-y-auto overscroll-contain rounded-xl border bg-popover text-popover-foreground', floatingShadowClassName, className)}>
+            <ModalPortalContext value={dialog}>
+                <div className={cx('flex flex-col overflow-y-auto overscroll-contain border bg-popover text-popover-foreground',
+                    bottomSheet ? 'max-h-[62dvh] rounded-t-2xl pb-[env(safe-area-inset-bottom)]' : 'max-h-[calc(100dvh-2rem)] rounded-xl',
+                    floatingShadowClassName, className)}>
                     {shown && children}
                 </div>
-            </TooltipContainerContext>
+            </ModalPortalContext>
         </dialog>,
         container
     );

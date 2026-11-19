@@ -1,6 +1,6 @@
 'use client';
 
-import { useContext, useId, useRef, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { Popper } from '@signalco/ui-primitives/Popper';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { Button } from '@signalco/ui-primitives/Button';
@@ -13,8 +13,8 @@ import type { useAttachedImage } from '../useAttachedImage';
 import { useMessages } from '../i18n';
 import { moveFocusInMenu } from '../focusKeys';
 import { keepMovedFocus } from '../toolbarReview';
-import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
-import { IconTooltip, TooltipContainerContext, useIconTooltip } from './IconTooltip';
+import { useToolbarPortalContainer } from './CommentsBootstrapperContext';
+import { IconTooltip, useIconTooltip } from './IconTooltip';
 import { useInkContainer } from './InkScope';
 import { composerIconButtonClassName } from './ComposerAttachments';
 import { RecordingIcon } from './RecordingIcon';
@@ -38,11 +38,7 @@ export function ComposerAttachMenu({ image, recording, disabled }: {
     disabled?: boolean;
 }) {
     const t = useMessages();
-    const { rootElement } = useContext(CommentsBootstrapperContext);
-    const modal = useContext(TooltipContainerContext);
-    const ink = useInkContainer();
-    // In an expanded modal, its dialog (the top layer covers the rest); else dark in the ink scope like the form
-    const container = modal ?? ink ?? rootElement;
+    const container = useToolbarPortalContainer(useInkContainer());
     const [open, setOpen] = useState(false);
     const imageInput = useRef<HTMLInputElement>(null);
     const recordingInput = useRef<HTMLInputElement>(null);

@@ -1,17 +1,17 @@
 'use client';
 
-import { useContext, useRef, useState, type ReactNode, type Ref } from 'react';
+import { useLayoutEffect, useRef, useState, type ReactNode, type Ref } from 'react';
 import { Popper } from '@signalco/ui-primitives/Popper';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { Button } from '@signalco/ui-primitives/Button';
 import { Stack } from '@signalco/ui-primitives/Stack';
 import { cx } from '@signalco/ui-primitives/cx';
 import { ArrowDownToLine, ArrowUp, Check, ExternalLink, Mail, MoreHorizontal, Mute, Pin, PinOff, Undo, User, Verified, Volume2 } from '@signalco/ui-icons';
-import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
+import { useToolbarPortalContainer } from './CommentsBootstrapperContext';
 import { floatingShadowClassName } from './@types/Comments';
 import { useIconTooltip } from './IconTooltip';
 import { commentPriority, priorities, type CommentPriority } from '../triage';
-import { toolbarSurface } from '../toolbarReview';
+import { keepMovedFocus, toolbarSurface } from '../toolbarReview';
 import { moveFocusInMenu } from '../focusKeys';
 import { useMessages } from '../i18n';
 import { useInkContainer } from './InkScope';
@@ -50,12 +50,13 @@ function MenuButton({ icon, buttonRef, onClick, disabled, label, href, children 
  * so it stays dark like the thread it belongs to.
  */
 export function CommentThreadMenu({ className, actions, triggerRef }: { className?: string; actions: ThreadMenuActions; triggerRef?: Ref<HTMLButtonElement> }) {
-    const { rootElement } = useContext(CommentsBootstrapperContext);
-    const inkContainer = useInkContainer();
+    const container = useToolbarPortalContainer(useInkContainer());
     const t = useMessages();
     const [open, setOpen] = useState(false);
     const [choosingPriority, setChoosingPriority] = useState(false);
     const firstRef = useRef<HTMLButtonElement>(null);
+    const requestVerification = useRef<(() => void) | undefined>(undefined);
+    useLayoutEffect(() => () => { requestVerification.current = undefined; }, []);
     const { triggerProps, tooltip } = useIconTooltip(t.thread.options);
     const { assign, priority, verify, follow, mute, markUnread, archive, openInApp } = actions;
     if (!assign && !priority && !verify && !follow && !mute && !markUnread && !archive && !openInApp) return null;
@@ -67,6 +68,17 @@ export function CommentThreadMenu({ className, actions, triggerRef }: { classNam
         onOpenAutoFocus: (event: Event) => {
             event.preventDefault();
             firstRef.current?.focus();
+        },
+        onCloseAutoFocus: (event: Event) => {
+            const request = requestVerification.current;
+            requestVerification.current = undefined;
+            if (!request) {
+                keepMovedFocus(event);
+                return;
+            }
+            // As with Ready to verify in the status menu, let the form take focus after the menu closes.
+            event.preventDefault();
+            request();
         }
     };
     let first = true;
@@ -74,7 +86,7 @@ export function CommentThreadMenu({ className, actions, triggerRef }: { classNam
 
     return <>
         <Popper
-            container={inkContainer ?? rootElement}
+            container={container}
             open={open}
             onOpenChange={next => { setOpen(next); if (!next) setChoosingPriority(false); }}
             align="end"
@@ -123,7 +135,8 @@ export function CommentThreadMenu({ className, actions, triggerRef }: { classNam
                     )}
                 </>}
                 {verify && (
-                    <MenuButton buttonRef={takeFirst()} icon={<Verified size={16} />} onClick={() => run(verify.onRequest)}>{verify.label}</MenuButton>
+                    <MenuButton buttonRef={takeFirst()} icon={<Verified size={16} />}
+                        onClick={() => run(() => { requestVerification.current = verify.onRequest; })}>{verify.label}</MenuButton>
                 )}
                 {follow && (
                     <MenuButton buttonRef={takeFirst()} icon={follow.following ? <PinOff size={16} /> : <Pin size={16} />} disabled={follow.pending} onClick={() => run(follow.onToggle)}>

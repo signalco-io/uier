@@ -42,10 +42,11 @@ export function InboxDrafts({ drafts: pageDrafts, keywords = '', onResume, onSen
     const sectionRef = useRef<HTMLElement>(null);
     const listed = pageDrafts.flatMap(draft => {
         const saved = drafts.details(draft.draftKey);
-        const text = saved?.text.trim();
+        const proposal = saved?.proposal;
+        const text = saved?.text.trim() || proposal?.text?.proposed || (proposal ? t.proposal.suggestion : '');
         const quote = draft.position.type === 'text' ? draft.position.text : undefined;
         if (!saved || !text || !matchesFeedbackSearch({ path: '', messages: [{ text, quotedText: quote }] }, keywords)) return [];
-        return [{ draft, text, quote, updatedAt: saved.updatedAt }];
+        return [{ draft, text, quote, suggesting: Boolean(proposal), updatedAt: saved.updatedAt }];
     }).sort((a, b) => b.updatedAt - a.updatedAt);
     if (!listed.length) return null;
 
@@ -69,12 +70,13 @@ export function InboxDrafts({ drafts: pageDrafts, keywords = '', onResume, onSen
                 <span className="tabular-nums">{listed.length}</span>
             </h3>
             <Stack spacing={2}>
-                {listed.map(({ draft, text, quote, updatedAt }, index) => (
+                {listed.map(({ draft, text, quote, suggesting, updatedAt }, index) => (
                     <CommentErrorBoundary key={draft.draftKey}>
                         <InboxDraftCard
                             draft={draft}
                             text={text}
                             quote={quote}
+                            suggesting={suggesting}
                             updatedAt={updatedAt}
                             onResume={() => onResume(draft.draftKey)}
                             onSend={() => keepFocus(index, () => onSend(draft.draftKey))}
@@ -86,10 +88,11 @@ export function InboxDrafts({ drafts: pageDrafts, keywords = '', onResume, onSen
     );
 }
 
-function InboxDraftCard({ draft, text, quote, updatedAt, onResume, onSend, onDiscard }: {
+function InboxDraftCard({ draft, text, quote, suggesting, updatedAt, onResume, onSend, onDiscard }: {
     draft: InboxDraft;
     text: string;
     quote?: string;
+    suggesting: boolean;
     updatedAt: number;
     onResume: () => void;
     onSend: () => void;
@@ -99,7 +102,7 @@ function InboxDraftCard({ draft, text, quote, updatedAt, onResume, onSend, onDis
     // Resumed on its pin, so only while that can be placed (the pin's own placement); else it says why
     const { rects, state } = useCommentPlacement(draft.position);
     const rewriting = draft.kind === 'rewrite';
-    const label = rewriting ? t.inbox.draftRewrite : t.inbox.draftComment;
+    const label = suggesting ? t.proposal.draft : rewriting ? t.inbox.draftRewrite : t.inbox.draftComment;
     return (
         <article aria-label={label} data-uier-inbox-draft={draft.draftKey}
             className="overflow-hidden rounded-xl border bg-card">
@@ -112,7 +115,7 @@ function InboxDraftCard({ draft, text, quote, updatedAt, onResume, onSend, onDis
                 {quote && (
                     <blockquote className="m-0 line-clamp-2 border-l-2 border-border pl-2.5 text-xs text-secondary-foreground">{quote}</blockquote>
                 )}
-                <p className="m-0 line-clamp-3 whitespace-pre-wrap break-words text-sm text-foreground"><ColorText text={markdownPlainText(text)} /></p>
+                <p className="m-0 line-clamp-3 whitespace-pre-wrap break-words text-sm text-foreground"><ColorText text={suggesting ? text : markdownPlainText(text)} /></p>
                 {!rects.length && state !== 'page' && <p className="m-0 text-xs text-muted-foreground">{t.anchor.state[state]}</p>}
             </Stack>
             <div className="flex min-w-0 flex-wrap items-center gap-1 border-t px-2 py-1">
@@ -120,7 +123,7 @@ function InboxDraftCard({ draft, text, quote, updatedAt, onResume, onSend, onDis
                     <DraftAction icon={<Edit size={14} aria-hidden="true" />} onClick={onResume}>{t.toolbar.resumeDraft}</DraftAction>
                 )}
                 <DraftAction icon={<Send size={14} aria-hidden="true" />} onClick={onSend}>
-                    {rewriting ? t.pin.postSuggestion : t.pin.postComment}
+                    {rewriting || suggesting ? t.pin.postSuggestion : t.pin.postComment}
                 </DraftAction>
                 {/* An X, as in the form: named by its tooltip */}
                 <IconTooltip label={t.composer.discard}>

@@ -598,6 +598,41 @@ export const en = {
         limited: (retry: string) => `No more suggestions for now. Try again ${retry}. You can still write your own.`,
         suggestions: 'Suggestions'
     },
+    proposal: {
+        suggest: 'Suggest a change',
+        suggestion: 'Suggested change',
+        draft: 'Draft suggestion',
+        remove: 'Remove suggestion',
+        note: 'Note (optional)',
+        text: 'Replacement text',
+        preview: 'On-page preview',
+        original: 'Original',
+        proposed: 'Proposed',
+        preparing: 'Preparing preview…',
+        values: 'Exact values',
+        stale: 'The page no longer matches the saved original. The saved values are available below.',
+        unavailable: 'This target cannot be previewed here.',
+        invalid: 'Enter a supported CSS value for each changed field.',
+        empty: 'Empty text',
+        copied: 'Copied to clipboard.',
+        copyText: (side: string) => `Copy ${side} text`,
+        copyCss: (side: string) => `Copy ${side} CSS`,
+        sidePadding: 'Side padding',
+        paddingDetails: 'Padding details',
+        mixedValues: 'Mixed values',
+        chooseColor: (property: string) => `Choose ${property}`,
+        properties: {
+            'color': 'Text color',
+            'background-color': 'Background color',
+            'font-size': 'Text size',
+            'font-weight': 'Text weight',
+            'padding-top': 'Top padding',
+            'padding-right': 'Right padding',
+            'padding-bottom': 'Bottom padding',
+            'padding-left': 'Left padding',
+            'border-radius': 'Corner radius'
+        }
+    },
     selection: {
         label: 'Selected text',
         rewrite: 'Rewrite'

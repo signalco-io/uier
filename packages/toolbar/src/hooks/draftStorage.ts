@@ -1,6 +1,7 @@
 import { runtimeAdapters } from '../adapters';
 const storage = () => runtimeAdapters()?.draftStorage ?? localStorage;
 import type { CommentAnchor, Mention } from '../components/@types/Comments';
+import { isChangeProposal, type ChangeProposal } from '../changeProposal';
 
 export const draftStoragePrefix = 'uier:draft:v1:';
 const maxDraftRecordLength = 64_000;
@@ -10,9 +11,10 @@ export type DraftDetails = {
     /** `drawing`: a canvas mode comment's area; its shapes stay in memory */
     anchor?: { kind: 'comment' | 'rewrite' | 'drawing'; position: CommentAnchor };
     originalText?: string;
+    proposal?: ChangeProposal;
 };
 /** Text being sent in the background: the form is empty, the text stays here until the send settles */
-type Sending = { id: string; text: string; mentions?: Mention[]; anchor?: string };
+type Sending = { id: string; text: string; mentions?: Mention[]; anchor?: string; proposal?: string };
 type Attempt = { content: string; key: string };
 type Recovery = { text: string; mentions?: Mention[]; attempt?: Attempt };
 /**
@@ -24,6 +26,7 @@ const maxTextLength = 1000;
 
 /** Sent text back in the draft, before what was written meanwhile (when both fit) */
 function withSentText(value: RecordValue, text: string, mentions: Mention[] = []): RecordValue {
+    if (!text) return value;
     if (!value.text.trim()) return { ...value, text, mentions };
     const joined = `${text}\n\n${value.text}`;
     if (joined.length > maxTextLength) return { ...value, recoveries: [...(value.recoveries ?? []), { text, mentions, attempt: value.attempt }] };
@@ -151,6 +154,8 @@ export function createDraftStore(scope: string[], onWrite?: () => void, persiste
         }
         if (value.unsettled !== undefined && (!Array.isArray(value.unsettled) || value.unsettled.length > 20
             || value.unsettled.some(text => typeof text !== 'string' || text.length > maxTextLength))) delete value.unsettled;
+        if (value.proposal !== undefined && (!isChangeProposal(value.proposal) || value.anchor?.kind !== 'comment'
+            || value.anchor.position.type !== 'point' || value.anchor.position.widthNormal !== undefined)) delete value.proposal;
         if (value.recoveries !== undefined) {
             value.recoveries = Array.isArray(value.recoveries)
                 ? value.recoveries.filter(entry => entry && typeof entry.text === 'string' && entry.text.length <= maxTextLength)
@@ -228,7 +233,7 @@ export function createDraftStore(scope: string[], onWrite?: () => void, persiste
             const previous = read(key);
             const id = Array.from(crypto.getRandomValues(new Uint8Array(8)), value => value.toString(16).padStart(2, '0')).join('');
             write(key, { ...previous, text: '', mentions: [], updatedAt: Date.now(),
-                sending: [...(previous?.sending ?? []), { id, text, mentions, anchor: JSON.stringify(previous?.anchor) }] });
+                sending: [...(previous?.sending ?? []), { id, text, mentions, anchor: JSON.stringify(previous?.anchor), proposal: JSON.stringify(previous?.proposal) }] });
             return id;
         },
         /** Saved: the draft goes (unless something new was written meanwhile). Not saved: its text is back. */
@@ -238,7 +243,8 @@ export function createDraftStore(scope: string[], onWrite?: () => void, persiste
             if (!current || !entry) return;
             const sending = current.sending!.filter(item => item.id !== id);
             const rest: RecordValue = { ...current, attempt: saved ? undefined : current.attempt, sending: sending.length ? sending : undefined };
-            if (saved && !rest.text.trim() && !sending.length && !rest.recoveries?.length && JSON.stringify(rest.anchor) === entry.anchor) {
+            if (saved && !rest.text.trim() && !sending.length && !rest.recoveries?.length
+                && JSON.stringify(rest.anchor) === entry.anchor && JSON.stringify(rest.proposal) === entry.proposal) {
                 remove(key);
                 return;
             }

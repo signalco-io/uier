@@ -1,6 +1,8 @@
 'use client';
 
-import { useContext, useEffect, useImperativeHandle, useMemo, useRef, useState, type MouseEvent, type PointerEvent, type Ref } from 'react';
+import { useContext, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type MouseEvent, type PointerEvent, type Ref } from 'react';
+import { Button } from '@signalco/ui-primitives/Button';
+import { Close } from '@signalco/ui-icons';
 import { Popper } from '@signalco/ui-primitives/Popper';
 import { Divider } from '@signalco/ui-primitives/Divider';
 import { cx } from '@signalco/ui-primitives/cx';
@@ -15,6 +17,7 @@ import { CommentThread } from './CommentThread';
 import { CommentComposer, type CommentComposerHandle } from './CommentComposer';
 import { CommentSelectionHighlight } from './CommentSelectionHighlight';
 import { CommentAreaHighlight } from './CommentAreaHighlight';
+import { ReattachContext } from './CommentAnchorDetails';
 import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
 import { useAnnounce } from './Announcer';
 import { getDeviceInfo } from './info/getDeviceInfo';
@@ -37,6 +40,13 @@ import { commentDrawing, type CommentDrawing } from '../drawing';
 import { useProjectViewer } from '../project/ProjectGate';
 import { getGuestName } from '../project/projectSession';
 import { CommentDraft, CommentItem, CommentItemPosition, commentTextMaxLength, floatingShadowClassName, isCommentArea, type Mention } from './@types/Comments';
+import { useToolbarFeatures } from '../hooks/useToolbarFeatures';
+import { useProposalSession } from '../hooks/useProposalSession';
+import { readProposalTarget } from '../proposalPreview';
+import { revealProposalTarget, stopProposalSession } from '../proposalSession';
+import { buildElementProposal, ProposalFields, proposalValues, type ProposalTarget } from './ProposalFields';
+import { ProposalSwitch, rewriteProposal, savedProposal } from './SavedProposal';
+import { literalTextToMarkdown } from '../editor/markdownDoc';
 
 // Bubble (the pin) half size, how far its message count badge reaches past the right edge (Pin,
 // @uier/brand) and its minimal distance from the window edges
@@ -56,6 +66,14 @@ const popoverCollisionPadding = { top: 8, left: 8, right: 8, bottom: 80 };
  */
 const previewDelay = 400;
 const previewCloseDelay = 150;
+
+const proposalSheetQuery = '(max-width: 599px) and (pointer: coarse)';
+function subscribeToProposalSheet(listener: () => void) {
+    const media = window.matchMedia(proposalSheetQuery);
+    media.addEventListener('change', listener);
+    return () => media.removeEventListener('change', listener);
+}
+const useProposalSheet = () => useSyncExternalStore(subscribeToProposalSheet, () => window.matchMedia(proposalSheetQuery).matches);
 
 /** Half the pin's hit area: 44px on touch (`pointer-coarse:p-1.5`), the pin itself otherwise */
 function bubbleHalfHitArea() {
@@ -140,10 +158,10 @@ type PopoverPlacement = { side: 'top' | 'right' | 'bottom' | 'left'; align: 'sta
  * upside-down one and the toolbar pill, shifted sideways to stay inside. Offsets are from the bubble
  * itself, not its hit area.
  */
-function popoverPlacement(left: number, top: number, upsideDown: boolean): PopoverPlacement {
+function popoverPlacement(left: number, top: number, upsideDown: boolean, wide: boolean): PopoverPlacement {
     const inset = bubbleHalfHitArea() - bubbleHalfSize;
     // The popover's width (`w-72`, Popper), in the page's rem
-    const width = 18 * (Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16);
+    const width = (wide ? 24 : 18) * (Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16);
     const align = upsideDown ? 'end' : 'start';
     if (document.documentElement.clientWidth - popoverCollisionPadding.right - (left + bubbleHalfSize) >= width) {
         return { side: 'right', align, sideOffset: -inset, alignOffset: inset };
@@ -254,14 +272,66 @@ export function CommentBubble(props: CommentBubbleProps) {
     const draftKey = commentItem ? commentItem.id : props.draft.draftKey ?? (rewriting ? newRewriteDraftKey : drawingDraft ? newDrawingDraftKey : newCommentDraftKey);
     const t = useMessages();
     const language = useToolbarLanguage();
-    const newLabel = rewriting ? t.pin.newRewrite : t.pin.newComment;
+    const supportsSuggestions = useToolbarFeatures().includes('rewrite');
+    const canSuggest = creating && supportsSuggestions && !drawingDraft && position.type === 'point' && !isCommentArea(position) && !isToolbarAnchor(position);
+    const [open, setOpen] = useState(creating ? !props.initiallyClosed : continuesDraft);
+    const saved = useMemo(() => savedProposal(commentItem), [commentItem]);
     // Picking a suggestion replaces the text in the text box (as if typed, so it can be undone)
     const composerRef = useRef<CommentComposerHandle>(null);
     // The instruction and suggestions belong to the form, so they go on in the modal and back
     const rewrite = useRewriteSuggestionsState();
 
     const { rootElement } = useContext(CommentsBootstrapperContext);
+    const requestReattach = useContext(ReattachContext);
     const drafts = useDrafts();
+    const draftText = useSyncExternalStore(listener => creating ? drafts.subscribe(draftKey, listener) : () => {}, () => creating ? drafts.get(draftKey) : undefined);
+    const rewriteMentions = useSyncExternalStore(listener => rewriting ? drafts.subscribe(draftKey, listener) : () => {}, () => rewriting ? drafts.details(draftKey)?.mentions : undefined);
+    const draftProposal = useSyncExternalStore(listener => canSuggest ? drafts.subscribe(draftKey, listener) : () => {}, () => canSuggest ? drafts.details(draftKey)?.proposal : undefined);
+    const [proposalEditor, setProposalEditor] = useState<{ original: ProposalTarget; values: ProposalTarget }>();
+    const [proposalUnavailable, setProposalUnavailable] = useState(false);
+    const suggesting = canSuggest && Boolean(proposalEditor || draftProposal);
+    const newLabel = rewriting ? t.pin.newRewrite : suggesting ? t.proposal.suggest : t.pin.newComment;
+    const narrowTouch = useProposalSheet();
+    const elementChanges = useMemo(() => proposalEditor ? buildElementProposal(proposalEditor.original, proposalEditor.values) : undefined, [proposalEditor]);
+    const rewriteChanges = useMemo(() => {
+        if (!rewriting || !draftText) return undefined;
+        const leading = draftText.length - draftText.trimStart().length;
+        const mentions = rewriteMentions?.map(mention => ({ start: mention.start - leading, end: mention.end - leading }));
+        return rewriteProposal(selectedText, draftText.trim(), mentions);
+    }, [rewriting, selectedText, draftText, rewriteMentions]);
+    const draftSession = useProposalSession(position, rewriting ? rewriteChanges : elementChanges?.proposal, creating && open, rewriting);
+    useLayoutEffect(() => {
+        if (!open || !draftProposal || proposalEditor) return;
+        const before = proposalValues(draftProposal, 'original');
+        const after = proposalValues(draftProposal, 'proposed');
+        stopProposalSession();
+        const target = readProposalTarget(position, before.text);
+        const original = { text: before.text ?? target?.text, styles: { ...target?.styles, ...before.styles } };
+        setProposalEditor({ original, values: { ...original, ...after, text: after.text ?? original.text, styles: { ...original.styles, ...after.styles } } });
+    }, [open, position, draftProposal, proposalEditor]);
+
+    const openProposalEditor = () => {
+        stopProposalSession();
+        const original = readProposalTarget(position);
+        if (!original || (!Object.keys(original.styles).length && original.text === undefined)) {
+            setProposalUnavailable(true);
+            return;
+        }
+        setProposalUnavailable(false);
+        setProposalEditor({ original, values: original });
+        draftSession.showProposed();
+    };
+    const updateProposal = (values: ProposalTarget) => {
+        if (!proposalEditor) return;
+        setProposalEditor({ ...proposalEditor, values });
+        drafts.setDetails(draftKey, { proposal: buildElementProposal(proposalEditor.original, values).proposal });
+    };
+    const clearProposal = () => {
+        stopProposalSession();
+        draftSession.showOriginal();
+        setProposalEditor(undefined);
+        drafts.setDetails(draftKey, { proposal: undefined });
+    };
     const announce = useAnnounce();
     const triggerRef = useRef<HTMLButtonElement>(null);
     // Missing, ambiguous and hidden anchors have no pin; their threads stay in the inbox. An anchor in
@@ -284,6 +354,8 @@ export function CommentBubble(props: CommentBubbleProps) {
     // The reviewer's own image, sent instead of the automatic screenshot
     const attachment = useAttachedImage(props.draft?.image, { pastedName: t.attachments.pastedImage });
     const recording = useRecording(props.draft?.recording);
+    const sheet = narrowTouch && (rewriting || suggesting || Boolean(saved))
+        && recording.phase !== 'choosing' && recording.phase !== 'recording';
     // Omitted while it is taken: its work stops. Attached after all: a new one is taken.
     const handleOmittedChange = (omitted: boolean) => {
         setOmitScreenshot(omitted);
@@ -304,6 +376,7 @@ export function CommentBubble(props: CommentBubbleProps) {
     const statusName = pinStage && pinStage !== 'open' ? (pinStatus ? statusLabel(pinStatus, t) : t.status[pinStage]) : undefined;
 
     const handleSubmit = async (text: string, mentions?: Mention[]) => {
+        stopProposalSession();
         if (props.commentItem) {
             const sentImage = attachment.image;
             const sentRecording = recording.current();
@@ -324,7 +397,9 @@ export function CommentBubble(props: CommentBubbleProps) {
 
     // `quiet`: sent from the inbox, its form closed (`send`)
     const createComment = async (text: string, mentions: Mention[] | undefined, sent: typeof capture, quiet: boolean) => {
+        stopProposalSession();
         const draft = props.draft!;
+        const proposal = rewriting ? rewriteProposal(selectedText, text, mentions) : canSuggest ? drafts.details(draftKey)?.proposal : undefined;
         const quotedText = draft.position.type === 'text'
             ? draft.position.text.trim().slice(0, commentTextMaxLength)
             : undefined;
@@ -333,9 +408,10 @@ export function CommentBubble(props: CommentBubbleProps) {
             localId,
             draftKey,
             position: draft.position,
-            kind: rewriting ? 'rewrite' : undefined,
+            kind: rewriting ? 'rewrite' : proposal ? 'comment' : undefined,
             text,
             mentions,
+            proposal,
             quotedText: quotedText || undefined,
             // The original viewport, alongside the automatic capture, even after resizing.
             device: sent?.device ?? getDeviceInfo(),
@@ -352,7 +428,7 @@ export function CommentBubble(props: CommentBubbleProps) {
             window.setTimeout(() => onSendFailed?.(error, { omitScreenshot, image: attachment.image, recording: recording.current(), drawing: draft.drawing }, quiet), 0);
             throw error;
         }
-        announce(rewriting ? t.pin.suggestionPosted : t.pin.commentPosted);
+        announce(rewriting || proposal ? t.pin.suggestionPosted : t.pin.commentPosted);
     };
 
     // Sent from the inbox, as the composer sends it: the form's text moves into the send (`startSend`) and comes back
@@ -362,7 +438,9 @@ export function CommentBubble(props: CommentBubbleProps) {
         send: () => {
             const text = drafts.get(draftKey) ?? '';
             const trimmed = text.trim();
-            if (!creating || !trimmed || attachment.reading || recording.busy || (needsName && !getGuestName())) return false;
+            const proposal = canSuggest ? drafts.details(draftKey)?.proposal : undefined;
+            if (!creating || (!trimmed && !proposal) || attachment.reading || recording.busy || (needsName && !getGuestName())) return false;
+            stopProposalSession();
             const mentions = drafts.details(draftKey)?.mentions ?? [];
             const leading = text.length - text.trimStart().length;
             const selected = mentions.filter(mention => mention.end <= text.trimEnd().length)
@@ -379,7 +457,6 @@ export function CommentBubble(props: CommentBubbleProps) {
         }
     }));
 
-    const [open, setOpen] = useState(creating ? !props.initiallyClosed : continuesDraft);
     // Until it is closed: opening it again animates as usual
     const [continuing, setContinuing] = useState(continuesDraft);
     // A new comment expanded to a modal for focused writing: the popover is closed meanwhile, the form goes on
@@ -387,6 +464,14 @@ export function CommentBubble(props: CommentBubbleProps) {
     // At once: the popover's own close (the focus moving into the modal) comes before the next render
     const expandedRef = useRef(false);
     const setExpanded = (next: boolean) => { expandedRef.current = next; setExpandedState(next); };
+    const separateSurface = expanded || sheet;
+    const restoreSheetFocus = useRef(false);
+    useLayoutEffect(() => {
+        if (open || !restoreSheetFocus.current) return;
+        // The closing sheet has unmounted, so the pin can take focus again.
+        restoreSheetFocus.current = false;
+        triggerRef.current?.focus({ preventScroll: true });
+    }, [open]);
     // Opened with J or K: the messages have the focus, so the keys go on to the next thread instead of typing
     const [reading, setReading] = useState(false);
     const messagesRef = useRef<HTMLDivElement>(null);
@@ -453,6 +538,7 @@ export function CommentBubble(props: CommentBubbleProps) {
     const handleOpenChange = (open: boolean) => {
         // Keep Stop reachable while the reviewer uses the page being recorded. This stays non-modal.
         if (!open && (recording.phase === 'choosing' || recording.phase === 'recording')) return;
+        if (!open) stopProposalSession();
         setContinuing(false);
         setExpanded(false);
         if (open && creating) setCapture({ device: getDeviceInfo(), screenshot: captureCommentScreenshot(position, rootElement, drawing) });
@@ -465,7 +551,9 @@ export function CommentBubble(props: CommentBubbleProps) {
             // back. A rewrite whose text is still the selected text has nothing to keep. A drawing is
             // something to keep by itself: Discard removes it.
             const text = drafts.get(draftKey)?.trim();
-            if (creating && !drawingDraft && !recording.current() && (!text?.length || (rewriting && text === selectedText?.trim()))) {
+            const saved = drafts.details(draftKey);
+            const unchangedRewrite = rewriting && selectedText !== undefined && text === literalTextToMarkdown(selectedText).trim();
+            if (creating && !drawingDraft && !recording.current() && !saved?.proposal && (!text?.length || unchangedRewrite)) {
                 drafts.delete(draftKey);
                 onCanceled?.();
             }
@@ -474,6 +562,7 @@ export function CommentBubble(props: CommentBubbleProps) {
     };
 
     const handleDiscard = () => {
+        stopProposalSession();
         mutation.reset();
         rewrite.reset();
         drafts.delete(draftKey);
@@ -543,7 +632,8 @@ export function CommentBubble(props: CommentBubbleProps) {
 
     const pinLeft = naturalLeft + shift.dx;
     const pinTop = naturalTop + shift.dy;
-    const placement = popoverPlacement(pinLeft, pinTop, upsideDown);
+    const wideProposal = suggesting || Boolean(saved);
+    const placement = popoverPlacement(pinLeft, pinTop, upsideDown, wideProposal);
     const participantsSide = pinLeft + participantsReach <= document.documentElement.clientWidth - bubbleWindowMargin ? 'right' : 'left';
     const participantsText = participants.length
         ? t.pin.participants(new Intl.ListFormat(language, { type: 'conjunction' }).format(participants.map(person => person.isMe ? t.pin.participantsYou : person.name)))
@@ -553,13 +643,14 @@ export function CommentBubble(props: CommentBubbleProps) {
     const popoverClassName = cx(
         onToolbar ? 'z-[78]' : 'z-[60]',
         'flex max-h-[min(var(--radix-popover-content-available-height),36rem)] flex-col rounded-xl',
+        wideProposal && 'w-[min(24rem,calc(100vw-16px))]',
         // A rewrite (suggestions and text box) scrolls as a whole: when it is clipped, the
         // browser would scroll the page to show the caret, and the popover follows its pin
-        rewriting ? 'overflow-y-auto overscroll-contain' : 'overflow-hidden',
+        rewriting || suggesting ? 'overflow-y-auto overscroll-contain' : 'overflow-hidden',
         // In place of the draft's popover, already on the page
         continuing && 'data-[state=open]:animate-none!',
         // Expanding: gone at once, the modal is there
-        expanded && 'data-[state=closed]:animate-none!',
+        separateSurface && 'data-[state=closed]:animate-none!',
         floatingShadowClassName
     );
 
@@ -568,18 +659,44 @@ export function CommentBubble(props: CommentBubbleProps) {
     const surface = commentItem && !preview ? toolbarSurface('uier-thread', popoverClassName) : { className: popoverClassName, onCloseAutoFocus: undefined };
     const handleCloseAutoFocus = (event: Event) => {
         // A preview never had the focus: it stays where it is, not on the pin
-        if (previewedRef.current) event.preventDefault();
+        if (previewedRef.current || separateSurface) event.preventDefault();
         else surface.onCloseAutoFocus?.(event);
     };
+    const closeSheet = () => {
+        restoreSheetFocus.current = true;
+        handleOpenChange(false);
+    };
+    const sheetClose = <IconTooltip label={t.common.close}>
+        <IconButton type="button" variant="plain" size="xs" aria-label={t.common.close}
+            className={composerIconButtonClassName} data-uier-proposal-sheet-close="" onClick={closeSheet}>
+            <Close size={16} aria-hidden="true" />
+        </IconButton>
+    </IconTooltip>;
+
+    const proposalSwitch = <ProposalSwitch session={draftSession} position={position} disabled={!(rewriting ? rewriteChanges : elementChanges?.proposal)} />;
+    const draftProposalStatus = draftSession.result === 'stale' && <p role="status" className="m-0 text-xs text-muted-foreground">{t.proposal.unavailable}</p>;
+    const suggestionControls = suggesting && proposalEditor
+        ? <ProposalFields {...proposalEditor} invalid={elementChanges?.invalid ?? []} onChange={updateProposal}>
+            {proposalSwitch}
+            {draftProposalStatus}
+        </ProposalFields>
+        : canSuggest && <>
+            <Button type="button" size="sm" variant="outlined" data-uier-suggest-change=""
+                className="self-start pointer-coarse:min-h-11" onClick={openProposalEditor}>{t.proposal.suggest}</Button>
+            {proposalUnavailable && <p role="status" className="m-0 text-xs text-muted-foreground">{t.proposal.unavailable}</p>}
+        </>;
 
     // A pasted (or dropped, `onImageDrop`) image file is attached to a new comment, instead of its screenshot
     const composer = (
-        <div className="shrink-0" onPaste={attachment.handlePaste}>
+        <div className="shrink-0" onPaste={attachment.handlePaste}
+            onFocusCapture={creating ? undefined : stopProposalSession}>
             {creating && (
                 <ComposerAttachmentsHeader
                     title={<span className="text-sm font-semibold text-foreground">{newLabel}</span>}
                     attachment={attachment}
                     actions={<>
+                        {suggesting && <Button type="button" size="xs" variant="plain"
+                            className="pointer-coarse:min-h-11" onClick={clearProposal}>{t.proposal.remove}</Button>}
                         {drawingDraft && onEditDrawing && placementState === 'exact' && (
                             <IconTooltip label={t.canvas.editDrawing}>
                                 <IconButton
@@ -594,24 +711,25 @@ export function CommentBubble(props: CommentBubbleProps) {
                                 </IconButton>
                             </IconTooltip>
                         )}
-                        <ExpandComposerButton expanded={expanded} onExpandedChange={setExpanded} />
+                        {sheet ? sheetClose : <ExpandComposerButton expanded={expanded} onExpandedChange={setExpanded} />}
                     </>} />
             )}
             <CommentComposer
                 commentId={commentItem?.id}
                 ref={composerRef}
-                label={rewriting ? t.pin.suggestedText : (creating ? t.pin.comment : t.pin.reply)}
-                placeholder={rewriting ? t.pin.suggestionPlaceholder : (creating ? t.pin.commentPlaceholder : t.thread.replyPlaceholder)}
-                submitLabel={rewriting ? t.pin.postSuggestion : (creating ? t.pin.postComment : t.thread.postReply)}
+                label={rewriting ? t.pin.suggestedText : suggesting ? t.proposal.note : (creating ? t.pin.comment : t.pin.reply)}
+                placeholder={rewriting ? t.pin.suggestionPlaceholder : suggesting ? t.proposal.note : (creating ? t.pin.commentPlaceholder : t.thread.replyPlaceholder)}
+                submitLabel={rewriting || suggesting ? t.pin.postSuggestion : (creating ? t.pin.postComment : t.thread.postReply)}
+                allowEmpty={suggesting && Boolean(draftProposal)}
                 draftKey={draftKey}
                 quote={selectedText}
                 // Not when it appears in a thread that is closing (its comment was saved after
                 // Escape): the focus, and a page selection made meanwhile, stay where they are
-                autoFocus={open && !reading}
-                tall={expanded}
+                autoFocus={open && !reading && !suggesting && (!sheet || creating)}
+                tall={expanded && !sheet}
                 error={mutation.error ?? props.draft?.sendError}
-                holdSubmit={attachment.reading}
-                recording={{ ...recording, start: () => { setExpanded(false); return recording.start(); } }}
+                holdSubmit={attachment.reading || (suggesting && (!draftProposal || Boolean(elementChanges?.invalid.length)))}
+                recording={{ ...recording, start: () => { stopProposalSession(); setExpanded(false); return recording.start(); } }}
                 // Replies wait until the comment is saved (they need its id); the reply box
                 // is there already, so the thread keeps its size and the focus stays in it
                 waiting={sending}
@@ -625,22 +743,51 @@ export function CommentBubble(props: CommentBubbleProps) {
                 )}
                 onImageDrop={file => void attachment.attach(file)}
                 // A rewrite's form: the quoted text, the suggestions, then the suggested text in its box
-                beforeText={rewriting && selectedText ? (
+                beforeText={rewriting && selectedText ? <>
                     <RewriteSuggestions
                         text={selectedText}
                         state={rewrite}
-                        onPick={(suggestion) => composerRef.current?.replaceText(suggestion)} />
-                ) : undefined}
+                        onPick={(suggestion) => composerRef.current?.replaceText(literalTextToMarkdown(suggestion))} />
+                    {proposalSwitch}
+                    {draftProposalStatus}
+                </> : suggestionControls}
                 onSubmit={handleSubmit}
-                discardable={drawingDraft}
+                discardable={drawingDraft || suggesting}
                 onDiscard={() => { recording.discard(); if (creating) handleDiscard(); else attachment.remove(); }} />
             {!creating && attachment.error && <p role="alert" className="m-0 px-3 pb-2 text-xs text-destructive">{attachment.error}</p>}
         </div>
     );
 
+    const thread = commentItem && !preview && <>
+        {/* Focusable so the thread can be scrolled with the keyboard */}
+        <div
+            ref={messagesRef}
+            tabIndex={0}
+            aria-label={t.pin.messages}
+            role="group"
+            {...(revealControls && { 'data-uier-controls-reveal': '' })}
+            className="min-h-0 flex-1 overflow-y-auto outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
+            <CommentThread commentItem={commentItem} reading={open} onPage previewOnPage={open} allMessages={revealControls} />
+        </div>
+        <Divider className="shrink-0" />
+    </>;
+
     return (
         <>
-            {creating && open && expanded && (
+            {open && sheet && (
+                <ComposerModal container={rootElement} label={creating ? newLabel : t.pin.thread} onCollapse={closeSheet}
+                    onPresented={dialog => revealProposalTarget(position, dialog)} bottomSheet data-uier-proposal-sheet="" {...holdsLayers}>
+                    {commentItem && <div className="flex shrink-0 items-center justify-between border-b px-3 py-1.5">
+                        <span className="text-sm font-semibold">{t.pin.thread}</span>
+                        {sheetClose}
+                    </div>}
+                    <ReattachContext value={comment => { handleOpenChange(false); requestReattach(comment); }}>
+                        {thread}
+                        {composer}
+                    </ReattachContext>
+                </ComposerModal>
+            )}
+            {creating && open && expanded && !sheet && (
                 <ComposerModal container={rootElement} label={newLabel} onCollapse={() => setExpanded(false)} {...holdsLayers}>
                     {composer}
                 </ComposerModal>
@@ -742,12 +889,12 @@ export function CommentBubble(props: CommentBubbleProps) {
                 sideOffset={placement.sideOffset}
                 align={placement.align}
                 alignOffset={placement.alignOffset}
-                open={(open || preview) && !expanded}
+                open={(open || preview) && !separateSurface}
                 // Not while expanded: the popover makes way for the modal, which has the focus now.
                 // A preview (Escape, a press outside) just closes.
                 onOpenChange={next => {
                     if (!next && preview) setPreviewing(false);
-                    else if (next || !expandedRef.current) handleOpenChange(next);
+                    else if (next || (!expandedRef.current && !sheet)) handleOpenChange(next);
                 }}
                 // Passed through to the Radix popover content (the Popper's own value is derived from the offsets)
                 {...{ collisionPadding: popoverCollisionPadding }}
@@ -761,22 +908,8 @@ export function CommentBubble(props: CommentBubbleProps) {
                         </div>
                     </div>
                 )}
-                {commentItem && !preview && (
-                    <>
-                        {/* Focusable so the thread can be scrolled with the keyboard */}
-                        <div
-                            ref={messagesRef}
-                            tabIndex={0}
-                            aria-label={t.pin.messages}
-                            role="group"
-                            {...(revealControls && { 'data-uier-controls-reveal': '' })}
-                            className="min-h-0 flex-1 overflow-y-auto outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
-                            <CommentThread commentItem={commentItem} reading={open} onPage allMessages={revealControls} />
-                        </div>
-                        <Divider className="shrink-0" />
-                    </>
-                )}
-                {!preview && composer}
+                {!separateSurface && thread}
+                {!preview && !separateSurface && composer}
             </Popper>
         </>
     );

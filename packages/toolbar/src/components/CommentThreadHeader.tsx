@@ -16,7 +16,7 @@ import { commentPriority, type CommentPriority as CommentPriorityValue } from '.
 import { commentLink } from '../review';
 import { toolbarConfig } from '../config';
 import { useProjectViewer } from '../project/ProjectGate';
-import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
+import { CommentsBootstrapperContext, useToolbarPortalContainer } from './CommentsBootstrapperContext';
 import { CommentsErrorMessage } from './CommentsErrorMessage';
 import { useAnnounce } from './Announcer';
 import { CommentItem, destructiveTextClassName, floatingShadowClassName } from './@types/Comments';
@@ -99,7 +99,7 @@ function CommentStatusMenu({ stage, allowed, pending, shortcut, onChange, status
     statuses?: WorkflowStatus[]; selectedId?: string; canArchive: boolean;
     onChange: (stage: FeedbackStage | 'archive', statusId?: string) => void;
 }) {
-    const { rootElement } = useContext(CommentsBootstrapperContext);
+    const container = useToolbarPortalContainer();
     const t = useMessages();
     const [open, setOpen] = useState(false);
     const currentRef = useRef<HTMLButtonElement>(null);
@@ -133,7 +133,7 @@ function CommentStatusMenu({ stage, allowed, pending, shortcut, onChange, status
     };
     return (
         <Popper
-            container={rootElement}
+            container={container}
             open={open}
             onOpenChange={setOpen}
             align="start"

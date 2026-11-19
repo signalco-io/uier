@@ -23,6 +23,10 @@ no cover over the page:
 - The element is the topmost one whose own box holds the pointer, so a stretched link (`::after` over a row or
   card) does not hide the row's picture, summary or badges.
 
+An element opens the usual point comment. With the project's Rewrite tool visible, **Suggest a change** opens
+the element's copy and CSS fields in that composer. Area and drawing comments keep their existing forms.
+See [element suggestions](composer-popovers.md#an-element-suggestion).
+
 ## Areas
 
 - A mouse or pen drag draws an area instead (`data-uier-drawing`), also when it ends over the toolbar. The click

@@ -4,7 +4,7 @@ import { CheckRecheck } from './checks/CheckRecheck';
 import { readyForReview } from '../verification';
 import { CommentAnchorDetails } from './CommentAnchorDetails';
 import { DraftsProvider } from '../hooks/useDrafts';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Stack } from '@signalco/ui-primitives/Stack';
 import { Button } from '@signalco/ui-primitives/Button';
 import { useReadComment } from '../hooks/useComments';
@@ -15,19 +15,25 @@ import { ThreadNotifications } from './ThreadNotifications';
 import { toolbarConfig } from '../config';
 import { useVisitor } from '../hooks/useVisitor';
 import { useMessages } from '../i18n';
+import { SavedProposal, savedProposal } from './SavedProposal';
+import { stopProposalSession } from '../proposalSession';
 
 /**
  * A thread: its first and last message, and "Show all" for the ones between. On the page (a pin's
  * popover, `onPage`) it leaves out where it came from: that is the page it is on. `allMessages` starts
  * with every message shown: a pin's hover preview, and the thread opened from it (uier #322).
  */
-export function CommentThread({ commentItem, reading = false, onPage = false, allMessages = false, children }: { commentItem: CommentItem; reading?: boolean; onPage?: boolean; allMessages?: boolean; children?: ReactNode }) {
-    return <DraftsProvider page={commentItem.path}><ThreadContents commentItem={commentItem} reading={reading} onPage={onPage} allMessages={allMessages} />{children}</DraftsProvider>;
+export function CommentThread({ commentItem, reading = false, onPage = false, allMessages = false, previewOnPage = false, children }: { commentItem: CommentItem; reading?: boolean; onPage?: boolean; allMessages?: boolean; previewOnPage?: boolean; children?: ReactNode }) {
+    return <DraftsProvider page={commentItem.path}>
+        <ThreadContents commentItem={commentItem} reading={reading} onPage={onPage} allMessages={allMessages} previewOnPage={previewOnPage} />
+        {children}
+    </DraftsProvider>;
 }
 
-function ThreadContents({ commentItem, reading, onPage, allMessages }: { commentItem: CommentItem; reading: boolean; onPage: boolean; allMessages: boolean }) {
+function ThreadContents({ commentItem, reading, onPage, allMessages, previewOnPage }: { commentItem: CommentItem; reading: boolean; onPage: boolean; allMessages: boolean; previewOnPage: boolean }) {
     // Request verification opens from Thread options; focus goes back there
     const [verifying, setVerifying] = useState(false);
+    const proposal = useMemo(() => savedProposal(commentItem), [commentItem]);
     const [verificationStatusId, setVerificationStatusId] = useState<string>();
     const t = useMessages();
     const optionsRef = useRef<HTMLButtonElement>(null);
@@ -91,7 +97,7 @@ function ThreadContents({ commentItem, reading, onPage, allMessages }: { comment
         // Tight around the messages (uier #215): the header, the messages and what follows them are 8 px apart
         <Stack ref={threadRef} spacing={1} className="px-4 py-3">
             <CommentThreadHeader comment={commentItem} onMarkedUnread={() => setKeptUnread(true)}
-                onRequestVerification={statusId => { setVerificationStatusId(statusId); setVerifying(true); }} optionsRef={optionsRef} />
+                onRequestVerification={statusId => { stopProposalSession(); setVerificationStatusId(statusId); setVerifying(true); }} optionsRef={optionsRef} />
             {/* Where it came from */}
             {source && <div className="text-xs text-muted-foreground">{source}</div>}
             {/* The messages, one under the other like a chat; the avatars make the column */}
@@ -102,6 +108,7 @@ function ThreadContents({ commentItem, reading, onPage, allMessages }: { comment
                         comment={commentItem}
                         threadItem={threadFistItem} />
                 )}
+                {proposal && <SavedProposal key={commentItem.anchorContext?.revision ?? 'original'} comment={commentItem} proposal={proposal} interactive={previewOnPage && !verifying} />}
                 {expanded && restComments.map((item, index) => (
                     <div
                         key={item.id}

@@ -1,11 +1,11 @@
-import { useContext, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '@signalco/ui-primitives/Button';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { Popper } from '@signalco/ui-primitives/Popper';
 import { Stack } from '@signalco/ui-primitives/Stack';
 import { cx } from '@signalco/ui-primitives/cx';
 import { Copy, FileText, Link } from '@signalco/ui-icons';
-import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
+import { useToolbarPortalContainer } from './CommentsBootstrapperContext';
 import { floatingShadowClassName } from './@types/Comments';
 import { useIconTooltip } from './IconTooltip';
 import type { FeedbackExport } from '../feedbackContext';
@@ -59,7 +59,7 @@ export function CopyMenu({ state, className, linkAvailable, onCopyLink }: {
     linkAvailable: boolean;
     onCopyLink: () => void;
 }) {
-    const { rootElement } = useContext(CommentsBootstrapperContext);
+    const container = useToolbarPortalContainer();
     const t = useMessages();
     const [open, setOpen] = useState(false);
     const issueRef = useRef<HTMLButtonElement>(null);
@@ -67,7 +67,7 @@ export function CopyMenu({ state, className, linkAvailable, onCopyLink }: {
     const contentProps = { onOpenAutoFocus: (event: Event) => { event.preventDefault(); issueRef.current?.focus(); } };
     return <span className="relative inline-flex shrink-0">
         <Popper
-            container={rootElement}
+            container={container}
             open={open}
             onOpenChange={setOpen}
             align="end"

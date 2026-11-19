@@ -36,6 +36,20 @@ Checked in `apps/web/e2e/toolbar-thread.spec.ts`.
 - No thread activity (who changed what): that history is in the app only (uier #374).
 - A saved screenshot is a thumbnail ([saved images](screenshots.md#saved-images)).
 
+## Reviewing a saved suggestion
+
+The pin opens with **Original** selected. **Proposed** temporarily shows the suggestion on its target, including
+legacy rewrites whose existing quote and message supply the text. **Exact values** shows both sides and offers
+clipboard controls for text and CSS. A narrow touch screen uses a bottom sheet. Its menus mount inside the
+native dialog, outside the scroll area, so touch and keyboard focus reach them. Escape dismisses the open
+menu before the sheet. `apps/web/e2e/change-proposal-handoff.spec.ts` follows the URL from the toolbar's
+Copy link as an invited reviewer and checks the sheet's copy, status and verification controls.
+
+If the saved target or its captured values no longer match the page, the difference remains available to copy
+and the toolbar leaves the page unchanged. The first message's existing **Reattach comment** flow is available
+to reviewers who can edit the anchor on the original page. Thread access and inbox visibility follow the same
+rules as other comments.
+
 ## The header
 
 `CommentThreadHeader.tsx` is one line:

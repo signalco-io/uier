@@ -58,6 +58,26 @@ like the attached image: Expand and Collapse keep them; closing the popover or D
 `components/RewriteSuggestions.tsx` and `hooks/useRewriteSuggestions.tsx` ask `POST /api/rewrite` (with a
 project, its review API) for the suggestions.
 
+Typed and picked rewrites update the selected range on the page. **Original** pauses that preview and
+**Proposed** replays it. The rewrite keeps its text, quote, attachments and posting flow. Page copy and AI
+replacements enter the rich editor as literal text, including formatting characters. On a narrow touch
+screen it opens in a scrollable bottom sheet that keeps the target visible above it where space allows.
+
+### An element suggestion
+
+Point at an element to open its comment, then choose **Suggest a change**. The action follows the project's
+Rewrite tool visibility. The editor shows the captured computed originals, exact CSS inputs with color pickers
+for text and background, replacement text where available, text size and weight, padding and corner radius.
+**Side padding** updates both horizontal sides in one entry. **Padding details** exposes all four sides for
+individual overrides. Each changed value previews on that element and the entire change posts under one pin.
+The note is optional. Valid changes and the note are kept in the existing scoped draft, including proposals
+with an empty note. On a narrow touch screen the editor uses a bottom sheet with a transparent backdrop.
+
+The preview starts when the page matches the captured values. Before capturing a screenshot, the toolbar
+restores the page and waits until capture finishes to apply a newly requested preview. Submitting, closing,
+navigating, opening a reply or verification, and starting a competing preview restore the page. See
+[reviewing a saved suggestion](comment-thread.md#reviewing-a-saved-suggestion).
+
 ### A drawing
 
 A drawing's comment ([canvas mode](canvas-mode.md)) is the comment form on the drawing's area, with **Edit
@@ -266,7 +286,8 @@ text box starts at 8 lines (`CommentComposer`'s `tall`).
   close (the focus moving into the modal) is ignored (`expandedRef`), so it never cancels the draft.
 - The form mounts once the dialog is shown: a closed dialog has no layout, and the text box sizes itself to its
   text when it mounts. Escape in the text box reaches the dialog: the editor passes it on unless a mention list
-  takes it. Tooltips go into the dialog (`TooltipContainerContext`), not under it.
+  takes it. Tooltips and menus use `ModalPortalContext` to mount directly inside the dialog, outside its
+  scrolling content.
 - The modal carries the comment being written, so it is not a reviewable part of the toolbar; a comment on a
   toolbar part keeps that part's popover open from the modal too (`data-uier-holds-layers`). Letter shortcuts
   do not act in it ([keyboard](keyboard.md)).
@@ -278,6 +299,8 @@ image and screenshot choice, Escape, Collapse and sending; a new comment's modal
 backdrop and posting. `rewrite.spec.ts`: a rewrite's form in order, Enter in the instruction not posting, and its
 instruction and suggestions kept in the modal and back. `new-comment-after-thread.spec.ts`: posting keeps one popover open (no gap, no opening
 animation, the same element once saved). `screenshots.spec.ts`: Attach image in the text box.
+`change-proposals.spec.ts`: a point proposal with no note, shared side padding and an override, draft recovery,
+exact values, stale targets and typed, AI and legacy rewrite previews on desktop and phone.
 `showcase.spec.ts` (desktop and mobile): a pin at the bottom and right edges is upside down, its thread inside
 the window, clear of the pill and the pin.
 `pin-numbers.spec.ts` (desktop and mobile): pins on the same and nearby spots apart, the oldest on its anchor, each
