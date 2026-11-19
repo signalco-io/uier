@@ -3,7 +3,7 @@ import { changeProposalTextMaxLength, changeStyleProperties, isChangeProposal, i
 import type { ChangeProposal, ChangeStyleProperty } from './changeProposal';
 import type { CommentAnchor, CommentItemPosition, CommentPoint } from './components/@types/Comments';
 import { isCommentArea } from './components/@types/Comments';
-import { previewTextOffsets, resolvePreviewAnchor, resolvePreviewTextRange, trackPreviewTextRange } from './hooks/useCommentItemRects';
+import { resolvePreviewAnchor, resolvePreviewTextRange, trackPreviewTextRange } from './hooks/useCommentItemRects';
 import { getToolbarHost } from './mount';
 import { isToolbarAnchor, queryAnchorElements } from './toolbarReview';
 
@@ -139,11 +139,12 @@ function targetText(position: CommentAnchor, target: Target, selection: PreviewS
     const raw = textOf(parts);
     if (!raw.trim() || raw.length > changeProposalTextMaxLength || (range && !range.getClientRects().length)) return null;
     const text = quote ?? (position.type === 'text' ? position.text : raw);
-    if (text === raw) return { text, raw, parts };
+    if (text === raw) return { text, parts, offsets: (start: number, end: number) => [start, end] as const };
     // Older rewrite messages can hold the exact captured quote with its outer whitespace trimmed.
     if (text.length > changeProposalTextMaxLength || position.type !== 'text'
-        || (text !== position.text && text !== position.text.trim()) || !selection?.matches(text)) return null;
-    return { text, raw, parts };
+        || (text !== position.text && text !== position.text.trim())) return null;
+    const offsets = selection?.offsetsFor(text);
+    return offsets ? { text, parts, offsets } : null;
 }
 
 export function readProposalTarget(position: CommentItemPosition, quotedText?: string): { text?: string; styles: StyleValues } | null {
@@ -171,33 +172,14 @@ function rangeOf(parts: TextPart[]) {
     return range;
 }
 
-function sourceOffsets(raw: string, quote: string, start: number, end: number) {
-    if (raw === quote) return [start, end] as const;
-    const source = previewTextOffsets(raw);
-    const firstRendered = quote.startsWith(' ') ? 1 : 0;
-    const lastRendered = quote.endsWith(' ') ? quote.length - 1 : quote.length;
-    function sourceOffset(offset: number) {
-        // Browsers may include a collapsed edge space in the selection. The whole run maps to
-        // that space; when no edge space was selected, leave the run intact.
-        if (offset < firstRendered) return source[0]! > 0 ? 0 : undefined;
-        if (offset > lastRendered) return source.at(-1)! < raw.length ? raw.length : undefined;
-        return source[offset - firstRendered];
-    }
-    const first = sourceOffset(start);
-    const last = sourceOffset(end);
-    return first === undefined || last === undefined ? null : [first, last] as const;
-}
-
-function planText({ parts, text: original, raw }: NonNullable<ReturnType<typeof targetText>>, proposed: string) {
+function planText({ parts, text: original, offsets }: NonNullable<ReturnType<typeof targetText>>, proposed: string) {
     let prefix = 0;
     while (prefix < original.length && prefix < proposed.length && original[prefix] === proposed[prefix]) prefix++;
     let suffix = 0;
     while (suffix < original.length - prefix && suffix < proposed.length - prefix
         && original[original.length - 1 - suffix] === proposed[proposed.length - 1 - suffix]) suffix++;
 
-    const offsets = sourceOffsets(raw, original, prefix, original.length - suffix);
-    if (!offsets) return null;
-    const [start, end] = offsets;
+    const [start, end] = offsets(prefix, original.length - suffix);
     const replacement = proposed.slice(prefix, proposed.length - suffix);
     const patches: TextPatch[] = [];
     let cursor = 0;
@@ -238,15 +220,25 @@ function hasDeclaration(style: CSSStyleDeclaration, { name, preview }: StylePatc
     return style.getPropertyValue(name) === preview.value && style.getPropertyPriority(name) === preview.priority;
 }
 
-function settleStyleTransitions(element: Target['element'], patches: StylePatch[]) {
-    if (!patches.length || !element.isConnected) return;
-    const owned = new Set(patches.filter(patch => patch.owned).map(patch => patch.name));
-    if (!owned.size) return;
-
-    // Transitions take precedence over inline !important. getAnimations flushes styles so both
-    // the change and its reversal can settle synchronously, including for an original capture.
-    for (const animation of element.getAnimations()) {
-        if (animation instanceof CSSTransition && owned.has(animation.transitionProperty)) animation.cancel();
+function withSettledStyleTransitions(element: Target['element'], change: () => void) {
+    if (!element.isConnected) {
+        change();
+        return;
+    }
+    // The subtree query includes generated pseudo-elements and flushes pending host styles.
+    const animations = () => element.getAnimations({ subtree: true });
+    const seen = new Set(animations());
+    change();
+    for (;;) {
+        // Settling a parent transition can expose another transition on an inheriting child.
+        let settled = false;
+        for (const animation of animations()) {
+            if (!(animation instanceof CSSTransition) || seen.has(animation)) continue;
+            seen.add(animation);
+            animation.cancel();
+            settled = true;
+        }
+        if (!settled) return;
     }
 }
 
@@ -335,10 +327,9 @@ export function startProposalPreview(position: CommentItemPosition, proposal: Ch
             oldStyle.removeProperty(name);
             oldStyle.setProperty(name, preview.value, preview.priority);
         }
-        element.style.cssText = oldStyle.cssText;
+        withSettledStyleTransitions(element, () => { element.style.cssText = oldStyle.cssText; });
     }
     const appliedStyle = oldStyle.cssText;
-    settleStyleTransitions(element, styles.filter(patch => hasDeclaration(element.style, patch)));
 
     const untrack = text && position.type === 'text' ? trackPreviewTextRange(position, element, text.range) : undefined;
     const navigation = window.navigation;
@@ -376,13 +367,16 @@ export function startProposalPreview(position: CommentItemPosition, proposal: Ch
             if (edit.owned && edit.node.data === edit.preview
                 && (!parent || parent === edit.parent || canPreviewText(edit.node))) edit.node.data = edit.before;
         }
-        if (styles.length && !styleWritten && element.style.cssText === appliedStyle) {
-            if (hadStyleAttribute) element.style.cssText = originalStyle;
-            else element.removeAttribute('style');
-        } else {
-            restoreDeclarations(element.style, styles, originalOrder);
+        if (styles.some(patch => patch.owned)) {
+            withSettledStyleTransitions(element, () => {
+                if (!styleWritten && element.style.cssText === appliedStyle) {
+                    if (hadStyleAttribute) element.style.cssText = originalStyle;
+                    else element.removeAttribute('style');
+                } else {
+                    restoreDeclarations(element.style, styles, originalOrder);
+                }
+            });
         }
-        settleStyleTransitions(element, styles);
         return true;
     }
 

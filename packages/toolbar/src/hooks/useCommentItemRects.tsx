@@ -151,32 +151,69 @@ function rangeFromOffsets(position: CommentSelection): Range | null {
 }
 
 const collapsiblePreviewWhitespace = /[ \t\r\n]+/g;
+const collapsibleHorizontalWhitespace = /[ \t]+/g;
 
-/** Map the trimmed and collapsed text's UTF-16 boundaries back to the source. */
-export function previewTextOffsets(text: string) {
-    const offsets = [0];
-    let cursor = 0;
-    for (const run of text.matchAll(collapsiblePreviewWhitespace)) {
-        const start = run.index;
-        const end = start + run[0].length;
-        while (cursor < start) offsets.push(++cursor);
-        if (start === 0) offsets[0] = end;
-        else if (end < text.length) offsets.push(end);
-        cursor = end;
-    }
-    while (cursor < text.length) offsets.push(++cursor);
-    return offsets;
-}
-
-function rangeCollapsesWhitespace(range: Range) {
+function rangeWhitespaceRuns(range: Range, raw: string) {
     const root = range.commonAncestorContainer;
     const nodes = root instanceof Text ? [root] : textNodesOf(root).filter(node => range.intersectsNode(node));
-    return nodes.every(node => {
+    const runs: { start: number; end: number }[] = [];
+    const modes = new Map<Element, string>();
+    let offset = 0;
+    for (const node of nodes) {
         const start = node === range.startContainer ? range.startOffset : 0;
         const end = node === range.endContainer ? range.endOffset : node.length;
-        return node.data.slice(start, end).search(collapsiblePreviewWhitespace) < 0
-            || Boolean(node.parentElement && getComputedStyle(node.parentElement).whiteSpaceCollapse === 'collapse');
-    });
+        const text = node.data.slice(start, end);
+        const parent = node.parentElement;
+        if (parent && /[ \t\r\n]/.test(text)) {
+            const mode = modes.get(parent) ?? getComputedStyle(parent).whiteSpaceCollapse;
+            modes.set(parent, mode);
+            const whitespace = mode === 'collapse' ? collapsiblePreviewWhitespace
+                : mode === 'preserve-breaks' ? collapsibleHorizontalWhitespace : undefined;
+            for (const match of whitespace ? text.matchAll(whitespace) : []) {
+                const start = offset + match.index;
+                const end = start + match[0].length;
+                const last = runs.at(-1);
+                if (last?.end === start) last.end = end;
+                else runs.push({ start, end });
+            }
+        }
+        offset += text.length;
+    }
+    return offset === raw.length ? runs : null;
+}
+
+type SourceOffsets = (start: number, end: number) => readonly [number, number];
+
+function renderedSourceOffsets(raw: string, quote: string, runs: NonNullable<ReturnType<typeof rangeWhitespaceRuns>>): SourceOffsets | null {
+    const characters: { start: number; end: number }[] = [];
+    let source = 0;
+    function consumeLiteral(end: number) {
+        if (!quote.startsWith(raw.slice(source, end), characters.length)) return false;
+        for (; source < end; source++) characters.push({ start: source, end: source + 1 });
+        return true;
+    }
+
+    for (const [index, run] of runs.entries()) {
+        if (!consumeLiteral(run.start)) return null;
+        // Engines can retain one collapsed space at a selection edge or beside a preserved
+        // line break. Check the following literal so an optional space cannot consume it.
+        const optional = run.start === 0 || run.end === raw.length || raw[run.start - 1] === '\n' || raw[run.end] === '\n';
+        const literal = raw.slice(run.end, runs[index + 1]?.start ?? raw.length);
+        if (quote[characters.length] === ' ' && (!optional || quote.startsWith(' ' + literal, characters.length))) {
+            characters.push(run);
+        } else if (!optional) {
+            return null;
+        }
+        source = run.end;
+    }
+    if (!consumeLiteral(raw.length) || characters.length !== quote.length || !characters.length) return null;
+
+    return (start, end) => {
+        // Use the visible characters on each side of an edit to leave any omitted whitespace
+        // outside that span intact. Offsets and slices both use UTF-16.
+        const first = characters[start]?.start ?? characters.at(-1)!.end;
+        return [first, start === end ? first : characters[end - 1]!.end];
+    };
 }
 
 /** Proposals require the complete saved selection at its offsets, without page-wide text recovery. */
@@ -185,17 +222,15 @@ export function resolvePreviewTextRange(position: CommentSelection, start: Eleme
     if (!range || !position.text.trim()) return null;
 
     const raw = range.toString();
-    let projected: string | undefined;
-    let canCollapse: boolean | undefined;
-    const matches = (quote: string) => {
-        if (raw === quote) return true;
-        // A rendered quote can include one space at either boundary. Interior runs and line
-        // breaks in the quote itself can be significant and require an exact source match.
-        const rendered = quote.replace(/^ | $/g, '');
-        if (!rendered || rendered !== (projected ??= raw.replace(collapsiblePreviewWhitespace, ' ').replace(/^ | $/g, ''))) return false;
-        return canCollapse ??= rangeCollapsesWhitespace(range);
+    let runs: ReturnType<typeof rangeWhitespaceRuns> | undefined;
+    const match = (quote: string): SourceOffsets | null => {
+        if (raw === quote) return (start, end) => [start, end];
+        if (runs === undefined) runs = rangeWhitespaceRuns(range, raw);
+        return runs && renderedSourceOffsets(raw, quote, runs);
     };
-    return matches(position.text) ? { range, matches } : null;
+    const saved = match(position.text);
+    if (!saved) return null;
+    return { range, offsetsFor: (quote: string) => quote === position.text ? saved : match(quote) };
 }
 
 /** Shorter texts are not searched for: they would be found in too many places */

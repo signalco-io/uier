@@ -128,6 +128,75 @@ test('a rendered selection replays at its raw offsets and preserves its source w
         restored: 'Try our bread / Try  our\n  bread today', sameNode: true });
 });
 
+test('pre-line maps a rendered quote to a single text node at its saved offsets', async ({ page }) => {
+    const result = await page.evaluate(() => {
+        document.querySelector('main')!.innerHTML = '<p id="target" style="white-space: pre-line"></p>';
+        const target = document.querySelector<HTMLElement>('#target')!;
+        const prefix = 'Try the rolls / ';
+        const raw = 'Try   the rolls';
+        const suffix = ' today';
+        const node = document.createTextNode(prefix + raw + suffix);
+        target.append(node);
+        const position = {
+            type: 'text', text: 'Try the rolls', startSelector: '#target', startType: 'text', startOffset: prefix.length,
+            endType: 'text', endOffset: prefix.length + raw.length,
+        } as const;
+        const { readProposalTarget, startProposalPreview } = window.proposalEngine;
+        const original = readProposalTarget(position)?.text;
+        const stop = startProposalPreview(position, { text: { original: position.text, proposed: 'Try the bread' }, styles: {} });
+        const during = node.data;
+        stop?.();
+        return { original, during, after: node.data, sameNode: node === target.firstChild };
+    });
+    expect(result).toEqual({ original: 'Try the rolls', during: 'Try the rolls / Try   the bread today',
+        after: 'Try the rolls / Try   the rolls today', sameNode: true });
+});
+
+test('pre-line keeps preserved breaks and spaces while replaying across adjacent text nodes', async ({ page }) => {
+    const result = await page.evaluate(() => {
+        document.querySelector('main')!.innerHTML = '<p id="target" style="white-space: pre-line"></p>';
+        const target = document.querySelector<HTMLElement>('#target')!;
+        const nodes = ['Try  \t', '  the \t\n\n ', '\t  roasted', ' rolls / today'].map(text => document.createTextNode(text));
+        target.append(...nodes);
+        const selection = window.getSelection()!;
+        const range = document.createRange();
+        range.setStart(nodes[0]!, 0);
+        range.setEnd(nodes[3]!, ' rolls'.length);
+        selection.addRange(range);
+        const browserQuote = selection.toString();
+        selection.removeAllRanges();
+        const position = {
+            type: 'text', text: 'Try the\n\nroasted rolls', startSelector: '#target', startType: 'text', startOffset: 0,
+            endType: 'text', endOffset: 'Try  \t  the \t\n\n \t  roasted rolls'.length,
+        } as const;
+        const { readProposalTarget, startProposalPreview } = window.proposalEngine;
+        const tryQuote = (text: string) => {
+            const anchor = { ...position, text };
+            const original = readProposalTarget(anchor)?.text;
+            const proposed = text.replace('roasted rolls', 'crispy bread');
+            const stop = startProposalPreview(anchor, { text: { original: text, proposed }, styles: {} });
+            const during = nodes.map(node => node.data);
+            stop?.();
+            return { matched: original === text, during };
+        };
+        const collapsed = tryQuote(position.text);
+        const browser = tryQuote(browserQuote);
+        const missingBreak = tryQuote('Try the\nroasted rolls');
+        const inventedBreak = tryQuote('Try the\n\n\nroasted rolls');
+        return { collapsed, browser, missingBreak, inventedBreak, after: nodes.map(node => node.data),
+            sameNodes: nodes.every((node, index) => target.childNodes[index] === node) };
+    });
+    const before = ['Try  \t', '  the \t\n\n ', '\t  roasted', ' rolls / today'];
+    const renderedEdit = ['Try  \t', '  the \t\n\n ', '\t  crispy bread', ' / today'];
+    expect(result).toEqual({
+        collapsed: { matched: true, during: renderedEdit },
+        browser: { matched: true, during: renderedEdit },
+        missingBreak: { matched: false, during: before },
+        inventedBreak: { matched: false, during: before },
+        after: before, sameNodes: true,
+    });
+});
+
 test('legacy selection quotes replay literally while significant whitespace mismatches are stale', async ({ page }) => {
     const result = await page.evaluate(() => {
         const main = document.querySelector('main')!;
@@ -153,6 +222,8 @@ test('legacy selection quotes replay literally while significant whitespace mism
             preserved: replay('Try  our\n bread', 'Try  our\n bread', 'Try  our\n bread', 'pre-wrap'),
             changedPreserved: replay('Try  our\n bread', 'Try our bread', 'Try our bread', 'pre-wrap'),
             changedBreak: replay('Try\nour bread', 'Try our bread', 'Try our bread', 'pre-line'),
+            trimmedBreak: replay('\nTry  our bread', '\nTry our bread', 'Try our bread', 'pre-line'),
+            preLineNonBreaking: replay('Try \t\u00a0our bread', 'Try our bread', 'Try our bread', 'pre-line'),
             storedBreak: replay('Try our bread', 'Try\nour bread', 'Try\nour bread', 'normal'),
             nonBreaking: replay('Try\u00a0our bread', 'Try our bread', 'Try our bread', 'normal'),
         };
@@ -163,6 +234,8 @@ test('legacy selection quotes replay literally while significant whitespace mism
         preserved: ['Try  our\n bread', 'Try the bread', 'Try  our\n bread'],
         changedPreserved: [null, 'Try  our\n bread', 'Try  our\n bread'],
         changedBreak: [null, 'Try\nour bread', 'Try\nour bread'],
+        trimmedBreak: [null, '\nTry  our bread', '\nTry  our bread'],
+        preLineNonBreaking: [null, 'Try \t\u00a0our bread', 'Try \t\u00a0our bread'],
         storedBreak: [null, 'Try our bread', 'Try our bread'],
         nonBreaking: [null, 'Try\u00a0our bread', 'Try\u00a0our bread'],
     });
@@ -306,6 +379,92 @@ test('transitioning styles settle before capture or immediate replay and preserv
         states: ['proposed', 'original', 'pending', 'proposed', 'original', 'proposed', 'original'],
         hostTransition: true, transition: 'color, opacity', clicks: 2, margin: '2px',
     });
+});
+
+test('inherited transitions settle through descendants and pseudo-elements before capture', async ({ page }) => {
+    const result = await page.evaluate(async position => {
+        document.querySelector('main')!.innerHTML = `<style>
+            #target { color: navy; transition: color 1s; }
+            #child, #grandchild, #child::before, #target::after { transition: color 1s; }
+            #child::before, #target::after { content: '·'; }
+            #host { color: black; transition: color 30s; animation: drift 30s linear infinite; }
+            @keyframes drift { from { opacity: 1; } to { opacity: .5; } }
+            </style><p id="target"><span id="child"><b id="grandchild">Original</b></span><span id="host">Host</span></p>`;
+        const target = document.querySelector('#target')!;
+        const child = document.querySelector('#child')!;
+        const grandchild = document.querySelector('#grandchild')!;
+        const host = document.querySelector<HTMLElement>('#host')!;
+        const colors = () => [target, child, grandchild].map(el => getComputedStyle(el).color)
+            .concat(getComputedStyle(child, '::before').color, getComputedStyle(target, '::after').color);
+        const animating = () => target.getAnimations({ subtree: true });
+        const frame = () => new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+        const { holdProposalSessions, readProposalTarget, showProposalSession } = window.proposalEngine;
+        const original = readProposalTarget(position)!.styles.color!;
+        const states: string[] = [];
+        let clicks = 0;
+        child.addEventListener('click', () => clicks++);
+        animating();
+        host.style.color = 'green';
+        const hostAnimations = animating().filter(animation => (animation.effect as KeyframeEffect).target === host);
+        const stop = showProposalSession(position, { styles: { color: { original, proposed: '#ff0000' } } }, state => states.push(state));
+        const preview = colors();
+        // Finish any forward transitions an older engine might have left, including cascaded ones.
+        for (let depth = 0; depth < 5; depth++) {
+            const previewTransitions = animating().filter(animation => animation instanceof CSSTransition
+                && (animation.effect as KeyframeEffect).target !== host);
+            if (!previewTransitions.length) break;
+            previewTransitions.forEach(animation => animation.finish());
+            await frame();
+        }
+        const beforeCapture = colors();
+        const release = holdProposalSessions();
+        const atCapture = colors();
+        await frame();
+        const nextFrame = colors();
+        release();
+        stop();
+        child.dispatchEvent(new Event('click'));
+        return { preview, beforeCapture, atCapture, nextFrame, states, clicks,
+            hostAnimations: hostAnimations.map(animation => [animation.constructor.name, animating().includes(animation)]).sort(),
+            childTransition: getComputedStyle(child).transitionProperty };
+    }, point);
+    const red = Array(5).fill('rgb(255, 0, 0)');
+    const navy = Array(5).fill('rgb(0, 0, 128)');
+    expect(result).toEqual({ preview: red, beforeCapture: red, atCapture: navy, nextFrame: navy, states: ['proposed', 'original'],
+        clicks: 1, hostAnimations: [['CSSAnimation', true], ['CSSTransition', true]], childTransition: 'color' });
+});
+
+test('settling ignores a canceled transition retained by a subsequent subtree query', async ({ page }) => {
+    const result = await page.evaluate(position => {
+        document.querySelector('main')!.innerHTML = '<p id="target" style="color: navy; transition: color 1s">Original</p>';
+        const target = document.querySelector<HTMLElement>('#target')!;
+        const { readProposalTarget, startProposalPreview } = window.proposalEngine;
+        const original = readProposalTarget(position)!.styles.color!;
+        const nativeGetAnimations = target.getAnimations.bind(target);
+        let canceled: Animation | undefined;
+        let repeated = 0;
+        let cancelCalls = 0;
+        target.getAnimations = options => {
+            const animations = nativeGetAnimations(options);
+            if (canceled) return repeated++ < 2 ? [...animations, canceled] : animations;
+            const transition = animations.find(animation => animation instanceof CSSTransition);
+            if (transition) {
+                const cancel = transition.cancel.bind(transition);
+                transition.cancel = () => {
+                    canceled = transition;
+                    cancelCalls++;
+                    cancel();
+                };
+            }
+            return animations;
+        };
+        const stop = startProposalPreview(position, { styles: { color: { original, proposed: '#ff0000' } } });
+        const during = getComputedStyle(target).color;
+        target.getAnimations = nativeGetAnimations;
+        stop?.();
+        return { cancelCalls, repeated, during, restored: getComputedStyle(target).color };
+    }, point);
+    expect(result).toEqual({ cancelCalls: 1, repeated: 1, during: 'rgb(255, 0, 0)', restored: 'rgb(0, 0, 128)' });
 });
 
 test('style restoration works under a strict attribute policy and preserves logical padding precedence', async ({ page }) => {

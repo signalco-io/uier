@@ -81,22 +81,26 @@ target itself. A legacy CSS-only suggestion on a structural selector stays avail
 The same identity check runs during a preview and uses the original text of nodes edited by uier.
 
 Selected text can match its exact source or the rendered quote after CSS whitespace collapse. The
-resolver preserves nonbreaking spaces and requires exact source text for whitespace-preserving
-content. Legacy rewrite quotes can also use the verified quote with outer collapsible whitespace
-trimmed. The engine maps the changed portion of the quote to raw text offsets, which preserves
-unchanged indentation, line breaks and spaces when it edits the existing nodes. A replacement may
-span adjacent text nodes. When the changed words would need to be reassigned across markup
-boundaries, the proposal is unavailable.
+resolver checks the whitespace mode of each text node. For `white-space: pre-line`, spaces and tabs
+can collapse while line breaks must still match. Browsers can retain a single collapsed space at a
+selection edge or next to a preserved line break. Nonbreaking spaces and whitespace in preserving
+modes must match exactly. Legacy rewrite quotes can also use the verified quote with outer
+collapsible whitespace trimmed. The same match maps the changed portion of the quote back to raw
+text offsets across text nodes, preserving indentation, line breaks and spaces outside the edit.
+A replacement may span adjacent text nodes. When the changed words would need to be reassigned
+across markup boundaries, the proposal is unavailable.
 The internal `trackPreviewTextRange` helper gives the pin and selection highlight the edited range,
 including a caret-sized position for a deletion, until the preview stops.
 
 Only one preview can be active. The engine applies allowlisted literal CSS values as inline
 declarations and restores their original values and priorities. An authored inline shorthand must
 expose each affected declaration through the CSSOM so it can be restored independently. The engine
-settles transitions on its edited properties when applying and restoring them, so the original is
-ready for capture or immediate replay. Unrelated transitions continue and event listeners stay
-attached. The engine observes the edited nodes and restores the parts it still owns. New text written
-by the page and unrelated inline edits survive cleanup. A replacement node stays under the page's control. The
-toolbar calls the returned cleanup when its preview UI goes away.
+settles CSS transitions that start in the target's light DOM subtree when applying or restoring
+declarations, including inherited effects on descendants and pseudo-elements. It repeats the
+browser's subtree query if settling a transition exposes another one. Unrelated host transitions
+and animations continue, and event listeners stay attached. The original is available before capture
+or immediate replay. The engine observes the edited nodes and restores the parts it still owns.
+New text written by the page and unrelated inline edits survive cleanup. A replacement node stays
+under the page's control. The toolbar calls the returned cleanup when its preview UI goes away.
 [`proposal-preview-engine.spec.ts`](../../../apps/web/e2e/proposal-preview-engine.spec.ts) covers the
 browser-side contract.
