@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Browser, type Page } from '@playwright/test';
 import sharp from 'sharp';
 import { proofApiPath, type ProofScope, type ProofShare } from '../src/lib/proofs/model';
 import { enableProjectVerification, hydrated, setProjectAccess, signIn, uniqueEmail } from './support/app';
@@ -45,8 +45,7 @@ async function createGuestProofProject(page: Page, name: string) {
     return { files, project };
 }
 
-test('the original guest reopens a share in the same tab and checks two revised details', async ({ page, browser, isMobile }) => {
-    test.setTimeout(120_000);
+async function publishReview(page: Page) {
     const { files, project } = await createGuestProofProject(page, 'Price list review');
     await enableProjectVerification(page, project);
     await page.goto(files);
@@ -61,12 +60,22 @@ test('the original guest reopens a share in the same tab and checks two revised 
     await dialog.getByRole('button', { name: 'Create review link' }).click();
     const share = await dialog.getByRole('textbox', { name: 'Review link', exact: true }).inputValue();
 
-    const guest = await browser.newContext({ viewport: isMobile ? { width: 390, height: 844 } : { width: 1200, height: 850 }, isMobile, hasTouch: isMobile });
+    return { share, source: source! };
+}
+
+function guestContext(browser: Browser, isMobile: boolean) {
+    return browser.newContext({ viewport: isMobile ? { width: 390, height: 844 } : { width: 1200, height: 850 }, isMobile, hasTouch: isMobile });
+}
+
+test('the original guest reopens a share in the same tab and checks two revised details', async ({ page, browser, isMobile }) => {
+    test.setTimeout(120_000);
+    const { share, source } = await publishReview(page);
+    const guest = await guestContext(browser, isMobile);
     try {
         const review = await guest.newPage();
         await review.goto(share);
         await expect(review.getByRole('img', { name: 'File preview' })).toBeVisible();
-        await review.goto(source!);
+        await review.goto(source);
         const threads: string[] = [];
         for (const [index, text] of ['Correct the lunch price', 'Update the weekend price'].entries()) {
             await review.getByRole('combobox', { name: 'Review tool', exact: true }).click();
@@ -203,5 +212,92 @@ test('reopening a collection in the same guest tab refreshes its files and repla
         expect(await current.json()).toMatchObject({ permissions: { comment: false } });
     } finally {
         await guest.close();
+    }
+});
+
+test('a guest follows a file thread and resumes its fix check in a fresh browser', async ({ page, browser, isMobile }) => {
+    test.setTimeout(120_000);
+    const { share, source } = await publishReview(page);
+    const original = await guestContext(browser, isMobile);
+    const secondGuest = await guestContext(browser, isMobile);
+    const returning = await guestContext(browser, isMobile);
+    try {
+        const review = await original.newPage();
+        await review.goto(share);
+        await expect(review.getByRole('img', { name: 'File preview' })).toBeVisible();
+        await review.goto(source);
+        await review.getByLabel('Your name', { exact: true }).fill('Original guest');
+        await review.getByRole('textbox', { name: 'Add comment', exact: true }).fill('Update the price in the footer');
+        await review.getByRole('button', { name: 'Add comment', exact: true }).click();
+        await expect(review.getByRole('heading', { name: 'Thread #1', exact: true })).toBeVisible();
+        const threadUrl = review.url();
+        const mailbox = uniqueEmail('proof-review-guest');
+        await review.getByRole('button', { name: 'Follow thread', exact: true }).click();
+        const follow = review.getByRole('form', { name: 'Follow thread' });
+        await follow.getByRole('textbox', { name: 'Email', exact: true }).fill(mailbox);
+        await follow.getByRole('button', { name: 'Send confirmation email' }).click();
+        await expect(review.getByText('Check your email to confirm this follow.')).toBeVisible();
+        const emailLink = await review.getByRole('link', { name: 'Open local confirmation link' }).getAttribute('href');
+        expect(emailLink).toBeTruthy();
+
+        const other = await secondGuest.newPage();
+        await other.goto(share);
+        await expect(other.getByRole('img', { name: 'File preview' })).toBeVisible();
+        await other.goto(threadUrl);
+        await expect(other.getByRole('heading', { name: 'Thread #1', exact: true })).toBeVisible();
+        await expect(other.getByRole('button', { name: 'Follow thread', exact: true })).toHaveCount(0);
+        await expect(other.getByText(mailbox)).toHaveCount(0);
+
+        await page.goto(threadUrl);
+        await page.getByRole('button', { name: 'Request verification', exact: true }).click();
+        const request = page.getByRole('form', { name: 'Request verification', exact: true });
+        await request.getByLabel('Fix summary').fill('The footer price is corrected in version 2.');
+        await request.getByRole('button', { name: 'Choose location', exact: true }).click();
+        await expect(page.getByRole('combobox', { name: 'Version', exact: true })).toContainText('Version 2');
+        await selectPoint(page, isMobile, 0);
+        await expect(request.getByText('Using the selected location.')).toBeVisible();
+        await request.getByRole('button', { name: 'Request verification', exact: true }).click();
+        await expect(request).toBeHidden();
+
+        await other.reload();
+        await expect(other.getByText('The footer price is corrected in version 2.')).toBeVisible();
+        await expect(other.getByRole('button', { name: 'Confirm fix', exact: true })).toHaveCount(0);
+
+        const fresh = await returning.newPage();
+        await fresh.goto(threadUrl);
+        await expect(fresh.getByText('This review link is unavailable.', { exact: true })).toBeVisible();
+        await fresh.getByRole('button', { name: 'Recover guest review', exact: true }).click();
+        const recover = fresh.getByRole('form', { name: 'Recover guest review' });
+        await recover.getByRole('textbox', { name: 'Email', exact: true }).fill(uniqueEmail('not-enrolled'));
+        await recover.getByRole('button', { name: 'Send recovery link', exact: true }).click();
+        await expect(recover.getByRole('status')).toContainText('we’ll send a recovery link');
+        expect(await returning.cookies()).toEqual([]);
+
+        await fresh.goto(emailLink!);
+        await expect(fresh.getByRole('heading', { name: 'Confirm file thread follow', exact: true })).toBeVisible();
+        expect(new URL(fresh.url()).hash).toBe('');
+        expect(await returning.cookies()).toEqual([]);
+        await fresh.getByRole('button', { name: 'Confirm email and open file', exact: true }).click();
+        await expect(fresh.getByRole('heading', { name: 'Thread #1', exact: true })).toBeVisible();
+        await expect(fresh.getByText('You’re following this thread.')).toBeVisible();
+        await expect(fresh.getByRole('textbox', { name: 'Add comment', exact: true })).toHaveCount(0);
+        await fresh.getByRole('button', { name: 'Resume pending checks', exact: true }).click();
+        await expect(fresh.getByRole('combobox', { name: 'Version', exact: true })).toContainText('Version 2');
+        const confirm = fresh.getByRole('button', { name: 'Confirm fix', exact: true });
+        if (isMobile) await confirm.tap();
+        else { await confirm.focus(); await confirm.press('Enter'); }
+        await expect(fresh.getByRole('status').filter({ hasText: 'No more changes to check on this version.' })).toBeVisible();
+
+        await fresh.goto(threadUrl);
+        await fresh.getByRole('button', { name: 'Unfollow thread', exact: true }).click();
+        await expect(fresh.getByText('This review link is unavailable.', { exact: true })).toBeVisible();
+        await fresh.goto(emailLink!);
+        await fresh.getByRole('button', { name: 'Confirm email and open file', exact: true }).click();
+        await expect(fresh.getByRole('alert').filter({ hasText: 'This file review link has expired or is unavailable.' })).toBeVisible();
+
+        await review.goto(threadUrl);
+        await expect(review.getByRole('button', { name: 'Follow thread', exact: true })).toBeVisible();
+    } finally {
+        await Promise.all([original.close(), secondGuest.close(), returning.close()]);
     }
 });

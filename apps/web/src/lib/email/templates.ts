@@ -201,9 +201,17 @@ export function signInEmail({ to, url, code, linksGoogle = false, linksMicrosoft
     });
 }
 
-export function notificationVerificationEmail({ to, url }: { to: string; url: string }) {
+export function notificationVerificationEmail({ to, url, proof }: { to: string; url: string; proof?: boolean }) {
     return layoutEmail({ to, subject: 'Confirm reply notifications on uier',
-        paragraphs: ['Confirm this address to receive replies and status changes for the thread you chose. Commenting does not require email or an account.'],
+        paragraphs: [proof ? 'Confirm this address to follow your file thread and reopen your fix checks on another device.'
+            : 'Confirm this address to receive replies and status changes for the thread you chose. Commenting does not require email or an account.'],
         action: { label: 'Confirm reply notifications', url },
         footnote: 'This link expires in 24 hours. If you did not request it, ignore this email. Every digest includes an unsubscribe link.' });
+}
+
+export function proofReviewRecoveryEmail({ to, url }: { to: string; url: string }) {
+    return layoutEmail({ to, subject: 'Resume your file review on uier',
+        paragraphs: ['Open your file review to return to your feedback and any pending fix checks.'],
+        action: { label: 'Resume file review', url },
+        footnote: 'This link expires in 30 minutes. If you did not request it, ignore this email.' });
 }

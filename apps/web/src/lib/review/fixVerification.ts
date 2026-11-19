@@ -105,6 +105,9 @@ export async function changeFixVerification(project: DbProject, actor: ProjectAc
         return withNotificationEvent(updated, me, input.action === 'confirm' ? 'verification-confirmed' : input.action === 'reject' ? 'verification-rejected' : 'verification-canceled', now, [v.requester, v.reviewer], actor.kind === 'member' ? actor.agent : undefined, { verificationOverride: input.override === true });
     }, attempt, { expected: null, value: () => null, requireComments: true, requireVerification: input.action !== 'cancel',
         authorize: async (comment, currentProject) => {
+            if (comment.assetTarget && actor.kind === 'guest'
+                && (comment.assetTarget.authorShareId !== actor.proofThread?.shareId || !await guestCanReviewProof(currentProject, comment)))
+                throw apiErrors.notFound();
             const usesStagingEvidence = input.action === 'request' ? input.afterScreenshotItemId : input.action !== 'cancel' && comment.verification?.stagingEvidence;
             if (!usesStagingEvidence) return;
             if (!comment.stagingDesign || actor.kind !== 'member') throw apiErrors.notFound();

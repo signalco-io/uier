@@ -26,6 +26,7 @@ export type ProjectActor = (
     proofThread?: {
         assetId: string;
         shareId?: string;
+        returning?: true;
         refresh: (write: boolean) => Promise<{ project: DbProject; actor: ProjectActor }>;
     };
 };

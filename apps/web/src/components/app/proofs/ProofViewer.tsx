@@ -17,6 +17,7 @@ import { clamp, videoTime, type ReviewTool } from './coordinates';
 import { exchangeProofLink, proofFetch, ProofRequestError } from './client';
 import { mediaSurface, proofSize, type VideoPosition } from './ProofMedia';
 import { ProofSelect } from './ProofSelect';
+import { ProofReviewRecovery } from './ProofReturningReview';
 import { ProofThreads } from './ProofThreads';
 import { ProofStaging } from './ProofStaging';
 import { ProofApprovalPanel } from './ProofApprovalPanel';
@@ -379,6 +380,9 @@ export function ProofViewer({ projectId, assetId, initialVersionId, initialThrea
                     void navigator.clipboard.writeText(url.href).then(() => { setCopied(true); setNotice(''); }, () => setNotice('The link could not be copied.'));
                 }}><LinkIcon data-icon="inline-start" />{t(copied ? 'Copied' : 'Copy permalink')}</Button>}
             </header>
+            {(error || (detail && !detail.permissions.manage)) && <div className="w-full">
+                <ProofReviewRecovery projectId={projectId} assetId={assetId} />
+            </div>}
             {error && <div className="grid justify-items-start gap-2">
                 <p role="alert" className="m-0 text-destructive">{t(error)}</p>
                 <Button variant="outline" onClick={() => setRetry(value => value + 1)}>{t('Retry')}</Button>
@@ -507,8 +511,8 @@ export function ProofViewer({ projectId, assetId, initialVersionId, initialThrea
                     </>}
                 </section>
                 <div className="grid min-w-0 content-start gap-3">
-                    <ProofApprovalPanel key={threadVersion.id} endpoint={endpoint} projectId={projectId} assetId={assetId}
-                        versionId={threadVersion.id} number={threadVersion.number} />
+                    {!detail?.returning && <ProofApprovalPanel key={threadVersion.id} endpoint={endpoint} projectId={projectId} assetId={assetId}
+                        versionId={threadVersion.id} number={threadVersion.number} />}
                     {canManage && version && activeSurface && (format === 'image' || format === 'pdf' || format === 'figma') &&
                         <ProofStaging key={`${version.id}/${activeSurface.id}`} projectId={projectId} assetId={assetId}
                             versionId={version.id} surfaceId={activeSurface.id} initiallyExpanded={address.surface === activeSurface.id} />}

@@ -35,7 +35,10 @@ Use that pattern for before-and-after file evidence.
    authorization, status changes, activity and notification receipts. Advance to the next
    pending request after success, retaining keyboard focus. On conflict, reload the thread
    and show the current request or decision. A mobile reviewer can switch versions while
-   keeping the same detail in view.
+   keeping the same detail in view. An original guest can explicitly follow a file
+   thread, confirm their mailbox and use a notification or recovery link to resume
+   checks in a fresh browser. The verified session stays scoped to the file and
+   original share. See [returning guest review](../../apps/web/docs/proof-review.md#returning-guest-review).
 4. Bind each check to the requested revision. If v3 arrives during a v2 check, identify v2
    in both the action and evidence and offer a link to v3. If a member requests a new check
    against v3, the replaced request's action must conflict. A v2 confirmation records the

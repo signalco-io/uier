@@ -90,6 +90,43 @@ conditional action and receipt replay.
 `proof-threads.api.spec.ts` covers memory-backed route handling and the Cosmos
 query contract. The browser suite covers the viewer mount separately.
 
+## Returning guest review
+
+The author of a file thread can choose **Follow thread** and verify their email
+from the confirmation link. Creating or replying to a thread leaves subscriptions
+unchanged. A member opens the usual proof permalink through their app session.
+A guest using the original browser and share can continue to check fixes without email.
+
+On another device, the guest can open a notification or use **Recover guest review**
+on the asset page. Recovery always acknowledges the request the same way. It sends
+a link only for a live, verified subscription on that file. Opening the emailed
+page shows a confirmation control. The credential stays in the fragment until the
+page reads it and is submitted only when the guest continues. A confirmation
+link is usable once within 24 hours. Recovery links last 30 minutes. Notification
+links last seven days, and fix reminders also match the exact pending request and
+its target version.
+
+The resulting HttpOnly session lasts up to 30 days, bounded by the original
+share's expiry. It can view that file's published review and resume threads
+authored by the same guest under that share. It carries no original-download,
+collection, website, posting or version-approval grants. The queue's page and
+exact count both apply the author, asset, share and version restrictions.
+Unfollowing removes the mailbox binding and invalidates copies of that link
+and sessions based on it. An independent subscription can still be recovered.
+Reads, decisions, receipt replays and delivery recheck the live grant, file,
+project policy and transfer epoch.
+
+| Method | Path | Contract |
+| --- | --- | --- |
+| GET | `/threads/:id/notifications` | The original guest's `{following, pending}` state. |
+| POST | `/threads/:id/notifications` | `{following, email?}` requests confirmation or unfollows. |
+| POST | `/returning` | `{action: 'recover', email}` acknowledges with HTTP 204. `{action: 'open', token}` exchanges the emailed credential for a cookie and returns the exact `{href}`. |
+
+See [the proof API spec](../e2e/proof-threads.api.spec.ts) for digest, recovery,
+exact counts, scope, expiration, unsubscribe, revocation and transfer checks.
+The [verification browser spec](../e2e/proof-verification.spec.ts) exercises
+confirmation and fix review on desktop and mobile with independent browser contexts.
+
 ## Design to staging
 
 Pairings store the exact project, approval decisions, asset, version, surface,

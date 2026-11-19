@@ -12,7 +12,9 @@ import { findProject } from '../app/projects';
 import { memberActor, type ProjectActor } from '../review/actor';
 import { canSeeComment, canSeeCommentPrivacy } from '../review/comments';
 import { participantNames } from '../review/dto';
-import { guestCanReviewProof, liveProofThreadAsset } from '../proofs/threadAccess';
+import { liveProofThreadAsset } from '../proofs/threadAccess';
+import { liveProofFollow, verifiedProofFollow } from '../proofs/access';
+import { proofDigestLifetime, proofReturningLink } from '../proofs/returningLink';
 import { proofThreadPath } from '../proofs/threadModel';
 import { digestContent } from './digest';
 import type { DbComment } from '../db/schema';
@@ -43,7 +45,7 @@ export type NotificationDelivery = AppDoc & {
     requestedThrough: number; processedThrough: number; active: boolean;
     failures: number; nextAttemptAt: string;
     lease?: { id: string; until: string };
-    attempt?: EmailAttempt & { through: number; message: EmailMessage };
+    attempt?: EmailAttempt & { through: number; message: EmailMessage; proofSubscriptionVersion?: string };
     status: 'queued' | 'waiting' | 'accepted' | 'suppressed' | 'failed' | 'ambiguous';
     lastCode?: string;
     lastOperationId?: string;
@@ -100,7 +102,6 @@ async function recipientContext(delivery: NotificationDelivery) {
     if (!comment) return null;
     if (comment.assetTarget) {
         if (!canSeeCommentPrivacy(comment, actor) || !await liveProofThreadAsset(project, comment.assetTarget.assetId)) return null;
-        if (actor.kind === 'guest' && (comment.authorId !== actor.visitorId || !await guestCanReviewProof(project, comment))) return null;
     } else if (!canSeeComment(comment, actor)) return null;
     const [subscription, preference, readSequence] = await Promise.all([
         notificationSubscription(project.id, delivery.actorId, comment.id), notificationPreference(project.id, delivery.actorId),
@@ -109,6 +110,8 @@ async function recipientContext(delivery: NotificationDelivery) {
     const user = delivery.userId ? await getUser(delivery.userId) : null;
     const member = delivery.userId ? await getMember(project.workspaceId, delivery.userId) : null;
     if (preference?.muted || (actor.kind === 'guest' && (!subscription?.following || !subscription.verifiedAt || !subscription.email))) return null;
+    if (comment.assetTarget && actor.kind === 'guest' && (!subscription || !verifiedProofFollow(subscription)
+        || !await liveProofFollow(project, subscription))) return null;
     return { project, comment, actor, subscription, preference, readSequence, memberSince: member?.createdAt, email: user?.email ?? subscription?.email };
 }
 
@@ -151,8 +154,12 @@ async function digestMessage(baseUrl: string, delivery: NotificationDelivery, co
     let url = delivery.userId ? `${baseUrl}${KnownPageLinks.project(project.id)}?environment=${source.environment}` : manageUrl;
     if (comment.assetTarget) {
         const reviewVersion = batch.some(event => event.kind === 'verification-requested') ? comment.verification?.evidence?.after.versionId : undefined;
-        url = new URL(proofThreadPath(project.publicId ?? project.id, comment.assetTarget.assetId,
-            reviewVersion ?? comment.assetTarget.source.versionId, comment.id), baseUrl).toString();
+        const version = reviewVersion ?? comment.assetTarget.source.versionId;
+        const publicId = project.publicId ?? project.id;
+        url = context.actor.kind === 'guest' && context.subscription
+            ? proofReturningLink(baseUrl, publicId, context.subscription, version, 'open', proofDigestLifetime,
+                reviewVersion ? comment.verification?.id : undefined)
+            : new URL(proofThreadPath(publicId, comment.assetTarget.assetId, version, comment.id), baseUrl).toString();
     } else if (source.available && source.origin) {
         const page = new URL(commentSourcePath(comment), source.origin);
         if (page.origin !== source.origin) throw new Error('Invalid notification page origin');
@@ -213,8 +220,9 @@ export async function processNotificationDelivery(candidate: NotificationDeliver
         const batch = events.filter(event => event.sequence <= through);
         // A cursor may advance between retries; cancel any unsent content that's now seen.
         if (!batch.length) { await save({ processedThrough: through, attempt: undefined, active: true, nextAttemptAt: iso(), status: 'suppressed' }); return; }
+        const proofSubscriptionVersion = context.comment.assetTarget && context.actor.kind === 'guest' ? context.subscription?.version : undefined;
         let attempt = delivery.attempt ?? { operationId: randomUUID(), firstSentAt: iso(now), through,
-            message: await digestMessage(baseUrl, delivery, context, batch) };
+            ...(proofSubscriptionVersion ? { proofSubscriptionVersion } : {}), message: await digestMessage(baseUrl, delivery, context, batch) };
         // Persist before the external request, including its exact body and repeatability identity.
         await updateDoc<NotificationDelivery>(delivery.pk, delivery.id, current => {
             if (current.lease?.id !== lease.id) throw new Error('Notification lease lost');
@@ -222,7 +230,8 @@ export async function processNotificationDelivery(candidate: NotificationDeliver
         }, store);
         // Preparing a digest does several reads/writes. Check once more at the send boundary.
         const latest = await recipientContext(delivery);
-        if (!latest?.email || latest.email !== attempt.message.to || !eligibleEvents(delivery, latest).some(event => event.sequence <= through)) {
+        if (!latest?.email || latest.email !== attempt.message.to
+            || (proofSubscriptionVersion && latest.subscription?.version !== attempt.proofSubscriptionVersion) || !eligibleEvents(delivery, latest).some(event => event.sequence <= through)) {
             await save({ processedThrough: through, attempt: undefined, active: false, status: 'suppressed' });
             return;
         }

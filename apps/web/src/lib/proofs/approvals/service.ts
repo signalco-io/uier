@@ -17,7 +17,7 @@ type ReadyProof = ProofAuthorization & { asset: NonNullable<ProofAuthorization['
 
 async function approvalTarget(request: Request, route: AssetTarget, versionId?: string, manage = false): Promise<ReadyProof> {
     const auth = await authorizeProof(request, { ...route, versionId }, manage ? 'manage' : 'view');
-    if (!auth.asset || !auth.version) throw proofNotFound();
+    if (!auth.asset || !auth.version || (auth.actor.kind === 'guest' && auth.actor.returning)) throw proofNotFound();
     return { ...auth, asset: auth.asset, version: auth.version };
 }
 

@@ -33,7 +33,7 @@ type ThreadAuth = Awaited<ReturnType<typeof authorizeProofThread>>;
 const pageSize = 15;
 const inputLimit = 64 * 1024;
 
-function proofThreadsHandler<P extends ProofThreadRoute>(run: (request: Request, params: P) => Promise<Response>) {
+export function proofThreadsHandler<P extends ProofThreadRoute>(run: (request: Request, params: P) => Promise<Response>) {
     return async (request: Request, route: { params: Promise<P> }) => {
         let response: Response;
         try {
@@ -78,16 +78,22 @@ async function projection(auth: ThreadAuth, comments: DbComment[], detail = fals
         const verificationActions = verificationPermissions(comment, project, actor, participants);
         if (detail && verificationActions.request && verificationActions.defaultReviewer && authorShareId)
             verificationActions.defaultReviewer = await guestCanReviewProof(project, comment);
+        if (actor.kind === 'guest' && verificationActions.respond && authorShareId !== actor.proofThread?.shareId)
+            verificationActions.respond = false;
+        const returning = actor.proofThread?.returning;
         const proof: ProofThread = {
-            id: dto.id, number: dto.number, thread: dto.thread,
+            id: dto.id, number: dto.number,
+            thread: returning ? { items: dto.thread.items.map(item => 'deleted' in item ? item : { ...item, canDelete: false, canEdit: false }) } : dto.thread,
             resolved: dto.resolved, inProgress: dto.inProgress, archivedAt: dto.archivedAt, private: dto.private,
-            permissions: { ...dto.permissions, resolve: permissions.comment && dto.permissions.resolve, assign: permissions.comment && dto.permissions.assign,
+            permissions: { ...dto.permissions, ...(returning ? { edit: false, delete: false } : {}), resolve: !returning && permissions.comment && dto.permissions.resolve, assign: permissions.comment && dto.permissions.assign,
                 makePrivate: permissions.comment && actor.kind === 'member' && actor.isAdmin },
             assignees: dto.assignees, activity: dto.activity, target,
             location: proofThreadLocation(target, evidence, version?.id),
             href: proofThreadPath(project.publicId ?? project.id, target.assetId, target.source.versionId, comment.id),
             revision: commentRevision(comment), statusId: statusForComment(workflow, comment).id, currentVersionId: asset?.currentVersionId ?? null,
             verificationEnabled: dto.verificationEnabled === true,
+            ...(actor.kind === 'guest' && permissions.comment && comment.authorId === actor.visitorId && authorShareId === actor.proofThread?.shareId
+                && !comment.thread.items[0]?.deletedAt ? { canFollow: true } : {}),
             verificationPermissions: permissions.comment ? verificationActions
                 : { request: false, respond: false, cancel: false, override: false, defaultReviewer: false },
             ...(verification ? { verification: { ...verification, ...(evidence ? { evidence } : {}) } } : {})
@@ -151,10 +157,12 @@ async function threadPage(request: Request, auth: ThreadAuth, proof: ProofThread
 
 export const listProofThreads = proofThreadsHandler(async (request, route: ProofThreadRoute) => {
     const auth = await authorizeProofThread(request, route, versionParam(request));
-    const proof = { asset: route.assetId, versionId: auth.version?.id, visibility: commentVisibilityFilter(projectPartition(auth.project.id), auth.actor) };
+    const returning = auth.actor.proofThread?.returning;
+    const proof = { asset: route.assetId, versionId: auth.version?.id, visibility: commentVisibilityFilter(projectPartition(auth.project.id), auth.actor),
+        ...(returning ? { authorId: actorAuthorId(auth.actor), authorShareId: auth.actor.proofThread?.shareId } : {}) };
     const { threads, next, statuses } = await threadPage(request, auth, proof, false);
-    return Response.json({ threads, next, statuses, canComment: auth.permissions.comment, guest: auth.actor.kind === 'guest',
-        canMakePrivate: auth.permissions.comment && auth.actor.kind === 'member' && auth.actor.isAdmin } satisfies ProofThreadPage);
+    return Response.json({ threads, next, statuses, canComment: auth.permissions.comment && !returning, guest: auth.actor.kind === 'guest',
+        returning, canMakePrivate: auth.permissions.comment && auth.actor.kind === 'member' && auth.actor.isAdmin } satisfies ProofThreadPage);
 });
 
 export const listProofVerification = proofThreadsHandler(async (request, route: ProofThreadRoute) => {
@@ -163,7 +171,8 @@ export const listProofVerification = proofThreadsHandler(async (request, route: 
         return Response.json({ threads: [], next: null, count: 0 } satisfies ProofPendingPage);
     const domain = projectPartition(auth.project.id);
     const scope = new URL(request.url).searchParams.get('scope');
-    const proof = { asset: route.assetId, versionId: scope === 'asset' ? undefined : auth.version.id, reviewerId: actorAuthorId(auth.actor)!, visibility: commentVisibilityFilter(domain, auth.actor) };
+    const proof = { asset: route.assetId, versionId: scope === 'asset' ? undefined : auth.version.id, reviewerId: actorAuthorId(auth.actor)!, visibility: commentVisibilityFilter(domain, auth.actor),
+        ...(auth.actor.kind === 'guest' ? { authorId: auth.actor.visitorId, authorShareId: auth.actor.proofThread?.shareId } : {}) };
     const { threads, next, count } = await threadPage(request, auth, proof, true);
     return Response.json({ threads, next, count } satisfies ProofPendingPage);
 });
@@ -199,7 +208,7 @@ export const verifyProofThread = proofThreadsHandler(async (request, route: Thre
     const input = await parseJsonBody(request, fixVerificationSchema, inputLimit);
     const target = input.action === 'request' ? input.evidence?.after.versionId : input.targetVersionId;
     if (!target) throw apiErrors.invalidRequest('Choose a verification version.');
-    const auth = await authorizeProofThread(request, route, target, true);
+    const auth = await authorizeProofThread(request, route, target, true, true);
     return detailResponse(auth, await changeFixVerification(auth.project, auth.actor, route.threadId, input));
 });
 
@@ -254,7 +263,7 @@ export const changeProofThread = proofThreadsHandler(async (request, route: Thre
 });
 
 export const exportProofThread = proofThreadsHandler(async (request, route: ThreadRoute) => {
-    const auth = await authorizeProofThread(request, route, versionParam(request));
+    const auth = await authorizeProofThread(request, route, versionParam(request), false, false);
     const comment = await loadThread(auth, route.threadId);
     const { project } = auth;
     const bundle = (await projection(auth, [comment], true)).threads[0];

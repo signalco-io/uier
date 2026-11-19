@@ -91,6 +91,8 @@ export function canSeeCommentPrivacy(comment: Pick<DbComment, 'private' | 'autho
 /** Match the target in both directions. File grants carry no authority over website threads. */
 export function canSeeComment(comment: Pick<DbComment, 'private' | 'authorId' | 'domain' | 'path' | 'assetTarget'>, actor: ProjectActor) {
     const scoped = comment.assetTarget ? actor.proofThread?.assetId === comment.assetTarget.assetId && Boolean(actor.proofThread) : !actor.proofThread;
+    if (actor.proofThread?.returning && (comment.authorId !== actorAuthorId(actor)
+        || comment.assetTarget?.authorShareId !== actor.proofThread.shareId)) return false;
     return scoped && canSeeCommentPrivacy(comment, actor);
 }
 

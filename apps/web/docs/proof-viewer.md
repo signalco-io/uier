@@ -34,6 +34,9 @@ tab has already added a site, the first-site form asks the admin to reload.
   reviewer cookie. The reload reads the current file version or collection
   membership and refreshes the review queue. Version and thread query parameters
   continue to open the saved permalink.
+- The [returning guest controls](proof-review.md#returning-guest-review) let the
+  original author follow a thread and resume their checks from a verified
+  mailbox. Recovery runs from the asset page even when the browser has no share session.
 - `ProofThreads` stays mounted when switching version or choosing a revised
   location. See [the thread interface](proof-review.md#viewer-mount) for its
   props. The viewer sends `draftAnchor` on the selected version and renders

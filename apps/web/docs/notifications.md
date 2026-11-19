@@ -13,7 +13,10 @@ notification events. Priority, privacy, movement and AI title history do not int
 existing assignment, status, verification and MCP agent event delivery keeps its current contract.
 [File threads](proof-review.md) recheck the live asset and recipient at dispatch. A verification
 reminder follows the pending request's version. Superseded, archived and disabled checks are
-skipped. Links omit share credentials and require an active proof session when opened.
+skipped. Member links use app authentication. Guest links use a separate, expiring
+mailbox credential bound to an active, verified subscription and the original
+file and share. Unfollowing invalidates the credential and any returning sessions
+based on that subscription. See [returning guest review](proof-review.md#returning-guest-review).
 `/api/email/reports` checks its secret header and expected Event Grid subscription before validation
 or writes. Compare the subscription name case-insensitively, as Azure resource identity requires.
 The per-subscription credential and expected name bind the handshake to the subscriber; do not

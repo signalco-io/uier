@@ -8,6 +8,8 @@ export type ProofThreadFilter = {
     versionId?: string;
     reviewerId?: string;
     visibility?: VisibilityFilter;
+    authorId?: string;
+    authorShareId?: string;
 };
 
 export const websiteThreadsSql = ' AND NOT IS_DEFINED(c.assetTarget)';
@@ -16,12 +18,15 @@ export function matchesProofThread(comment: DbComment, filter?: ProofThreadFilte
     const target = comment.assetTarget;
     if (!filter) return !target;
     if (!target || (typeof filter.asset === 'string' ? target.assetId !== filter.asset : !filter.asset.includes(target.assetId))) return false;
+    if (filter.authorId !== undefined && comment.authorId !== filter.authorId) return false;
+    if (filter.authorShareId !== undefined && target.authorShareId !== filter.authorShareId) return false;
     if (!matchesVisibility(comment, filter.visibility)) return false;
 
     const { reviewerId, versionId } = filter;
     if (reviewerId !== undefined) {
         const request = comment.verification;
-        return !comment.resolved && !comment.archivedAt && request?.outcome === 'pending' && request.reviewer === reviewerId
+        return !comment.resolved && !comment.archivedAt && (filter.authorShareId === undefined || !comment.thread.items[0]?.deletedAt)
+            && request?.outcome === 'pending' && request.reviewer === reviewerId
             && request.evidence?.assetId === target.assetId
             && (versionId === undefined || request.evidence.after.versionId === versionId);
     }
@@ -46,6 +51,15 @@ export function proofThreadSql(filter?: ProofThreadFilter): { clause: string; pa
             return name;
         });
         clause += keys.length ? ` AND c.assetTarget.assetId IN (${keys.join(', ')})` : ' AND false';
+    }
+    if (filter.authorId !== undefined) {
+        parameters.push({ name: '@proofAuthor', value: filter.authorId });
+        clause += ' AND c.authorId = @proofAuthor';
+    }
+    if (filter.authorShareId !== undefined) {
+        parameters.push({ name: '@proofAuthorShare', value: filter.authorShareId });
+        clause += ' AND c.assetTarget.authorShareId = @proofAuthorShare';
+        if (filter.reviewerId !== undefined) clause += ' AND NOT IS_STRING(c.thread.items[0].deletedAt)';
     }
     if (filter.versionId !== undefined) parameters.push({ name: '@proofVersion', value: filter.versionId });
     if (filter.reviewerId !== undefined) {

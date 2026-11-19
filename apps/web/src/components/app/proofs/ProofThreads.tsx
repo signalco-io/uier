@@ -13,6 +13,7 @@ import { workflowStatusLabel } from '@/src/lib/app/statusWorkflow';
 import { proofApiPath, proofViewerPath } from '@/src/lib/proofs/model';
 import type { ProofAnchor, ProofPendingPage, ProofThread, ProofThreadLocation, ProofThreadPage, ProofVerificationEvidence } from '@/src/lib/proofs/threadModel';
 import { MessageMarkdown } from '../comments/MessageMarkdown';
+import { ProofThreadFollow } from './ProofReturningReview';
 import { VerificationControl } from '../comments/VerificationControl';
 import { proofFetch, ProofRequestError, proofWrite } from './client';
 import { videoTime } from './coordinates';
@@ -114,14 +115,14 @@ export function ProofThreads({ projectId, assetId, versionId, currentVersionId, 
     useEffect(() => { notifyThreads(page?.threads ?? []); }, [page]);
 
     useEffect(() => {
-        if (!page?.canComment || queue?.key !== key || queue.page.count > 0) return;
+        if ((!page?.canComment && !page?.returning) || queue?.key !== key || queue.page.count > 0) return;
         const controller = new AbortController();
         void proofFetch<ProofPendingPage>(`${base}/verification${query}&scope=asset&limit=1`, { signal: controller.signal })
             .then(result => {
                 if (!controller.signal.aborted) setOtherPending(result.threads[0] ? { key, thread: result.threads[0] } : undefined);
             }, () => { if (!controller.signal.aborted) setOtherPending(undefined); });
         return () => controller.abort();
-    }, [base, page?.canComment, key, query, queue]);
+    }, [base, page?.canComment, page?.returning, key, query, queue]);
 
     useEffect(() => {
         if (!open) return;
@@ -405,6 +406,8 @@ export function ProofThreads({ projectId, assetId, versionId, currentVersionId, 
                         {onRequestTarget && originalAnchor && <Button variant="outline" className="self-start pointer-coarse:min-h-11" onClick={() => onRequestTarget(selected.target.source)}>{t('Choose location')}</Button>}
                     </Field>
                 }} />
+            {selected.canFollow && <ProofThreadFollow key={`follow:${selected.id}`} endpoint={`${threadEndpoint(selected.id)}/notifications`}
+                onUnfollow={page?.returning ? () => window.location.reload() : undefined} />}
             {page?.canComment && <form aria-label={t('Reply')} onSubmit={event => submitMessage(event, selected)}>
                 <FieldGroup>
                     <Field><FieldLabel htmlFor={`${id}-reply`}>{t('Reply')}</FieldLabel>

@@ -14,11 +14,18 @@ import { getProjectComment, listProjectComments, projectPartition, setProjectCom
 import { changeFixVerification } from '../src/lib/review/fixVerification';
 import { projectFeedbackExport } from '../src/lib/review/feedbackContext';
 import { authorizeProofThread } from '../src/lib/proofs/threadAccess';
-import { exchangeProofShare } from '../src/lib/proofs/access';
+import { authorizeProof, exchangeProofShare } from '../src/lib/proofs/access';
 import { proofStore, type DbProofAsset, type DbProofShare, type DbProofVersion } from '../src/lib/proofs/store';
 import { changeProofThread, createProofThread, exportProofThread, getProofThread, listProofThreads, listProofVerification, replyToProofThread, verifyProofThread } from '../src/lib/proofs/threadRoutes';
 import type { ProofManifest } from '../src/lib/proofs/model';
 import type { ProofPendingPage, ProofThread, ProofThreadLocation } from '../src/lib/proofs/threadModel';
+import { proofFollowRoute, proofReturningRoute } from '../src/lib/proofs/returningRoutes';
+import { sendProofRecovery } from '../src/lib/proofs/returningReview';
+import { proofReturningLink } from '../src/lib/proofs/returningLink';
+import { rotateProofProject } from '../src/lib/proofs/cleanup';
+import { DIGEST_WINDOW_MS, discoverThreadNotifications, processNotificationDelivery, type NotificationDelivery } from '../src/lib/notifications/delivery';
+import { actOnNotificationToken, notificationPk, type NotificationSubscription } from '../src/lib/notifications/preferences';
+import type { EmailMessage } from '../src/lib/email/send';
 import { persistProjectAccess } from './support/projectAccess';
 
 const origin = 'https://proof.example';
@@ -43,6 +50,7 @@ async function fixture(manifestFor?: (id: string) => ProofManifest) {
     await app.create<DbProjectRef>({ type: 'project-ref', id: projectSeed.id, pk: projectRefPk(projectSeed.id), workspaceId: projectSeed.workspaceId });
     const project = await ensureProjectPublicId(projectSeed);
     const proofs = proofStore(project.id);
+    await proofs.ensureGuard();
     const asset = async (assetId: string, versions: string[], current: string) => {
         await app.create<DbProofAsset>({ id: assetId, pk: proofs.pk, type: 'proof-asset', name: assetId, collectionId: null,
             position: 0, createdAt: now, updatedAt: now, currentVersionId: current });
@@ -238,7 +246,7 @@ test('Cosmos pending page and aggregate use identical indexed scope and privacy 
         } };
     } } } as unknown as Container;
     const store = createCosmosCommentsStore(() => container);
-    const scope = { asset: 'asset_a', reviewerId: 'reader', versionId: 'v2', visibility: { authorId: 'reader' } };
+    const scope = { asset: 'asset_a', reviewerId: 'reader', versionId: 'v2', authorId: 'reader', authorShareId: 'share', visibility: { authorId: 'reader' } };
     const [page, count] = await Promise.all([store.listPage('project:test', { proof: scope, limit: 1 }), store.countProofThreads('project:test', scope)]);
     expect(page).toEqual([]);
     expect(count).toBe(300);
@@ -248,6 +256,8 @@ test('Cosmos pending page and aggregate use identical indexed scope and privacy 
     expect(aggregate!.query).toContain('c.verification.reviewer = @proofReviewer');
     expect(aggregate!.query).toContain('c.verification.evidence.after.versionId = @proofVersion');
     expect(aggregate!.query).toContain('c.authorId = @readerId');
+    expect(aggregate!.query).toContain('c.authorId = @proofAuthor');
+    expect(aggregate!.query).toContain('c.assetTarget.authorShareId = @proofAuthorShare');
     expect(aggregate!.query).toContain('NOT IS_STRING(c.archivedAt)');
 });
 
@@ -334,4 +344,167 @@ test('timed regions and copy replacements follow the original thread through a r
     expect(copyThread.target).toMatchObject({ source: copySource, suggestion });
     const retry = await create(copySource, idempotencyKey);
     expect((await threadFrom(retry)).id).toBe(copyThread.id);
+});
+
+function emailLink(message: EmailMessage, label: string) {
+    return new URL(message.text.split('\n').find(line => line.startsWith(label + ': '))!.slice(label.length + 2));
+}
+
+async function followConfirmation(response: Response) {
+    expect(response.status, await response.clone().text()).toBe(200);
+    const { verificationUrl } = await response.json() as { verificationUrl: string };
+    return new URL(verificationUrl);
+}
+
+function reviewerToken(url: URL) {
+    return new URLSearchParams(url.hash.slice(1)).get('reviewer')!;
+}
+
+test.describe('returning file review', () => {
+    const previousBase = process.env.UIER_BASE_URL;
+    test.beforeEach(() => { process.env.UIER_BASE_URL = origin; });
+    test.afterEach(() => {
+        if (previousBase === undefined) delete process.env.UIER_BASE_URL;
+        else process.env.UIER_BASE_URL = previousBase;
+    });
+
+    test('mailbox confirmation, digest and recovery resume only the original share and asset', async () => {
+        const f = await fixture();
+        const guest = await f.guestCookie();
+        const otherGuest = await f.guestCookie();
+        const first = await f.open(guest);
+        const second = await f.open(guest, { text: 'Adjust the revised title' });
+        const unrelated = await f.open(otherGuest, { text: 'Unrelated guest feedback' });
+        const email = `${key()}@example.test`;
+        const follow = (cookie: string, body?: object) => proofFollowRoute(f.make(cookie, body), f.ctx(first.id));
+        const open = (token: string, route = f.route) => proofReturningRoute(f.make(undefined, { action: 'open', token }), { params: Promise.resolve(route) });
+        const recovery = (address: string) => proofReturningRoute(f.make(undefined, { action: 'recover', email: address }), { params: Promise.resolve(f.route) });
+        const pending = async (cookie?: string, query = '?version=v2&limit=1') => {
+            const response = await listProofVerification(f.make(cookie, undefined, 'GET', query), { params: Promise.resolve(f.route) });
+            expect(response.status, await response.clone().text()).toBe(200);
+            return await response.json() as ProofPendingPage;
+        };
+        expect(await (await follow(guest)).json()).toEqual({ following: false, pending: false });
+        expect((await follow(otherGuest)).status).toBe(404);
+        expect((await follow(otherGuest, { following: true, email })).status).toBe(404);
+        const started = await follow(guest, { following: true, email: email.toUpperCase() });
+        const confirmation = await followConfirmation(started);
+        const confirmToken = reviewerToken(confirmation);
+        expect(confirmation.searchParams.get('thread')).toBe(first.id);
+        expect(confirmation.href).not.toContain(email);
+        expect(await (await follow(guest)).json()).toEqual({ following: false, pending: true });
+        const beforeConfirm: EmailMessage[] = [];
+        await sendProofRecovery(f.route, email, origin, async mail => { beforeConfirm.push(mail); });
+        expect(beforeConfirm).toEqual([]);
+        expect(await recovery(email)).toMatchObject({ status: 204 });
+        expect(await recovery(`${key()}@example.test`)).toMatchObject({ status: 204 });
+        expect((await getProofThread(f.make(), f.ctx(first.id))).status).toBe(404);
+        const confirmed = await open(confirmToken);
+        expect(confirmed.status, await confirmed.clone().text()).toBe(200);
+        expect(confirmed.headers.get('set-cookie')).toMatch(/returning-.*HttpOnly; SameSite=Lax/);
+        expect(await (await follow(guest)).json()).toEqual({ following: true, pending: false });
+        expect((await open(confirmToken)).status).toBe(404);
+
+        const alternateToken = randomToken();
+        const firstGrant = (await f.proofs.share(f.shareId))!.doc;
+        const alternateId = key();
+        await f.app.create<DbProofShare>({ ...firstGrant, id: alternateId, tokenHash: sha256Hex(alternateToken), downloadOriginal: true });
+        const alternateGuest = (await exchangeProofShare(f.make(guest), f.route.projectId, alternateToken)).cookies.map(value => value.split(';')[0]).join('; ');
+        const otherShare = await f.open(alternateGuest, { text: 'Same browser under another grant' });
+        for (const thread of [first, second, unrelated, otherShare]) {
+            const response = await f.postVerification(f.ownerCookie, thread, f.ask(thread));
+            expect(response.status, await response.clone().text()).toBe(200);
+        }
+
+        const comment = (await getMemoryCommentsStore().get(projectPartition(f.project.id), first.id))!.comment;
+        await discoverThreadNotifications(f.project, comment);
+        const deliveries = await f.app.query<NotificationDelivery>({ type: 'notification-delivery', pk: notificationPk(f.project.id), where: { threadId: first.id } });
+        const guestDelivery = deliveries.find(doc => !doc.userId)!;
+        const messages: EmailMessage[] = [];
+        await processNotificationDelivery(guestDelivery, origin, async message => { messages.push(message); return { status: 'sent' }; },
+            Date.now() + DIGEST_WINDOW_MS + 1);
+        expect(messages).toHaveLength(1);
+        expect(messages[0]!.to).toBe(email);
+        const reminder = emailLink(messages[0]!, 'Open thread');
+        expect(reminder.searchParams.get('version')).toBe('v2');
+        expect(reminder.searchParams.get('thread')).toBe(first.id);
+
+        const resumed = await open(reviewerToken(reminder));
+        expect(resumed.status, await resumed.clone().text()).toBe(200);
+        expect(await resumed.json()).toEqual({ href: reminder.pathname + reminder.search });
+        const cookie = resumed.headers.get('set-cookie')!.split(';')[0]!;
+        expect(await pending(cookie)).toMatchObject({ count: 2, threads: [expect.any(Object)], next: expect.any(String) });
+        expect(new Set((await pending(cookie, '?version=v2&scope=asset')).threads.map(thread => thread.id))).toEqual(new Set([first.id, second.id]));
+        expect((await pending(`${otherGuest}; ${cookie}`)).count).toBe(2);
+        expect((await pending(otherGuest)).count).toBe(1);
+        expect((await pending(alternateGuest)).count).toBe(1);
+        expect((await getProofThread(f.make(cookie), f.ctx(otherShare.id))).status).toBe(404);
+        expect((await getProofThread(f.make(cookie), f.ctx(unrelated.id))).status).toBe(404);
+        expect((await getProofThread(f.make(cookie), f.ctx(first.id, { ...f.route, assetId: 'asset_b' }))).status).toBe(404);
+        expect((await open(reviewerToken(reminder), { ...f.route, assetId: 'asset_b' })).status).toBe(404);
+        await expect(authorizeProof(f.make(cookie), f.route, 'downloadOriginal')).rejects.toMatchObject({ status: 404 });
+        await expect(authorizeProof(f.make(cookie), { projectId: f.route.projectId })).rejects.toMatchObject({ status: 404 });
+        const reply = await replyToProofThread(f.make(cookie, { text: 'No new write grant', authorName: 'Guest', idempotencyKey: key() }), f.ctx(first.id));
+        expect(reply.status).toBe(404);
+        expect((await follow(otherGuest)).status).toBe(404);
+
+        const requested = await threadFrom(await getProofThread(f.make(cookie, undefined, 'GET', '?version=v2'), f.ctx(first.id)));
+        const answer = { action: 'confirm', expectedRevision: requested.verification!.revision, targetVersionId: 'v2', idempotencyKey: key() };
+        expect((await f.postVerification(otherGuest, first, answer)).status).toBe(403);
+        expect((await f.postVerification(cookie, first, answer)).status).toBe(200);
+        expect((await pending(cookie)).count).toBe(1);
+        expect((await open(reviewerToken(reminder))).status).toBe(404);
+
+        const recoveredMessages: EmailMessage[] = [];
+        const collect = async (mail: EmailMessage) => { recoveredMessages.push(mail); };
+        await sendProofRecovery({ ...f.route, assetId: 'asset_b' }, email, origin, collect);
+        await sendProofRecovery(f.route, `other-${email}`, origin, collect);
+        expect(recoveredMessages).toEqual([]);
+        await sendProofRecovery(f.route, email, origin, collect);
+        expect(recoveredMessages).toHaveLength(1);
+        const recovered = emailLink(recoveredMessages[0]!, 'Resume file review');
+        const reopened = await open(reviewerToken(recovered));
+        expect(reopened.status, await reopened.clone().text()).toBe(200);
+        expect((await pending(reopened.headers.get('set-cookie')!.split(';')[0])).count).toBe(1);
+        const unsubscribe = emailLink(messages[0]!, 'Unsubscribe from thread');
+        await actOnNotificationToken(unsubscribe.searchParams.get('token'), 'unsubscribe');
+        expect((await open(reviewerToken(recovered))).status).toBe(404);
+        expect((await listProofVerification(f.make(cookie), { params: Promise.resolve(f.route) })).status).toBe(404);
+        expect((await pending(guest)).count).toBe(1);
+        expect(await (await follow(guest)).json()).toEqual({ following: false, pending: false });
+        await sendProofRecovery(f.route, email, origin, collect);
+        expect(recoveredMessages).toHaveLength(1);
+    });
+
+    for (const invalidation of ['revoked share', 'expired share', 'transfer'] as const) {
+        test(`${invalidation} invalidates existing credentials and future recovery`, async () => {
+            const f = await fixture();
+            const guest = await f.guestCookie();
+            const thread = await f.open(guest);
+            const email = `${key()}@example.test`;
+            const follow = await proofFollowRoute(f.make(guest, { following: true, email }), f.ctx(thread.id));
+            const confirm = reviewerToken(await followConfirmation(follow));
+            const open = (token: string) => proofReturningRoute(f.make(undefined, { action: 'open', token }), { params: Promise.resolve(f.route) });
+            const confirmed = await open(confirm);
+            expect(confirmed.status).toBe(200);
+            const cookie = confirmed.headers.get('set-cookie')!.split(';')[0]!;
+            const [subscription] = await f.app.query<NotificationSubscription>({ type: 'notification-subscription', pk: notificationPk(f.project.id) });
+            const makeLink = (age: number) => reviewerToken(new URL(proofReturningLink(origin, f.route.projectId, subscription!, 'v1', 'open', age)));
+            expect((await open(makeLink(-1))).status).toBe(404);
+            const currentToken = makeLink(900);
+            expect((await open(currentToken)).status).toBe(200);
+            if (invalidation === 'transfer') {
+                await rotateProofProject(f.project.id, 'new-epoch', f.app);
+            } else {
+                const grant = (await f.proofs.share(f.shareId))!;
+                const invalid = invalidation === 'revoked share' ? { revokedAt: now } : { expiresAt: now };
+                expect(await f.app.replace({ ...grant.doc, ...invalid }, grant.etag)).toBe('ok');
+            }
+            expect((await open(currentToken)).status).toBe(404);
+            expect((await getProofThread(f.make(cookie), f.ctx(thread.id))).status).toBe(404);
+            const messages: EmailMessage[] = [];
+            await sendProofRecovery(f.route, email, origin, async mail => { messages.push(mail); });
+            expect(messages).toEqual([]);
+        });
+    }
 });

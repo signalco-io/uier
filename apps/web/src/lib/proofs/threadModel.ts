@@ -45,6 +45,7 @@ export type ProofThread = Pick<ReviewCommentDto, 'id' | 'number' | 'thread' | 'r
     evidenceLinks?: Record<'before' | 'after', { href: string; previewUrl?: string; number: number | null }>;
     participants?: { id: string; name: string }[];
     verificationEnabled: boolean;
+    canFollow?: true;
     verificationPermissions: VerificationPermissions;
 };
 
@@ -54,6 +55,7 @@ export type ProofThreadPage = {
     canComment: boolean;
     canMakePrivate: boolean;
     guest: boolean;
+    returning?: true;
     statuses: WorkflowStatus[];
 };
 

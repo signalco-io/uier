@@ -77,7 +77,8 @@ export async function getProofAsset(request: Request, target: Required<Pick<Proo
         asset: proofAsset(asset),
         version: version ? proofVersion(target.projectId, version, actor) : null,
         versions: visible.map(item => proofVersion(target.projectId, item, actor)),
-        permissions: proofPermissions(actor)
+        permissions: proofPermissions(actor),
+        ...(actor.kind === 'guest' && actor.returning ? { returning: true } : {})
     };
 }
 

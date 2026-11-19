@@ -10,20 +10,23 @@ import type { ProofVerificationEvidence } from './threadModel';
 
 export type ProofThreadRoute = Required<Pick<ProofTarget, 'projectId' | 'assetId'>>;
 
-export async function authorizeProofThread(request: Request, route: ProofThreadRoute, versionId?: string, write = false) {
+export async function authorizeProofThread(request: Request, route: ProofThreadRoute, versionId?: string, write = false, returning = !write) {
     const target = { ...route, versionId };
-    const auth = await authorizeProof(request, target, write ? 'comment' : 'view');
+    const auth = await authorizeProof(request, target, write ? 'comment' : 'view', returning);
     const actor: ProjectActor = scopedActor(auth);
     return { ...auth, actor, permissions: auth.actor };
     function scopedActor({ actor, asset }: ProofAuthorization): ProjectActor {
         if (!asset || asset.id !== route.assetId) throw proofNotFound();
         const shareId = actor.kind === 'guest' ? actor.shareId : undefined;
-        return { ...actor, proofThread: { assetId: asset.id, shareId, async refresh(write) {
-            const fresh = await authorizeProof(request, target, write ? 'comment' : 'view');
+        const resumed = actor.kind === 'guest' && actor.returning === true;
+        // Ordinary mutations opt out of recovering identity even during a read refresh.
+        if (resumed && !returning) throw proofNotFound();
+        return { ...actor, proofThread: { assetId: asset.id, shareId, ...(resumed ? { returning: true } : {}), async refresh(write) {
+            const fresh = await authorizeProof(request, target, write ? 'comment' : 'view', returning);
             if (fresh.project.id !== auth.project.id || fresh.project.workspaceId !== auth.project.workspaceId
                 || fresh.actor.kind !== auth.actor.kind
                 || (fresh.actor.kind === 'member' && auth.actor.kind === 'member' && fresh.actor.userId !== auth.actor.userId)
-                || (fresh.actor.kind === 'guest' && (fresh.actor.visitorId !== (auth.actor.kind === 'guest' && auth.actor.visitorId) || fresh.actor.shareId !== shareId)))
+                || (fresh.actor.kind === 'guest' && (fresh.actor.visitorId !== (auth.actor.kind === 'guest' && auth.actor.visitorId) || fresh.actor.shareId !== shareId || Boolean(fresh.actor.returning) !== resumed)))
                 throw proofNotFound();
             return { project: fresh.project, actor: scopedActor(fresh) };
         } } };

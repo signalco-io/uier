@@ -23,7 +23,7 @@ export type ProofPermissions = {
 };
 export type ProofActor = ProofPermissions & (
     | { kind: 'member'; userId: string; name: string; isAdmin: boolean; scope: { kind: 'project' } }
-    | { kind: 'guest'; visitorId: string; shareId: string; scope: ProofShareScope }
+    | { kind: 'guest'; visitorId: string; shareId: string; scope: ProofShareScope; returning?: true }
 );
 
 export type ProofArtifact = { id: string; contentType: string; size: number; url: string };
@@ -95,6 +95,7 @@ export type ProofAssetDetail = {
     versions: ProofVersion[];
     version: ProofVersion | null;
     permissions: ProofPermissions;
+    returning?: true;
 };
 export type ProofUploadInput = {
     requestId: string;

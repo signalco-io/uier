@@ -7,6 +7,8 @@ import { isRandomToken, signToken, verifyToken, randomToken, sha256Hex } from '.
 import { isLocalRuntime } from '../comments/environment';
 import { apiErrors } from '../comments/http';
 import { PUBLIC_WORKSPACE_ID, isUierProvisionedProject } from '../comments/publicProjectPolicy';
+import { notificationPk, type NotificationSubscription } from '../notifications/subscriptions';
+import { getCommentsStore } from '../repo/commentsStore';
 import { memberActor } from '../review/actor';
 import type { ProofActor, ProofPermissions, ProofShareScope } from './model';
 import { proofEpoch, proofNotFound, proofStore, type DbProofAsset, type DbProofShare, type DbProofVersion } from './store';
@@ -14,11 +16,15 @@ import { proofEpoch, proofNotFound, proofStore, type DbProofAsset, type DbProofS
 const sessionLifetime = 30 * 24 * 60 * 60;
 const shareSessionPurpose = 'proof-share';
 const guestIdentityPurpose = 'proof-guest';
+const returningPurpose = 'proof-returning-session';
 const cookiePrefix = () => isLocalRuntime() ? 'uier-proof-' : '__Host-uier-proof-';
 const sessionCookie = (projectId: string) => `${cookiePrefix()}${projectId}`;
 const identityCookie = () => `${cookiePrefix()}visitor`;
 type ShareSession = { pid: string; sid: string; epoch: string; visitor: string };
 type GuestIdentity = { visitor: string };
+type ReturningSession = { projectId: string; assetId: string; subscriptionId: string; version: string };
+const returningCookie = (projectId: string, assetId: string) =>
+    `${cookiePrefix()}returning-${sha256Hex(JSON.stringify([projectId, assetId])).slice(0, 32)}`;
 
 export type ProofCapability = keyof ProofPermissions;
 export type ProofTarget = { projectId: string; assetId?: string; versionId?: string };
@@ -74,45 +80,95 @@ export function proofPermissions({ view, comment, downloadOriginal, manage }: Pr
     return { view, comment, downloadOriginal, manage };
 }
 
-async function requireScope(proofs: ReturnType<typeof proofStore>, scope: ProofShareScope) {
-    if (scope.kind === 'collection') {
-        if (!await proofs.collection(scope.id)) throw proofNotFound();
-    } else {
-        const asset = (await proofs.asset(scope.id))?.doc;
-        if (!asset?.currentVersionId || asset.deleted) throw proofNotFound();
-    }
+async function scopeIsLive(proofs: ReturnType<typeof proofStore>, scope: ProofShareScope, asset?: DbProofAsset | null) {
+    if (scope.kind === 'collection') return Boolean(await proofs.collection(scope.id));
+    const scoped = asset?.id === scope.id ? asset : (await proofs.asset(scope.id))?.doc;
+    return Boolean(scoped?.currentVersionId && !scoped.deleted);
 }
 
 /** Use this for every proof target, including repeat mutations, original downloads and immutable evidence. */
-export async function authorizeProof(request: Request, { projectId, assetId, versionId }: ProofTarget, capability: ProofCapability = 'view'): Promise<ProofAuthorization> {
+export async function authorizeProof(request: Request, { projectId, assetId, versionId }: ProofTarget,
+    capability: ProofCapability = 'view', returningThreads = false): Promise<ProofAuthorization> {
     const project = await proofProject(projectId);
     const proofs = proofStore(project.id);
     const guard = (await proofs.guard())?.doc;
     if (guard?.deleted) throw proofNotFound();
+    const asset = assetId ? (await proofs.asset(assetId))?.doc ?? null : null;
+    if ((assetId && (!asset || asset.deleted)) || (versionId && !asset)) throw proofNotFound();
     const user = await requestSessionUser(request);
     const member = user ? await memberActor(project, user.id) : null;
     let actor: ProofActor;
     if (member?.kind === 'member') {
         actor = { ...member, scope: { kind: 'project' }, view: true, comment: project.access !== 'disabled', downloadOriginal: true, manage: true };
     } else {
-        const session = verifyToken<ShareSession>(shareSessionPurpose, cookieValue(request, sessionCookie(project.id)));
         const epoch = proofEpoch(guard);
-        if (!session || session.pid !== project.id || session.epoch !== epoch || !isRandomToken(session.visitor) || !proofAllowsGuest(project)) throw proofNotFound();
-        const share = (await proofs.share(session.sid))?.doc;
-        if (!liveProofShare(share, project, epoch)) throw proofNotFound();
-        await requireScope(proofs, share.scope);
-        actor = { kind: 'guest', visitorId: sha256Hex(session.visitor), shareId: share.id, scope: share.scope,
-            view: true, comment: share.permission === 'comment', downloadOriginal: share.downloadOriginal, manage: false };
+        const returning = () => assetId ? returningProofActor(request, project, assetId, returningThreads) : null;
+        const ordinary = await browserProofActor(request, project, proofs, epoch, asset);
+        const resumed = returningThreads || (!ordinary && capability === 'view') ? await returning() : null;
+        const guest = resumed && resumed.visitorId === ordinary?.visitorId && resumed.shareId === ordinary.shareId
+            ? ordinary : resumed ?? ordinary;
+        if (!guest) throw proofNotFound();
+        actor = guest;
     }
 
-    const asset = assetId ? (await proofs.asset(assetId))?.doc ?? null : null;
-    if ((assetId && (!asset || asset.deleted || !scopeIncludesAsset(actor.scope, asset)
-        || (actor.kind === 'guest' && !asset.currentVersionId))) || (versionId && !asset)) throw proofNotFound();
+    if (actor.kind === 'guest' && asset && !asset.currentVersionId) throw proofNotFound();
     const selected = versionId ?? asset?.currentVersionId;
     const version = selected ? (await proofs.version(selected))?.doc ?? null : null;
     if (selected && (!version || version.assetId !== asset?.id || version.status !== 'published')) throw proofNotFound();
     if (!actor[capability]) throw apiErrors.forbidden('This proof does not grant that permission.');
     return { project, actor, asset, version };
+}
+
+async function browserProofActor(request: Request, project: DbProject, proofs: ReturnType<typeof proofStore>, epoch: string, asset: DbProofAsset | null): Promise<Extract<ProofActor, { kind: 'guest' }> | null> {
+    const session = verifyToken<ShareSession>(shareSessionPurpose, cookieValue(request, sessionCookie(project.id)));
+    if (!session || session.pid !== project.id || session.epoch !== epoch || !isRandomToken(session.visitor) || !proofAllowsGuest(project)) return null;
+    const share = (await proofs.share(session.sid))?.doc;
+    if (!liveProofShare(share, project, epoch) || (asset && !scopeIncludesAsset(share.scope, asset))
+        || !await scopeIsLive(proofs, share.scope, asset)) return null;
+    return { kind: 'guest', visitorId: sha256Hex(session.visitor), shareId: share.id, scope: share.scope,
+        view: true, comment: share.permission === 'comment', downloadOriginal: share.downloadOriginal, manage: false };
+}
+
+/** A subscription may identify only the original author under the exact live grant and asset. */
+export async function liveProofFollow(project: DbProject, doc: NotificationSubscription) {
+    const { proofAssetId: assetId, proofShareId: shareId, proofEpoch: epoch } = doc;
+    if (doc.projectId !== project.id || doc.userId || !assetId || !shareId || !epoch) return null;
+    const proofs = proofStore(project.id);
+    const [guard, asset, grant, stored] = await Promise.all([
+        proofs.guard(), proofs.asset(assetId), proofs.share(shareId), getCommentsStore().get(`project:${project.id}`, doc.threadId)
+    ]);
+    const share = grant?.doc;
+    const comment = stored?.comment;
+    if (guard?.doc.deleted || epoch !== proofEpoch(guard?.doc) || !liveProofShare(share, project, epoch)
+        || share.permission !== 'comment' || !asset?.doc.currentVersionId || asset.doc.deleted || !scopeIncludesAsset(share.scope, asset.doc)
+        || !comment?.assetTarget || comment.assetTarget.assetId !== assetId || comment.assetTarget.authorShareId !== share.id
+        || comment.authorId !== doc.actorId || !comment.thread.items[0] || comment.thread.items[0].deletedAt) return null;
+    if (share.scope.kind === 'collection' && !await proofs.collection(share.scope.id)) return null;
+    return { share, comment, asset: asset.doc };
+}
+
+export function verifiedProofFollow(doc: NotificationSubscription) {
+    return Boolean(doc.following && doc.verifiedAt && doc.email && doc.proofMailbox);
+}
+
+async function returningProofActor(request: Request, project: DbProject, assetId: string, returningThreads: boolean): Promise<Extract<ProofActor, { kind: 'guest' }> | null> {
+    const session = verifyToken<ReturningSession>(returningPurpose, cookieValue(request, returningCookie(project.id, assetId)));
+    if (!session || session.projectId !== project.id || session.assetId !== assetId) return null;
+    const doc = (await getAppStore().get<NotificationSubscription>(notificationPk(project.id), session.subscriptionId))?.doc;
+    if (doc?.type !== 'notification-subscription' || doc.version !== session.version || doc.proofAssetId !== assetId
+        || !verifiedProofFollow(doc) || !await liveProofFollow(project, doc)) return null;
+    return { kind: 'guest', visitorId: doc.actorId, shareId: doc.proofShareId!, scope: { kind: 'asset', id: assetId }, returning: true,
+        view: true, comment: returningThreads, downloadOriginal: false, manage: false };
+}
+
+export function proofReturningCookie(doc: NotificationSubscription, share: DbProofShare) {
+    const assetId = doc.proofAssetId!;
+    const age = share.expiresAt ? Math.min(sessionLifetime, Math.floor((Date.parse(share.expiresAt) - Date.now()) / 1000)) : sessionLifetime;
+    if (age < 1) throw proofNotFound();
+    const token = signToken<ReturningSession>(returningPurpose, {
+        projectId: doc.projectId, assetId, subscriptionId: doc.id, version: doc.version
+    }, age);
+    return cookie(returningCookie(doc.projectId, assetId), token, age);
 }
 
 /** Return no scope or cookie until the exact grant and its target have been checked. */
@@ -126,7 +182,7 @@ export async function exchangeProofShare(request: Request, projectId: string, to
     const epoch = proofEpoch(guard);
     const share = await proofs.shareForToken(sha256Hex(token));
     if (!liveProofShare(share, project, epoch)) throw proofNotFound();
-    await requireScope(proofs, share.scope);
+    if (!await scopeIsLive(proofs, share.scope)) throw proofNotFound();
     return { scope: share.scope, cookies: proofGuestSessionCookies(request, project, share, epoch).cookies };
 }
 
