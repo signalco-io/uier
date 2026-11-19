@@ -662,6 +662,8 @@ export const en = {
     },
     selection: {
         label: 'Selected text',
+        /** Comment on the selected text: short, so it stays on one line beside Rewrite */
+        comment: 'Comment',
         rewrite: 'Rewrite'
     },
     canvas: {
@@ -732,6 +734,7 @@ export const en = {
         assignedToMe: 'Assigned to me',
         reviewBrief: 'Review brief',
         close: 'Close sidebar',
+        openInApp: 'Open in app',
         filters: {
             archived: "Archive",
             unresolved: 'Active',

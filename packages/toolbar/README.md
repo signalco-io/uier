@@ -367,9 +367,9 @@ error boundary, so one bad comment never breaks the toolbar.
   original quoted. Suggestions are offered for selections of up to 1000 characters (what a comment holds). When
   the model declines, the toolbar says "No suggestions for this text."; when suggestions are not available (no
   API key, `503`) or limited (`429`), it says so, and your own version still works. Closing an unchanged rewrite
-  leaves nothing behind. The selected text toolbar (Add comment, Rewrite) is one Tab stop; the arrow keys, Home
+  leaves nothing behind. The selected text toolbar (Comment, Rewrite) is one Tab stop; the arrow keys, Home
   and End move between its buttons.
-- Text comments: select text, then **Add comment** in the toolbar that appears next to the selection. The
+- Text comments: select text, then **Comment** in the toolbar that appears next to the selection. The
   comment stores the selected text and where it is: the start and end elements and character offsets in
   all of their text (so text after a link or bold words inside a paragraph is found again).
 - Restoring: pins are placed at their elements and commented text is tinted; clicking the tint opens the

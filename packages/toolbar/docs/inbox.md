@@ -10,6 +10,9 @@ From the top:
 
 - The title row. The title is the panel menu (`PanelTitle`, [keyboard](keyboard.md#composites)). The search icon
   (`InboxSearch`) opens the search field in a popover under it, and stays filled while a search applies. Close.
+  - For members, Open in app (an external-link icon with its tooltip, `inboxAppLink.ts`) opens the project's comments in
+    the uier app in a new tab, filtered as the inbox is: its environment, pages (a section as `/blog/*`), status tab,
+    unread, Assigned to me and search, as the app's `?environment`, `page`, `status`, `unread`, `people=assigned` and `q`.
 - `LocationPicker`, at full width. It is split like the app's location filter, in the UI kit's `Popper`:
   - on the left, a project's environments, this page (the default, named by its path, with its full address in a
     tooltip), all pages and the sections (`section:/blog`, `@uier/toolbar/page-sections`, shared with the app);

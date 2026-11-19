@@ -14,7 +14,7 @@ import { useMessages } from '../i18n';
 
 type CommentSelectionPopoverProps = {
     rects: DOMRect[];
-    /** Add comment: a comment about the selected text */
+    /** Comment: a comment about the selected text */
     onCreate: () => void;
     /** Rewrite: suggested text to replace the selected text */
     onRewrite: () => void;
@@ -39,7 +39,7 @@ export function CommentSelectionPopover({ rects, onCreate, onRewrite }: CommentS
     // C comments on the selection too (CommentsGlobal)
     const shortcut = useShortcutsEnabled() ? addCommentShortcut : undefined;
     const actions = [
-        { label: t.toolbar.addComment, icon: <CommentIcon icon="add" size={20} variant="outlined" aria-hidden="true" />, onClick: onCreate, shortcut },
+        { label: t.selection.comment, icon: <CommentIcon icon="add" size={20} variant="outlined" aria-hidden="true" />, onClick: onCreate, shortcut },
         ...(rewriteAvailable ? [{ label: t.selection.rewrite, icon: <RewriteIcon size={20} aria-hidden="true" />, onClick: onRewrite, shortcut: undefined }] : [])
     ];
 
@@ -78,7 +78,7 @@ export function CommentSelectionPopover({ rects, onCreate, onRewrite }: CommentS
                 aria-label={t.selection.label}
                 aria-orientation="horizontal"
                 onKeyDown={handleKeyDown}
-                className="absolute z-[52] -translate-x-1/2 rounded-full border bg-background p-1 text-foreground shadow-[0_8px_24px_rgba(0,0,0,0.16)]"
+                className="absolute z-[52] -translate-x-1/2 rounded-full border bg-background p-1 text-foreground shadow-(--brand-shadow-review)"
                 style={{ left: leftFixed, top: topFixed }}>
                 <Row>
                     {actions.map((action, index) => (
@@ -89,7 +89,7 @@ export function CommentSelectionPopover({ rects, onCreate, onRewrite }: CommentS
                             }}
                             variant="plain"
                             size="sm"
-                            className="gap-1.5 rounded-full pl-2.5"
+                            className="gap-1.5 whitespace-nowrap rounded-full pl-2.5"
                             tabIndex={index === activeActionIndex ? 0 : -1}
                             aria-keyshortcuts={action.shortcut}
                             onFocus={() => setActiveIndex(index)}

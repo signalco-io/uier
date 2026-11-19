@@ -643,6 +643,7 @@ export const es: Messages = {
     },
     selection: {
         label: 'Texto seleccionado',
+        comment: 'Comentar',
         rewrite: 'Reescribir'
     },
     canvas: {
@@ -711,6 +712,7 @@ export const es: Messages = {
         assignedToMe: 'Asignados a mí',
         reviewBrief: 'Indicaciones de revisión',
         close: 'Cerrar el panel lateral',
+        openInApp: 'Abrir en la app',
         filters: {
             archived: "Archivo",
             unresolved: 'Activos',

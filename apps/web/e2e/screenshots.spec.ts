@@ -113,7 +113,7 @@ test('screenshots: selected-text comments and rewrite suggestions capture automa
     await openLanding(page, isolatedOrigin(testInfo), { dismissHint: true });
     for (const rewrite of [false, true]) {
         await selectText(page, brand.shortDescription);
-        await page.getByRole('toolbar', { name: 'Selected text' }).getByRole('button', { name: rewrite ? 'Rewrite' : 'Add comment', exact: true }).click();
+        await page.getByRole('toolbar', { name: 'Selected text' }).getByRole('button', { name: rewrite ? 'Rewrite' : 'Comment', exact: true }).click();
         const draft = page.getByRole('dialog', { name: rewrite ? 'New rewrite suggestion' : 'New comment' });
         await draft.getByRole('textbox', { name: rewrite ? 'Suggested text' : 'Comment', exact: true }).fill(rewrite ? 'A clearer description.' : 'Clarify this description.');
         await expect(draft.getByRole('img')).toHaveCount(0);

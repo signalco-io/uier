@@ -319,13 +319,13 @@ function RewriteIcon() {
     );
 }
 
-/** The toolbar for selected text, ink like the rest of the review layer: Add comment and Rewrite */
+/** The toolbar for selected text, ink like the rest of the review layer: Comment and Rewrite */
 function SelectionToolbar({ buttonRef, visible, pressed }: { buttonRef: Ref<HTMLSpanElement>; visible: boolean; pressed: boolean }) {
     return (
         <span className={cx('dark absolute bottom-full left-0 mb-2 inline-flex items-center gap-0.5 whitespace-nowrap rounded-full border bg-background p-1 text-xs font-medium tracking-normal text-foreground', fade(visible))}>
             <span ref={buttonRef} className={cx('inline-flex h-7 items-center gap-1.5 rounded-full pl-2 pr-3 transition-colors duration-[120ms] ease-out', pressed ? 'bg-tertiary-foreground/40' : 'bg-accent')}>
                 <AddCommentIcon size={14} />
-                Add comment
+                Comment
             </span>
             <span className="inline-flex h-7 items-center gap-1.5 pl-2 pr-3 text-muted-foreground"><RewriteIcon />Rewrite</span>
         </span>

@@ -642,6 +642,7 @@ export const fr: Messages = {
     },
     selection: {
         label: 'Texte sélectionné',
+        comment: 'Commenter',
         rewrite: 'Réécrire'
     },
     canvas: {
@@ -710,6 +711,7 @@ export const fr: Messages = {
         assignedToMe: 'Attribués à moi',
         reviewBrief: 'Consignes de revue',
         close: 'Fermer le panneau',
+        openInApp: 'Ouvrir dans l’app',
         filters: {
             archived: "Archives",
             unresolved: 'Actifs',

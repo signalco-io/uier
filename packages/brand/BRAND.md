@@ -245,8 +245,11 @@ never below 44.
 Two levels only.
 
 - **Resting:** 1 px border (Ink 200 / `#262626`), no shadow. Cards, inputs, sections, tables.
-- **Floating:** border plus `0 1px 2px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.08)`. Toolbar,
+- **Floating:** border plus `0 1px 2px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.08)`. Site
   popovers, menus, dialogs. On dark a 1 px `#262626` ring does the lifting.
+- **The review layer floats higher:** the toolbar's pill, inbox, popovers and menus land on pages uier
+  does not control, so they use `0 2px 6px rgba(0,0,0,.12), 0 12px 32px rgba(0,0,0,.24)`
+  (`--brand-shadow-review`) with their border, to stand apart from the page.
 - **A tile that opens a page** (the landing's feature tiles) rises from resting to floating while
   hovered, its border a step darker, with the 150 ms ease-out. It does not move or scale.
 

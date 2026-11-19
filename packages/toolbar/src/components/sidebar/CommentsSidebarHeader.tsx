@@ -5,7 +5,7 @@ import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { Button } from '@signalco/ui-primitives/Button';
 import { Typography } from '@signalco/ui-primitives/Typography';
 import { cx } from '@signalco/ui-primitives/cx';
-import { ExpandDown, PanelRightClose } from '@signalco/ui-icons';
+import { ExpandDown, ExternalLink, PanelRightClose } from '@signalco/ui-icons';
 import { Popper } from '@signalco/ui-primitives/Popper';
 import { Stack } from '@signalco/ui-primitives/Stack';
 import { useProjectViewer } from '../../project/ProjectGate';
@@ -20,10 +20,10 @@ import { moveFocusInMenu, useRovingFocus } from '../../focusKeys';
 import { useMessages } from '../../i18n';
 
 /**
- * The inbox's title row: the handle that moves it, its name (a menu of the other panels, `PanelTitle`), the search (`InboxSearch`, its popover under this row) and
- * Close (with the focus when it opens, unless `autoFocus` is false)
+ * The inbox's title row: the handle that moves it, its name (a menu of the other panels, `PanelTitle`), the search (`InboxSearch`, its popover under this row),
+ * Open in app (`appLink`, members only: the same comments in the uier app, in a new tab) and Close (with the focus when it opens, unless `autoFocus` is false)
  */
-export function CommentsSidebarHeader({ onClose, autoFocus = true, search }: { onClose: () => void; autoFocus?: boolean; search?: React.ReactNode }) {
+export function CommentsSidebarHeader({ onClose, autoFocus = true, search, appLink }: { onClose: () => void; autoFocus?: boolean; search?: React.ReactNode; appLink?: string }) {
     const { brief } = useProjectViewer();
     const t = useMessages();
     const [briefOpen, setBriefOpen] = useState(false);
@@ -36,6 +36,7 @@ export function CommentsSidebarHeader({ onClose, autoFocus = true, search }: { o
                 </Row>
                 <Row>
                     {search}
+                    {appLink && <OpenInApp href={appLink} />}
                     {brief && <Button size="sm" variant="plain" aria-expanded={briefOpen} onClick={() => setBriefOpen(!briefOpen)}>{t.inbox.reviewBrief}</Button>}
                     <IconTooltip label={t.inbox.close}>
                         <IconButton onClick={onClose} variant="plain" size="sm" aria-label={t.inbox.close} autoFocus={autoFocus} data-uier-close-inbox="" data-uier-panel-close="">
@@ -47,6 +48,19 @@ export function CommentsSidebarHeader({ onClose, autoFocus = true, search }: { o
             {brief && briefOpen && <section aria-label={t.inbox.reviewBrief} className="mt-3 whitespace-pre-wrap break-words text-sm text-foreground">{brief}</section>}
         </div>
     );
+}
+
+/** Open in app: a link that looks like the row's icon buttons, with their tooltip */
+function OpenInApp({ href }: { href: string }) {
+    const t = useMessages();
+    const { triggerProps, tooltip } = useIconTooltip(t.inbox.openInApp);
+    return <>
+        <Button href={href} target="_blank" rel="noopener noreferrer" variant="plain" size="sm" aria-label={t.inbox.openInApp}
+            data-uier-inbox-open-app="" className="w-8 px-0" {...triggerProps}>
+            <ExternalLink size={16} aria-hidden="true" />
+        </Button>
+        {tooltip}
+    </>;
 }
 
 /**

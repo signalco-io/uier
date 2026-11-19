@@ -4,6 +4,10 @@ The pill is the toolbar's black bar (`components/CommentToolbar.tsx`). Its profi
 `ToolbarProfile.tsx` and `ToolbarOptions.tsx`. `hooks/useReviewMovement.ts` and `components/DockablePanel.tsx`
 move the pill and dock its panels, and `useToolbarNotice` places notices by it.
 
+The pill, the docked panels, the popovers and menus, notices and toasts share the review layer's floating shadow
+(`--brand-shadow-review` from `@uier/brand`, `floatingShadowClassName`), stronger than the site's, so they stand apart
+from any page.
+
 ## The pill
 
 - A `nav` landmark. Its buttons: Add comment, Draw on the page ([canvas mode](canvas-mode.md), the optional

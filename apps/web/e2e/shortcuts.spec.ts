@@ -114,7 +114,7 @@ test('C comments on selected text', async ({ browser }, info) => {
     const { context, page } = await newVisitor(browser, info);
     await openLanding(page, isolatedOrigin(info), { dismissHint: true });
     await selectText(page, brand.shortDescription);
-    await expect(selectionToolbar(page).getByRole('button', { name: 'Add comment', exact: true }))
+    await expect(selectionToolbar(page).getByRole('button', { name: 'Comment', exact: true }))
         .toHaveAttribute('aria-keyshortcuts', 'C');
 
     await page.keyboard.press('c');

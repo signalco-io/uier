@@ -407,6 +407,17 @@ test('member toolbar thread and inbox priorities persist and guests can only rea
     await toolbar(page).getByRole('button', { name: /^Inbox(?:,|$)/ }).click();
     const inbox = page.getByRole('complementary', { name: 'Comments', exact: true });
     await expect(inbox).toContainText('Checkout button fails');
+    // The title row opens what the inbox shows in the app, in a new tab (uier #479): this page, Active (no status)
+    const openInbox = inbox.getByRole('link', { name: 'Open in app', exact: true });
+    await expect(openInbox).toHaveAttribute('target', '_blank');
+    const appLink = async () => new URL((await openInbox.getAttribute('href'))!);
+    expect((await appLink()).pathname).toBe(`/app/projects/${project}`);
+    expect([...(await appLink()).searchParams]).toEqual([['page', path]]);
+    // Done: the app's ?status=done
+    const tabs = inbox.getByRole('group', { name: 'Show comments', exact: true });
+    await tabs.getByRole('button', { name: /^Done \d+$/ }).click();
+    await expect.poll(async () => (await appLink()).searchParams.get('status')).toBe('done');
+    await tabs.getByRole('button', { name: /^Active \d+$/ }).click();
     // Priority is in Thread options; a priority other than Normal shows beside the status
     const options = await threadOptions(page, inbox.getByRole('article'));
     await options.getByRole('button', { name: 'Priority: Normal. Change priority', exact: true }).click();
