@@ -246,6 +246,8 @@ export const replaceScreenshotSchema = z.object({
     screenshot: screenshotSchema,
     expectedRevision: z.string().min(1).max(128).nullable()
 });
+/** A finalized recording upload for a saved comment's first message (`POST .../comments/<id>/recording`) */
+export const attachRecordingSchema = z.object({ recordingId: z.string().regex(/^[A-Za-z0-9_-]{1,128}$/) });
 export const idempotencyKeySchema = z.string().regex(/^[A-Za-z0-9_-]{16,128}$/);
 
 export const createCommentSchema = z.object({

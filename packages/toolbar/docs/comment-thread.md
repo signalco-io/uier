@@ -41,6 +41,8 @@ Checked in `apps/web/e2e/toolbar-thread.spec.ts`.
   `bg-border` lines so the gap reads as hidden messages (uier #443). Using it shows them and moves focus to the first.
 - No thread activity (who changed what): that history is in the app only (uier #374).
 - A saved screenshot is a thumbnail ([saved images](screenshots.md#saved-images)).
+- Without a screenshot there is no row for one: its author adds one with **Attach to comment** in
+  [the header](#the-header) ([uier #473](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects&comment=comment_qLw4Rx21hSb1QWTtYlSeN)).
 
 ## Reviewing a saved suggestion
 
@@ -74,6 +76,10 @@ their own, at the right, rather than cover the status. `e2e/toolbar-thread.spec.
   marks from `agents.ts`), named by its tooltip ("Assigned to you, with Claude").
 - The first message's device marks ([device details](device-details.md)).
 - Add reaction to the first message ([reactions](reactions.md)), hidden while it is edited.
+- **Attach to comment** (`CommentAttach.tsx`, [uier #473](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects&comment=comment_qLw4Rx21hSb1QWTtYlSeN)): a paperclip
+  the size of Add reaction, for those who may edit the comment, while it has no screenshot or no recording. Its menu
+  adds a screenshot of the page, an image or a recording ([saved images](screenshots.md#saved-images)); what is
+  being saved, a capture and its clip show under the first message's text. Hidden while the message is edited.
 - Then **Copy**: a menu with Copy issue ([feedback export](feedback-export.md)) and Copy link (`?uier-comment=`,
   `src/review.ts`), each described.
 - Add reaction, Copy and Thread options are 24 px buttons with 14 px icons (Thread options' is 16 px); a coarse

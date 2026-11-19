@@ -20,6 +20,7 @@ import { CommentDevice } from './info/CommentDevice';
 import { useReattach } from './CommentAnchorDetails';
 import { CommentScreenshot } from './CommentScreenshot';
 import { CommentRecording } from './CommentRecording';
+import { CommentAttach } from './CommentAttach';
 import { CommentComposer } from './CommentComposer';
 import { useDrafts } from '../hooks/useDrafts';
 import { CommentItem, CommentItemThreadItem } from './@types/Comments';
@@ -101,8 +102,8 @@ function deleteConfirmText(comment: CommentItem, first: boolean | undefined, t: 
         : t.thread.deleteComment;
 }
 
-/** The first message's part of the thread's header line: its author line, Add reaction and its options */
-export type ThreadHeaderMessage = { author?: ReactNode; device?: ReactNode; reaction?: ReactNode; actions?: FirstMessageActions };
+/** The first message's part of the thread's header line: its author line, Add reaction, Attach to comment and its options */
+export type ThreadHeaderMessage = { author?: ReactNode; device?: ReactNode; reaction?: ReactNode; attach?: ReactNode; actions?: FirstMessageActions };
 
 /**
  * One message. A reply has its avatar column and its own header line with Add reaction and More options. The
@@ -132,6 +133,8 @@ export function CommentThreadItem({ comment, threadItem, first, header, optionsR
         const saved = drafts.details(editDraftKey);
         return saved && typeof saved.originalText === 'string' ? { originalText: saved.originalText } : undefined;
     });
+    // Under the first message: what its Attach is saving, or a recording waiting to be attached (`CommentAttach`)
+    const [attachPanel, setAttachPanel] = useState<HTMLDivElement | null>(null);
 
     // The first message's author and actions are in the thread's header line
     const merged = Boolean(first && header);
@@ -229,6 +232,7 @@ export function CommentThreadItem({ comment, threadItem, first, header, optionsR
                 suffix={threadItem.editedAt && <span className="font-normal text-muted-foreground">{t.thread.edited}</span>} />}
             {(first || threadItem.screenshot) && <CommentScreenshot comment={comment} itemId={first ? undefined : threadItem.id} />}
             {(first ? comment.recording : threadItem.recording) && <CommentRecording commentId={comment.id} itemId={first ? undefined : threadItem.id} recording={(first ? comment.recording : threadItem.recording)!} />}
+            {first && <div ref={setAttachPanel} data-uier-attach-panel="" className="flex min-w-0 flex-col gap-1 empty:hidden" />}
             {!editing && <ReactionList comment={comment} item={threadItem} />}
             <CommentsErrorMessage error={error} />
         </Stack>
@@ -248,6 +252,7 @@ export function CommentThreadItem({ comment, threadItem, first, header, optionsR
                     author: authorLine,
                     device: <CommentDevice device={comment.device} reproduction={comment.reproduction} />,
                     reaction: !editing && <ReactionPicker comment={comment} item={threadItem} disabled={pending} />,
+                    attach: !editing && <CommentAttach comment={comment} panel={attachPanel} disabled={pending} />,
                     actions
                 })}
                 {body}
@@ -266,6 +271,7 @@ export function CommentThreadItem({ comment, threadItem, first, header, optionsR
                     </Row>
                     <Row spacing={0.5} className="shrink-0">
                         {!editing && <ReactionPicker comment={comment} item={threadItem} disabled={pending} />}
+                        {first && !editing && <CommentAttach comment={comment} panel={attachPanel} disabled={pending} />}
                         {(canDelete || canEdit) && !editing && (
                             <CommentThreadItemMenu
                                 triggerRef={menuRef}

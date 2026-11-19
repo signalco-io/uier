@@ -28,7 +28,7 @@ function useCaptureState(screenshot: Promise<string | undefined> | undefined): C
 }
 
 /** Lucide's camera and camera-off, drawn like the UI kit's icons (the kit has no camera) */
-function CameraIcon({ off, size = 16 }: { off?: boolean; size?: number }) {
+export function CameraIcon({ off, size = 16 }: { off?: boolean; size?: number }) {
     return (
         <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
             strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

@@ -9,6 +9,17 @@ Upload initialization, completion, private URL reads, byte validation, limits an
 [screen recordings](../../../docs/recordings.md). `src/lib/recordings/` owns those routes and storage;
 `e2e/recordings.api.spec.ts` covers isolation, retries, validation, seeking and deletion.
 
+- A saved comment's first message takes one recording afterwards: `POST .../comments/<id>/recording` with
+  `{ recordingId }` (the public and review APIs, and the extension broker's contract). `comments/attachRecording.ts`
+  checks visibility and edit rights on each attempt, like image replacement (the author; in a project also an
+  admin), needs the caller's own finalized upload, refuses a comment that has a recording (`409`) or whose first
+  message is deleted (`404`), and commits the comment, the upload's claim and a receipt keyed by the recording
+  together, so a replay returns the saved comment and one upload never reaches two messages. Requests for the same
+  recording can overlap: before a `409` or `404`, the receipt is read again and the recovered comment authorized, so the
+  one that lost the race returns the saved comment too; a different upload keeps its conflict. Only the opaque id is
+  read from the request: formats and limits are the upload flow's. The app has no such route; `CommentCard` does not
+  add evidence. `e2e/recordings.api.spec.ts` covers both APIs.
+
 - The [comment query backend](comment-query.md) adds complete bounded filtering/sorting reads,
   compact pages, exact counts/options, capabilities and member-only saved views. It does not replace
   current toolbar lists yet. `GET /api/review/<code>/comments/<id>` loads one visible full thread with

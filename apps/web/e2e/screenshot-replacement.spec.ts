@@ -44,22 +44,44 @@ test('saved evidence: upload fallback, validation, denied clipboard and failed r
     const id = await savedFeedback(page);
     const thread = page.getByRole('dialog', { name: 'Comment thread' });
     const input = thread.getByLabel('Upload screenshot image');
-    await expect(thread.getByText('No screenshot', { exact: true })).toBeVisible();
+    // Without a screenshot there is no row for one: Attach, among the first message's actions, adds it
+    const attach = thread.getByRole('button', { name: 'Attach to comment', exact: true });
+    await expect(attach).toBeVisible();
+    await expect(thread.getByText('No screenshot', { exact: true })).toHaveCount(0);
+    await expect(thread.getByRole('region', { name: 'Screenshot evidence' })).toHaveCount(0);
     await input.setInputFiles({ name: 'invalid.svg', mimeType: 'image/svg+xml', buffer: Buffer.from('<svg/>') });
     await expect(thread.getByRole('alert')).toContainText('Choose a PNG, JPEG or WebP');
     await input.setInputFiles({ name: 'broken.png', mimeType: 'image/png', buffer: Buffer.from('broken') });
     await expect(thread.getByRole('alert')).toContainText('could not be opened');
     await input.setInputFiles({ name: 'large.png', mimeType: 'image/png', buffer: Buffer.alloc(512 * 1024 + 1) });
     await expect(thread.getByRole('alert')).toContainText('at most 512 KB');
+    // Paste image asks the browser for the clipboard; a denied read says so and leaves the comment as it is
+    await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { read: async () => { throw new DOMException('Denied', 'NotAllowedError'); } } }));
+    await attach.click();
+    await page.getByRole('dialog', { name: 'Attach to comment', exact: true }).getByRole('button', { name: 'Paste image', exact: true }).click();
+    await expect(thread.getByRole('alert')).toContainText('Clipboard access was denied');
+    // A keyboard paste on Attach is the fallback
+    await attach.evaluate((element, data) => {
+        const bytes = Uint8Array.from(atob(data.split(',')[1]!), c => c.charCodeAt(0));
+        const transfer = new DataTransfer();
+        transfer.items.add(new File([bytes], 'pasted.png', { type: 'image/png' }));
+        element.dispatchEvent(new ClipboardEvent('paste', { clipboardData: transfer, bubbles: true, composed: true }));
+    }, pngImage);
+    const thumbnail = thread.getByRole('button', { name: 'Screenshot of the commented part of the page' });
+    await expect(thumbnail).toBeVisible();
+    await expect(thread.getByRole('alert')).toHaveCount(0);
+    expect(await storedImage(page, id)).toBe(cleanPng);
+    // With a screenshot, its replacement stays in the expanded view; Attach still offers a recording
+    await attach.click();
+    await expect(page.getByRole('dialog', { name: 'Attach to comment', exact: true }).getByRole('button', { name: 'Attach image', exact: true })).toHaveCount(0);
+    await page.keyboard.press('Escape');
     await input.setInputFiles(imageFile());
     await expect(thread.getByRole('status')).toContainText('Screenshot replaced.');
-    const thumbnail = thread.getByRole('button', { name: 'Screenshot of the commented part of the page' });
     await expect(thumbnail).toBeVisible();
     expect(await storedImage(page, id)).toBe(cleanPng);
     await expectNoAxeViolations(page);
     await page.screenshot({ path: testInfo.outputPath('saved-evidence-light.png') });
 
-    await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { read: async () => { throw new DOMException('Denied', 'NotAllowedError'); } } }));
     // With a saved image, Upload and Paste are in the expanded view, which shows their errors
     await thumbnail.click();
     const expanded = page.getByRole('dialog', { name: 'Screenshot', exact: true });

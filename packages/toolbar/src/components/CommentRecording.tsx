@@ -39,7 +39,7 @@ export function CommentRecording({ commentId, itemId, recording }: { commentId: 
         restore.current = { time: video.current?.currentTime ?? 0, playing: Boolean(video.current && !video.current.paused) };
         void load();
     };
-    return <section aria-label={t.label} className="min-w-0">
+    return <section aria-label={t.label} data-uier-evidence="recording" className="min-w-0">
         {location ? <video ref={video} key={location.url} src={location.url} controls playsInline preload="metadata" crossOrigin="anonymous"
             className="max-h-72 w-full rounded-lg border bg-muted" aria-label={t.label}
             onLoadedMetadata={() => {

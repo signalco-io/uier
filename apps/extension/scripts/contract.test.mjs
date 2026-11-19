@@ -13,4 +13,8 @@ test('broker v1 permits review operations and refuses open fetches and credentia
     assert(allowedExtensionOperation('comments/comment_id/replies/item_id', 'DELETE'));
     assert(allowedExtensionOperation('comments/comment_id/reactions', 'POST'));
     assert(!allowedExtensionOperation('comments/comment_id/reactions', 'PATCH'));
+    // A recording is read, or added to a saved comment by its finalized upload id; never changed or removed
+    for (const method of ['GET', 'POST']) assert(allowedExtensionOperation('comments/comment_id/recording', method));
+    for (const method of ['PATCH', 'DELETE']) assert(!allowedExtensionOperation('comments/comment_id/recording', method));
+    assert(!allowedExtensionOperation('comments/comment_id/replies/item_id/recording', 'POST'));
 });

@@ -36,6 +36,23 @@ recording, `ComposerRecording.tsx` shows the capture and the clip;
   Reloading or leaving the page ends capture and loses unsent recordings; the browser asks before leaving
   with a recording. This feature does not continue recording across full document navigation.
 
+## A recording for a saved comment
+
+**Attach to comment** on a thread's first message ([saved images](screenshots.md#saved-images), [uier #473](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects&comment=comment_qLw4Rx21hSb1QWTtYlSeN))
+offers Record screen and Upload recording while the comment has no recording, for those who may edit it.
+
+- The capture bar and the clip's preview are the composer's (`ComposerRecordingPreview` with `saved`), under the
+  message. The clip has no Send, so **Attach recording** is under its preview; Discard drops it.
+- `hooks/useAttachRecording.ts` uploads the clip like a reply's, then sends `POST .../comments/<id>/recording` with
+  `{ recordingId }`. A failed attach keeps the clip and its finished upload, so the next try sends the same id and
+  the API answers it with the saved comment.
+- A pin keeps this recording's state (`ThreadRecordingContext` from `CommentBubble`), so the thread stays open
+  while a capture is chosen or runs, Escape stops it, and a clip that was not attached is still there when the
+  thread opens again. A thread shown as a sheet on a narrow touch screen goes back to its popover while a capture
+  runs, like for a reply's. The inbox and inline threads stay mounted and keep their own.
+- One recording per message: there is no way to replace or remove it but deleting the comment, which is why a
+  capture is previewed before it is attached.
+
 ## Upload and recovery
 
 Send initializes an authorized upload session, PUTs bytes directly to its scoped location without

@@ -125,6 +125,7 @@ they behave goes in that note, not here.
 | `components/info/`, `hooks/useHoverPopover.ts` | the browser and device a comment was left from, and their details popover ([device details](docs/device-details.md)) |
 | `src/deviceDetails/` | the details popover's content and marks, shared with the app (`@uier/toolbar/device-details`) ([device details](docs/device-details.md)) |
 | `src/screenshot.ts`, `components/CommentScreenshot.tsx`, `components/ComposerAttachments.tsx` | capture, the screenshot toggle and saved thumbnails ([screenshots](docs/screenshots.md)) |
+| `components/CommentAttach.tsx`, `hooks/useAttachRecording.ts` | Attach to comment: a screenshot, image or recording added to a saved first message ([screenshots](docs/screenshots.md#saved-images), [recordings](docs/recordings.md#a-recording-for-a-saved-comment)) |
 | `components/ComposerAttachMenu.tsx` | Attach: one menu with Attach image, Record screen and Upload recording ([screenshots](docs/screenshots.md#the-form), [recordings](docs/recordings.md)) |
 | `src/screenshotPolicy.ts`, `src/suppliedScreenshot.ts`, `components/ScreenshotRedaction.tsx`, `hooks/useReplaceScreenshot.ts` | saved images: upload, paste and redaction ([screenshots](docs/screenshots.md#saved-images)) |
 | `components/checks/`, `src/checks/` | the page-check panels and their checks ([page checks](docs/page-checks.md)) |
