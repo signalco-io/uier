@@ -99,6 +99,12 @@ test('rewrite: pick a suggestion and post it', async ({ browser }, testInfo) => 
     await expect(thread.locator('blockquote')).toHaveText(selected);
     await expect(thread.getByText('Comment on any live website, right on the page. Nothing to install.')).toBeVisible();
     await expect(page.getByRole('status').filter({ hasText: 'Suggestion posted' })).toBeAttached();
+    // What it changes in the selected text, word by word: struck through and underlined, named for screen readers
+    const changes = thread.locator('[data-uier-text-changes=""]');
+    await expect(changes.locator('del')).toHaveText(['Removed: Review', 'Removed: by leaving comments directly', 'Removed: it']);
+    await expect(changes.locator('ins')).toHaveText(['Added: Comment on', 'Added: , right', 'Added: the page. Nothing to install']);
+    expect(await changes.locator('del').first().evaluate(element => getComputedStyle(element).textDecorationLine)).toBe('line-through');
+    expect(await changes.locator('ins').first().evaluate(element => getComputedStyle(element).textDecorationLine)).toBe('underline');
     const [saved] = await page.evaluate(async () => await (await fetch('/api/comments?path=/')).json() as { kind: string; position: { type: string; text: string }; thread: { items: { text: string; quotedText?: string }[] } }[]);
     expect(saved).toMatchObject({
         kind: 'rewrite',
@@ -140,6 +146,25 @@ test('rewrite: without suggestions the reviewer writes their own', async ({ brow
     await page.keyboard.press('Escape');
     await expect(draft).toBeHidden();
     await expect(page.getByRole('button', { name: 'New rewrite suggestion' })).toHaveCount(0);
+
+    await context.close();
+});
+
+test('rewrite: a suggestion that keeps the selected text says it changes no text', async ({ browser }, testInfo) => {
+    const origin = isolatedOrigin(testInfo);
+    const { context, page } = await newVisitor(browser, testInfo);
+    await openLanding(page, origin, { dismissHint: true });
+
+    await selectText(page, selected);
+    await selectionToolbar(page).getByRole('button', { name: 'Rewrite' }).click();
+    const draft = page.getByRole('dialog', { name: 'New rewrite suggestion' });
+    await expect(draft.getByRole('textbox', { name: 'Suggested text' })).toHaveText(selected, { useInnerText: true });
+    await draft.getByRole('button', { name: 'Post suggestion' }).click();
+
+    const thread = openThread(page);
+    await expect(thread.getByText('Suggested rewrite', { exact: true })).toBeVisible();
+    await expect(thread.getByText('No text changes. The suggestion matches the original text.', { exact: true })).toBeVisible();
+    await expect(thread.locator('[data-uier-text-changes=""]')).toHaveCount(0);
 
     await context.close();
 });

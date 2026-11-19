@@ -1,5 +1,7 @@
 import { cssColor } from './colorValues';
 
+export { hasTextChanges, textChanges, type TextChange } from './textDiff';
+
 export const changeStyleProperties = [
     'color', 'background-color', 'font-size', 'font-weight',
     'padding-top', 'padding-right', 'padding-bottom', 'padding-left', 'border-radius'

@@ -9,7 +9,8 @@ import { readProposalTarget } from '../proposalPreview';
 import { proposalMatchesTarget, proposalSessionActive, revealProposalTarget } from '../proposalSession';
 import { useAnnounce } from './Announcer';
 import { useReattach } from './CommentAnchorDetails';
-import type { CommentItem, CommentItemPosition } from './@types/Comments';
+import { TextChanges } from './TextChanges';
+import type { CommentItem, CommentItemPosition, CommentItemThreadItem } from './@types/Comments';
 
 export function rewriteProposal(original: string | undefined, markdown: string, mentions?: readonly MarkdownMention[]) {
     if (original === undefined || !markdown.trim()) return undefined;
@@ -19,14 +20,29 @@ export function rewriteProposal(original: string | undefined, markdown: string, 
     return isChangeProposal(proposal) ? proposal : undefined;
 }
 
+/** A rewrite saved without a structured proposal: the text it quoted, or the selected text */
+function legacyRewriteOriginal(comment: CommentItem, first: Exclude<CommentItemThreadItem, { deleted: true }>) {
+    const selected = comment.position.type === 'text' ? comment.position.text : undefined;
+    return first.quotedText && selected?.trim() !== first.quotedText ? first.quotedText : selected ?? first.quotedText;
+}
+
 export function savedProposal(comment: CommentItem | undefined) {
     const first = comment?.thread.items[0];
     if (!comment || !first || first.deleted) return undefined;
     if (isChangeProposal(comment.proposal)) return comment.proposal;
     if (comment.kind !== 'rewrite') return undefined;
-    const selected = comment.position.type === 'text' ? comment.position.text : undefined;
-    const original = first.quotedText && selected?.trim() !== first.quotedText ? first.quotedText : selected ?? first.quotedText;
-    return rewriteProposal(original, first.text, first.mentions);
+    return rewriteProposal(legacyRewriteOriginal(comment, first), first.text, first.mentions);
+}
+
+/**
+ * A rewrite without a proposal to preview: its suggestion is the original text (nothing to change, so none was saved),
+ * or an older one whose proposal can't be rebuilt. Its quoted original and suggestion, for the diff.
+ */
+export function rewriteWithoutProposal(comment: CommentItem) {
+    const first = comment.thread.items[0];
+    if (comment.kind !== 'rewrite' || !first || first.deleted || savedProposal(comment) || !first.text.trim()) return undefined;
+    const original = legacyRewriteOriginal(comment, first);
+    return original === undefined ? undefined : { original, proposed: markdownPlainText(first.text, first.mentions) };
 }
 
 export function ProposalSwitch({ session, position, disabled = false }: { session: ReturnType<typeof useProposalSession>; position: CommentItemPosition; disabled?: boolean }) {
@@ -70,6 +86,7 @@ export function SavedProposal({ comment, proposal, interactive }: { comment: Com
             {anchor.available && <Button size="xs" variant="plain" className="pointer-coarse:min-h-11"
                 onClick={anchor.request}>{t.thread.reattach}</Button>}
         </div>}
+        {proposal.text && <TextChanges original={proposal.text.original} proposed={proposal.text.proposed} />}
         <Button type="button" size="xs" variant="plain" className="justify-self-start pointer-coarse:min-h-11" data-uier-proposal-details=""
             aria-expanded={showDetails} aria-controls={showDetails ? id : undefined}
             onClick={() => setDetailsOpen(!showDetails)}>{t.proposal.values}</Button>

@@ -15,7 +15,8 @@ import { ThreadNotifications } from './ThreadNotifications';
 import { toolbarConfig } from '../config';
 import { useVisitor } from '../hooks/useVisitor';
 import { useMessages } from '../i18n';
-import { SavedProposal, savedProposal } from './SavedProposal';
+import { SavedProposal, rewriteWithoutProposal, savedProposal } from './SavedProposal';
+import { TextChanges } from './TextChanges';
 import { stopProposalSession } from '../proposalSession';
 
 /**
@@ -34,6 +35,7 @@ function ThreadContents({ commentItem, reading, onPage, allMessages, previewOnPa
     // Request verification opens from Thread options; focus goes back there
     const [verifying, setVerifying] = useState(false);
     const proposal = useMemo(() => savedProposal(commentItem), [commentItem]);
+    const unpreviewedRewrite = useMemo(() => rewriteWithoutProposal(commentItem), [commentItem]);
     const [verificationStatusId, setVerificationStatusId] = useState<string>();
     const t = useMessages();
     const optionsRef = useRef<HTMLButtonElement>(null);
@@ -116,6 +118,7 @@ function ThreadContents({ commentItem, reading, onPage, allMessages, previewOnPa
                         </>} />
                 )}
                 {proposal && <SavedProposal key={commentItem.anchorContext?.revision ?? 'original'} comment={commentItem} proposal={proposal} interactive={previewOnPage && !verifying} />}
+                {unpreviewedRewrite && <TextChanges original={unpreviewedRewrite.original} proposed={unpreviewedRewrite.proposed} />}
                 {expanded && restComments.map((item, index) => (
                     <div
                         key={item.id}

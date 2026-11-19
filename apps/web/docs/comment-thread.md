@@ -55,6 +55,11 @@ assignee card, with Open in T3 Code or another desktop session link, at the top 
   includes them for Copy issue and coding tools. Editing the first message of a structured rewrite updates
   the replacement from the message's visible wording in the same write, retaining its original and CSS.
   Editing an element proposal's note or any reply keeps the saved proposal.
+- A text proposal leads with **Changes**, the toolbar's word diff (`TextChanges`, `textChanges` from
+  `@uier/toolbar/change-proposal`: removed words struck through, added ones underlined, "Removed:"/"Added:" for screen
+  readers); its exact Original text and Proposed text are under the **Exact text** collapsible. A rewrite saved without a
+  proposal (posted unchanged, or older) compares its quoted text with its message, and one that changes no words says
+  "No text changes. The suggestion matches the original text." ([uier #482](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000001&comment=comment_2879wT8igXK7L0lPt5yoG); `e2e/rewrite-diff.spec.ts`).
 - While an opened thread's detail loads (`PagedCommentCard`: List, Board and the inbox open threads from the row's
   summary), `comments/CommentCardShell.tsx` stands in its place, shaped like `CommentCard` so nothing moves when the
   detail arrives (uier #385). What the summary holds is drawn as the card draws it: the status, `#number`, unread dot
