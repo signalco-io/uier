@@ -119,7 +119,7 @@ const tradeoffs: Record<CompetitorSlug, { keep: string; lose: string; test: stri
         test: 'Separate website review from product research. Try uier for the review portion while retaining the surveys, voting or mobile collection tools your team still needs.'
     },
     pastel: {
-        keep: 'Use Pastel if a review spans PDFs, images, videos and emails, or if approval must apply to an entire asset version.',
+        keep: 'With Pastel, clients can review an HTML prototype before you have a staging site. They can also review PDFs, images, videos and emails, and approve a specific version.',
         lose: 'uier has no multi-format review canvas or asset-version approvals. A named reviewer can confirm one thread’s fix, which does not sign off the page, asset or release.',
         test: 'Try the same live website through your preferred uier installation route. Test authenticated pages. Keep asset proofing in a tool that supports those formats.'
     },

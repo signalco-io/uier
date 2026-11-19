@@ -90,6 +90,8 @@ const pastelSources = {
     faq: 'https://usepastel.com/faq', pricing: 'https://usepastel.com/plans',
     website: 'https://help.usepastel.com/en/articles/1996011-reviewing-websites-in-pastel',
     files: 'https://help.usepastel.com/en/articles/5395323-review-pdfs-and-image-files-in-pastel',
+    html: 'https://help.usepastel.com/en/articles/17629923-get-feedback-on-html-files-upload-directly-from-your-ai-agent',
+    mcp: 'https://help.usepastel.com/en/articles/16399713-connect-your-ai-agent-to-pastel-mcp-server',
     approvals: 'https://usepastel.com/blog/approvals'
 };
 const userbackSources = {
@@ -197,8 +199,8 @@ export const competitors = {
         ]
     },
     pastel: {
-        name: 'Pastel', reviewed: originalReview, kind: 'proofing', focus: 'Website or asset → version approval',
-        bestFor: 'Reviewing websites, PDFs, images, videos and marketing emails, with approval of an entire asset version.',
+        name: 'Pastel', reviewed: { date: '2026-11-19', label: '19 November 2026' }, kind: 'proofing', focus: 'Website or asset → version approval',
+        bestFor: 'Reviewing live sites, uploaded HTML prototypes, PDFs, images, videos and marketing emails, with approval per version.',
         facts: {
             website: fact('yes', 'Live website canvas', 'A proxy overlays comments on the live site. Website changes appear in the canvas.', pastelSources.website),
             editing: unverified(pastelSources.faq),
@@ -206,11 +208,11 @@ export const competitors = {
             recording: fact('unknown', 'Recording not verified', 'Uploaded-video proofing is supported, but it is a different capability from recording a bug reproduction.', pastelSources.faq),
             replay: unverified(pastelSources.faq),
             diagnostics: unverified(pastelSources.faq),
-            assets: fact('yes', 'Multi-format canvases', 'PDFs, images, videos and marketing emails. The separate PDF/image guide explains position-based file pins.', pastelSources.faq),
+            assets: fact('yes', 'Multi-format canvases', 'Pin comments on PDFs and images, or review videos and marketing emails. An agent can upload an HTML prototype as a single file, folder or ZIP with its CSS, JavaScript and images. Reviewers use the same canvas link across revisions.', pastelSources.html),
             research: unverified(pastelSources.faq),
             workflow: fact('yes', 'Canvas organization', 'Assignments, labels, deadlines, folders and pausing comments.', pastelSources.pricing),
             confirmation: fact('yes', 'Asset-version approval', 'Approve or request changes per canvas version. New versions need a new decision; this differs from per-thread fix verification.', pastelSources.approvals),
-            mcp: unverified(pastelSources.faq),
+            mcp: fact('yes', 'Canvas and comment tools', 'A connected agent can upload an HTML revision, read comments, reply and update their status within the user’s permissions.', pastelSources.mcp),
             checks: unverified(pastelSources.faq)
         },
         setup: 'Paste a website URL or upload an asset and share a canvas link. Reviewers need no software installation or account. Private-site guidance uses Browse mode to sign in; test your particular authentication setup.',
@@ -221,6 +223,7 @@ export const competitors = {
         sources: [
             { label: 'Formats, reviewers and context', url: pastelSources.faq }, { label: 'Live websites and private-site access', url: pastelSources.website },
             { label: 'PDF and image review', url: pastelSources.files }, { label: 'Version approvals', url: pastelSources.approvals },
+            { label: 'HTML uploads and prototype revisions', url: pastelSources.html }, { label: 'MCP tools and permissions', url: pastelSources.mcp },
             { label: 'Plans and integrations', url: pastelSources.pricing }
         ]
     },

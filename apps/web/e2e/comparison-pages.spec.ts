@@ -5,7 +5,7 @@ const pairs = [
     { slug: 'bugherd', name: 'BugHerd', advantage: 'Custom Kanban columns', checked: '2026-11-11', logo: '/compare/bugherd.png' },
     { slug: 'marker-io', name: 'Marker.io', advantage: 'Scheduled monitoring', checked: '2026-11-11', logo: '/compare/marker-io.svg' },
     { slug: 'usersnap', name: 'Usersnap', advantage: 'Surveys and voting boards', checked: '2026-11-11', logo: '/compare/usersnap.png' },
-    { slug: 'pastel', name: 'Pastel', advantage: 'Multi-format canvases', checked: '2026-11-11', logo: '/compare/pastel.png' },
+    { slug: 'pastel', name: 'Pastel', advantage: 'Multi-format canvases', checked: '2026-11-19', logo: '/compare/pastel.png' },
     { slug: 'userback', name: 'Userback', advantage: 'Feedback and full-session replay', checked: '2026-11-15', logo: '/compare/userback.png' },
     { slug: 'ruttl', name: 'ruttl', advantage: 'Live CSS and text demonstrations', checked: '2026-11-15', logo: '/compare/ruttl.png' }
 ];

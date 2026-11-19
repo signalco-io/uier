@@ -10,8 +10,8 @@ official sources. Unknown slugs return 404.
 unsupported or unverified, with a detail and source per documented competitor capability. Its
 `reviewed` records a date and its readable label per product, printed beside that product's source
 list. It is the actual source-review date, not a build date or the date another vendor was added.
-BugHerd, Marker.io, Usersnap and Pastel retain 11 November 2026; uier's updated product sources,
-Userback and ruttl were checked on 15 November 2026. Update a product's date only after reviewing
+BugHerd, Marker.io and Usersnap were checked on 11 November 2026. The review dates are
+15 November 2026 for uier, Userback and ruttl and 19 November 2026 for Pastel. Update a product's date only after reviewing
 its sources. These pages are written by uier and say they compare
 documented capabilities rather than a hands-on benchmark: that note sits in each page's "Sources
 and scope" section, not under the hero actions, and the `/compare` hub (no sources section) does not
@@ -19,6 +19,11 @@ repeat it. Do not infer missing competitor
 features from documentation silence or turn an unverified entry into a negative. Preserve plan,
 browser and capture-mode caveats. Do not count coming-soon features as available or claim MCP
 is exclusive to uier. Link current pricing matrices instead of copying volatile price amounts.
+
+Pastel's [HTML upload guide](https://help.usepastel.com/en/articles/17629923-get-feedback-on-html-files-upload-directly-from-your-ai-agent)
+documents single files and folders or ZIPs with bundled assets. An agent can upload a revision to the same
+canvas using the CLI or MCP. The [MCP reference](https://help.usepastel.com/en/articles/16399713-connect-your-ai-agent-to-pastel-mcp-server)
+documents its permissions and comment tools. The ledger distinguishes an uploaded prototype from a live website URL.
 
 uier's claims follow the shipped feature pages, `docs/review-workflow.md`, the reproduction
 allowlist and screenshot/recording policies. Short screen recordings have explicit browser,
