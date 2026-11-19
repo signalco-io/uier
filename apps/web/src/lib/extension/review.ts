@@ -1,6 +1,11 @@
 import { z } from 'zod';
-import { projectOrigins, findProject, listProjects } from '../app/projects';
-import { getWorkspace, listUserMemberships } from '../app/workspaces';
+import { createProject, projectOrigins, findProject, listProjects } from '../app/projects';
+import { getMember, getWorkspace, listUserMemberships } from '../app/workspaces';
+import type { DbMember } from '../app/model';
+import { UserFacingError } from '../app/actionErrors';
+import { PUBLIC_WORKSPACE_ID } from '../comments/publicProjectPolicy';
+import { consume, APP_COUNTERS_PARTITION } from '../comments/rateLimits';
+import { getCommentsStore } from '../repo/commentsStore';
 import { getUser } from '../app/users';
 import { ensureProjectPublicId } from '../app/projectPublicIds';
 import { memberActor } from '../review/actor';
@@ -18,13 +23,23 @@ export async function matchingProjects(request: Request) {
     const user = await getUser(session.userId);
     return Response.json({ ...await projectsForSite(session.userId, origin.data), account: user && { name: user.name, email: user.email } });
 }
+/**
+ * Who may create a project in a workspace: its admins, as on the app's Create project (`createProjectAction`),
+ * and nobody in uier's own workspace, which takes no project (`assertMutableWorkspace`).
+ */
+function mayCreateProjects(member: Pick<DbMember, 'role' | 'workspaceId'>) {
+    return member.role === 'admin' && member.workspaceId !== PUBLIC_WORKSPACE_ID;
+}
 /** Discovery is also used by first-party consent, after validating each browser account. */
 export async function projectsForSite(userId: string, origin: string) {
     const memberships = await listUserMemberships(userId);
     const projects = [];
+    /** Where the popup may offer a new project for this site. A label only: creating checks the membership again. */
+    const workspaces: { id: string; name: string; since: string }[] = [];
     for (const member of memberships) {
         const workspace = await getWorkspace(member.workspaceId);
         if (!workspace) continue;
+        if (mayCreateProjects(member)) workspaces.push({ id: workspace.id, name: workspace.name, since: member.createdAt });
         for (const project of await listProjects(member.workspaceId)) {
             if (!projectOrigins(project).includes(origin)) continue;
             const actor = await memberActor(project, userId);
@@ -33,7 +48,37 @@ export async function projectsForSite(userId: string, origin: string) {
                 workspaceId: workspace.id, workspaceName: workspace.name });
         }
     }
-    return { projects, canSetUp: memberships.some(m => m.role === 'admin') };
+    return {
+        projects,
+        // Oldest membership first, as the app lists a person's workspaces
+        workspaces: workspaces.sort((a, b) => a.since.localeCompare(b.since)).map(({ id, name }) => ({ id, name })),
+        canSetUp: memberships.some(m => m.role === 'admin')
+    };
+}
+/**
+ * A project for the site the extension is on, in a workspace the person chose: the app's own `createProject`, so
+ * the same address and name rules apply and it starts invited-only. The stored admin membership is read here for
+ * every request; the list `projectsForSite` gave the popup grants nothing.
+ */
+export async function createSiteProject(request: Request) {
+    const session = await extensionSession(request);
+    const { origin, name, workspaceId } = await parseJsonBody(request, z.object({
+        origin: originSchema, name: z.string().max(1000).default(''), workspaceId: z.string().min(1).max(128)
+    }));
+    const [user, member, workspace] = await Promise.all([getUser(session.userId), getMember(workspaceId, session.userId), getWorkspace(workspaceId)]);
+    // One answer for a missing workspace, a removed member and a commenter: none says which workspaces exist
+    if (!user || !workspace || !member || !mayCreateProjects(member)) throw apiErrors.forbidden('Only admins of this workspace can create projects.');
+    await consume(getCommentsStore(), APP_COUNTERS_PARTITION, { key: `extension-project:${user.id}`, limit: 30, windowSeconds: 3600, reason: 'too_fast', message: 'Too many new projects. Try again later.' });
+    try {
+        const project = await createProject({ user, workspace }, { mode: 'website', name, urls: [origin] });
+        return Response.json({ id: project.publicId, projectId: project.id, name: project.name, access: project.access,
+            workspaceId: workspace.id, workspaceName: workspace.name }, { status: 201 });
+    } catch (error) {
+        // The app's form shows these messages; the popup shows them the same way
+        if (error instanceof UserFacingError) throw apiErrors.invalidRequest(error.message);
+        if (error instanceof z.ZodError) throw apiErrors.invalidRequest(error.issues[0]?.message ?? 'Check the project and try again.');
+        throw error;
+    }
 }
 export async function createScope(request: Request) {
     const session = await extensionSession(request);

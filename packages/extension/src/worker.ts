@@ -274,6 +274,19 @@ async function start(tabId: number, projectId: string, publicId: string) {
     await inject(binding);
     } catch (error) { if ((await getBinding(tabId))?.activation === binding.activation) await clearBinding(tabId); throw error; }
 }
+type CreatedProject = { id: string; projectId: string; name: string; access: string; workspaceId: string; workspaceName: string };
+/**
+ * A project for the active tab's site, then its review. The address is the tab's own origin, read here; uier checks
+ * the person's admin membership of the workspace and creates it as the app does. A review that cannot start (a
+ * closed helper, a tab that moved on) leaves the project: the popup lists it with the reason, ready for Start review.
+ */
+async function createProject(tabId: number, name: string, workspaceId: string) {
+    const tab = await browser.tabs.get(tabId);
+    if (!tab.active || !reviewable(tab.url)) throw new Error('Open a website to start a review. Browser pages and extension stores cannot be reviewed.');
+    const project = await json<CreatedProject>(await api('projects', (await session()).token, 'POST', { origin: new URL(tab.url!).origin, name, workspaceId }));
+    try { await start(tabId, project.projectId, project.id); return { project }; }
+    catch (error) { return { project, error: error instanceof Error ? error.message : 'The review could not start.' }; }
+}
 async function contentBinding(sender: chrome.runtime.MessageSender) {
     const binding = sender.tab?.id !== undefined ? await getBinding(sender.tab.id) : undefined;
     if (!binding) throw new Error('This review has ended.');
@@ -330,6 +343,7 @@ async function handle(input: unknown, sender: chrome.runtime.MessageSender) {
             return { ...result, ...tab, binding: Boolean(binding), reviewing: binding?.projectId };
         }
         if (msg.type === 'start' && Number.isInteger(msg.tabId) && typeof msg.projectId === 'string' && typeof msg.publicId === 'string') return start(msg.tabId, msg.projectId, msg.publicId);
+        if (msg.type === 'create-project') return createProject(msg.tabId, msg.name, msg.workspaceId);
         if (msg.type === 'exit' && msg.tabId !== undefined) { await clearBinding(msg.tabId); await browser.tabs.sendMessage(msg.tabId, { type: 'dispose' }).catch(() => {}); return; }
         throw new Error('Unsupported popup operation.');
     }

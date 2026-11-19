@@ -174,6 +174,104 @@ test('account and workspace switching finds an unlisted site and replaces an act
     await Promise.all(context.pages().filter(page => page !== idle).map(page => page.close()));
 });
 
+test('an admin creates a project for an unlisted site in the popup and its review starts', async () => {
+    await context.clearCookies();
+    const app = await context.newPage();
+    const email = uniqueEmail('create');
+    await signIn(app, email);
+    // A second workspace the person administers, so the popup asks where the project goes
+    await app.goto('/app/projects');
+    await app.getByRole('button', { name: /^Workspace:/ }).click();
+    await app.getByRole('menuitem', { name: 'Create workspace', exact: true }).click();
+    const dialog = app.getByRole('dialog', { name: 'Create workspace' });
+    await dialog.getByLabel('Workspace name').fill('Client work');
+    await dialog.getByRole('button', { name: 'Create workspace', exact: true }).click();
+    await app.waitForURL(/\/app\/projects\/new$/);
+    const popup = await context.newPage();
+    await popup.goto(`chrome-extension://${clientId}/popup.html`);
+    const worker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker');
+    await popup.evaluate(() => chrome.runtime.sendMessage({ type: 'sign-out' }));
+    await popup.reload();
+    const login = context.waitForEvent('page');
+    await popup.getByRole('button', { name: 'Sign in to uier', exact: true }).click();
+    await (await login).getByRole('button', { name: 'Sign in to uier', exact: true }).click();
+    await expect(popup.getByRole('button', { name: 'Switch account', exact: true })).toBeVisible();
+    const reviewed = await context.newPage();
+    await reviewed.goto(`${origin}/private?secret=not-for-uier#anchor`);
+    await reviewed.bringToFront();
+    const cdp = await context.browser()!.newBrowserCDPSession();
+    const { targetInfos } = await cdp.send('Target.getTargets', { filter: [{ type: 'tab', exclude: false }] });
+    await cdp.send('Extensions.triggerAction', { id: clientId, targetId: targetInfos.find(target => target.url.startsWith(origin))!.targetId });
+    const actionPopup = context.pages().find(page => page !== popup && page.url() === `chrome-extension://${clientId}/popup.html`) ?? popup;
+    await actionPopup.reload();
+
+    // The form: the tab's address in the heading, the site's host as the name, and only workspaces to create in
+    const form = actionPopup.getByRole('form', { name: 'No project includes this address' });
+    await expect(form).toBeVisible();
+    await expect(actionPopup.getByText(origin, { exact: true })).toBeVisible();
+    const name = form.getByLabel('Project name', { exact: true });
+    await expect(name).toHaveValue('127.0.0.1');
+    const workspaces = form.getByRole('group', { name: 'Choose a workspace' });
+    await expect(workspaces.getByRole('button')).toHaveText(['Personal', 'Client work']);
+    const submit = form.getByRole('button', { name: 'Create project and start review', exact: true });
+    await expect(submit).toBeDisabled();
+    await expect(form.getByText('Choose the workspace for the project.', { exact: true })).toBeVisible();
+    await expect(actionPopup.getByRole('link', { name: 'Open project setup', exact: true })).toHaveAttribute('href', `${apiBase}/app/projects`);
+    for (const colorScheme of ['light', 'dark'] as const) {
+        await actionPopup.emulateMedia({ colorScheme });
+        await expect(actionPopup.locator('html')).toHaveClass(colorScheme === 'dark' ? 'dark' : '');
+        await animationsFinished(actionPopup.getByRole('main'));
+        await expectNoAxeViolations(actionPopup);
+    }
+    // Choosing a workspace is a choice, not the form's submit; the keyboard reaches every control
+    const client = workspaces.getByRole('button', { name: 'Client work', exact: true });
+    await client.focus();
+    await client.press('Enter');
+    await expect(client).toHaveAttribute('aria-pressed', 'true');
+    await expect(submit).toBeEnabled();
+    await expect(reviewed.locator('#uier-toolbar')).toHaveCount(0);
+    await name.fill('');
+    await expect(submit).toBeDisabled();
+    await expect(form.getByText('Enter a project name.', { exact: true })).toBeVisible();
+
+    // uier decides who may create where: the popup's own messages cannot name another workspace or address
+    const tabId = (await actionPopup.evaluate(() => chrome.runtime.sendMessage({ type: 'tab' }))).value.tabId as number;
+    const send = (message: object) => actionPopup.evaluate(message => chrome.runtime.sendMessage(message), message);
+    expect(await send({ type: 'create-project', tabId, name: 'Forged', workspaceId: 'w_uier_public' })).toEqual({ ok: false, error: 'Only admins of this workspace can create projects.' });
+    expect((await send({ type: 'create-project', tabId, name: 'Forged', workspaceId: 'w_uier_public', origin: 'https://elsewhere.example' })).ok).toBe(false);
+    expect((await reviewed.evaluate(() => 'chrome' in window && Boolean((window as any).chrome?.runtime?.sendMessage)))).toBe(false);
+
+    await name.fill('Created in the popup');
+    await name.press('Enter');
+    await expect(toolbar(reviewed)).toBeVisible({ timeout: 30_000 });
+    await expect(actionPopup.getByText('Reviewing Created in the popup', { exact: true })).toBeVisible();
+    await expect(actionPopup.getByRole('button', { name: 'Created in the popup Client work', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(actionPopup.getByRole('button', { name: 'Exit review', exact: true })).toBeEnabled();
+    await expect(form).toHaveCount(0);
+    // One project, in the chosen workspace, with the tab's origin alone as its address
+    const binding = await worker.evaluate(async () => Object.values(await chrome.storage.session.get(null)).find((value: any) => value?.projectId && value?.activation) as { projectId: string; origin: string });
+    expect(binding.origin).toBe(origin);
+    await app.goto('/app/projects');
+    await expect(app.getByRole('button', { name: 'Workspace: Client work', exact: false })).toBeVisible();
+    await expect(app.getByRole('main').getByRole('link', { name: /Created in the popup/ })).toHaveCount(1);
+    await app.goto(`/app/projects/${binding.projectId}/settings/environments`);
+    const addresses = app.getByRole('region', { name: 'Site addresses', exact: true });
+    await expect(addresses.getByLabel('Main site address', { exact: true })).toHaveValue(origin.replace('http://', ''));
+    await expect(addresses.getByLabel('Address 2', { exact: true })).toHaveCount(0);
+    // A comment saves in the new project
+    await reviewed.bringToFront();
+    await reviewed.getByRole('button', { name: 'Add comment', exact: true }).click();
+    const heading = (await reviewed.getByRole('heading', { level: 1 }).boundingBox())!;
+    await reviewed.mouse.click(heading.x + 10, heading.y + 10);
+    const composer = reviewed.getByRole('textbox', { name: 'Comment', exact: true });
+    await composer.fill('First comment in the new project'); await composer.press('Enter');
+    await expect(reviewed.getByRole('status').filter({ hasText: 'Comment posted' })).toBeVisible();
+    await actionPopup.getByRole('button', { name: 'Sign out', exact: true }).click();
+    await context.clearCookies();
+    const idle = await context.newPage();
+    await Promise.all(context.pages().filter(page => page !== idle).map(page => page.close()));
+});
+
 test('packaged isolated runtime uses real sign-in, helper and worker under strict CSP', async ({}, info) => {
     const app = await context.newPage();
     const email = uniqueEmail('extension');
@@ -255,8 +353,8 @@ test('packaged isolated runtime uses real sign-in, helper and worker under stric
     const frame = await send({ type: 'tab' });
     const full = await send({ type: 'state' });
     expect(frame.ok && full.ok).toBe(true);
-    expect(Object.keys(full.value)).toEqual(expect.arrayContaining(['projects', 'account']));
-    expect(frame.value).toEqual(Object.fromEntries(Object.entries(full.value).filter(([key]) => !['projects', 'canSetUp', 'account'].includes(key))));
+    expect(Object.keys(full.value)).toEqual(expect.arrayContaining(['projects', 'workspaces', 'account']));
+    expect(frame.value).toEqual(Object.fromEntries(Object.entries(full.value).filter(([key]) => !['projects', 'workspaces', 'canSetUp', 'account'].includes(key))));
     expect(frame.value).toMatchObject({ signedIn: true, tabId, binding: true, reviewing: projectId });
     expect((await send({ type: 'tab', tabId })).ok).toBe(false);
     // The popup's update check read uier's version without cookies. Nothing is downloaded, so a

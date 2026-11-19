@@ -46,6 +46,9 @@
   [Files](proof-viewer.md) using the project’s public ID. Add the first site in Settings → Environments.
   The save uses ordinary origin validation and the existing project record. A stale first-site form
   cannot overwrite an address another admin has already added.
+- `createProject` is the one way a person creates a project: the app's form (`createProjectAction`) and the
+  browser extension's popup (`createSiteProject`, [browser extension](browser-extension.md)) both call it after
+  their own admin check. It needs only the user and the workspace of the context.
 - Project addresses use `normalizeSiteUrl` in `src/lib/app/projects.ts`: schemeless localhost,
   `.localhost` subdomains and loopback IPs default to HTTP, other hosts to HTTPS. Explicit schemes
   and ports are preserved. Review CORS and redirects still require an exact configured origin.

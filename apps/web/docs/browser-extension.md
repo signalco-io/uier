@@ -98,6 +98,18 @@ browser registrations, exact callbacks, bound extension origins, refresh rebindi
 ancestors. Public installation links remain subject to each browser's publication and acceptance
 gates; local browser builds do not announce new store availability.
 
+`POST /api/extension/projects` (`createSiteProject` in `src/lib/extension/review.ts`) creates a project for a
+site no project includes, from the popup. It takes the worker's access token (never a review scope or a refresh
+credential), an exact origin, a name and a workspace id. The person must be a stored admin of that workspace, and
+uier's own workspace is never accepted (`mayCreateProjects`): the same rule as the app's Create project. It calls
+the app's `createProject`, so address and name validation, the invited-only default, the public id and the client
+record are the app's; keep new creation rules in `createProject` so both paths get them. A missing workspace, a
+removed member and a commenter get the same 403. One account creates at most 30 projects an hour this way.
+`GET projects` adds `workspaces` (id and name of each workspace the account may create in, oldest membership
+first) beside `canSetUp`, which installed packages still read; the list is a label and grants nothing.
+`extension.api.spec.ts` covers the roles, stale and removed memberships, credentials, validation and the route; the
+packaged runtime suite creates a project from the popup and reviews with it.
+
 Workflow discovery uses the allowlisted `GET statuses` operation and the same member-only handler as the embed review API. Guests cannot retrieve workflow names, descriptions or defaults.
 
 The cross-tab consent regression asserts the complete “Continue as” approval identity, since

@@ -173,6 +173,19 @@ drafts and proofs. Only the site's origin is sent for discovery, without its pat
 The extension still holds one account, and server-side project access and exact-origin checks apply
 again when starting a review. This behavior requires a new extension store release.
 
+On a site no project of the account includes, the popup offers admins a new project in place: the
+tab's address (shown, not editable), a name that starts as the site's host, and the workspace it goes
+in. uier lists only workspaces the account administers, never its own feedback workspace; one needs
+no choice, several need one made before **Create project and start review** is available. The popup
+sends only the name and the workspace (`create-project`). The worker reads the origin from the
+active tab, never from the popup or the page, and sends no path or query. uier checks the stored
+admin membership again and creates the project with the app's own creation service, so it is
+invited-only with that one address ([server rules](../apps/web/docs/browser-extension.md)). The
+worker then starts the review as **Start review** does. When the review cannot start (a closed
+verification window, a tab that moved on), the project stays and the popup lists it with the reason.
+Commenters, and admins on an older uier, keep the previous message; **Open project setup** stays for
+adding the address to an existing project. This also requires a new extension store release.
+
 ## Updates
 
 The extension packages the toolbar, so toolbar changes reach reviewers only through a store

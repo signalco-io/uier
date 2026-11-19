@@ -170,7 +170,7 @@ function projectSetup(input: { mode: z.infer<typeof projectSetupSchema>; name: s
 }
 
 /** A new project; `clientName` (`projectClientNameSchema`) picks the client with that name or creates one */
-export async function createProject(context: AppContext, input: { mode?: z.infer<typeof projectSetupSchema>; name: string; urls: string[]; clientName?: string }) {
+export async function createProject(context: Pick<AppContext, 'user' | 'workspace'>, input: { mode?: z.infer<typeof projectSetupSchema>; name: string; urls: string[]; clientName?: string }) {
     assertMutableWorkspace(context.workspace.id);
     const { name, urls } = projectSetup({ ...input, mode: input.mode ?? 'website' });
     const { clientName } = input;

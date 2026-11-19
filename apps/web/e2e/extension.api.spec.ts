@@ -1,21 +1,23 @@
 import { test, expect } from '@playwright/test';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { issueExtensionCode, exchangeExtensionCode, extensionSession, readScope, validateAuthorization } from '../src/lib/extension/auth';
-import { createScope, extensionReviewContext, matchingProjects, projectsForSite } from '../src/lib/extension/review';
+import { createScope, createSiteProject, extensionReviewContext, matchingProjects, projectsForSite } from '../src/lib/extension/review';
 import { extensionHandler } from '../src/lib/extension/http';
 import { findOrCreateUser } from '../src/lib/app/users';
 import { ensureOwnWorkspace, createWorkspace } from '../src/lib/app/workspaces';
-import { createProject, updateProject } from '../src/lib/app/projects';
-import { getAppStore } from '../src/lib/app/store';
+import { createProject, findProject, updateProject } from '../src/lib/app/projects';
+import { getAppStore, updateDoc } from '../src/lib/app/store';
 import type { AppContext } from '../src/lib/app/context';
 import { assertVerifiedWrite } from '../src/lib/review/verification';
 import { signToken } from '../src/lib/app/tokens';
-import { memberId, workspacePk } from '../src/lib/app/model';
+import { memberId, workspacePk, type DbMember } from '../src/lib/app/model';
+import { joinPublicProject, PUBLIC_WORKSPACE_ID } from '../src/lib/comments/publicProject';
+import { MAX_PROJECT_NAME_LENGTH } from '../src/lib/app/limits';
 import { actorAuthorId, assertCanUseComments } from '../src/lib/review/actor';
 import { refreshExtensionSession, revokeExtensionSession, extensionAccessSeconds, extensionIdleSeconds, extensionAbsoluteSeconds } from '../src/lib/extension/sessions';
 import { extensionClients, extensionFrameAncestors } from '../src/lib/extension/config';
 import { latestExtensionVersion } from '../src/lib/extension/release';
-import { GET as extensionOperation } from '../app/api/extension/[operation]/route';
+import { GET as extensionOperation, POST as extensionWrite } from '../app/api/extension/[operation]/route';
 import { readFileSync } from 'node:fs';
 
 const clientId = 'abcdefghijklmnopabcdefghijklmnop';
@@ -193,6 +195,60 @@ test('site discovery distinguishes workspaces and never includes another account
     expect((await projectsForSite(f.user.id, 'https://reviewed.example')).projects.map(project => project.projectId)).toEqual([f.project.id]);
     await expect(createScope(request('scope', credentials.token, { projectId: second.id, origin: 'https://reviewed.example' }))).rejects.toThrow();
     expect((await projectsForSite(f.user.id, 'https://reviewed.example.evil.test')).projects).toEqual([]);
+});
+
+test('an unlisted site gets a project only in a workspace its person administers, by the app\'s creation rules', async () => {
+    const f = await renewableFixture();
+    const token = f.credentials.token;
+    const site = `https://new-${randomUUID().slice(0, 8)}.example`;
+    const own = f.project.workspaceId;
+    // Another person's workspace, where this one only comments, and uier's own workspace, with a stale admin role
+    const owner = await fixture();
+    const commenter: DbMember = { type: 'member', id: memberId(f.user.id), pk: workspacePk(owner.project.workspaceId), workspaceId: owner.project.workspaceId,
+        userId: f.user.id, email: f.user.email, role: 'commenter', projects: 'all', createdAt: new Date().toISOString() };
+    expect(await getAppStore().create(commenter)).toBeTruthy();
+    const feedback = await joinPublicProject(f.user);
+    await updateDoc<DbMember>(feedback.pk, feedback.id, member => ({ ...member, role: 'admin' }));
+    const discover = async () => await (await matchingProjects(request(`projects?origin=${site}`, token))).json() as Awaited<ReturnType<typeof projectsForSite>>;
+    const before = await discover();
+    expect(before.projects).toEqual([]);
+    expect(before.workspaces).toEqual([{ id: own, name: 'Personal' }]);
+    const create = (body: unknown, bearer: string | null = token) => createSiteProject(request('projects', bearer ?? undefined, body));
+
+    // Identity: an access token of a live session, never the refresh credential or no credential
+    await expect(create({ origin: site, name: 'Site', workspaceId: own }, null)).rejects.toMatchObject({ status: 401 });
+    await expect(create({ origin: site, name: 'Site', workspaceId: own }, f.credentials.refreshToken)).rejects.toMatchObject({ status: 401 });
+    // Permission: the stored admin membership of the chosen workspace, whatever the popup listed
+    for (const workspaceId of [owner.project.workspaceId, PUBLIC_WORKSPACE_ID, `w_${randomUUID()}`])
+        await expect(create({ origin: site, name: 'Site', workspaceId })).rejects.toMatchObject({ status: 403, code: 'forbidden' });
+    // The app's own address and name rules
+    for (const origin of [`${site}/path`, 'ftp://files.example', 'https://intranet', 'not an address'])
+        await expect(create({ origin, name: 'Site', workspaceId: own })).rejects.toMatchObject({ status: 400 });
+    await expect(create({ origin: site, name: 'n'.repeat(MAX_PROJECT_NAME_LENGTH + 1), workspaceId: own })).rejects.toMatchObject({ status: 400, message: `Use at most ${MAX_PROJECT_NAME_LENGTH} characters.` });
+    expect((await discover()).projects).toEqual([]);
+
+    // Through the route, as the worker sends it from the extension's origin
+    const response = await extensionWrite(new Request('https://uier.io/api/extension/projects', { method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Origin: `chrome-extension://${clientId}` },
+        body: JSON.stringify({ origin: site, name: '  New site  ', workspaceId: own }) }));
+    expect(response.status).toBe(201);
+    const created = await response.json() as { id: string; projectId: string; name: string; access: string; workspaceId: string; workspaceName: string };
+    expect(created).toEqual({ id: expect.stringMatching(/^[\w-]{21}$/), projectId: expect.stringMatching(/^[0-9a-z]{12}$/), name: 'New site', access: 'invited', workspaceId: own, workspaceName: 'Personal' });
+    const stored = await findProject(created.projectId);
+    expect(stored).toMatchObject({ workspaceId: own, urls: [site], status: 'active', access: 'invited', createdBy: f.user.id, publicId: created.id });
+    // The person can review it at once: discovery lists it and a scope for this exact address is issued
+    expect((await discover()).projects).toEqual([expect.objectContaining({ id: created.id, projectId: created.projectId, name: 'New site', workspaceId: own })]);
+    expect((await createScope(request('scope', token, { projectId: created.projectId, origin: site }))).status).toBe(200);
+    // An empty name is the site's host, as in the app's form
+    const unnamed = await (await create({ origin: 'https://www.unnamed.example', workspaceId: own })).json() as { name: string };
+    expect(unnamed.name).toBe('unnamed.example');
+
+    // A demotion or removal applies to the next request
+    await updateDoc<DbMember>(workspacePk(own), memberId(f.user.id), member => ({ ...member, role: 'commenter' }));
+    expect((await discover()).workspaces).toEqual([]);
+    await expect(create({ origin: site, name: 'Site', workspaceId: own })).rejects.toMatchObject({ status: 403 });
+    await getAppStore().delete(workspacePk(own), memberId(f.user.id));
+    await expect(create({ origin: site, name: 'Site', workspaceId: own })).rejects.toMatchObject({ status: 403 });
 });
 
 test('scoped access derives the origin and rechecks address removal, comments off and revocation', async () => {

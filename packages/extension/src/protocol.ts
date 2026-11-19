@@ -8,6 +8,8 @@ export type WorkerMessage =
     | { type: 'audit' }
     | { type: 'exit'; tabId?: number }
     | { type: 'start'; tabId: number; projectId: string; publicId: string }
+    // A project for the tab's site: the worker reads the address from the tab itself, never from the sender.
+    | { type: 'create-project'; tabId: number; name: string; workspaceId: string }
     | { type: 'draft'; key: string; value: string | null }
     | { type: 'capture'; region: CaptureRegion }
     | { type: 'request'; url: string; method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'; body?: unknown }
@@ -27,6 +29,7 @@ export function parseWorkerMessage(input: unknown): WorkerMessage {
         case 'state': case 'tab': case 'sign-in': case 'sign-out': case 'drafts': case 'update': case 'install-update': case 'audit': valid = keys(); break;
         case 'exit': valid = keys('tabId') && (msg.tabId === undefined || tab(msg.tabId)); break;
         case 'start': valid = keys('tabId', 'projectId', 'publicId') && tab(msg.tabId) && text(msg.projectId, 128) && text(msg.publicId, 128); break;
+        case 'create-project': valid = keys('tabId', 'name', 'workspaceId') && tab(msg.tabId) && typeof msg.name === 'string' && msg.name.length <= 200 && text(msg.workspaceId, 128); break;
         case 'draft': valid = keys('key', 'value') && text(msg.key, 2047) && msg.key.startsWith('uier:draft:v1:') && (msg.value === null || (text(msg.value, 64_000) && !msg.value.includes('data:image/'))); break;
         case 'image': valid = keys('url') && text(msg.url, 8192); break;
         case 'request': valid = keys('url', 'method', 'body') && text(msg.url, 8192) && (msg.method === undefined || ['GET', 'POST', 'PATCH', 'DELETE'].includes(String(msg.method))) && JSON.stringify(msg.body ?? null).length <= 1_000_000; break;
