@@ -24,7 +24,8 @@ export type DbProofAsset = AppDoc & ProofAsset & {
 export type DbProofCollection = AppDoc & ProofCollection & { type: 'proof-collection' };
 export type DbProofShare = AppDoc & ProofShare & {
     type: 'proof-share';
-    tokenHash: string;
+    /** New grants have an independent public ID. Earlier grants used the hash as their ID. */
+    tokenHash?: string;
     workspaceId: string;
     epoch: string;
     assetId?: string;
@@ -67,7 +68,9 @@ export function proofStore(projectId: string, store: AppStore = getAppStore()) {
         share: (id: string) => get<DbProofShare>('proof-share', id),
         async shareForToken(tokenHash: string) {
             const rows = await store.query<DbProofShare>({ type: 'proof-share', pk, where: { tokenHash }, limit: 2 });
-            return rows.length === 1 ? rows[0] : null;
+            if (rows.length) return rows.length === 1 ? rows[0] : null;
+            const original = await get<DbProofShare>('proof-share', tokenHash);
+            return original && original.doc.tokenHash === undefined ? original.doc : null;
         },
         assets: (collectionId?: string) => store.query<DbProofAsset>({ type: 'proof-asset', pk,
             ...(collectionId ? { where: { collectionId } } : {}) }),
