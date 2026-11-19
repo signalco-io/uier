@@ -72,7 +72,10 @@ container width; narrower cards keep the wrapping item row. Keep new row content
   Settings shows a "Sign in again" panel instead of Add, and the join page shows a Sign in again card, the same
   whether or not a workspace matches (`signInAgainWithEmailAction` in `shell/actions.ts`: sign out, email form,
   back to `next`). A Join refused for an old proof refreshes the page from its
-  action (`refresh()`), which re-renders it as that card; a refused Add turns the section into the panel in place.
+  action (`refresh()`), which re-renders it as that card; a refused Add turns the section into the panel in place. The join page
+  links to the first-run step (Not now), and the browser prefetches it: the proxy's page check (`appPageAccess`)
+  loads no app context for `/app/welcome`, since that would give the account a workspace of its own before the
+  person chose. Someone who joins has only the team's workspace, and the first-run step asks only for their name.
 - **Matching** is exact on everything after the last `@`, lowercase ASCII (`emailDomainSchema`). No suffix or
   parent matching: a subdomain is its own domain and needs an admin with an email there.
 - **Records:** `workspace-domain` (`domain_<domain>`, the source of truth, written only through `mutateAccess`
