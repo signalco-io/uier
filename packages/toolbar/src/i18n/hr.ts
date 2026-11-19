@@ -643,6 +643,7 @@ export const hr: Messages = {
     },
     selection: {
         label: 'Označeni tekst',
+        comment: 'Komentiraj',
         rewrite: 'Preoblikuj'
     },
     canvas: {

@@ -642,6 +642,7 @@ export const fr: Messages = {
     },
     selection: {
         label: 'Texte sélectionné',
+        comment: 'Commenter',
         rewrite: 'Réécrire'
     },
     canvas: {

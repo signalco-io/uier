@@ -643,6 +643,7 @@ export const es: Messages = {
     },
     selection: {
         label: 'Texto seleccionado',
+        comment: 'Comentar',
         rewrite: 'Reescribir'
     },
     canvas: {

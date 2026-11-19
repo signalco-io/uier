@@ -662,6 +662,8 @@ export const en = {
     },
     selection: {
         label: 'Selected text',
+        /** Comment on the selected text: short, so it stays on one line beside Rewrite */
+        comment: 'Comment',
         rewrite: 'Rewrite'
     },
     canvas: {

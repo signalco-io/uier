@@ -174,7 +174,7 @@ test.describe('dark theme and reduced motion', () => {
         for (const rewrite of [false, true]) {
             // Selection is browser DOM Range emulation; physical touch selection handles are manual evidence.
             await selectText(page, 'Every plan includes the toolbar.');
-            await selectionToolbar(page).getByRole('button', { name: rewrite ? 'Rewrite' : 'Add comment', exact: true }).click();
+            await selectionToolbar(page).getByRole('button', { name: rewrite ? 'Rewrite' : 'Comment', exact: true }).click();
             const draft = page.getByRole('dialog', { name: rewrite ? 'New rewrite suggestion' : 'New comment', exact: true });
             await draft.getByRole('textbox', { name: rewrite ? 'Suggested text' : 'Comment', exact: true })
                 .fill(rewrite ? 'The toolbar is included in every plan.' : 'Clarify what is included.');

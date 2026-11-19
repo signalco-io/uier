@@ -39,7 +39,7 @@ export function CommentSelectionPopover({ rects, onCreate, onRewrite }: CommentS
     // C comments on the selection too (CommentsGlobal)
     const shortcut = useShortcutsEnabled() ? addCommentShortcut : undefined;
     const actions = [
-        { label: t.toolbar.addComment, icon: <CommentIcon icon="add" size={20} variant="outlined" aria-hidden="true" />, onClick: onCreate, shortcut },
+        { label: t.selection.comment, icon: <CommentIcon icon="add" size={20} variant="outlined" aria-hidden="true" />, onClick: onCreate, shortcut },
         ...(rewriteAvailable ? [{ label: t.selection.rewrite, icon: <RewriteIcon size={20} aria-hidden="true" />, onClick: onRewrite, shortcut: undefined }] : [])
     ];
 
@@ -89,7 +89,7 @@ export function CommentSelectionPopover({ rects, onCreate, onRewrite }: CommentS
                             }}
                             variant="plain"
                             size="sm"
-                            className="gap-1.5 rounded-full pl-2.5"
+                            className="gap-1.5 whitespace-nowrap rounded-full pl-2.5"
                             tabIndex={index === activeActionIndex ? 0 : -1}
                             aria-keyshortcuts={action.shortcut}
                             onFocus={() => setActiveIndex(index)}

@@ -43,9 +43,10 @@ See [element suggestions](composer-popovers.md#an-element-suggestion).
 ## Selected text
 
 `components/CommentSelectionPopover.tsx` is the toolbar for selected text (`role="toolbar"`, named "Selected
-text"): Add comment and Rewrite ([a rewrite](composer-popovers.md#a-rewrite)). It is ink and the pill's height
+text"): Comment and Rewrite ([a rewrite](composer-popovers.md#a-rewrite)). It is ink and the pill's height
 (36 px buttons), with the add-comment pin and the custom rewrite icon (`RewriteIcon.tsx`: text lines and a
-pencil). Its Add comment names C like the pill's ([keyboard](keyboard.md#shortcuts)).
+pencil). Its Comment names C like the pill's Add comment ([keyboard](keyboard.md#shortcuts)). The labels are
+short in every language (`selection.comment`) and never wrap, so both buttons stay on one line.
 
 ## Tests
 

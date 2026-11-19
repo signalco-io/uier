@@ -151,7 +151,7 @@ test('rewrite: the selected text toolbar is one Tab stop, arrows move between it
 
     await selectText(page, selected);
     const toolbar = selectionToolbar(page);
-    const addComment = toolbar.getByRole('button', { name: 'Add comment' });
+    const addComment = toolbar.getByRole('button', { name: 'Comment', exact: true });
     const rewrite = toolbar.getByRole('button', { name: 'Rewrite' });
     await expect(addComment).toHaveAttribute('tabindex', '0');
     await expect(rewrite).toHaveAttribute('tabindex', '-1');

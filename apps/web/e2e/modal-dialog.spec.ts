@@ -119,7 +119,7 @@ test('a native modal dialog can be reviewed while it is open and keeps its own E
 
     // Selected text in the modal
     await selectText(page, 'before the launch on Friday');
-    await selectionToolbar(page).getByRole('button', { name: 'Add comment', exact: true }).click();
+    await selectionToolbar(page).getByRole('button', { name: 'Comment', exact: true }).click();
     await postNewComment(page, 'Which Friday?');
     await page.evaluate(() => getSelection()?.removeAllRanges());
 
