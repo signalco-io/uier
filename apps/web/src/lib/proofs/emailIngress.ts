@@ -1,33 +1,25 @@
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { apiErrors } from '../comments/http';
 import { sha256Hex } from '../app/tokens';
+import { isProjectId } from '../app/projects';
+import { getAppStore } from '../app/store';
 import { authorizeProof, proofProject, type ProofAuthorization } from './access';
 import { requireProofMemberById } from './sourceAccess';
 import { readProofBytes } from './sourceBytes';
-import { mutateProof, proofConflict, proofEpoch, proofNotFound, proofStore, type DbProofVersion } from './store';
+import { mutateProof, proofConflict, proofEpoch, proofNotFound, proofStore, proofPk, type DbProofAsset, type DbProofVersion } from './store';
 import { beginAuthorizedProofUpload, finalizeAuthorizedProofUpload, stageAuthorizedProofSource } from './uploads';
 
 export const maxInboundProofBytes = 4 * 1024 * 1024;
-const alphabet = '0123456789abcdefghijklmnopqrstuv';
-const addressPattern = /^([0-9a-z]{12})-([0-9a-v]{26})-([0-9a-f]{24})$/;
+const tokenPattern = /^[a-f0-9]{40}$/;
 
 function configuration() {
-    const domain = process.env.UIER_PROOF_EMAIL_DOMAIN?.trim().toLowerCase();
+    const alias = process.env.UIER_PROOF_EMAIL_ALIAS?.trim().toLowerCase();
     const secret = process.env.UIER_PROOF_EMAIL_SECRET?.trim();
-    if (!domain || !secret || secret.length < 32 || domain.length > 190 || !/^[a-z0-9-]+(?:\.[a-z0-9-]+)+$/.test(domain)
-        || /(^|\.)uier\.io$/.test(domain)) return;
-    return { domain, secret };
-}
-
-function assetCode(assetId: string) {
-    return BigInt('0x' + assetId.replaceAll('-', '')).toString(32).padStart(26, '0');
-}
-
-function assetIdFromCode(code: string) {
-    let value = 0n;
-    for (const char of code) value = value * 32n + BigInt(alphabet.indexOf(char));
-    const hex = value.toString(16).padStart(32, '0');
-    return hex.replace(/^(\w{8})(\w{4})(\w{4})(\w{4})(\w{12})$/, '$1-$2-$3-$4-$5');
+    if (!alias || !secret || secret.length < 32 || alias.length > 90
+        || !/^[a-z0-9][a-z0-9._-]{0,22}@[a-z0-9-]+(?:\.[a-z0-9-]+)+$/.test(alias)
+        || /^(?:contact|security|privacy)@uier\.io$/.test(alias)) return;
+    const [local, domain] = alias.split('@') as [string, string];
+    return { alias, local, domain, secret };
 }
 
 export async function proofEmailAddress(request: Request, projectId: string, assetId: string, action?: 'rotate' | 'disable') {
@@ -36,21 +28,21 @@ export async function proofEmailAddress(request: Request, projectId: string, ass
     const configured = configuration();
     if (!action) {
         const epoch = proofEpoch((await proofStore(project.id).guard())?.doc);
-        return { available: Boolean(configured), active: asset.emailIngress?.epoch === epoch };
+        return { available: Boolean(configured), active: Boolean(configured && asset.emailIngressHash && asset.emailIngress?.epoch === epoch && asset.emailIngress.alias === configured.alias) };
     }
-    if (action === 'rotate' && !configured) throw apiErrors.unavailable('Test email delivery requires a dedicated ingress domain and secret.');
-    const secretPart = randomBytes(12).toString('hex');
+    if (action === 'rotate' && !configured) throw apiErrors.unavailable('Test email delivery requires a configured ingress alias and secret.');
+    const token = randomBytes(20).toString('hex');
     return mutateProof<{ available: boolean; active: boolean; address?: string }>(project, async (proofs, guard) => {
         const { actor } = await authorizeProof(request, { projectId, assetId }, 'manage');
         const saved = await proofs.asset(assetId);
         if (!saved || actor.kind !== 'member') throw proofNotFound();
         if (action === 'rotate' && !(guard.formats ?? ['image']).includes('email')) throw apiErrors.forbidden('Email uploads are paused for this project.');
-        const { emailIngress: _, ...asset } = saved.doc;
+        const { emailIngress: _, emailIngressHash: _hash, ...asset } = saved.doc;
         const enabled = action === 'rotate';
-        const doc = enabled ? { ...asset, emailIngress: { hash: sha256Hex(secretPart), ownerId: actor.userId,
+        const doc = enabled ? { ...asset, emailIngressHash: sha256Hex(token), emailIngress: { ownerId: actor.userId, alias: configured!.alias,
             epoch: proofEpoch(guard), createdAt: new Date().toISOString() } } : asset;
         return { value: { available: Boolean(configured), active: enabled,
-            ...(enabled && configured ? { address: `${project.id}-${assetCode(assetId)}-${secretPart}@${configured.domain}` } : {}) },
+            ...(enabled && configured ? { address: `${configured.local}+${token}@${configured.domain}` } : {}) },
         operations: [{ kind: 'replace', doc, etag: saved.etag }] };
     });
 }
@@ -61,10 +53,12 @@ function verifyIngress(request: Request) {
     const supplied = request.headers.get('authorization') ?? '';
     const expected = `Bearer ${config.secret}`;
     if (supplied.length > 512 || !timingSafeEqual(Buffer.from(sha256Hex(supplied)), Buffer.from(sha256Hex(expected)))) throw proofNotFound();
-    const [local, domain, extra] = (request.headers.get('x-uier-envelope-to') ?? '').toLowerCase().split('@');
-    const match = addressPattern.exec(local ?? '');
-    if (!match || domain !== config.domain || extra !== undefined) throw proofNotFound();
-    return { projectId: match[1]!, assetId: assetIdFromCode(match[2]!), addressHash: sha256Hex(match[3]!) };
+    const envelopeTo = request.headers.get('x-uier-envelope-to') ?? '';
+    const [local, domain, extra] = envelopeTo.toLowerCase().split('@');
+    const [alias, token, suffix] = (local ?? '').split('+');
+    if (alias !== config.local || domain !== config.domain || extra !== undefined || suffix !== undefined || !tokenPattern.test(token ?? ''))
+        throw proofNotFound();
+    return { addressHash: sha256Hex(token!), alias: config.alias };
 }
 
 function digestMessage(bytes: Buffer) {
@@ -79,7 +73,13 @@ function digestMessage(bytes: Buffer) {
 }
 
 export async function receiveProofEmail(request: Request) {
-    const { projectId, assetId, addressHash } = verifyIngress(request);
+    const { addressHash, alias } = verifyIngress(request);
+    // The token carries no project or asset identifiers. The app's indexed equality lookup is available only to the relay.
+    const matches = await getAppStore().query<DbProofAsset>({ type: 'proof-asset', where: { emailIngressHash: addressHash }, limit: 2 });
+    const located = matches.length === 1 ? matches[0] : undefined;
+    const projectId = located?.pk.slice('proof:'.length);
+    if (!located || !projectId || !isProjectId(projectId) || located.pk !== proofPk(projectId) || located.deleted) throw proofNotFound();
+    const assetId = located.id;
     if (request.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase() !== 'message/rfc822')
         throw apiErrors.invalidRequest('Send the raw RFC 822 message.');
     const authorize = async (): Promise<ProofAuthorization> => {
@@ -88,7 +88,7 @@ export async function receiveProofEmail(request: Request) {
         const [asset, guard] = await Promise.all([proofs.asset(assetId), proofs.guard()]);
         const ingress = asset?.doc.emailIngress;
         if (!asset || asset.doc.deleted || !guard || guard.doc.deleted || !ingress
-            || ingress.epoch !== proofEpoch(guard.doc) || ingress.hash !== addressHash) throw proofNotFound();
+            || ingress.alias !== alias || ingress.epoch !== proofEpoch(guard.doc) || asset.doc.emailIngressHash !== addressHash) throw proofNotFound();
         const actor = await requireProofMemberById(project, ingress.ownerId);
         return { project, actor, asset: asset.doc, version: null };
     };

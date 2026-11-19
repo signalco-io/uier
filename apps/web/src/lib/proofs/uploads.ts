@@ -208,7 +208,7 @@ type Processing = {
 };
 
 function assertDelivery(version: DbProofVersion, asset: NonNullable<ProofAuthorization['asset']>, guard: DbProofProject) {
-    if (version.emailDelivery && (asset.emailIngress?.hash !== version.emailDelivery.addressHash
+    if (version.emailDelivery && (asset.emailIngressHash !== version.emailDelivery.addressHash || !asset.emailIngress
         || asset.emailIngress.epoch !== proofEpoch(guard) || asset.emailIngress.ownerId !== version.uploaderId)) throw proofNotFound();
 }
 

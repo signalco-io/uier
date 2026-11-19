@@ -20,7 +20,8 @@ export type DbProofAsset = AppDoc & ProofAsset & {
     type: 'proof-asset';
     deleted?: boolean;
     nextAttemptAt?: string;
-    emailIngress?: { hash: string; ownerId: string; epoch: string; createdAt: string };
+    emailIngressHash?: string;
+    emailIngress?: { alias: string; ownerId: string; epoch: string; createdAt: string };
 };
 export type DbProofCollection = AppDoc & ProofCollection & { type: 'proof-collection' };
 export type DbProofShare = AppDoc & ProofShare & {
