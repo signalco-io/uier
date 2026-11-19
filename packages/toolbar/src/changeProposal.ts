@@ -1,6 +1,6 @@
 import { cssColor } from './colorValues';
 
-export { hasTextChanges, textChanges, type TextChange } from './textDiff';
+export { hasTextChanges, textChangeSummary, textChanges, type TextChange, type TextChangeSummary } from './textDiff';
 
 export const changeStyleProperties = [
     'color', 'background-color', 'font-size', 'font-weight',
@@ -17,6 +17,21 @@ export type ChangeProposal = {
 };
 
 export const changeProposalTextMaxLength = 1000;
+
+/** A rewrite's quote is its selection, trimmed and cut to this many characters (the selection itself holds 2,000) */
+const rewriteQuoteMaxLength = 1000;
+
+/**
+ * The text a rewrite saved without a proposal replaces, for its diff: its quote, or the full saved selection when the
+ * quote is missing or was cut to the limit. The app and the toolbar resolve it the same way.
+ */
+export function rewriteOriginalText(selection: string | undefined, quote: string | undefined): string | undefined {
+    if (!quote) return selection || undefined;
+    const selected = selection?.trim();
+    // The API trims the cut quote too, so it can end before the limit: a selection longer than a quote holds was cut
+    return selected === quote || (selected !== undefined && selected.length > rewriteQuoteMaxLength && selected.startsWith(quote))
+        ? selection : quote;
+}
 
 export function isProposalLabelHash(value: unknown): value is string {
     return typeof value === 'string' && value.length === 19 && /^v1-[\da-f]{16}$/.test(value);

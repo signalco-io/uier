@@ -1,27 +1,54 @@
 /** One run of a word diff: kept, removed from the original, or added by the suggestion */
 export type TextChange = { type: 'same' | 'removed' | 'added'; text: string };
 
-/** A word (with its apostrophes) or one other visible character, and the whitespace before it */
-const tokenPattern = /(\s*)([\p{L}\p{M}\p{N}_]+(?:['’][\p{L}\p{M}\p{N}_]+)*|\S)/gu;
 /** Past this many comparisons, the changed middle shows as one removal and one addition */
 const maxComparisons = 250_000;
+const space = /^\s+$/u;
+/** A grapheme that is part of a word: letters with their marks, digits, underscores */
+const wordPart = /^[\p{L}\p{M}\p{N}_]+$/u;
+const apostrophe = /^['’]$/u;
+let graphemes: Intl.Segmenter | undefined;
 
 type Token = { space: string; word: string };
 
+/**
+ * A word (with its apostrophes) or one other visible character, and the whitespace before it. Characters are
+ * grapheme clusters, so a joined emoji (👩‍💻) or one with a skin tone (👍🏽) is one token, never split between runs.
+ */
 function tokens(text: string): { list: Token[]; trailing: string } {
+    graphemes ??= new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+    const parts = Array.from(graphemes.segment(text), part => part.segment);
     const list: Token[] = [];
-    let end = 0;
-    for (const match of text.matchAll(tokenPattern)) {
-        list.push({ space: match[1]!, word: match[2]! });
-        end = match.index + match[0].length;
+    let before = '';
+    for (let index = 0; index < parts.length; index++) {
+        const part = parts[index]!;
+        if (space.test(part)) {
+            before += part;
+            continue;
+        }
+        let word = part;
+        if (wordPart.test(part)) {
+            for (;;) {
+                const next = parts[index + 1];
+                if (next !== undefined && wordPart.test(next)) {
+                    word += next;
+                    index++;
+                } else if (next !== undefined && apostrophe.test(next) && wordPart.test(parts[index + 2] ?? '')) {
+                    word += next + parts[index + 2];
+                    index += 2;
+                } else break;
+            }
+        }
+        list.push({ space: before, word });
+        before = '';
     }
-    return { list, trailing: text.slice(end) };
+    return { list, trailing: before };
 }
 
 /**
  * What a suggestion changes in the original, word by word. Only the words count: a difference in spacing or
- * line breaks alone is no change. Kept runs use the suggestion's spacing; a changed run is its removed words,
- * then its added words.
+ * line breaks alone is no change here (`textChangeSummary` tells it apart). Kept runs use the suggestion's spacing;
+ * a changed run is its removed words, then its added words.
  */
 export function textChanges(original: string, proposed: string): TextChange[] {
     const { list: a } = tokens(original);
@@ -113,4 +140,16 @@ export function textChanges(original: string, proposed: string): TextChange[] {
 /** The suggestion changes at least one word of the original */
 export function hasTextChanges(changes: readonly TextChange[]): boolean {
     return changes.some(change => change.type !== 'same');
+}
+
+/**
+ * `words` when a word changes; `spacing` when only the spaces or line breaks between words do (a page that keeps
+ * line breaks shows them); `none` when the text is the same. Space around the whole text is not counted: a
+ * suggestion is written without the selection's leading and trailing space.
+ */
+export type TextChangeSummary = 'words' | 'spacing' | 'none';
+
+export function textChangeSummary(original: string, proposed: string, changes = textChanges(original, proposed)): TextChangeSummary {
+    if (hasTextChanges(changes)) return 'words';
+    return original.trim() === proposed.trim() ? 'none' : 'spacing';
 }

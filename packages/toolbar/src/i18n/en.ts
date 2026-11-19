@@ -640,6 +640,7 @@ export const en = {
         values: 'Exact values',
         changes: 'Changes',
         noTextChanges: 'No text changes. The suggestion matches the original text.',
+        onlySpacingChanges: 'Only spacing changes. The words match the original text.',
         removedText: 'Removed:',
         addedText: 'Added:',
         stale: 'The page no longer matches the saved original. The saved values are available below.',

@@ -621,6 +621,7 @@ export const es: Messages = {
         values: 'Valores exactos',
         changes: 'Cambios',
         noTextChanges: 'Sin cambios en el texto. La sugerencia coincide con el texto original.',
+        onlySpacingChanges: 'Solo cambian los espacios. Las palabras coinciden con el texto original.',
         removedText: 'Eliminado:',
         addedText: 'Añadido:',
         stale: 'La página ya no coincide con el original guardado. Los valores guardados aparecen abajo.',

@@ -733,10 +733,10 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                                     ? <MessageEditor drafts={drafts} draftKey="edit" label={t("Edit comment")} text={comment.text} error={editError} pending={pending}
                                         onCancel={closeEdit} onSave={text => saveEdit(text)} />
                                     : <MessageText text={comment.displayText} mentions={comment.displayMentions} edited={comment.edited} />}
-                            {/* A rewrite saved without a proposal (its suggestion is the original text, or it is older) compares with the text it quoted */}
+                            {/* A rewrite saved without a proposal (its suggestion is the original text, or it is older) compares with the text it replaces */}
                             {!comment.deleted && comment.proposal ? <CommentChangeProposal key={comment.id} proposal={comment.proposal} />
-                                : !comment.deleted && comment.kind === 'rewrite' && comment.quotedText && comment.text.trim()
-                                    ? <TextChanges original={comment.quotedText} proposed={markdownPlainText(comment.displayText, comment.displayMentions)} /> : null}
+                                : !comment.deleted && comment.rewriteOriginal && comment.text.trim()
+                                    ? <TextChanges original={comment.rewriteOriginal} proposed={markdownPlainText(comment.displayText, comment.displayMentions)} /> : null}
                             {comment.screenshot && <MessageImage image={comment.screenshot} />}
                             {!comment.deleted && comment.recording && <MessageRecording recording={comment.recording} projectId={projectId} commentId={comment.id} />}
                             {firstTarget && !editing && <ReactionList target={firstTarget} canReact={Boolean(permissions.react)} />}

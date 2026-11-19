@@ -620,6 +620,7 @@ export const de: Messages = {
         values: 'Exakte Werte',
         changes: 'Änderungen',
         noTextChanges: 'Keine Textänderungen. Der Vorschlag entspricht dem Originaltext.',
+        onlySpacingChanges: 'Nur Abstände ändern sich. Die Wörter entsprechen dem Originaltext.',
         removedText: 'Entfernt:',
         addedText: 'Hinzugefügt:',
         stale: 'Die Seite entspricht nicht mehr dem gespeicherten Original. Die gespeicherten Werte stehen unten.',

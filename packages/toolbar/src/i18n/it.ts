@@ -621,6 +621,7 @@ export const it: Messages = {
         values: 'Valori esatti',
         changes: 'Modifiche',
         noTextChanges: 'Nessuna modifica al testo. Il suggerimento corrisponde al testo originale.',
+        onlySpacingChanges: 'Cambiano solo gli spazi. Le parole corrispondono al testo originale.',
         removedText: 'Rimosso:',
         addedText: 'Aggiunto:',
         stale: 'La pagina non corrisponde più all’originale salvato. I valori salvati sono disponibili qui sotto.',

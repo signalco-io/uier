@@ -620,6 +620,7 @@ export const fr: Messages = {
         values: 'Valeurs exactes',
         changes: 'Modifications',
         noTextChanges: 'Aucune modification du texte. La suggestion correspond au texte d’origine.',
+        onlySpacingChanges: 'Seuls les espaces changent. Les mots correspondent au texte d’origine.',
         removedText: 'Supprimé :',
         addedText: 'Ajouté :',
         stale: 'La page ne correspond plus à l’original enregistré. Les valeurs enregistrées figurent ci-dessous.',

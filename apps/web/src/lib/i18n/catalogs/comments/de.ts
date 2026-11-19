@@ -350,6 +350,7 @@ const messages: Record<keyof typeof en, string> = {
     "Opens the reviewed page at this comment": "Öffnet die geprüfte Seite bei diesem Kommentar",
     "Original": "Original",
     "Original author": "Ursprünglicher Autor",
+    "Only spacing changes. The words match the original text.": "Nur Abstände ändern sich. Die Wörter entsprechen dem Originaltext.",
     "Original text": "Originaltext",
     "Over target": "Über dem Zielwert",
     "PNG, JPEG or WebP, up to 512 KB and 4096 pixels on each side.": "PNG, JPEG oder WebP, bis 512 KB und 4096 Pixel pro Seite.",

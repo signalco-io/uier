@@ -350,6 +350,7 @@ const messages: Record<keyof typeof en, string> = {
     "Opens the reviewed page at this comment": "Otvara pregledanu stranicu na ovom komentaru",
     "Original": "Izvorno",
     "Original author": "Izvorni autor",
+    "Only spacing changes. The words match the original text.": "Mijenjaju se samo razmaci. Riječi su jednake izvornom tekstu.",
     "Original text": "Izvorni tekst",
     "Over target": "Iznad ciljne vrijednosti",
     "PNG, JPEG or WebP, up to 512 KB and 4096 pixels on each side.": "PNG, JPEG ili WebP, do 512 KB i 4096 piksela po stranici.",

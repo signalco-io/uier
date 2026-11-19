@@ -621,6 +621,7 @@ export const hr: Messages = {
         values: 'Točne vrijednosti',
         changes: 'Promjene',
         noTextChanges: 'Nema promjena teksta. Prijedlog je jednak izvornom tekstu.',
+        onlySpacingChanges: 'Mijenjaju se samo razmaci. Riječi su jednake izvornom tekstu.',
         removedText: 'Uklonjeno:',
         addedText: 'Dodano:',
         stale: 'Stranica više ne odgovara spremljenom izvorniku. Spremljene vrijednosti možete vidjeti u nastavku.',

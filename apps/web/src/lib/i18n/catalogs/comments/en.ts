@@ -350,6 +350,7 @@ const messages = {
     "Opens the reviewed page at this comment": "Opens the reviewed page at this comment",
     "Original": "Original",
     "Original author": "Original author",
+    "Only spacing changes. The words match the original text.": "Only spacing changes. The words match the original text.",
     "Original text": "Original text",
     "Over target": "Over target",
     "PNG, JPEG or WebP, up to 512 KB and 4096 pixels on each side.": "PNG, JPEG or WebP, up to 512 KB and 4096 pixels on each side.",
