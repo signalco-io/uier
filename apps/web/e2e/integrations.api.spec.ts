@@ -1082,6 +1082,7 @@ test('file threads backfill a redacted permalink and clean copied context across
     const { retireDeletedProofThreads } = await import('../src/lib/proofs/deletedThreads');
     const { syncTombstone, withSyncMark } = await import('../src/lib/integrations/syncSignal');
     const { githubIssueProjection } = await import('../src/lib/integrations/github/issue');
+    const { notionBlocks } = await import('../src/lib/integrations/notion/page');
     const { slackRootMessage } = await import('../src/lib/integrations/slack/message');
     const f = await fixture();
     const proofs = proofStore(f.project.id);
@@ -1119,7 +1120,10 @@ test('file threads backfill a redacted permalink and clean copied context across
         expect(context.feedback?.context.links).toEqual({ comment: original });
         expect(context.feedback?.context.feedback?.text).toBe('Align the header');
         expect(context.feedback?.context.discussion[0]?.text).toBe('I can take this');
-        const rendered = JSON.stringify([context.feedback, githubIssueProjection(context.feedback!.context, 'marker'),
+        const notion = notionBlocks(context.feedback!.context);
+        expect(notion).toEqual(expect.arrayContaining([expect.objectContaining({ key: 'file-review',
+            block: { object: 'block', type: 'bookmark', bookmark: { url: original } } })]));
+        const rendered = JSON.stringify([context.feedback, githubIssueProjection(context.feedback!.context, 'marker'), notion,
             slackRootMessage(context.feedback!.context, f.project.name, baseUrl)]);
         expect(rendered).toContain(original);
         for (const forbidden of ['proof-source-secret', 'Guest name', 'guest-identifier', 'guest-grant-id', 'source-node', 'private evidence',
