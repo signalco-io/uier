@@ -660,7 +660,9 @@ interaction keeps the 15-second cadence without a request for every keystroke. A
 identity, comment list or activity response also restores it (including edits that do not change
 unread counts). Mutation invalidations stay immediate and separate from scheduled rounds.
 
-Focus, reconnect, becoming visible and expansion refresh immediately and reset to 15 seconds.
+Focus, reconnect, becoming visible and expansion refresh immediately and reset to 15 seconds. The round that
+expansion starts does not read again a list or count that was read after it began: on a page that opens
+expanded the review layer has just loaded them (`launch-performance.spec.ts` budgets those reads).
 Hidden, offline and collapsed reviews have no scheduled work. No timer runs during a refresh;
 foreground events during a held response coalesce into one subsequent round. Ordinary deadlines
 are measured from the start of a round. A round that outlasts its cadence waits one full interval

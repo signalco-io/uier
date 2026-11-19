@@ -232,7 +232,9 @@ An open inbox, Accessibility or SEO panel stays open on the next page and shows 
   script's own hash). `src/checks/axeLoader.ts` adds it as a classic script, once, only when the panel
   runs a check (in the background or from the panel), with the review script's nonce and referrer policy and anonymous CORS, resolved against
   the review script's URL. A site whose CSP allows the toolbar allows it too; axe-core needs no `eval`
-  with its default locale. The development build loads `./audit.js` (`next dev` rewrites `/audit.js`).
+  with its default locale. Every run preloads media only (`auditPreload`): axe-core's default also
+  preloads stylesheets by adding `<style>` elements, which a strict `style-src` blocks and reports
+  (`project-review.spec.ts`, the strict style policy). The development build loads `./audit.js` (`next dev` rewrites `/audit.js`).
 - The asset hands axe-core over through a symbol on its own script element (`auditHandoff.ts`), never a
   page global: `auditPrelude.ts` saves the page's `axe` and `define` before axe-core initializes, hides
   an AMD `define`, and puts both back.
