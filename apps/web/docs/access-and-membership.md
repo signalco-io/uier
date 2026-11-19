@@ -49,6 +49,15 @@ container width; narrower cards keep the wrapping item row. Keep new row content
   require a new preview; unchanged current saves add no event. `member-roles.api.spec.ts` covers these
   authorization and conflict rules; `member-roles.spec.ts` covers confirmation and live access.
 
+## Workspace logo
+
+Every current workspace member may read its current logo, even without project access. The
+versioned image route rechecks the session and stored membership before serving bytes or a
+`304`. The browser's private cache must revalidate every reuse and varies by cookie. Only
+current admins may upload or remove it, with a same-origin request. The managed uier
+workspace keeps its branding. Logo writes use the same workspace ETag that serializes
+permission changes and recheck the actor on conflicts.
+
 ## Email domains
 
 `src/lib/app/workspaceDomains.ts`; Settings → Email domains (`workspace/(tabs)/settings/WorkspaceDomains*.tsx`,

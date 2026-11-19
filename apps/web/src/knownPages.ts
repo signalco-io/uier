@@ -144,6 +144,9 @@ export const KnownPageLinks = {
     projectInstall: (projectId: string, { onboarding = false, step }: { onboarding?: boolean; step?: OnboardingStep } = {}) => onboarding
         ? `/app/projects/${encodeURIComponent(projectId)}/install?onboarding=1${step && step !== 'script' ? `&step=${step}` : ''}`
         : `/app/projects/${encodeURIComponent(projectId)}/settings/installation`,
+    workspaceLogoUpload: (workspaceId: string) => `/api/workspaces/${encodeURIComponent(workspaceId)}/logo`,
+    workspaceLogo: (workspaceId: string, version: string) =>
+        `${KnownPageLinks.workspaceLogoUpload(workspaceId)}/${encodeURIComponent(version)}`,
     /** Admin-only upload/removal; image reads require access to a project of the client. */
     clientLogoUpload: (workspaceId: string, clientId: string) =>
         `/api/workspaces/${encodeURIComponent(workspaceId)}/clients/${encodeURIComponent(clientId)}/logo`,
