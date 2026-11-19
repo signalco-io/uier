@@ -15,7 +15,8 @@ export default {
         if (message.rawSize > maxBytes) { message.setReject('The message exceeds 4 MB.'); return; }
         const headers = new Headers({ Authorization: 'Bearer ' + env.UIER_PROOF_EMAIL_SECRET,
             'Content-Type': 'message/rfc822', 'X-Uier-Envelope-To': recipient });
-        if (env.UIER_PROOF_VERCEL_BYPASS) headers.set('x-vercel-protection-bypass', env.UIER_PROOF_VERCEL_BYPASS);
+        if (env.UIER_PROOF_VERCEL_BYPASS_ENABLED === '1' && env.UIER_PROOF_VERCEL_BYPASS)
+            headers.set('x-vercel-protection-bypass', env.UIER_PROOF_VERCEL_BYPASS);
         const response = await fetch(new URL('/api/proof-mail', env.UIER_PROOF_APP_ORIGIN), {
             method: 'POST', headers, body: message.raw, redirect: 'error', signal: AbortSignal.timeout(100_000)
         });
