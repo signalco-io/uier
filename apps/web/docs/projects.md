@@ -53,13 +53,24 @@
   receipt first (`reserveProjectCreation`: person, workspace, attempt and validated input) and hands it to
   `createProject`. The `project-receipt` lives in the person's partition and is written in one transaction with a
   `project-receipt-slot`, one unit of the caller's budget in the current window: the first request takes the unit
-  and a random project code, every other request of the attempt finds the receipt. The project document is
-  created in one transaction with a `project-created` marker in the workspace's partition, so only where no marker
-  is: once. A receipt without its project is unfinished when there is no marker (the retry creates it) and removed
-  when there is one (`ProjectGoneError`; a retired or moved code says the same earlier). Deletion and transfer
-  must leave the marker: removing it would let a replay that started before them create the document again under
-  the old code. Receipts expire after 29 days, markers after 30, slots with their window; all hold identifiers
-  and hashes only ([project deletion](../../../docs/project-deletion.md), [transfer](../../../docs/project-transfer.md)).
+  and a random project code, every other request of the attempt finds the receipt. Only that transaction decides;
+  reads can be behind another instance's write (Session consistency). So a request reads the window's slots, then
+  the receipt (never older than the slots in one session), and answers 429 only on a window that is full without
+  it: slots name their receipt, and an earlier window's receipt is older than every slot read.
+  The project document is created in one transaction with a `project-created` marker in the workspace's partition,
+  so only where no marker is: once. A receipt without its project is unfinished when there is no marker (the retry
+  creates it) and removed when there is one (`ProjectGoneError`; a retired or moved code says the same earlier).
+  Deletion and transfer must leave the marker: removing it would let a replay that started before them create the
+  document again under the old code.
+- **Expiry of those records.** A request is the same request for `PROJECT_RECEIPT_SECONDS` (30 days, the period
+  the privacy policy states: change both together). The marker and the receipt's code claim are written to end a
+  day after the receipt, whenever they are written (`receiptRecordSeconds`), so nothing can replay after them.
+  The `project-ref` of a receipt is claimed with that expiry and the project document carries `codeClaim:
+  'pending'`; the read that follows the creation makes the claim permanent (`ttl: -1`) and clears the flag
+  (`ensureProjectCode`, in `getProject` and `listProjects`, like `ensureProjectPublicId`). A request that stopped
+  after the claim leaves a code that frees itself; one that stopped after the document is finished by the next read
+  of the project. Slots expire with their window. All hold identifiers and hashes only
+  ([project deletion](../../../docs/project-deletion.md), [transfer](../../../docs/project-transfer.md)).
 - Project addresses use `normalizeSiteUrl` in `src/lib/app/projects.ts`: schemeless localhost,
   `.localhost` subdomains and loopback IPs default to HTTP, other hosts to HTTPS. Explicit schemes
   and ports are preserved. Review CORS and redirects still require an exact configured origin.

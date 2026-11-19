@@ -31,10 +31,12 @@ export default function PrivacyPolicyPage() {
             </p>
             <p>
                 When you create a project from the extension, it sends the site origin, the project name and
-                the workspace you choose. The server keeps a receipt of that request for up to 30 days, so a
-                repeated request creates no second project. The receipt holds your account id, the project and
-                workspace ids, a hash of the request and its time, and no name or address. It stays for those
-                30 days if the project is deleted or transferred.
+                the workspace you choose. The server keeps a receipt of that request for 30 days, so a repeated
+                request creates no second project. The receipt holds your account id, the project and workspace
+                ids, a hash of the request and its time, and no name or address. A marker with the project id and
+                its creation time stays in the workspace until 31 days after the request. Both stay for that time
+                if the project is deleted or transferred. A project code reserved by a request that created no
+                project is released 31 days after the request.
             </p>
             <p>
                 The extension stores its refresh credential and pending renewal attempt in restricted

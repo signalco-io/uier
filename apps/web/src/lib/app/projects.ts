@@ -6,7 +6,7 @@ import { customAlphabet } from 'nanoid';
 import { cache } from 'react';
 import { z } from 'zod';
 import { isMeaningfulQueryKey, pageStatePolicy, type PageStatePolicy } from '@uier/toolbar/page-state';
-import { getAppStore, updateDoc } from './store';
+import { getAppStore, updateDoc, type AppStore } from './store';
 import { projectRefPk, workspacePk, type DbProject, type DbProjectRef, type ProjectAccess, type ProjectStatus } from './model';
 import { hasProjectAccess, loadWorkspaceAccessForRender } from './access';
 import type { AppContext } from './context';
@@ -20,7 +20,7 @@ import { normalizeProjectLinkUrl } from './projectLinks';
 import { projectRewriteInstructionsSchema } from '../rewrite/settings';
 import { UserFacingError } from './actionErrors';
 import type { Limit } from '../comments/rateLimits';
-import { projectCreatedMarker, reserveProjectReceipt, type ProjectReceipt } from './projectReceipts';
+import { projectCreatedMarker, receiptRecordSeconds, reserveProjectReceipt, type ProjectReceipt } from './projectReceipts';
 
 export { projectClientNameSchema } from './clients';
 export { defaultProjectName, normalizeSiteUrl } from './siteUrl';
@@ -111,13 +111,41 @@ export function reviewUrl(siteUrl: string, publicId: string) {
     return url.toString();
 }
 
+/**
+ * A project created with a receipt claims its code with an expiry, so a request that stopped before the project
+ * existed leaves no claim behind for good. Once the project exists its claim is made permanent here, on the read
+ * that follows the creation and, had that one not happened, on any later read of the project (as
+ * `ensureProjectPublicId` does its work). A claim that is retired or names another workspace is left alone: a
+ * deletion or a transfer owns it.
+ */
+async function ensureProjectCode(project: DbProject, store = getAppStore()): Promise<DbProject> {
+    if (project.codeClaim !== 'pending')
+        return project;
+    const pk = projectRefPk(project.id);
+    const ref = await store.get<DbProjectRef>(pk, project.id);
+    if (!ref) {
+        if (!await store.create<DbProjectRef>({ type: 'project-ref', id: project.id, pk, workspaceId: project.workspaceId, ttl: -1 }))
+            return project;
+    } else if (ref.doc.type !== 'project-ref' || ref.doc.workspaceId !== project.workspaceId) {
+        return project;
+    } else if (ref.doc.ttl !== -1 && await store.replace({ ...ref.doc, ttl: -1 }, ref.etag) !== 'ok') {
+        // Changed meanwhile: the next read looks again
+        return project;
+    }
+    return await updateDoc<DbProject>(project.pk, project.id, stored => {
+        const { codeClaim, ...confirmed } = stored;
+        void codeClaim;
+        return confirmed;
+    }, store) ?? project;
+}
+
 export async function listProjects(workspaceId: string) {
     const stored = await getAppStore().query<DbProject>({ type: 'project', pk: workspacePk(workspaceId) });
     // A transfer's other copy is not a project of this workspace (one read only while a transfer runs)
     const live = await Promise.all(stored.map(project => isLiveProject(project)));
     const projects = stored.filter((_, index) => live[index]);
     return await Promise.all(projects.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-        .map(async project => await ensureProjectPublicId(await ensureProjectClient(project))));
+        .map(async project => await ensureProjectPublicId(await ensureProjectClient(await ensureProjectCode(project)))));
 }
 
 /** Projects of the current workspace the member may see */
@@ -129,12 +157,12 @@ export const listVisibleProjects = cache(async (context: AppContext) => {
 export async function getProject(workspaceId: string, projectId: string) {
     if (isProjectPublicId(projectId)) {
         const project = await projectByPublicId(projectId);
-        return project?.workspaceId === workspaceId ? await ensureProjectPublicId(await ensureProjectClient(project)) : null;
+        return project?.workspaceId === workspaceId ? await ensureProjectPublicId(await ensureProjectClient(await ensureProjectCode(project))) : null;
     }
     if (!isProjectId(projectId))
         return null;
     const project = (await getAppStore().get<DbProject>(workspacePk(workspaceId), projectId))?.doc;
-    return project?.type === 'project' && await isLiveProject(project) ? await ensureProjectPublicId(await ensureProjectClient(project)) : null;
+    return project?.type === 'project' && await isLiveProject(project) ? await ensureProjectPublicId(await ensureProjectClient(await ensureProjectCode(project))) : null;
 }
 
 /** A project by its internal id (any workspace). */
@@ -201,18 +229,19 @@ export async function reserveProjectCreation(context: ProjectCreator, input: New
  * the attempt creates or finds the one project under the receipt's code. A project that was created and has since
  * been deleted or transferred is never created again (`ProjectGoneError`).
  */
-export async function createProject(context: ProjectCreator, input: NewProjectInput, { receipt }: { receipt?: ProjectReceipt } = {}) {
+export async function createProject(context: ProjectCreator, input: NewProjectInput, { receipt, store = getAppStore() }: { receipt?: ProjectReceipt; store?: AppStore } = {}) {
     assertMutableWorkspace(context.workspace.id);
     const { name, urls } = projectSetup({ ...input, mode: input.mode ?? 'website' });
     const { clientName } = input;
-    const store = getAppStore();
     const now = new Date().toISOString();
     if (receipt && (receipt.userId !== context.user.id || receipt.workspaceId !== context.workspace.id))
         throw new Error('The receipt is for another person or workspace');
     for (let round = 0; round < 3; round++) {
         const id = receipt?.projectId ?? newProjectId();
-        // The code is unique across workspaces: claim it first
-        if (!await store.create<DbProjectRef>({ type: 'project-ref', id, pk: projectRefPk(id), workspaceId: context.workspace.id })) {
+        // The code is unique across workspaces: claim it first. For a receipt the claim expires a day after the
+        // receipt unless the project gets created: `ensureProjectCode` then makes it permanent.
+        if (!await store.create<DbProjectRef>({ type: 'project-ref', id, pk: projectRefPk(id), workspaceId: context.workspace.id,
+            ...(receipt ? { ttl: receiptRecordSeconds(receipt) } : {}) })) {
             if (!receipt)
                 continue;
             // An earlier request of this receipt claimed its code. Retired or pointing elsewhere, the project is gone.
@@ -232,12 +261,14 @@ export async function createProject(context: ProjectCreator, input: NewProjectIn
             access: 'invited',
             createdBy: context.user.id,
             createdAt: now,
-            updatedAt: now
+            updatedAt: now,
+            ...(receipt ? { codeClaim: 'pending' as const } : {})
         };
         if (!receipt)
             return await ensureProjectPublicId(await createProjectWithClient(project, clientName, store), store);
         // The document and its marker are one transaction: it runs where no marker is, so once. A request that
         // finds the marker reads what the first one created; no document under a marker is a removed project.
+        // Reading it back also makes the code claim permanent.
         await createProjectOnce(project, clientName, projectCreatedMarker(receipt), store);
         const stored = await getProject(context.workspace.id, id);
         if (!stored)

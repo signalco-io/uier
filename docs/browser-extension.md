@@ -187,12 +187,17 @@ no choice, several need one made before **Create project and start review** is a
   renewing access, and creates nothing unless it is still the address shown; it never takes one from
   the page and sends no path or query. A tab that moved on shows its new state with the reason.
 - **One project per submission.** Before it sends, the worker saves a random attempt in session
-  storage, in a record of its own for this sign-in and this submission (site, name and workspace).
-  Nothing the request does ends the record: not the status line, not an answer that broke off, not a
-  refusal. A lost or interrupted answer, a suspended worker or a second press sends the same attempt,
-  and uier answers with the one project. The record ends when discovery lists its project to the
-  popup, when uier answers that the project was removed since (410), with the sign-in, or after a
-  week. The same form sent twice at once is one request.
+  storage, in a record of its own for this sign-in and this submission (site, name and workspace),
+  whichever tab or window sends it. Every read-then-write of these records runs one at a time in the
+  queue that orders credential writes with sign-out, and only while the sign-in the work began in is
+  still current: two windows sending the same form get one attempt, and a discovery answer or a
+  create that outlived its sign-in touches no record of the next. Nothing the request does ends the
+  record: not the status line, not an answer that broke off, not a refusal. A lost or interrupted
+  answer, a suspended worker or a second press sends the same attempt, and uier answers with the one
+  project. The record ends when discovery lists its project to the popup, when uier answers that the
+  project was removed since (410), with the sign-in, or after a week (uier keeps the receipt for 30
+  days). `packages/extension/scripts/worker.test.mjs` runs the worker with stand-in browser APIs for
+  these orderings.
 - **Creation.** uier checks the stored admin membership again and creates the project with the app's
   own creation service, so it is invited-only with that one address
   ([server rules](../apps/web/docs/browser-extension.md)). The worker then starts the review as
