@@ -241,7 +241,7 @@ export function usePanelSectionChecks(panel: ChecksPanelId): PageCheck[] {
  * `CheckItem`). While its first check runs it says so; one that failed says so too (Check again
  * retries); without a report (nothing to show, or no audit asset here) it renders nothing.
  */
-export function ReportSection({ id, title, section, note, hideTitle, groups, children }: {
+export function ReportSection({ id, title, section, note, hideTitle, groups, extras, children }: {
     id: string;
     title: string;
     section: SectionState;
@@ -251,6 +251,8 @@ export function ReportSection({ id, title, section, note, hideTitle, groups, chi
     hideTitle?: boolean;
     /** Checks of these groups (`PageCheck.group`) in a section of their own after this one, each under its title, in this order */
     groups?: Partial<Record<NonNullable<PageCheck['group']>, string>>;
+    /** Shown in a check's own row, under what it found, by its id (the Keyboard tools, uier #492/#493) */
+    extras?: Partial<Record<string, ReactNode>>;
     children?: ReactNode;
 }) {
     const { status, report } = section;
@@ -269,7 +271,7 @@ export function ReportSection({ id, title, section, note, hideTitle, groups, chi
     }
     if (!groups) return (
         <CheckSection title={title} hideTitle={hideTitle} count={report.count} note={note ?? report.note} data-uier-section={id} data-uier-section-status={status}>
-            {report.checks.map(check => <CheckItem key={check.id} check={check} />)}
+            {report.checks.map(check => <CheckItem key={check.id} check={check}>{extras?.[check.id]}</CheckItem>)}
             {children}
         </CheckSection>
     );
