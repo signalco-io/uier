@@ -42,10 +42,10 @@ async function expectPinMarks(pin: Locator, number: number, messages?: number) {
         return;
     }
     await expect(pin).toHaveText(`${number} ${messages}`);
-    // On the top-right corner, past the pin's edge, clear of the digits
+    // On the bottom-right corner, past the pin's edges, clear of the digits (the top is the status circle's, BRAND.md)
     const badge = (await pin.getByText(String(messages), { exact: true }).boundingBox())!;
     expect(badge.x).toBeGreaterThan(digits.x + digits.width - 1);
-    expect(badge.y).toBeLessThan(shape.y);
+    expect(badge.y + badge.height).toBeGreaterThan(shape.y + shape.height);
     expect(badge.x + badge.width).toBeGreaterThan(shape.x + shape.width);
 }
 

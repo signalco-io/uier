@@ -294,7 +294,13 @@ test('background board reads preserve headers, focus and nodes through refresh, 
     const search = page.getByRole('searchbox', { name: 'Search feedback', exact: true });
     await search.focus();
     const sort = open.locator('[data-board-sort]');
-    const before = await sort.boundingBox();
+    // Where the sort control sits in its column. The board itself scrolls sideways on a phone when focus moves
+    // to a card in another column, which is not a header that jumped
+    const place = async () => {
+        const [column, control] = [await open.boundingBox(), await sort.boundingBox()];
+        return { x: control!.x - column!.x, y: control!.y - column!.y, width: control!.width, height: control!.height };
+    };
+    const before = await place();
     let release = () => {};
     let wait = Promise.resolve();
     const hold = () => { wait = new Promise<void>(resolve => { release = resolve; }); };
@@ -315,12 +321,12 @@ test('background board reads preserve headers, focus and nodes through refresh, 
         await expect(open.locator('[data-column-progress]')).toBeVisible();
         await expect(page.locator('[data-column-progress=true]')).toHaveCount(0);
         await expect(page.getByRole('status').filter({ hasText: 'Loading comments' })).toHaveCount(0);
-        expect(await sort.boundingBox()).toEqual(before);
+        expect(await place()).toEqual(before);
         await expect(search).toBeFocused();
         expect(await original!.evaluate(node => node.isConnected)).toBe(true);
         release();
         await expect(open.getByRole('listitem')).toHaveCount(2);
-        expect(await sort.boundingBox()).toEqual(before);
+        expect(await place()).toEqual(before);
         // A card moved here refreshes the columns it left and entered; the others keep their cards without progress
         hold();
         const progress = page.getByRole('region', { name: 'In progress comments', exact: true });
@@ -342,7 +348,7 @@ test('background board reads preserve headers, focus and nodes through refresh, 
         await expect(page.locator('[data-column-progress=true]')).toHaveCount(0);
         await expect(open.locator('[data-column-progress] [data-slot=spinner]')).toHaveCount(0);
         await expect(open.getByRole('listitem')).toHaveCount(1);
-        expect(await sort.boundingBox()).toEqual(before);
+        expect(await place()).toEqual(before);
         fail = true;
         sockets.at(-1)!.send('{"type":"comments.changed"}');
         await expect(page.getByText('Comments could not be refreshed. Your loaded comments are still shown.')).toBeVisible();

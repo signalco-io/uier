@@ -16,7 +16,8 @@ test('public ids work in embeds, guest writes, verification and member review re
     await setProjectAccess(page, id, 'Anyone with the link');
     await page.goto(`/app/projects/${id}`);
     await expect(page.getByRole('navigation', { name: 'Project' }).getByRole('link', { name: 'Install', exact: true })).toBeVisible();
-    await page.getByRole('button', { name: /^Anyone with the link/ }).click();
+    // The header's access label is a link to Who can comment; its popover has the guest link
+    await page.getByRole('link', { name: 'Anyone with the link', exact: true }).hover();
     await expect(page.getByRole('dialog', { name: 'Anyone with the link' }).locator('code')).toHaveText(`${site.origin()}/?toolbar-code=${publicId}`);
     const guest = await browser.newContext();
     try {
@@ -35,8 +36,8 @@ test('public ids work in embeds, guest writes, verification and member review re
         expect(created.status()).toBe(201);
         await page.reload();
         await expect(commentRowLink(page, 'Feedback via public id')).toBeVisible();
-        // The site sends feedback: no Install tab, the comments and page checks stay; Settings stays the header's cog
-        await expect(page.getByRole('navigation', { name: 'Project' }).getByRole('link')).toHaveText(['Comments', 'Page checks']);
+        // The site sends feedback: no Install tab, the comments, files and page checks stay; Settings stays the header's cog
+        await expect(page.getByRole('navigation', { name: 'Project' }).getByRole('link')).toHaveText(['Comments', 'Files', 'Page checks']);
         await expect(page.getByRole('link', { name: 'Settings', exact: true })).toHaveAttribute('href', `/app/projects/${id}/settings`);
         const target = `${site.origin()}/${publicId}/pricing`;
         await page.goto(`/app/review/${id}?url=${encodeURIComponent(target)}`);
@@ -49,8 +50,8 @@ test('the predictable showcase id cannot be used as a public review code', async
     await signIn(page, uniqueEmail('showcase-public-id'));
     await page.goto('/app/projects');
     await openFeedbackWorkspace(page);
-    await appNavigation(page);
-    // An account's feedback project; the guests' public one (uier00000001) is staff only
+    // An account's feedback project, on the projects page (a phone's open sidebar would hide that list);
+    // the guests' public one (uier00000001) is staff only
     await expect(page.getByRole('list', { name: 'Active projects' }).getByRole('link', { name: 'uier.io user feedback' })).toBeVisible();
     await page.goto('/app/projects/uier00000002/install');
     // Once the project has comments, the guide is behind its connected status

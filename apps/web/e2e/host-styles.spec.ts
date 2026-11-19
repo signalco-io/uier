@@ -44,6 +44,9 @@ async function reviewPill(page: Page, project: string, hostile: boolean) {
     const checks = pageChecksButton(page);
     if (await checks.isVisible()) await expect(checks).toHaveAccessibleName(/^Page checks, \d+ to look at$/);
     await page.mouse.move(0, 0);
+    // The pointer may have rested on a button while the page loaded: its hover colour fades out over a few frames
+    await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+    await animationsFinished(toolbar(page));
     return looks(toolbar(page));
 }
 

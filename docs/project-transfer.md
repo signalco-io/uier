@@ -55,6 +55,9 @@ Settings that belong to the old workspace are listed in the dialog and do not fo
   unchanged and reach the project only through the workspace it is in. MCP event subscriptions,
   their cursor and delivery rows are deleted.
 - **Author filters and Slack test receipts** of the old workspace that name the project are deleted.
+- **The creation marker** of a project made from the browser extension (`project-created`: the project id and a
+  time, until 31 days after the create request) stays in the old workspace until it expires. With it, a repeated create request there answers
+  that the project is gone and never makes a second one under its code.
 - **Access history.** The old workspace's events stay there. Each workspace gets an event that names
   the project but neither workspace (`project.transferred-out`, `project.transferred-in`).
 

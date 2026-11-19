@@ -6,7 +6,7 @@ import type { AppContext } from './context';
 import { UserFacingError } from './actionErrors';
 import { clientColors, clientIcons } from './clientAppearance';
 import { MAX_CLIENT_DESCRIPTION_LENGTH, MAX_CLIENT_NAME_LENGTH } from './limits';
-import { clientLogoDocId, workspacePk, memberId, type DbMember, type DbWorkspace, type DbClientLogo, type DbClient, type DbClientName, type DbProject } from './model';
+import { clientLogoDocId, workspacePk, memberId, type AppDoc, type DbMember, type DbWorkspace, type DbClientLogo, type DbClient, type DbClientName, type DbProject } from './model';
 import { getAppStore, type AppMutation, type AppStore, type StoredDoc } from './store';
 import { sha256Hex } from './tokens';
 import { assertMutableProject, assertMutableWorkspace } from '../comments/publicProjectPolicy';
@@ -187,6 +187,25 @@ export async function createProjectWithClient(project: DbProject, name: string |
         await backOff(attempt);
     }
     throw new Error('The workspace changed while creating the project');
+}
+
+/**
+ * `createProjectWithClient` for a creation that may be asked for more than once: the project and `marker` (a
+ * document of the project's partition) are created together or not at all. Returns `false`, creating nothing, when
+ * the marker is there already: the project was created before, whatever became of it.
+ */
+export async function createProjectOnce(project: DbProject, name: string | undefined, marker: AppDoc, store: AppStore = getAppStore()) {
+    if (!name)
+        return await store.createAll([project, marker]);
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+        if (await store.get(marker.pk, marker.id))
+            return false;
+        const client = await clientNamed(store, project.workspaceId, name, project.createdBy);
+        if (await store.transact([{ kind: 'create', doc: { ...project, clientId: client.doc.id } }, { kind: 'create', doc: marker }, { kind: 'replace', doc: client.doc, etag: client.etag }]))
+            return true;
+        await backOff(attempt);
+    }
+    throw new Error(`Could not create project ${project.id} with its client`);
 }
 
 /** Sets a project's client by name (`projectClientNameSchema`); `undefined` removes it. */

@@ -16,9 +16,9 @@ browser.tabs.onActivated.addListener(() => { activationRevision++; });
 const bindingKey = (tabId: number) => `binding:${tabId}`;
 // Serialize credential writes with sign-out. Network calls never hold this queue.
 let authWrites = Promise.resolve();
-function writeAuth(operation: () => Promise<void>) {
+function writeAuth<T>(operation: () => Promise<T>) {
     const write = authWrites.then(operation);
-    authWrites = write.catch(() => {});
+    authWrites = write.then(() => {}, () => {});
     return write;
 }
 function assertAuthEpoch(epoch: number) {
@@ -129,7 +129,8 @@ async function signIn() {
     const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
     const challenge = btoa(String.fromCharCode(...new Uint8Array(digest))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     const redirectUri = redirectURL();
-    const query = new URLSearchParams({ clientId, redirectUri, state, challenge, renewable: 'true', ...(browserKind === 'chrome' ? {} : { extensionOrigin: extensionOrigin() }) });
+    // `capability` asks consent to name creating projects; only a sign-in approved with it may create one
+    const query = new URLSearchParams({ clientId, redirectUri, state, challenge, renewable: 'true', capability: 'create-projects', ...(browserKind === 'chrome' ? {} : { extensionOrigin: extensionOrigin() }) });
     const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
     // Discovery hint only: never send a private page path, query or fragment to consent.
     if (reviewable(tab?.url)) query.set('siteOrigin', new URL(tab!.url!).origin);
@@ -274,6 +275,113 @@ async function start(tabId: number, projectId: string, publicId: string) {
     await inject(binding);
     } catch (error) { if ((await getBinding(tabId))?.activation === binding.activation) await clearBinding(tabId); throw error; }
 }
+type CreatedProject = { id: string; projectId: string; name: string; access: string; workspaceId: string; workspaceName: string };
+/**
+ * The saved attempt of one submission (a site, a name and a workspace) in one sign-in. It stays for as long as any
+ * popup could still show that form: until sign-out or the end of the browser session, which clear this storage,
+ * or until uier answers that its project is gone. So every send of the submission, from whichever window and
+ * however late, is the same request to uier.
+ */
+type ProjectAttempt = { attempt: string };
+const projectAttemptPrefix = 'project-attempt:v1:';
+const tabMoved = 'This tab moved to another address. Check the address and try again.';
+/** Its own record for every submission of every sign-in: one never replaces or clears another's */
+async function projectAttemptKey(sessionId: string, origin: string, name: string, workspaceId: string) {
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify([origin, name, workspaceId])));
+    return `${projectAttemptPrefix}${sessionId}:${btoa(String.fromCharCode(...new Uint8Array(digest))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')}`;
+}
+/**
+ * Every read-then-write of an attempt record: one at a time, in the queue that orders credential writes with
+ * sign-out, and only while the sign-in the work began in (`epoch`) is still the current one. So two windows
+ * sending the same submission get one attempt, and work that outlived its sign-in touches no record of the next.
+ */
+function withProjectAttempts<T>(epoch: number, operation: () => Promise<T>) {
+    return writeAuth(async () => { assertAuthEpoch(epoch); return operation(); });
+}
+/** The submission's attempt: the saved one, or a new one saved before anything is sent */
+async function projectAttempt(epoch: number, sessionId: string, origin: string, name: string, workspaceId: string) {
+    const key = await projectAttemptKey(sessionId, origin, name, workspaceId);
+    const record = await withProjectAttempts(epoch, async () => {
+        const saved = (await browser.storage.session.get(key))[key] as ProjectAttempt | undefined;
+        if (saved) return saved;
+        const fresh: ProjectAttempt = { attempt: random() };
+        await browser.storage.session.set({ [key]: fresh });
+        return fresh;
+    });
+    return { key, record };
+}
+/** Ends the record under `key` only while it still holds `attempt`: never one a later submission saved there */
+function forgetProjectAttempt(epoch: number, key: string, attempt: string) {
+    return withProjectAttempts(epoch, async () => {
+        const saved = (await browser.storage.session.get(key))[key] as ProjectAttempt | undefined;
+        if (saved?.attempt === attempt) await browser.storage.session.remove(key);
+    }).catch(() => {});
+}
+/** The site the tab is on now, as the browser reports it; none while it leaves for another site or cannot be reviewed */
+async function liveOrigin(tabId: number) {
+    const tab = await browser.tabs.get(tabId).catch(() => undefined);
+    if (!tab?.active || !reviewable(tab.url)) return undefined;
+    const origin = new URL(tab.url!).origin;
+    return tab.pendingUrl && (!reviewable(tab.pendingUrl) || new URL(tab.pendingUrl).origin !== origin) ? undefined : origin;
+}
+/**
+ * A project for the active tab's site, then its review. `shown` is the address the popup's form displayed. The
+ * project is written for the tab's own origin, read here from the browser, and only while that is still the address
+ * the person saw: a tab that moved on since gets no project, and the popup shows its new state. uier checks that
+ * this sign-in approved creating projects and the person's admin membership of the workspace, and creates it as the
+ * app does.
+ *
+ * The attempt is saved before the request, as the refresh attempt is, in a record of this sign-in and this
+ * submission, whichever tab or window sends it. Nothing that happens afterwards makes the same form a new request:
+ * not a lost or interrupted answer, not an error, not a success another popup has since seen in its list. A form
+ * that is still open somewhere sends the saved attempt, and uier answers with the one project. Only uier's answer
+ * that this project is gone (410) ends the record, which makes the same form a new submission.
+ *
+ * Everything belongs to the sign-in it began in (`epoch`). After another sign-in or a sign-out, its answer is
+ * not delivered and no review starts: the project was created for the earlier account.
+ * A review that cannot start (a closed helper, a tab that moved on) leaves the project: the popup lists it with the
+ * reason, ready for Start review.
+ */
+async function createSiteProject(epoch: number, tabId: number, shown: string, name: string, workspaceId: string) {
+    if (await liveOrigin(tabId) !== shown) throw new Error(tabMoved);
+    const { id: sessionId, token } = await session();
+    const { key, record } = await projectAttempt(epoch, sessionId, shown, name, workspaceId);
+    // Read again after the waits above: what is sent is what the browser says now, and it must be what was shown
+    const origin = await liveOrigin(tabId);
+    if (origin !== shown) throw new Error(tabMoved);
+    const response = await api('projects', token, 'POST', { origin, name, workspaceId, attempt: record.attempt });
+    // Only a whole answer counts: the status line alone proves nothing, and a body that broke off keeps the attempt
+    const answer = await response.json().catch(() => undefined) as Partial<CreatedProject> & { message?: string } | undefined;
+    assertAuthEpoch(epoch);
+    if (!answer || (response.ok && (typeof answer.projectId !== 'string' || typeof answer.id !== 'string')))
+        throw new Error('The answer from uier was interrupted. Try again.');
+    if (!response.ok) {
+        // The attempt's project is gone or no longer has this address: final, so the same form is a new submission
+        if (response.status === 410) await forgetProjectAttempt(epoch, key, record.attempt);
+        throw new Error(answer.message || 'The extension could not connect.');
+    }
+    const project = answer as CreatedProject;
+    if (await liveOrigin(tabId) !== shown) return { project, error: 'The project was created. This tab moved to another address, so its review did not start.' };
+    assertAuthEpoch(epoch);
+    try { await start(tabId, project.projectId, project.id); return { project }; }
+    catch (error) { return { project, error: error instanceof Error ? error.message : 'The review could not start.' }; }
+}
+/**
+ * One request at a time for the same form in the same tab and sign-in: a second press joins the first and gets
+ * its answer. Never across sign-ins: the same form after another sign-in is that account's own request.
+ */
+const creations = new Map<string, ReturnType<typeof createSiteProject>>();
+function createProject(tabId: number, shown: string, name: string, workspaceId: string) {
+    const epoch = authEpoch;
+    const key = JSON.stringify([epoch, tabId, shown, name, workspaceId]);
+    let pending = creations.get(key);
+    if (!pending) {
+        pending = createSiteProject(epoch, tabId, shown, name, workspaceId);
+        creations.set(key, pending);
+        void pending.finally(() => { if (creations.get(key) === pending) creations.delete(key); }).catch(() => {});
+    }
+    return pending;
+}
 async function contentBinding(sender: chrome.runtime.MessageSender) {
     const binding = sender.tab?.id !== undefined ? await getBinding(sender.tab.id) : undefined;
     if (!binding) throw new Error('This review has ended.');
@@ -330,6 +438,7 @@ async function handle(input: unknown, sender: chrome.runtime.MessageSender) {
             return { ...result, ...tab, binding: Boolean(binding), reviewing: binding?.projectId };
         }
         if (msg.type === 'start' && Number.isInteger(msg.tabId) && typeof msg.projectId === 'string' && typeof msg.publicId === 'string') return start(msg.tabId, msg.projectId, msg.publicId);
+        if (msg.type === 'create-project') return createProject(msg.tabId, msg.origin, msg.name, msg.workspaceId);
         if (msg.type === 'exit' && msg.tabId !== undefined) { await clearBinding(msg.tabId); await browser.tabs.sendMessage(msg.tabId, { type: 'dispose' }).catch(() => {}); return; }
         throw new Error('Unsupported popup operation.');
     }

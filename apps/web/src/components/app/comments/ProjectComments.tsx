@@ -28,6 +28,7 @@ import { usePublishSidebarCommentSummary } from '../shell/ShellInfo';
 import type { SidebarCommentSummary } from '@/src/lib/app/sidebarProjects';
 import type { AssigneeOption } from './CommentCard';
 import { CommentFilters, countLineInHeader } from './CommentFilters';
+import { filtersDivider } from './CommentsViewToggle';
 import { pageMatches } from './pageFilter';
 import { CommentInbox, useOpenComment } from './CommentInbox';
 import { CommentBoard } from './CommentBoard';
@@ -337,12 +338,12 @@ function ProjectCommentsView({ labels = [], workflow = defaultStatusWorkflow, pr
             less the gutters (`page-wide`): the list with its thread beside it (CommentInbox), or the board, whose columns
             start at its left edge (uier #363). It never scrolls with the board. The project header above takes the same
             width from `data-header-wide` (the project layout), and so does the count line under it. */}
-        <div ref={containerRef} data-page-width={populated ? 'wide' : undefined} aria-busy={pager.loading || undefined}
+        <div ref={containerRef} data-project-comments="" data-page-width={populated ? 'wide' : undefined} aria-busy={pager.loading || undefined}
             // The board's columns start at the left, under the search (uier #363); My work's board keeps its own
             className="@container/comments flex flex-col gap-2 [&_[data-board-scroll]]:justify-start">
             <div data-header-wide={headerWide} className={cn('flex min-w-0 flex-col gap-2', threadOnly && '@max-3xl/comments:hidden', wideClassName)}>
             {/* Group by only shows once the project has labels to group on (uier #429); without them it leaves no gap */}
-            <CommentFilters archive={{ pressed: archived, count: budgetExceeded ? undefined : archiveCount, unread: archiveUnread,
+            <CommentFilters className={filtersDivider} archive={{ pressed: archived, count: budgetExceeded ? undefined : archiveCount, unread: archiveUnread,
                 sort: archived && canSortBoard ? <BoardSortMenu label={t('Archive')} status="archive" sort={boardSorts.archive} onChange={sort => changeSort('archive', sort)} className="mx-0 after:hidden pointer-coarse:min-h-11 pointer-coarse:min-w-11" /> : undefined }}
                 grouping={labels.length > 0 && <CommentGrouping labels={labels} selected={groupIds || []} disabled={!canSortBoard || sorting} onChange={ids => startSorting(async () => {
                     showGrouping(ids);

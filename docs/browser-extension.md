@@ -173,6 +173,43 @@ drafts and proofs. Only the site's origin is sent for discovery, without its pat
 The extension still holds one account, and server-side project access and exact-origin checks apply
 again when starting a review. This behavior requires a new extension store release.
 
+On a site no project of the account includes, the popup offers admins a new project in place: the
+tab's address (shown, not editable), a name that starts as the site's host, and the workspace it goes
+in. uier lists only workspaces the account administers, never its own feedback workspace; one needs
+no choice, several need one made before **Create project and start review** is available.
+
+- **Approval.** Sign-in asks for the `create-projects` capability. The consent page names it, the
+  handoff binds it and the session record keeps it; a renewal neither adds nor drops it. A sign-in
+  from before this (approved for reviewing alone) keeps reviewing and cannot create: uier refuses the
+  request, and the popup offers **Sign in again**, which ends active reviews like any sign-in.
+- **Address.** The popup sends the address its form showed with the name and the workspace
+  (`create-project`). The worker reads the tab's own origin from the browser, before and after
+  renewing access, and creates nothing unless it is still the address shown; it never takes one from
+  the page and sends no path or query. A tab that moved on shows its new state with the reason.
+- **One project per submission.** Before it sends, the worker saves a random attempt in session
+  storage, in a record of its own for this sign-in and this submission (site, name and workspace),
+  whichever tab or window sends it. Records are read and written one at a time in the queue that
+  orders credential writes with sign-out, and only while the sign-in the work began in is current, so
+  two windows sending the same form get one attempt. The record stays for as long as any popup could
+  still show that form: until sign-out or the end of the browser session, which clear this storage.
+  Nothing else makes the same form a new request: not a lost or interrupted answer, not a refusal,
+  and not a success that another popup has since seen in its list. uier answers every send with the
+  one project. Only uier's answer that the project is gone or no longer includes the address (410)
+  ends the record. uier keeps the receipt for 30 days.
+- **One sign-in.** A create belongs to the sign-in it began in. A second press of the same form in
+  the same tab joins the request in flight; the same form after another sign-in is that account's own
+  request with its own credential. An answer that arrives after a sign-out or another sign-in is not
+  delivered and starts no review. `packages/extension/scripts/worker.test.mjs` runs the worker with
+  stand-in browser APIs for these orderings.
+- **Creation.** uier checks the stored admin membership again and creates the project with the app's
+  own creation service, so it is invited-only with that one address
+  ([server rules](../apps/web/docs/browser-extension.md)). The worker then starts the review as
+  **Start review** does. When the review cannot start (a closed verification window, a tab that moved
+  on), the project stays and the popup lists it with the reason.
+
+Commenters, and admins on an older uier, keep the previous message; **Open project setup** stays for
+adding the address to an existing project. This also requires a new extension store release.
+
 ## Updates
 
 The extension packages the toolbar, so toolbar changes reach reviewers only through a store

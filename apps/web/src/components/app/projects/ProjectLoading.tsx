@@ -19,7 +19,7 @@ export function ProjectLoading() {
         <div className="group/project flex flex-col [--project-tabs:2.5rem]">
             <ProjectLoadingHeader />
             <ProjectLoadingTabs />
-            <div className="flex flex-col gap-6 pt-6">
+            <div className="flex flex-col gap-6 pt-6 has-[[data-project-comments]]:pt-3">
                 <ProjectLoadingPage
                     comments={<CommentsSection><ProjectCommentsLoading /></CommentsSection>}
                     files={<Loading label="Loading files"><Bar className="h-40 w-full rounded-xl" /></Loading>}

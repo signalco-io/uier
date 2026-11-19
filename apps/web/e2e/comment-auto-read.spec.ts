@@ -43,7 +43,10 @@ function readWrites(page: Page, project: string) {
         if (request.method() !== 'POST' || !request.headers()['next-action'] || new URL(request.url()).pathname !== `/app/projects/${project}`) return;
         try {
             const args: unknown = JSON.parse(request.postData() ?? '');
-            if (Array.isArray(args) && args.length === 3 && args[0] === project && typeof args[1] === 'string' && typeof args[2] === 'number') reads.push(args[1]);
+            // Counted once the answer has arrived whole: the page applies it then, and a key pressed while it
+            // does is not a step of its own
+            if (Array.isArray(args) && args.length === 3 && args[0] === project && typeof args[1] === 'string' && typeof args[2] === 'number')
+                void response.finished().catch(() => null).then(() => reads.push(args[1] as string));
         } catch { /* another action's payload */ }
     });
     return reads;
@@ -69,10 +72,13 @@ test('beside the list the shown thread is read, and the arrow keys read only the
     await expect(page.getByRole('button', { name: '4 unread, show only unread', exact: true })).toBeVisible();
     await expect.poll(() => reads).toEqual([ids[5]]);
 
-    // Skimming with the keys: only the thread the reader stops on is read
-    await page.keyboard.press('ArrowDown');
-    await page.keyboard.press('ArrowDown');
-    await page.keyboard.press('ArrowDown');
+    // Skimming with the keys: only the thread the reader stops on is read. Each press waits for the row it
+    // moved to, far inside the dwell: the next step is counted from the focused row, and a press before the
+    // focus arrives is counted from where the list still was
+    for (const index of [4, 3, 2]) {
+        await page.keyboard.press('ArrowDown');
+        await expect(row(page, index)).toBeFocused();
+    }
     await expect.poll(() => openId(page)).toBe(ids[2]);
     await expect(thread).toContainText('Guest thread 2');
     await expect(dot).toHaveCount(0);

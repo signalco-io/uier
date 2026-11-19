@@ -102,7 +102,9 @@ test('the open thread and the filters follow clicks and Back while a write waits
         await expect(thread).toBeHidden(now);
         await page.getByRole('button', { name: 'List', exact: true }).click();
         await page.getByRole('button', { name: 'Done 1', exact: true }).click(now);
-        await expect(page.getByRole('button', { name: 'Done 1', exact: true })).toHaveAttribute('aria-pressed', 'true', now);
+        // The filter follows at once. Its count is 1 only until the server's Done window arrives: that window does not
+        // have the thread while its write is held (the limitation in docs/optimistic-status.md), so a fast answer shows 0
+        await expect(page.getByRole('button', { name: /^Done [01]$/ })).toHaveAttribute('aria-pressed', 'true', now);
         await page.goBack();
         await expect(page.getByRole('button', { name: 'Active 1', exact: true })).toHaveAttribute('aria-pressed', 'true', now);
         expect(posts).toBe(1);

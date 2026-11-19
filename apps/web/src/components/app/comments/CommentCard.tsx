@@ -443,6 +443,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
     // The first message is edited in place like a reply. Choosing Edit leaves the focus in the editor (the menu
     // does not take it back); the thread's More actions takes it once the edit closes and nothing is pending.
     const threadActions = useRef<HTMLButtonElement>(null);
+    const threadMenu = useRef<HTMLDivElement>(null);
     const editChosen = useRef(false);
     const threadActionsFocus = useRef(false);
     const closeEdit = () => {
@@ -607,10 +608,15 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                                 </TooltipTrigger>
                                 <TooltipContent>{t("More actions")}</TooltipContent>
                             </Tooltip>
-                            <DropdownMenuContent align="end" className="min-w-48" finalFocus={() => {
-                                if (!editChosen.current) return true;
-                                editChosen.current = false;
-                                return false;
+                            <DropdownMenuContent ref={threadMenu} align="end" className="min-w-48" finalFocus={() => {
+                                if (editChosen.current) {
+                                    editChosen.current = false;
+                                    return false;
+                                }
+                                // A function always moves the focus; the menu's own default leaves it where it went meanwhile.
+                                // Keep that: a menu opened while this one closes would lose the keyboard, or close again.
+                                const focused = document.activeElement;
+                                return !focused || focused === document.body || focused === threadActions.current || Boolean(threadMenu.current?.contains(focused));
                             }}>
                                 <DropdownMenuGroup>
                                     <DropdownMenuItem

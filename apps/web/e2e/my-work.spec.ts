@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { appNavigation, createProject, openBoardMove, openComment, openCommentFilters, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { appNavigation, createProject, hydrated, openBoardMove, openComment, openCommentFilters, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 import { startReviewedSite } from './support/reviewedSite';
 import { expectNoAxeViolations } from './accessibility';
@@ -149,7 +149,8 @@ test('My work searches, filters by project and sorts its lists and board columns
 
     await page.goto('/app/my-work');
     await expect(unread.getByRole('listitem')).toHaveCount(3);
-    // Search, as on a project's comments (`/` goes to it)
+    // Search, as on a project's comments (`/` goes to it, once the page listens for it)
+    await hydrated(page.getByRole('searchbox', { name: 'Search feedback' }));
     await page.keyboard.press('/');
     await expect(page.getByRole('searchbox', { name: 'Search feedback' })).toBeFocused();
     await page.keyboard.type('typo');

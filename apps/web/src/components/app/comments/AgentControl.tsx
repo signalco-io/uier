@@ -75,10 +75,31 @@ function AgentDetails({ agent }: { agent: AssigneeAgentView }) {
  */
 export function AgentControl({ projectId, comment, assignee, editable }: { projectId: string; comment: ProjectCommentView; assignee: ProjectAssignee; editable: boolean }) {
     const agents = assigneeAgents(assignee);
+    const keys = useAgentKeys(agents);
     return <span className="flex min-w-0 flex-wrap items-center gap-1">
-        {agents.map((agent, index) => <SingleAgentControl key={agent.id ?? index} projectId={projectId} comment={comment} assignee={assignee} agent={agent} editable={editable} />)}
+        {agents.map((agent, index) => <SingleAgentControl key={keys[index]} projectId={projectId} comment={comment} assignee={assignee} agent={agent} editable={editable} />)}
         {editable && agents.length < 10 && <SingleAgentControl projectId={projectId} comment={comment} assignee={assignee} editable adding={agents.length > 0} />}
     </span>;
+}
+
+/**
+ * An agent just added is shown before the server answers, without an id. Its chip keeps its key once the id
+ * arrives, so the chip, and a menu opened on it meanwhile, are not replaced by a new one.
+ */
+function useAgentKeys(agents: AssigneeAgentView[]) {
+    const ids = agents.map(agent => agent.id ?? '');
+    const [seen, setSeen] = useState(() => ({ ids, keys: ids.map((id, index) => id || `new-${index}`), next: ids.length }));
+    if (seen.ids.length === ids.length && seen.ids.every((id, index) => id === ids[index])) return seen.keys;
+    let next = seen.next;
+    const keys = ids.map((id, index) => {
+        const known = id ? seen.ids.indexOf(id) : -1;
+        if (known >= 0) return seen.keys[known]!;
+        // Still without an id, or the id of the chip shown here before the server answered: the same chip
+        if (seen.ids[index] === '') return seen.keys[index]!;
+        return id || `new-${next++}`;
+    });
+    setSeen({ ids, keys, next });
+    return keys;
 }
 
 function SingleAgentControl({ projectId, comment, assignee, agent, editable, adding = false }: { projectId: string; comment: ProjectCommentView; assignee: ProjectAssignee; agent?: AssigneeAgentView; editable: boolean; adding?: boolean }) {
@@ -125,11 +146,13 @@ function SingleAgentControl({ projectId, comment, assignee, agent, editable, add
         const nextAgents = agent ? agents.flatMap(item => item === agent ? next ? [{ ...agentView(next), id: agent.id }] : [] : [item])
             : [...agents, ...(next ? [agentView(next)] : [])];
         const people = previous.map(person => person.id === assignee.id ? { ...person, agents: nextAgents, agent: nextAgents[0] } : person);
-        update({ id: comment.id, patch: { assignees: people, assignee: people[0] } });
+        const confirm = update({ id: comment.id, patch: { assignees: people, assignee: people[0] } });
         const rollback = () => update({ id: comment.id, patch: { assignees: previous, assignee: previous[0] } });
         try {
             const result = await setCommentAgentAction(projectId, comment.id, next, attempt.current.key, agent?.id, adding);
             if (!result?.ok) { rollback(); return result?.error ?? t("Could not change the agent. Try again."); }
+            // Shown until the saved thread arrives: without it the agent would disappear for a moment in between
+            confirm(result);
             attempt.current = null;
             return undefined;
         } catch { rollback(); return t("Could not change the agent. Try again."); }

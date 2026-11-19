@@ -27,7 +27,16 @@ Issue [#289](https://github.com/signalco-io/uier/issues/289) requires owner revi
 wording before merge. Prepare the tested text for review; do not infer that passing checks approve it.
 The privacy policy's 13 November 2026 update describes explicit screen recordings, browser-memory
 drafts, private video storage, access and cleanup. Its changed wording needs the same owner review
-before merge. Other policies retain their existing dates. `legal.spec.ts` guards the project/privacy distinction, identity fallback,
+before merge. Other policies retain their existing dates. The 19 November 2026 text also covers projects created
+from the browser extension: what the request sends, the random request id the extension keeps in session storage
+until sign-out or the end of the browser session, the identifier-only receipt kept for 30 days
+(`PROJECT_RECEIPT_SECONDS`) that prevents a second project, the hourly count of these requests kept under the account
+id for about an hour (`project-receipt-slot`, in the receipt's partition `project-receipt:<userId>`, so the one
+counter that is not a keyed hash: the rate-limit section says so), the workspace marker (project id and time) kept
+until 31 days after the request, both kept through deletion and transfer, and the project code that stays reserved
+with the workspace id when a request stopped before its project existed and was never sent again. The owner approved
+that paragraph's wording on 2026-11-19; change it with those constants, the slot record and the worker's attempt
+records, and with a new owner review. `legal.spec.ts` guards the project/privacy distinction, identity fallback,
 analytics status and erasure limitations.
 
 The privacy policy's 14 November 2026 update also describes optional workspace Notion project imports

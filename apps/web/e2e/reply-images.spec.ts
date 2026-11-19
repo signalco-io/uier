@@ -122,6 +122,9 @@ test('reply images can be picked, removed, retried and expanded in toolbar and a
     await page.unroute('**/app/projects/**');
     await expect(card.getByRole('button', { name: 'Image attached to reply', exact: true })).toHaveCount(2);
     expect(await page.evaluate(() => JSON.stringify({ ...localStorage }))).not.toContain('data:image');
+    // The failed send's toast leaves about now, and its text is below contrast while it fades: scan once it is gone
+    await page.mouse.move(0, 0);
+    await expect(page.locator('[data-sonner-toast]')).toHaveCount(0, { timeout: 10_000 });
     await expectNoAxeViolations(page);
     await page.emulateMedia({ colorScheme: 'dark' });
     await expect(page.locator('html')).toHaveClass(/dark/);
