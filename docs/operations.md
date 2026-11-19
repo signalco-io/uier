@@ -141,7 +141,10 @@ A custom host must be isolated from the app and its cookies, outside `uier.io`, 
 for the uier Vercel team with working DNS and TLS. Reserve it for explicit proof deployment
 aliases, separate from the app's project domains and wildcard domains. Build the proof-enabled
 app with the target origin, then dispatch `html` with its exact generated deployment URL.
-Keep control of the dedicated aliases with this workflow while a dispatch is running.
+Once the production proof route is included in the build and its origin is set, each successful
+`main` release refreshes that alias after verifying the deployment currently serving `uier.io`.
+Normal PR previews build with their preview origin. Their deployment job leaves both persistent
+aliases alone. Use the manual `html` dispatch to select the preview deployment for proof QA.
 
 The workflow reads back the alias and checks that the isolated origin serves a 404 for the app
 root. A protected dedicated Vercel hostname can use the environment's

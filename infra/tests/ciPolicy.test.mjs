@@ -106,6 +106,27 @@ test('production builds overlap infrastructure but publishing waits for both', (
     assert.match(build, /UIER_TOOLBAR_RETAIN_FROM: https:\/\/uier\.io/);
 });
 
+test('the production release alone can refresh the configured proof alias', () => {
+    const deploy = readFileSync(join(root, '.github/workflows/deploy.yml'), 'utf8');
+    const proof = deploy.split('\n  proof-html:\n')[1]?.split(/\n  [\w-]+:\n/)[0];
+    assert.match(proof, /needs: \[web, build\]/);
+    assert.match(proof, /github\.ref == 'refs\/heads\/main' && needs\.build\.outputs\.proof-html-origin != ''/);
+    assert.match(proof, /environment: production/);
+    assert.match(proof, /ref: \$\{\{ github\.sha \}\}/);
+    assert.match(proof, /persist-credentials: false/);
+    assert.match(proof, /UIER_PROOF_DEPLOYMENT: \$\{\{ needs\.web\.outputs\.url \}\}/);
+    assert.match(proof, /UIER_PROOF_HTML_ORIGIN_PRODUCTION: \$\{\{ needs\.build\.outputs\.proof-html-origin \}\}/);
+    assert.match(proof, /configureHtml\("production", \{ requirePublished: true \}\)/);
+    assert.deepEqual([...proof.matchAll(/secrets\.([A-Z_]+)/g)].map(match => match[1]), ['VERCEL_TOKEN']);
+    const manual = readFileSync(join(root, '.github/workflows/proof-providers.yml'), 'utf8');
+    assert.match(proof, /group: file-proof-html-production/);
+    assert.match(manual, /inputs\.feature == 'html' && inputs\.target == 'production' && 'file-proof-html-production'/);
+    for (const name of ['ci.yml', 'vercel-deploy_reusable.yml']) {
+        const workflow = readFileSync(join(root, '.github/workflows', name), 'utf8');
+        assert.doesNotMatch(workflow, /configureHtml|proof-html-origin|file-proof-html-production/);
+    }
+});
+
 test('web finalization stays fresh without forcing compilation', () => {
     const workflow = readFileSync(join(root, '.github/workflows/vercel-build_reusable.yml'), 'utf8');
     assert.doesNotMatch(workflow, /TURBO_FORCE:/);

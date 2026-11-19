@@ -13,7 +13,7 @@ const old = { ...wanted, id: 'dpl_Old', url: 'uier-old-preview-signalco.vercel.a
 const binding = (url, deployment = wanted) => ({ alias: new URL(url).hostname, deploymentId: deployment.id, projectId });
 const absent = () => Response.json({ error: { code: 'not_found' } }, { status: 404 });
 
-function fixture(t, { current, prior = old, next = wanted, domains = [], status = 404, settings = {}, resolvedHost = next.url } = {}) {
+function fixture(t, { current, prior = old, next = wanted, domains = [], status = 404, settings = {}, resolvedHost = next.url, assignment, published } = {}) {
     const env = {
         VERCEL_TOKEN: 'fixture-api-token',
         UIER_PROOF_VERCEL_BYPASS: '',
@@ -49,6 +49,8 @@ function fixture(t, { current, prior = old, next = wanted, domains = [], status 
         if (url.pathname === '/v13/deployments/' + prior.id) return Response.json(prior);
         if (url.pathname === '/v9/projects/' + projectId + '/domains')
             return Response.json({ domains: domains.map(domain => typeof domain === 'string' ? { name: domain } : domain), pagination: { next: null } });
+        if (url.pathname === '/v4/aliases/uier.io' && published)
+            return Response.json(binding('https://uier.io', published));
         if (url.pathname.startsWith('/v4/aliases/')) {
             assert.equal(url.searchParams.has('projectId'), false);
             return current instanceof Response ? current : current ? Response.json(current) : absent();
@@ -57,6 +59,7 @@ function fixture(t, { current, prior = old, next = wanted, domains = [], status 
             assert.equal(options.method, 'POST');
             const { alias } = JSON.parse(options.body);
             writes.push(alias);
+            if (assignment) return assignment;
             const oldDeploymentId = current?.deploymentId;
             current = { alias, deploymentId: next.id, projectId };
             return Response.json({ alias, oldDeploymentId });
@@ -80,12 +83,46 @@ test('assigns the dedicated preview hostname and repeats without a write, using 
     ]);
 });
 
+test('accepts an empty alias 404, then verifies the binding and repeats without writing', async t => {
+    const { writes } = fixture(t, { current: new Response(null, { status: 404 }) });
+    await configureHtml('preview');
+    await configureHtml('preview');
+    assert.deepEqual(writes, [new URL(preview).hostname]);
+});
+
+test('an empty 404 still requires provider authorization to claim the hostname', async t => {
+    const { writes, probes } = fixture(t, {
+        current: new Response(null, { status: 404 }),
+        assignment: Response.json({ error: { code: 'alias_in_use' } }, { status: 403 })
+    });
+    await assert.rejects(configureHtml('preview'), /Vercel rejected.*HTTP 403/);
+    assert.deepEqual(writes, [new URL(preview).hostname]);
+    assert.deepEqual(probes, []);
+});
+
 test('allows the dedicated production hostname on production and a verified same-target move', async t => {
     const next = { ...wanted, target: 'production' };
     const prior = { ...old, target: 'production' };
     const { writes } = fixture(t, { next, prior, current: binding(production, prior) });
     await configureHtml('production');
     assert.deepEqual(writes, [new URL(production).hostname]);
+});
+
+test('refreshes the production proof alias only for the deployment serving uier.io', async t => {
+    const next = { ...wanted, target: 'production' };
+    const prior = { ...old, target: 'production' };
+    for (const [name, published] of [['current release', next], ['superseded release', prior]]) {
+        await t.test(name, async t => {
+            const { writes } = fixture(t, { next, prior, current: binding(production, prior), published });
+            if (published === next) {
+                await configureHtml('production', { requirePublished: true });
+                assert.deepEqual(writes, [new URL(production).hostname]);
+            } else {
+                await assert.rejects(configureHtml('production', { requirePublished: true }), /current uier.io production binding/);
+                assert.deepEqual(writes, []);
+            }
+        });
+    }
 });
 
 test('accepts an isolated custom domain and never sends its host the bypass secret', async t => {
@@ -137,9 +174,13 @@ test('refuses foreign, redirected, ambiguous or wrong-target aliases before any 
         ['unrelated project', { ...binding(preview), projectId: 'prj_Foreign' }],
         ['unrelated team', { ...binding(preview), teamId: 'team_Foreign' }],
         ['different deployment owner', binding(preview, old), { ...old, ownerId: 'team_Foreign' }],
+        ['contradictory deployment owner', binding(preview, old), { ...old, ownerId: 'team_Foreign', team: { id: orgId } }],
         ['different deployment target', binding(preview, old), { ...old, target: 'production' }],
         ['redirect', { ...binding(preview), redirect: 'uier.io' }],
         ['unknown 404', Response.json({ error: { code: 'team_not_found' } }, { status: 404 })],
+        ['malformed 404', new Response('<html>error</html>', { status: 404 })],
+        ['empty forbidden alias', new Response(null, { status: 403 })],
+        ['empty provider failure', new Response(null, { status: 500 })],
         ['forbidden alias', Response.json({ error: { code: 'forbidden' } }, { status: 403 })]
     ]) {
         await t.test(label, async t => {
