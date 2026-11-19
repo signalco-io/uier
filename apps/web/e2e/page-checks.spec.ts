@@ -527,9 +527,11 @@ test('panels docked in the top and bottom quarters of a side stay open together,
     await openPageCheck(page, /^SEO/);
     await expect(seo).toBeVisible();
     await expect(accessibility).toBeVisible();
-    const seoBox = (await seo.boundingBox())!;
-    const accessibilityBox = (await accessibility.boundingBox())!;
-    expect(seoBox.y + seoBox.height).toBeLessThan(accessibilityBox.y);
+    // Each panel takes its quarter as it docks: measured once they have settled there
+    await expect.poll(async () => {
+        const [seoBox, accessibilityBox] = [await seo.boundingBox(), await accessibility.boundingBox()];
+        return seoBox!.y + seoBox!.height < accessibilityBox!.y;
+    }).toBe(true);
 
     // Moved onto the other's quarter, the two swap places
     await seo.getByRole('button', { name: 'Move SEO panel' }).press('ArrowDown');
