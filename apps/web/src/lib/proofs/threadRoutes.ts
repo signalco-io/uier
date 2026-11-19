@@ -84,7 +84,7 @@ async function projection(auth: ThreadAuth, comments: DbComment[], detail = fals
         const proof: ProofThread = {
             id: dto.id, number: dto.number,
             thread: returning ? { items: dto.thread.items.map(item => 'deleted' in item ? item : { ...item, canDelete: false, canEdit: false }) } : dto.thread,
-            resolved: dto.resolved, inProgress: dto.inProgress, archivedAt: dto.archivedAt, private: dto.private,
+            resolved: dto.resolved, inProgress: dto.inProgress, archivedAt: dto.archivedAt, archiveStatusId: dto.archiveStatusId, private: dto.private,
             permissions: { ...dto.permissions, ...(returning ? { edit: false, delete: false } : {}), resolve: !returning && permissions.comment && dto.permissions.resolve, assign: permissions.comment && dto.permissions.assign,
                 makePrivate: permissions.comment && actor.kind === 'member' && actor.isAdmin },
             assignees: dto.assignees, activity: dto.activity, target,

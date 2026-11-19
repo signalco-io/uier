@@ -26,8 +26,8 @@ export function mergePage(current: Snapshot, next: Snapshot, lane: CommentLane):
 }
 
 /** Query changes cancel stale reads; refreshes rebuild the loaded windows and keep the composers mounted. */
-export function useProjectCommentPages(initial: Snapshot, query: CommentsQuery, sorts: Record<BoardColumn, BoardSort>, archiveExpanded: boolean, workflow: StatusWorkflow, openId?: string, groupByLabel: false | string[] = false, onSnapshot?: (snapshot: Snapshot) => void) {
-    const desiredKey = projectCommentPageKey(query, sorts, archiveExpanded, workflow, `${initial.projectId}:${initial.userId}`, groupByLabel);
+export function useProjectCommentPages(initial: Snapshot, query: CommentsQuery, sorts: Record<BoardColumn, BoardSort>, workflow: StatusWorkflow, openId?: string, groupByLabel: false | string[] = false, onSnapshot?: (snapshot: Snapshot) => void) {
+    const desiredKey = projectCommentPageKey(query, sorts, workflow, `${initial.projectId}:${initial.userId}`, groupByLabel);
     const [data, setData] = useState(initial);
     const [loading, setLoading] = useState(false);
     const [announcing, setAnnouncing] = useState(false);
@@ -51,7 +51,7 @@ export function useProjectCommentPages(initial: Snapshot, query: CommentsQuery, 
         const response = await fetch(`/api/projects/${encodeURIComponent(initial.projectId)}/comments/pages`, {
             method: 'POST', credentials: 'same-origin', cache: 'no-store', signal, headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ params: Object.fromEntries(Object.entries(params).filter(([, value]) => value !== undefined).map(([key, value]) => [key, String(value)])),
-                archiveExpanded, openId: latestOpen.current, lane, cursor, depths })
+                openId: latestOpen.current, lane, cursor, depths })
         });
         if (response.status === 401) { window.location.assign('/app/sign-in'); throw new Error('401'); }
         if (response.status === 403 || response.status === 404) { window.location.assign('/app/projects'); throw new Error(String(response.status)); }

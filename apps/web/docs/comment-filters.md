@@ -13,7 +13,7 @@
   A project's comments pass neither `projects` nor `onView`.
 - The comments' filter bar (`CommentFilters.tsx`): in the list the status tabs first, left-aligned at the list's left edge
   ([uier #405](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_fQEilWWPBW-H35qpwStTM); below), then at the right end of that row the filters in
-  effect, Filter, Group by, the search and List/Board, the search directly left of List/Board in the list and the board
+  effect, Archive, Filter, Group by, the search and List/Board, the search directly left of List/Board in the list and the board
   ([uier #403](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_TyebDCmyAli8-wC0qBZDY); `filterControls`, `searchInput` and `statusTabsBox` in `CommentsViewToggle.tsx`, shared with the loading
   header; [uier #411](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_uA2peoXUrJYMWoMxg5LPO) moved it there from left of Filter, uier #403). Filter and Group by are icon-only ghost buttons, no outline and no words
   ([uier #404](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_32FuLmqvjAFqPTxak92oh), `filterIconButton`): each has a tooltip and is named by it ("Filter", "Group by"), and
@@ -32,9 +32,7 @@
   (`activeStatusFilters`) to keep the tabs narrow: the "Active statuses" button beside the Active tab (24px wide, the WCAG 2.5.8 minimum; wider on touch) opens a menu of
   Active and the three, each with its count, and a choice closes it. The Active tab then names the choice ("Active: In
   progress 4") and stays pressed; pressing it again goes back to every active status. `?status=open`, `in-progress` and
-  `ready` links still open on that status. Archive folds under Done the same way (uier #302, `doneStatusFilters`): the
-  "Done and archive" button beside the Done tab opens a menu of Done and Archive with their counts; with Archive chosen the
-  tab reads "Archive 2" and stays pressed, and pressing it again goes back to Done. `?status=archived` still opens Archive. The tabs have no `StateDot`, so Done never reads as a
+  `ready` links still open on that status. The tabs have no `StateDot`, so Done never reads as a
   notification; the three statuses in the menu show theirs in its colour ([status colours](comments-inbox.md)). A tab whose
   comments (with the other filters applied) include unread ones has the unread dot after its count, chosen or not, and so
   does each menu item ([uier #346](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_xBbWYsilDxsQa0FGcc-0p); `statusUnread` from `ProjectComments`, a 6 px dot in the brand accent like a row's,
@@ -58,8 +56,7 @@
   Unread toggle ("Unread 7") is a filter like Only unread here: no dot, the count in the unread accent. Its status tabs are these
   (uier #216, `CommentsStatusTabs` in `sidebar/CommentsSidebarHeader.tsx`): Active (`unresolved`, the default), Done and All, with the
   same Active statuses menu (a toolbar `Popper`, the `uier-status-filter-menu` part: Active, then Open, In progress and Ready to verify
-  with their status dots and counts) and the same "Active: In progress 4" tab, and the same Done tab with Archive in its "Done and archive" menu (`doneStatusFilters`
-  in `CommentsFilter.tsx`); underlined like the toolbar's other tabs. Site-wide
+  with their status dots and counts) and the same "Active: In progress 4" tab, underlined like the toolbar's other tabs. Site-wide
   counts come from the activity summary, Open as its not-done count less In progress and Ready to verify. Neither view has "15 of 93 comments": the
   list's status tabs and the board's columns already count what is shown. Where the comments are at least 56rem wide
   (`@4xl/comments`, `countLineInHeader` in `CommentFilters.tsx`; uier #300; 42rem before the status tabs joined the row. The
@@ -94,14 +91,15 @@ share a row, with the active chip to the left of Filter on desktop and below the
 The board has no status tabs: its Filter popover starts with Status (uier #335, `boardStatusFilters` and `boardStatusFilter` in
 `commentLabels.ts`): All statuses, then Open, In progress, Ready to verify and Done, each with its status dot and count. It
 is the list's `?status=`, so a status chosen in one view stays in the other; Active and All show every column on the board.
-A status narrows the board to that column: the other columns stay, empty, as drop targets, Archive's cards hide, and
+A status narrows the board to that column: the other columns stay, empty, as drop targets, and
 Select shown results takes only what is shown. It shows in effect as "Status: Done", counts in Filter's badge, and Clear
 filters (or its chip) goes back to every column. `comment-board.spec.ts` covers it.
 
-Archive (`status=archived`) is a separate list scope, chosen from the menu beside the Done tab. All includes ordinary
-workflow statuses, without archived threads. Archive uses the same search, people, page, priority,
-unread, author and environment filters. The board excludes archived cards and offers Archive as a
-separate list. The toolbar's `archived` scope follows the same rule; its `all` filter excludes archive.
+The Archive toggle opens archived threads with the All status selected (`archive=only`).
+Existing `status=archived` links resolve to the same view. Status, search, people, page,
+priority, unread, author, label and environment still filter the archive. The Archive
+list has its own total and sort. The toolbar's Archive toggle uses the same separation
+and Open in app carries the archive and status choices in its link.
 
 ## Label filter
 

@@ -241,7 +241,7 @@ export type DbProject = AppDoc & {
      * Only columns with a choice other than their default; missing means today's order everywhere.
      */
     boardSorts?: import('./boardSort').BoardSorts;
-    /** Whether the board's Archive column, its last, is expanded for everyone who opens it; missing means collapsed */
+    /** Legacy archive column preference. Archive is now a URL scope. */
     boardArchiveExpanded?: true;
     boardGroupByLabel?: boolean;
     boardGroupLabelIds?: string[];

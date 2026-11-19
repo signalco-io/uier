@@ -99,7 +99,7 @@ export async function agentProofThreadPage(auth: Awaited<ReturnType<typeof agent
             summary: first?.deletedAt ? 'Comment deleted' : first?.text.slice(0, 240),
             assigneeIds: assignedUserIds(comment),
             stage: feedbackStage({ ...comment, verificationEnabled: project.verificationEnabled === true }),
-            workflowStatus: statusForComment(workflow, comment), private: Boolean(comment.private), archivedAt: comment.archivedAt,
+            workflowStatus: statusForComment(workflow, comment), private: Boolean(comment.private), archivedAt: comment.archivedAt, archiveStatusId: comment.archiveStatusId,
             links: { comment: proofThreadUrl(project, comment, baseUrl),
                 ...(input.versionId && input.versionId !== sourceVersionId
                     ? { revision: proofThreadUrl(project, comment, baseUrl, input.versionId) } : {}) }

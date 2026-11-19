@@ -31,7 +31,7 @@ async function fixture() {
     return { project, context, domain, store, row, load };
 }
 
-test('project pages are bounded, count the entire authorized project and defer Archive and thread bodies', async () => {
+test('project pages are bounded, count the entire authorized project and defer archived rows and thread bodies', async () => {
     const f = await fixture();
     for (let i = 0; i < 1105; i++) await f.store.create(f.row(i));
     for (let i = 2000; i < 2040; i++) await f.store.create(f.row(i, { archivedAt: '2026-02-01T00:00:00.000Z' }));
@@ -39,17 +39,19 @@ test('project pages are bounded, count the entire authorized project and defer A
     const viewer = { ...f.context, user: { ...f.context.user, id: 'member' }, isAdmin: false };
     const board = (await loadAppCommentsSnapshot(viewer, f.project, parseCommentsQuery({ view: 'board' })))!;
     expect(board.comments).toHaveLength(25);
-    expect(board.paging.statusCounts).toMatchObject({ open: 1105, active: 1105, archived: 40, all: 1105 });
+    expect(board.paging.statusCounts).toMatchObject({ open: 1105, active: 1105, all: 1105 });
     expect(board.paging.lanes.open?.total).toBe(1105);
-    expect(board.paging.lanes.archive).toEqual({ ids: [], total: 40, nextCursor: null });
+    expect(board.paging.archiveCount).toBe(40);
+    expect(board.paging.lanes.archive).toBeUndefined();
     expect(board.comments.every(comment => comment.summary && !comment.replies.length && !comment.history && !comment.screenshot)).toBe(true);
     const list = await f.load({ view: 'list' });
     expect(list.comments).toHaveLength(25);
     expect(list.paging.lanes.list?.total).toBe(1106);
-    const expanded = await f.load({}, { archiveExpanded: true });
-    expect(expanded.paging.lanes.archive?.ids).toHaveLength(25);
-    expect(expanded.comments.filter(comment => comment.archivedAt)).toHaveLength(25);
-    const archived = await f.load({ view: 'list', status: 'archived' });
+    const archived = await f.load({ view: 'board', archive: 'only', status: 'open' });
+    expect(archived.comments.every(comment => comment.archivedAt)).toBe(true);
+    expect(archived.paging.statusCounts).toMatchObject({ open: 40, done: 0, all: 40 });
+    expect((await f.load({ status: 'archived' })).paging.lanes.list?.ids).toEqual(archived.paging.lanes.list?.ids);
+    await expect(f.load({ archive: 'only', status: 'done' })).resolves.toMatchObject({ comments: [], paging: { archiveCount: 40 } });
     expect(archived.comments).toHaveLength(25);
     expect(archived.paging.lanes.list?.total).toBe(40);
 });
@@ -141,14 +143,16 @@ test('cursor pages follow each supported column sort, without duplicates on equa
         rows.push(row); await f.store.create(row);
     }
     for (const sort of boardSorts) {
-        const lane = sort === 'completed' ? 'done' : 'archive';
+        const sortKey = sort === 'completed' ? 'done' : 'archive';
+        const lane = sortKey === 'done' ? 'done' : 'list';
+        const params: Record<string, string> = sortKey === 'done' ? {} : { archive: 'only' };
         for (const row of rows) { const current = (await f.store.get(f.domain, row.id))!; await f.store.replace({ ...current.comment, archivedAt: lane === 'done' ? undefined : row.archivedAt }, current.etag); }
-        const options = { boardSorts: { [lane]: sort as BoardSort } };
-        let data = await f.load({}, { archiveExpanded: true }, options);
+        const options = { boardSorts: { [sortKey]: sort as BoardSort } };
+        let data = await f.load(params, {}, options);
         const ids = [...data.paging.lanes[lane]!.ids];
         let cursor = data.paging.lanes[lane]!.nextCursor;
         while (cursor) {
-            data = await f.load({}, { lane, cursor, archiveExpanded: true }, options);
+            data = await f.load(params, { lane, cursor }, options);
             ids.push(...data.paging.lanes[lane]!.ids); cursor = data.paging.lanes[lane]!.nextCursor;
         }
         const expected = sortBoardColumn([...rows].sort((a, b) => a.id.localeCompare(b.id)), sort).map(row => row.id);
@@ -205,15 +209,16 @@ test('custom status columns have independent pages/totals and removed ids fall b
         await f.store.create(f.row(i + 100, { workflowStatusId: 'removed-status' }));
         await f.store.create(f.row(i + 200, { archivedAt: '2026-03-01T00:00:00.000Z', archiveStatusId: 'rejected' }));
     }
-    const first = await f.load({}, { archiveExpanded: true }, projectFields);
+    const first = await f.load({}, {}, projectFields);
     expect(first.paging.lanes.approved?.total).toBe(40);
     expect(first.paging.lanes.open?.total).toBe(40);
-    expect(first.paging.lanes.rejected?.total).toBe(40);
-    expect(first.paging.lanes.archive?.total).toBe(0);
+    expect(first.paging.archiveCount).toBe(40);
+    expect(first.paging.lanes.rejected).toBeUndefined();
+    expect(first.paging.lanes.archive).toBeUndefined();
     expect(first.paging.lanes.approved?.ids).toHaveLength(25);
     expect(first.paging.lanes.open?.ids).toHaveLength(25);
-    expect(first.paging.lanes.rejected?.ids).toHaveLength(25);
-    const next = await f.load({}, { lane: 'approved', cursor: first.paging.lanes.approved!.nextCursor!, archiveExpanded: true }, projectFields);
+    expect((await f.load({ archive: 'only' }, {}, projectFields)).paging.lanes.list?.ids).toHaveLength(25);
+    const next = await f.load({}, { lane: 'approved', cursor: first.paging.lanes.approved!.nextCursor! }, projectFields);
     expect(next.comments).toHaveLength(15);
     expect(next.comments.every(comment => comment.workflowStatusId === 'approved')).toBe(true);
     const renamed = { ...projectFields, statusWorkflow: { ...projectFields.statusWorkflow, value: { ...workflow, statuses: workflow.statuses.filter(status => status.id !== 'approved') } } };
@@ -289,7 +294,8 @@ test('label swim lanes page independently, bind cursors and resolve removed defi
     expect(first.paging.lanes['open~label_DesignA']?.ids).toHaveLength(25);
     expect(first.paging.lanes['open~label_BugB']?.total).toBe(16);
     expect(first.paging.lanes['open~unlabeled']?.ids).toEqual(['row-00100']);
-    expect(first.paging.lanes['archive~label_BugB']).toEqual({ ids: [], total: 1, nextCursor: null });
+    expect(first.paging.lanes['archive~label_BugB']).toBeUndefined();
+    expect((await f.load({ archive: 'only', label: 'label_BugB' }, {}, fields)).paging.lanes.list?.ids).toEqual(['row-00101']);
     const allBug = await f.load({}, { lane: 'open~label_BugB', allIds: true, revisionOnly: true }, fields);
     expect(allBug.paging.lanes['open~label_BugB']?.ids).toHaveLength(16);
     const cursor = first.paging.lanes['open~label_DesignA']!.nextCursor!;

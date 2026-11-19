@@ -105,10 +105,15 @@ expose identity metadata only to members. App and toolbar must share these check
 
 Archive is a separate optional `DbComment.archivedAt` timestamp, not a workflow status. Missing means
 not archived; existing records need no migration. `PATCH .../comments/<id>` accepts exactly one of
-`{ archived: boolean }`, `{ status }` or legacy `{ resolved }`. Archive/restore uses status authority
+`{ archived: boolean }`, `{ statusId }`, `{ status }` or legacy `{ resolved }`. Archive/restore uses status authority
 (members or the original guest author), visibility checks and conditional writes; it retains status,
 completion time, pending verification, content, evidence, assignment, TTL and read receipts. A stale
 status client does not restore a thread implicitly. Repeated writes and MCP receipt replays add no activity.
+
+Choosing a legacy Archive destination by `statusId` changes the archive fields. The
+`workflowStatusId` remains the ordinary status and `archiveStatusId` records the optional
+archive destination. Archive and restore create archive events, and changing the destination
+of an already archived thread leaves workflow history alone.
 
 Both comments APIs exclude archived threads from ordinary lists. `archive=only` selects the archive;
 `archive=all` opts into both. The archive filter runs in memory/Cosmos before list limits. Internal store

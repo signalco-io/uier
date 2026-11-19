@@ -273,7 +273,7 @@ test('archived cards leave one after another from the top, and the next page ris
     expect(motions.filter(motion => motion.startsWith('enter:')).length).toBeGreaterThan(0);
     expect(motions.filter(motion => motion.startsWith('enter:')).every(motion => next.some(comment => motion === `enter:${comment.id}`))).toBe(true);
     await watch.settled();
-    await expect(column('Archived').getByRole('button', { name: 'Archive 25', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Archive(?:\s*\d+)?$/ })).toHaveText(/25/);
 });
 
 test('with reduced motion cards and rows go straight to their places', async ({ page, request }) => {
