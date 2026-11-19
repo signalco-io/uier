@@ -31,7 +31,7 @@ export type FeedbackMessage = {
 export type FeedbackContext = {
     schemaVersion: 1;
     contentTrust: 'untrusted';
-    identity: { projectId?: string; commentId: string; number?: number; itemId?: string };
+    identity: { projectId?: string; assetId?: string; commentId: string; number?: number; itemId?: string };
     title: string;
     kind: import('./feedbackTypes').CommentKind;
     feedbackType?: import('./feedbackTypes').FeedbackTypeSnapshot;
@@ -63,7 +63,9 @@ export type FeedbackContext = {
      */
     drawing?: FeedbackDrawing;
     source: { path: string; origin?: string; environment?: string };
-    links: { page?: string; comment?: string };
+    links: { page?: string; comment?: string; revision?: string };
+    proof?: { assetId: string; sourceVersionId: string; currentVersionId?: string | null; versionId?: string; anchorKind?: string };
+    workflowStatus?: { id: string; label: string; category: string; description: string };
     reproduction: {
         device?: 'desktop' | 'tablet' | 'mobile';
         windowSize?: [number, number];
@@ -196,6 +198,8 @@ export function feedbackMarkdown(context: FeedbackContext): string {
         ].filter(Boolean).join('\n\n') : '',
         '## Original feedback',
         message(context.feedback, context.kind === 'rewrite' ? 'Suggested rewrite (not original page copy)' : 'Saved message'),
+        ...(context.proof ? ['## File review', link('Open original thread in uier', context.links.comment),
+            link('Open this revision in uier', context.links.revision)] : [
         '## Page and anchor',
         literal(context.source.path),
         context.source.origin ? `Source: ${plain(context.source.origin)}` : 'Source origin: unavailable or restricted.',
@@ -210,7 +214,8 @@ export function feedbackMarkdown(context: FeedbackContext): string {
         anchor.startOffset !== undefined ? `Text offsets: ${anchor.startOffset}–${anchor.endOffset ?? 'unknown'}` : '',
         anchor.endSelector ? `End selector:\n\n${literal(anchor.endSelector)}` : '',
         anchor.opener ? `In a menu, popover or dialog: open it first with ${anchor.opener.label ? plain(anchor.opener.label) : 'this element'}.\n\nOpener selector (may no longer match):\n\n${literal(anchor.opener.selector)}` : '',
-        '## Original browser context',
+        ]),
+        ...(context.proof ? [] : ['## Original browser context',
         [
             `Device: ${r.device ?? 'Unavailable'}`,
             `Viewport: ${r.windowSize ? `${r.windowSize[0]}×${r.windowSize[1]} CSS px` : 'Unavailable'}`,
@@ -225,6 +230,7 @@ export function feedbackMarkdown(context: FeedbackContext): string {
         screenshot.state === 'protected'
             ? `${link('Saved screenshot', screenshot.url)} (${screenshot.width}×${screenshot.height} pixels).\n\nThis reference requires the existing uier access. Private images cannot be viewed outside uier without an authorized session. Open the comment in uier to view the image; no public image or access token is included.`
             : 'No saved image is available.',
+        ]),
         '## Discussion',
         context.discussion.length ? context.discussion.map(item => message(item, 'Reply')).join('\n\n') : 'No saved replies.',
         ...context.notes.map(note => plain(note))

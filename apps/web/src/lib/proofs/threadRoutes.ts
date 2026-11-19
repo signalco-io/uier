@@ -259,12 +259,18 @@ export const exportProofThread = proofThreadsHandler(async (request, route: Thre
     const { proof, dto } = bundle;
     const baseUrl = configuredAppBaseUrl() ?? await (await import('../app/request')).appBaseUrl();
     const commentUrl = new URL(proof.href, baseUrl).toString();
-    const exported = feedbackExport(dto, { projectId: project.publicId, commentUrl, assignees: auth.actor.kind === 'member' ? dto.assignees : undefined });
+    const member = auth.actor.kind === 'member';
+    const exported = feedbackExport(dto, { projectId: member ? project.id : project.publicId, commentUrl, assignees: member ? dto.assignees : undefined });
+    const revision = proof.location.versionId !== proof.target.source.versionId
+        ? new URL(proofThreadPath(project.publicId ?? project.id, route.assetId, proof.location.versionId, comment.id), baseUrl).href : undefined;
     const evidenceLinks = proof.evidenceLinks && {
         before: new URL(proof.evidenceLinks.before.href, baseUrl).toString(),
         after: new URL(proof.evidenceLinks.after.href, baseUrl).toString()
     };
     const proofContext = { target: proof.target, verification: proof.verification, evidenceLinks };
-    return Response.json({ ...exported, context: { ...exported.context, proof: proofContext },
-        markdown: evidenceLinks ? `${exported.markdown}\n\nBefore: ${evidenceLinks.before}\nAfter: ${evidenceLinks.after}` : exported.markdown });
+    const links = [revision && `Review revision: ${revision}`, evidenceLinks && `Before: ${evidenceLinks.before}\nAfter: ${evidenceLinks.after}`].filter(Boolean);
+    return Response.json({ ...exported, context: { ...exported.context, proof: proofContext,
+        identity: { ...exported.context.identity, assetId: route.assetId },
+        links: { ...exported.context.links, ...(revision ? { revision } : {}) } },
+        markdown: [exported.markdown, ...links].join('\n\n') });
 });

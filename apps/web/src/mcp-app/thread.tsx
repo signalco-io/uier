@@ -138,7 +138,7 @@ function ThreadCard() {
     useEffect(() => {
         const bridge = new AppBridge();
         bridgeRef.current = bridge;
-        let identity: { projectId: string; commentId: string } | undefined;
+        let identity: { projectId: string; commentId: string; assetId?: string; versionId?: string } | undefined;
         let ready = false, busy = false, stopped = false, unavailable = false, hasSnapshot = false;
         let version = 0;
         const theme = (value: unknown) => {
@@ -157,11 +157,13 @@ function ThreadCard() {
             const data = payload(result);
             const context = feedback(data?.context);
             if (object(result)?.isError || !context) return clear();
-            if (identity && (context.identity.projectId !== identity.projectId || context.identity.commentId !== identity.commentId)) return;
-            identity = { projectId: context.identity.projectId!, commentId: context.identity.commentId };
+            if (identity && (context.identity.projectId !== identity.projectId || context.identity.commentId !== identity.commentId || context.identity.assetId !== identity.assetId)) return;
+            identity = { projectId: context.identity.projectId!, commentId: context.identity.commentId,
+                ...(context.identity.assetId ? { assetId: context.identity.assetId } : {}),
+                ...(context.links.revision && context.proof?.versionId ? { versionId: context.proof.versionId } : {}) };
             hasSnapshot = true;
             unavailable = false;
-            const status = threadStatus(context, data?.workflowStatus);
+            const status = threadStatus(context, data?.workflowStatus ?? context.workflowStatus);
             setView(previous => ({ ...previous, context, status, state: checked ? 'fresh' : 'snapshot', checkedAt: checked ? Date.now() : undefined, busy: false,
                 // Announce only a changed status of the thread on screen: not its first result or each refresh.
                 announcement: previous.status && previous.status.label !== status.label ? `Status changed to ${status.label}.` : previous.announcement }));

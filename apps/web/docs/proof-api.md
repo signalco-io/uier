@@ -131,6 +131,10 @@ Message-ID deduplicates retries across versions. Transport-only headers
 are excluded from the content check. The exact source stays in its original
 attachment. Uploading an EML file needs only the email format setting.
 
+A coding connection with `proofs:read` can list its published files and threads,
+read one or more threads and use separately granted reply, status and assignment
+operations. The machine packet links to immutable review locations. For a
+revision-aware read, pass the owning asset, comment ID and published version ID.
 A coding connection with `proofs:upload` can list its permitted files,
 begin a scoped staged upload and finalize a version. Agent tools use the
 same format policy and version concurrency checks as the library. Preview

@@ -216,7 +216,7 @@ async function assertAgentGrant(version: DbProofVersion) {
     if (!version.agentUpload || version.status === 'published') return;
     const { userId, connectionId, kind } = version.agentUpload;
     const identity = await currentMcpConnection(userId, connectionId, kind);
-    if (!identity) throw proofNotFound();
+    if (!identity || (identity.proofAssetIds && !identity.proofAssetIds.includes(version.assetId))) throw proofNotFound();
     const { user } = await mcpProject(identity, version.projectId, 'proofs:upload');
     if (user.id !== version.uploaderId) throw proofNotFound();
 }

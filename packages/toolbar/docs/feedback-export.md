@@ -16,6 +16,10 @@ Authorization and private-field projection
 belong on the server; never format a raw document or browser location for export. See
 [the shared contract](../../../docs/feedback-context.md).
 
+A coding or tracker packet with `proof` uses the file's uier thread link and optional
+revision link in place of page and browser sections. The server supplies the redacted
+discussion and location category. Ordinary toolbar website exports are unchanged.
+
 Replies may include a protected `screenshot` reference. The formatter places a **Reply image** link
 and dimensions under its message; deleted messages omit it. The server verifies each image exists
 and chooses the existing access-checked route for the viewer.
