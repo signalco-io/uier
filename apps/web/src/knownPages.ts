@@ -120,6 +120,12 @@ export const KnownPageLinks = {
     projectPageChecks: (projectId: string) => `/app/projects/${encodeURIComponent(projectId)}/page-checks`,
     /** The account: General, or one of its other sections */
     account: (section?: AccountSection) => `${KnownPages.AppAccount}${section ? `/${section}` : ''}`,
+    /**
+     * A fresh sign-in of the account that is signed in, for a step that needs a recent one, back to `next`
+     * afterwards. The other accounts stay signed in; `again` makes Microsoft ask for the credentials.
+     */
+    signInAgain: (next: string, withEmail = false) =>
+        `${KnownPages.AppSignIn}?${new URLSearchParams({ add: '1', again: '1', next, ...(withEmail ? { with: 'email' } : {}) })}`,
     /** The account's usage (a person's own limits in each project), at one project's card */
     accountUsage: (project?: string) => `${KnownPages.AppAccount}/usage${project ? `#${encodeURIComponent(projectUsageAnchor(project))}` : ''}`,
     /**

@@ -690,7 +690,7 @@ export default function PrivacyPolicyPage() {
             <ul>
                 <li>Comments, accounts, projects and rate-limit counters: Microsoft Azure Cosmos DB in the West Europe region (the Netherlands).</li>
                 <li>Screenshots: private Microsoft Azure Blob Storage in West Europe. After checking your access, we issue a read-only link to one image for 60 seconds. Your browser downloads directly from Azure. A previously issued link can remain usable until it expires after a permission change. Earlier screenshots move from Cosmos DB in the background.</li>
-                <li>Sign-in, invitation and review notification emails: sent by Microsoft Azure Communication Services, with its data stored in Europe.</li>
+                <li>Sign-in, invitation, review notification and account deletion emails: sent by Microsoft Azure Communication Services, with its data stored in Europe.</li>
                 <li>Review delivery: GitHub-hosted workflow runners temporarily process recipient and delivery records. Workflow logs contain delivery ids and failure codes, without recipient addresses, comment text or images.</li>
                 <li>Connected services chosen by an admin: Notion, GitHub, Linear, Azure DevOps and Slack receive the feedback described above. Their access, processing locations and retention follow the connected account and service settings.</li>
                 <li>
@@ -747,7 +747,9 @@ export default function PrivacyPolicyPage() {
                 You can delete your own messages before closing your account.
                 If you are the last admin in a shared workspace, make another member an admin first.
                 If you are its only member, transfer or delete its projects first. Workspaces with no projects
-                or other members close with your account.
+                or other members close with your account. We send one email to your account address to
+                confirm the deletion. If it cannot be sent, we try again for up to an hour and then remove
+                the address.
             </p>
             <p>
                 You can ask us for a copy of your data, to correct or delete it, to restrict or object to how we use

@@ -2,6 +2,7 @@ import type en from './en';
 const messages: Record<keyof typeof en, string> = {
     "Delete account": "Konto löschen",
     "Delete your account?": "Ihr Konto löschen?",
+    "Sign in to the same account to continue.": "Melden Sie sich mit demselben Konto an, um fortzufahren.",
     "Removes your profile, sign-in methods and workspace access. Projects and feedback stay in their workspaces. This can't be undone.": "Entfernt Ihr Profil, Ihre Anmeldemethoden und Ihre Zugriffsrechte. Projekte und Feedback bleiben in ihren Arbeitsbereichen. Dies kann nicht rückgängig gemacht werden.",
     "To delete your account, sign in again. Deleting it needs a sign-in from the last 10 minutes.": "Melden Sie sich erneut an, um Ihr Konto zu löschen. Dafür ist eine Anmeldung innerhalb der letzten 10 Minuten erforderlich.",
     "Your profile, sign-in methods and workspace access will be removed. Projects and feedback stay in their workspaces. Empty workspaces where you are the only member will close. This is permanent.": "Ihr Profil, Ihre Anmeldemethoden und Ihre Zugriffsrechte werden gelöscht. Projekte und Feedback bleiben in ihren Arbeitsbereichen. Leere Arbeitsbereiche, in denen Sie das einzige Mitglied sind, werden geschlossen. Dies ist endgültig.",

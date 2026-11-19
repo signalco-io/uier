@@ -1,7 +1,10 @@
 import { expect, test } from '@playwright/test';
 import { NextRequest } from 'next/server.js';
 import { POST } from '../app/api/account/sessions/route';
+import { brand } from '@uier/brand';
+import { accountDeletedNotice, isAccountDeletedNotice } from '../src/lib/app/accountDeletedNotice';
 import type { AccountDeletion } from '../src/lib/app/accountDeletionGuard';
+import type { EmailMessage } from '../src/lib/email/send';
 import { deleteAccount, sweepAccountDeletions } from '../src/lib/app/accountDeletion';
 import { emailPk, memberId, userPk, workspacePk, type DbMember } from '../src/lib/app/model';
 import { createProject, findProject, getProject } from '../src/lib/app/projects';
@@ -140,9 +143,15 @@ test('a failed cleanup can resume after the user and their session are gone', as
     const user = await findOrCreateUser(uniqueEmail('retry'));
     const context = (await loadAppContext(user))!;
     const store = getAppStore();
+    const team = await createWorkspace(user, 'Team');
+    const other = await findOrCreateUser(uniqueEmail('retry-admin'));
+    await store.create<DbMember>({ ...context.member, pk: team.pk, workspaceId: team.id, id: memberId(other.id), userId: other.id, email: other.email });
     const interrupted: AppStore = { ...store, async partitionIds() { throw new Error('Interrupted cleanup'); } };
     await deleteAccount(session(user.id), user.email, interrupted);
     expect(await getUser(user.id)).toBeNull();
+    // The shared workspace is released with the membership, before the cleanup that failed
+    expect(await getMember(team.id, user.id)).toBeNull();
+    expect((await getWorkspace(team.id))?.accountDeletion).toBeUndefined();
     await expect(findOrCreateUser(user.email)).rejects.toThrow('Account deletion is in progress.');
     expect((await store.get(user.pk, 'account-deletion'))?.doc).toMatchObject({ status: 'committed' });
     expect((await sweepAccountDeletions()).failed).toBe(0);
@@ -184,4 +193,65 @@ test('a transfer that was finishing when its old workspace closed settles withou
     expect(await sweepProjectTransfers()).toEqual({ failed: 0 });
     expect((await store.get<ProjectTransfer>('project-transfer', project.id))?.doc.complete).toBe(true);
     expect((await getProject(target.id, project.id))?.transfer).toBeUndefined();
+});
+
+test('one notice goes to the deleted address, and the next run sends one that failed', async () => {
+    const store = getAppStore();
+    const sent: EmailMessage[] = [];
+    const notify = async (message: EmailMessage) => { sent.push(message); };
+    const unavailable = async () => { throw new Error('Provider unavailable'); };
+    const user = await findOrCreateUser(uniqueEmail('noticed'));
+    await loadAppContext(user);
+    await deleteAccount(session(user.id), user.email, store, notify);
+    const notice = sent.find(message => message.to === user.email)!;
+    expect(notice.subject).toBe('Your uier account was deleted');
+    for (const body of [notice.text, notice.html]) {
+        expect(body).toContain(`The uier account for ${user.email} was deleted on `);
+        expect(body).toContain(`If you did not delete your account, write to ${brand.contact.privacy}.`);
+        expect(body).not.toContain('If the button does not work');
+    }
+    const receipt = (await store.get<AccountDeletion>(user.pk, 'account-deletion'))!.doc;
+    expect(receipt.status).toBe('complete');
+    expect(receipt.email).toBeUndefined();
+
+    // The provider fails: the account is gone and its address is free, and the request keeps the address
+    const later = await findOrCreateUser(uniqueEmail('notice-later'));
+    await loadAppContext(later);
+    await deleteAccount(session(later.id), later.email, store, unavailable);
+    expect(await getUser(later.id)).toBeNull();
+    expect(await store.get(emailPk(later.email), later.email)).toBeNull();
+    const pending = (await store.get<AccountDeletion>(later.pk, 'account-deletion'))!.doc;
+    expect(pending).toMatchObject({ status: 'committed', email: later.email });
+    expect(pending.noticeAt).toBeUndefined();
+    expect((await sweepAccountDeletions(store, notify)).failed).toBe(0);
+    expect((await sweepAccountDeletions(store, notify)).failed).toBe(0);
+    expect(sent.filter(message => message.to === later.email)).toHaveLength(1);
+    expect(sent.filter(message => message.to === user.email)).toHaveLength(1);
+    expect((await store.get<AccountDeletion>(later.pk, 'account-deletion'))!.doc.status).toBe('complete');
+
+    // A notice that cannot be sent for an hour is given up, with its address
+    const never = await findOrCreateUser(uniqueEmail('notice-never'));
+    await loadAppContext(never);
+    await deleteAccount(session(never.id), never.email, store, unavailable);
+    const waiting = (await store.get<AccountDeletion>(never.pk, 'account-deletion'))!;
+    await store.replace({ ...waiting.doc, requestedAt: new Date(Date.now() - 61 * 60_000).toISOString() }, waiting.etag);
+    expect((await sweepAccountDeletions(store, unavailable)).failed).toBe(0);
+    const given = (await store.get<AccountDeletion>(never.pk, 'account-deletion'))!.doc;
+    expect(given.status).toBe('complete');
+    expect(given.email).toBeUndefined();
+});
+
+test('the notice of a deletion is signed for the account the browser continues as', async () => {
+    const user = await findOrCreateUser(uniqueEmail('notice-link'));
+    const kept = await findOrCreateUser(uniqueEmail('notice-kept'));
+    const cookies = `${cookieName(cookieNames.session)}=${sessionToken(user.id).token}; ${cookieName(cookieNames.account1)}=${sessionToken(kept.id).token}`;
+    const response = await POST(request(user.id, user.email, cookies));
+    const next = new URL((await response.json() as { next: string }).next, origin);
+    expect(next.pathname).toBe('/app/account');
+    const notice = next.searchParams.get('deleted');
+    expect(isAccountDeletedNotice(notice, kept.id)).toBe(true);
+    // Not for another account, a signed-out browser or a link someone wrote
+    for (const [value, continuesAs] of [[notice, user.id], [notice, null], ['1', kept.id], [`${notice}x`, kept.id], [accountDeletedNotice(null), kept.id]] as const)
+        expect(isAccountDeletedNotice(value, continuesAs)).toBe(false);
+    expect(isAccountDeletedNotice(accountDeletedNotice(null), null)).toBe(true);
 });

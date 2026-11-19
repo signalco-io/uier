@@ -108,8 +108,10 @@ function SignInCodeStep({ sent, next, addingAccount }: { sent: SignInLinkSent; n
  * this browser signed in with last; `problems` (a provider's failed sign-in) go above the options. Once
  * the email is sent, the card becomes the code step, with its own header.
  */
-export function SignInForm({ next, alternatives, problems, withEmail = false, lastUsed, addingAccount = false }: {
+export function SignInForm({ next, alternatives, problems, withEmail = false, lastUsed, addingAccount = false, again = false }: {
     next?: string; alternatives?: ReactNode; problems?: ReactNode; withEmail?: boolean; lastUsed?: SignInMethod; addingAccount?: boolean;
+    /** A fresh sign-in of the same account, for a step that needs a recent one: the card says so, not "Add account" */
+    again?: boolean;
 }) {
     const { t } = useAppI18n();
     const id = useId();
@@ -123,7 +125,7 @@ export function SignInForm({ next, alternatives, problems, withEmail = false, la
     }
 
     return (
-        <AuthCard title={addingAccount ? t("Add account") : t("Sign in")} description={addingAccount ? t("Sign in to another account. Your other accounts stay signed in.") : <>{t("Choose how to sign in.")}<br />{t("New here? Signing in creates your account.")}</>}>
+        <AuthCard title={again ? t("Sign in again") : addingAccount ? t("Add account") : t("Sign in")} description={again ? t("Sign in to the same account to continue.") : addingAccount ? t("Sign in to another account. Your other accounts stay signed in.") : <>{t("Choose how to sign in.")}<br />{t("New here? Signing in creates your account.")}</>}>
             {problems}
             <div className="flex flex-col gap-3">
                 <PasskeySignIn next={next} autofill={emailOpen} lastUsed={lastUsed === 'passkey'} />

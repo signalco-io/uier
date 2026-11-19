@@ -41,5 +41,5 @@ no longer says recordings are never copied to connected services. This wording n
 review before merge.
 
 The privacy policy and terms of service were updated on 19 November 2026 to describe self-service account deletion in Account →
-General, workspace handoff, and retention of contributed feedback and history. The existing owner
-review applies before merge.
+General, workspace handoff, retention of contributed feedback and history, and the one email that
+confirms the deletion to the account's address. The existing owner review applies before merge.

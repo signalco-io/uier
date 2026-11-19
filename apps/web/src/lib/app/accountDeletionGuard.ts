@@ -12,7 +12,10 @@ export type AccountDeletion = AppDoc & {
     status: 'preparing' | 'cancelled' | 'committed' | 'complete';
     workspaceIds: string[];
     closedWorkspaceIds: string[];
+    /** The account's address, until the request completes: old invitations and the notice need it. */
     email?: string;
+    /** When the notice of the deletion went to that address. */
+    noticeAt?: string;
 };
 
 /** Only a workspace with an active reservation needs the additional point read. A cancelled

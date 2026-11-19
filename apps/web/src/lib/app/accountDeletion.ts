@@ -2,6 +2,8 @@ import { nanoid } from 'nanoid';
 import { apiErrors } from '../comments/http';
 import { afterResponse } from '../afterResponse';
 import { PUBLIC_WORKSPACE_ID } from '../comments/publicProjectPolicy';
+import { sendEmail, type EmailMessage } from '../email/send';
+import { accountDeletedEmail } from '../email/templates';
 import { revokeIntegrationGrantsOf } from '../integrations/connection';
 import { userPk as mcpUserPk } from '../mcp/oauth/grants';
 import { assertWorkspaceWritable, preparationTimeout, type AccountDeletion } from './accountDeletionGuard';
@@ -13,6 +15,9 @@ import { getAppStore, type AppMutation, type AppStore } from './store';
 
 const changed = 'Workspace access is changing. Try again shortly.';
 type Row = AppDoc & Record<string, unknown>;
+type Notify = (message: EmailMessage) => Promise<unknown>;
+/** A notice that could not be sent keeps its address, and is tried again by the worker, this long. */
+const noticeDeadline = 60 * 60_000;
 
 /** A workspace the person has to hand over first. Every one of them is reported together. */
 class HandoffNeeded extends UserFacingError {}
@@ -56,7 +61,7 @@ async function cancelPreparation(job: AccountDeletion, store: AppStore) {
 }
 
 /** The caller derives the principal and sign-in time from the active browser cookie. */
-export async function deleteAccount(session: { userId: string; signedInAt: number }, confirmation: string, store = getAppStore()) {
+export async function deleteAccount(session: { userId: string; signedInAt: number }, confirmation: string, store = getAppStore(), notify: Notify = sendEmail) {
     const age = Date.now() / 1000 - session.signedInAt;
     if (!Number.isFinite(age) || age < 0 || age > RECENT_SIGN_IN_SECONDS)
         throw new UserFacingError(DELETE_ACCOUNT_SIGN_IN_AGAIN);
@@ -112,8 +117,12 @@ export async function deleteAccount(session: { userId: string; signedInAt: numbe
             throw error;
         }
     }
+    // Memberships go before the answer, which releases every reservation: other admins are not held
+    // up by a cleanup that runs later. What fails here waits for that cleanup or the worker.
+    try { await removeMemberships(committed, store); }
+    catch { console.error('[accounts] Account deletion memberships need retry.'); }
     const finish = async () => {
-        try { await cleanAccount(committed, store); }
+        try { await cleanAccount(committed, store, notify); }
         catch { console.error('[accounts] Account deletion needs scheduled retry.'); }
     };
     if (!afterResponse(finish)) await finish();
@@ -140,41 +149,82 @@ async function removeMatching(type: string, where: Record<string, string>, store
 
 async function removeMembership(job: AccountDeletion, id: string, store: AppStore) {
     const pk = workspacePk(id);
-    const workspace = await store.get<DbWorkspace>(pk, id);
-    const member = await store.get<DbMember>(pk, memberId(job.userId));
     const close = job.closedWorkspaceIds.includes(id);
-    if (!workspace) {
-        if (member) await store.delete(pk, member.doc.id);
-        return;
-    }
-    const ownsLock = workspace.doc.accountDeletion?.attempt === job.attempt;
-    if (!member && !ownsLock) return;
-    if (close && !ownsLock) throw new Error('Workspace closure lost its reservation');
-    if (!ownsLock) await assertWorkspaceWritable(workspace.doc, store);
-
-    const operations: AppMutation[] = [];
-    if (close) {
-        operations.push({ kind: 'delete', pk, id, etag: workspace.etag });
-        if (member) operations.push({ kind: 'delete', pk, id: member.doc.id, etag: member.etag });
-    } else {
-        const updated = { ...workspace.doc, accessRevision: (workspace.doc.accessRevision ?? 0) + 1 };
-        if (ownsLock) delete updated.accountDeletion;
-        operations.push({ kind: 'replace', doc: updated, etag: workspace.etag });
-        if (member) {
-            const change = await memberRemovalChange(member, store);
-            operations.push(...change.operations, { kind: 'create', doc: accessEvent(id, job.userId, change) });
+    // The workspace document also changes with its settings: read again instead of waiting for the worker.
+    for (let attempt = 0; attempt < 4; attempt++) {
+        const workspace = await store.get<DbWorkspace>(pk, id);
+        const member = await store.get<DbMember>(pk, memberId(job.userId));
+        if (!workspace) {
+            if (member) await store.delete(pk, member.doc.id);
+            return;
         }
+        const ownsLock = workspace.doc.accountDeletion?.attempt === job.attempt;
+        if (!member && !ownsLock) return;
+        if (close && !ownsLock) throw new Error('Workspace closure lost its reservation');
+        if (!ownsLock) await assertWorkspaceWritable(workspace.doc, store);
+
+        const operations: AppMutation[] = [];
+        if (close) {
+            operations.push({ kind: 'delete', pk, id, etag: workspace.etag });
+            if (member) operations.push({ kind: 'delete', pk, id: member.doc.id, etag: member.etag });
+        } else {
+            const updated = { ...workspace.doc, accessRevision: (workspace.doc.accessRevision ?? 0) + 1 };
+            if (ownsLock) delete updated.accountDeletion;
+            operations.push({ kind: 'replace', doc: updated, etag: workspace.etag });
+            if (member) {
+                const change = await memberRemovalChange(member, store);
+                operations.push(...change.operations, { kind: 'create', doc: accessEvent(id, job.userId, change) });
+            }
+        }
+        if (await store.transact(operations)) return;
     }
-    if (!await store.transact(operations)) throw new Error('Workspace changed during account deletion');
+    throw new Error('Workspace changed during account deletion');
 }
 
-async function cleanAccount(job: AccountDeletion, store: AppStore) {
+/** Every workspace is tried, so one that fails does not keep the others reserved. */
+async function removeMemberships(job: AccountDeletion, store: AppStore) {
     // Include in-flight membership writes and storage from earlier versions of the app.
     const memberships = await store.query<DbMember>({ type: 'member', where: { userId: job.userId } });
     const workspaces = new Set([...job.workspaceIds, ...memberships.map(member => member.workspaceId)]);
     workspaces.delete(PUBLIC_WORKSPACE_ID);
-    for (const id of workspaces) await removeMembership(job, id, store);
+    let failed = false;
+    for (const id of workspaces) {
+        try { await removeMembership(job, id, store); }
+        catch { failed = true; }
+    }
     await store.delete(workspacePk(PUBLIC_WORKSPACE_ID), memberId(job.userId));
+    if (failed) throw new Error('A membership could not be removed during account deletion');
+    return workspaces;
+}
+
+/**
+ * One message to the deleted account's address, so its owner hears of a deletion they did not make.
+ * The claim comes first: cleanup runs that overlap send it once. `true` once nothing is left to send.
+ */
+async function sendNotice(job: AccountDeletion, store: AppStore, notify: Notify) {
+    const current = await store.get<AccountDeletion>(job.pk, job.id);
+    if (current?.doc.attempt !== job.attempt || current.doc.status !== 'committed' || !current.doc.email || current.doc.noticeAt)
+        return true;
+    const claimed = { ...current.doc, noticeAt: new Date().toISOString() };
+    if (await store.replace(claimed, current.etag) !== 'ok') return false;
+    try {
+        await notify(accountDeletedEmail({ to: current.doc.email, deletedAt: current.doc.requestedAt }));
+        return true;
+    } catch {
+        // Never log the address. The claim is released, so the worker's next run sends it.
+        console.error('[accounts] The account deletion notice was not sent.');
+        const again = await store.get<AccountDeletion>(job.pk, job.id);
+        if (again?.doc.attempt === job.attempt && again.doc.noticeAt === claimed.noticeAt) {
+            const { noticeAt: _, ...unclaimed } = again.doc;
+            await store.replace(unclaimed, again.etag);
+        }
+        return false;
+    }
+}
+
+async function cleanAccount(job: AccountDeletion, store: AppStore, notify: Notify) {
+    const noticed = await sendNotice(job, store, notify);
+    const workspaces = await removeMemberships(job, store);
     // Release all reservations before contacting any provider.
     for (const id of workspaces) await revokeIntegrationGrantsOf(id, job.userId, store);
     for (const id of job.closedWorkspaceIds) {
@@ -209,13 +259,14 @@ async function cleanAccount(job: AccountDeletion, store: AppStore) {
     if (current?.doc.attempt !== job.attempt) return;
     if (job.status === 'complete') {
         await store.transact([{ kind: 'delete', pk: job.pk, id: job.id, etag: current.etag }]);
-    } else if (current.doc.status === 'committed') {
+    } else if (current.doc.status === 'committed' && (noticed || Date.now() - Date.parse(current.doc.requestedAt) > noticeDeadline)) {
+        // The address goes with the completed request. An unsent notice keeps it for the worker's next run.
         const { email: _, ...receipt } = current.doc;
         await store.replace({ ...receipt, status: 'complete' }, current.etag);
     }
 }
 
-export async function sweepAccountDeletions(store = getAppStore()) {
+export async function sweepAccountDeletions(store = getAppStore(), notify: Notify = sendEmail) {
     let failed = 0;
     for (const job of await store.query<AccountDeletion>({ type: 'account-deletion' })) {
         try {
@@ -223,7 +274,7 @@ export async function sweepAccountDeletions(store = getAppStore()) {
             if (job.status === 'cancelled' || job.status === 'preparing' && age > preparationTimeout)
                 await cancelPreparation(job, store);
             if (job.status === 'committed' || job.status === 'complete' && age > 60 * 60_000)
-                await cleanAccount(job, store);
+                await cleanAccount(job, store, notify);
         } catch { failed++; }
     }
     return { failed };

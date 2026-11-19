@@ -74,9 +74,12 @@ export async function switchBrowserAccount(jar: AccountCookieReader & AccountCoo
     writeBrowserSessions(jar, [selected, ...sessions.filter(session => session !== selected)]);
 }
 
-/** No fallback authorization on reads; only this explicit sign-out selects the next live account. */
+/**
+ * No fallback authorization on reads; only this explicit sign-out selects the next live account.
+ * Returns that account's user id, or `null` when the browser is signed out.
+ */
 export async function removeBrowserAccount(jar: AccountCookieReader & AccountCookieWriter, all = false) {
     const remaining = all ? [] : (await browserSessions(jar)).filter(session => !session.active);
     writeBrowserSessions(jar, remaining);
-    return remaining.length > 0;
+    return remaining[0]?.user.id ?? null;
 }

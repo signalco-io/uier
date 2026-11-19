@@ -137,3 +137,14 @@ pending connection and showing the new account before another approval.
 `account-sessions.api.spec.ts` covers late app responses after selection and final sign-out.
 
 The sign-in card, provider outcomes, email-code entry, invitations, joining, extension consent and coding-tool consent use the [app language](localization.md). Before sign-in this follows the supported browser language, with English as fallback; an active account’s saved app choice takes precedence.
+
+## Sign in again
+
+A step that needs a sign-in from the last 10 minutes (adding a passkey, linking Google or Microsoft,
+[deleting the account](account.md#deleting-an-account)) or a fresh email proof (email domains) sends an
+older session to `KnownPageLinks.signInAgain(next)`: `/app/sign-in?add=1&again=1&next=…`, with
+`with=email` where only an email code will do. The other accounts stay signed in, as with Add account,
+and the card reads “Sign in again” with “Sign in to the same account to continue.” A passkey and an
+email code are a new authentication by themselves. Microsoft is asked for the credentials again
+(`prompt=login`). Google cannot be asked: it continues with the session the browser has there
+([Google sign-in](../../../docs/google-sign-in.md)).

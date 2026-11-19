@@ -75,17 +75,18 @@ type Layout = {
     code?: { label: string; value: string };
     /** Paragraphs before the button */
     paragraphs: string[];
-    action: { label: string; url: string };
+    /** The button; a message that only informs has none */
+    action?: { label: string; url: string };
     /** Small print after the button */
     footnote: string;
     footerAction?: { label: string; url: string };
 };
 
 export function layoutEmail({ to, subject, heading = subject, code, paragraphs, action, footnote, footerAction }: Layout): EmailMessage {
-    const url = escapeHtml(action.url);
+    const url = action ? escapeHtml(action.url) : '';
     const linkStyle = `color:${light.link};text-decoration:underline;`;
     const smallPrint = [
-        `If the button does not work, open this link:<br><a class="u-link u-mono" href="${url}" target="_blank" style="${linkStyle}font-family:${mono};font-size:13px;line-height:20px;word-break:break-all;">${url}</a>`,
+        ...(action ? [`If the button does not work, open this link:<br><a class="u-link u-mono" href="${url}" target="_blank" style="${linkStyle}font-family:${mono};font-size:13px;line-height:20px;word-break:break-all;">${url}</a>`] : []),
         escapeHtml(footnote),
         ...(footerAction ? [`<a class="u-link" href="${escapeHtml(footerAction.url)}" target="_blank" style="${linkStyle}">${escapeHtml(footerAction.label)}</a>`] : [])
     ];
@@ -96,6 +97,13 @@ export function layoutEmail({ to, subject, heading = subject, code, paragraphs, 
 <p class="u-heading u-mono u-code-value" style="margin:0;font-family:${mono};font-size:32px;line-height:40px;font-weight:600;letter-spacing:0.16em;text-indent:0.16em;color:${light.heading};">${escapeHtml(code.value)}</p>
 </td></tr></table>
 </td></tr>` : '';
+
+    const buttonRow = action ? `<tr><td style="padding:8px 0 32px;">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+<td class="u-button" bgcolor="${light.button}" style="background-color:${light.button};border-radius:${radius.largeControl}px;mso-padding-alt:12px 20px;">
+<a class="u-button" href="${url}" target="_blank" style="display:inline-block;padding:12px 20px;font-family:${sans};font-size:16px;line-height:20px;font-weight:500;color:${light.buttonText};background-color:${light.button};text-decoration:none;border-radius:${radius.largeControl}px;mso-padding-alt:0;">${escapeHtml(action.label)}</a>
+</td></tr></table>
+</td></tr>` : '<tr><td style="padding:0 0 16px;"></td></tr>';
 
     const html = `<!doctype html>
 <html lang="en" dir="ltr" xmlns="http://www.w3.org/1999/xhtml" xmlns:o="urn:schemas-microsoft-com:office:office">
@@ -126,12 +134,7 @@ ${codeRow}
 <tr><td>
 ${paragraphs.map(text => `<p class="u-text" style="margin:0 0 16px;font-family:${sans};font-size:16px;line-height:26px;color:${light.text};">${escapeHtml(text)}</p>`).join('\n')}
 </td></tr>
-<tr><td style="padding:8px 0 32px;">
-<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
-<td class="u-button" bgcolor="${light.button}" style="background-color:${light.button};border-radius:${radius.largeControl}px;mso-padding-alt:12px 20px;">
-<a class="u-button" href="${url}" target="_blank" style="display:inline-block;padding:12px 20px;font-family:${sans};font-size:16px;line-height:20px;font-weight:500;color:${light.buttonText};background-color:${light.button};text-decoration:none;border-radius:${radius.largeControl}px;mso-padding-alt:0;">${escapeHtml(action.label)}</a>
-</td></tr></table>
-</td></tr>
+${buttonRow}
 <tr><td class="u-rule" style="padding:24px 0 0;border-top:1px solid ${light.border};">
 ${smallPrint.map((content, index) => `<p class="u-muted" style="margin:0 0 ${index === smallPrint.length - 1 ? 0 : 12}px;font-family:${sans};font-size:14px;line-height:21px;color:${light.muted};">${content}</p>`).join('\n')}
 </td></tr>
@@ -153,7 +156,7 @@ ${smallPrint.map((content, index) => `<p class="u-muted" style="margin:0 0 ${ind
     const text = [
         ...(code ? [`${code.label}: ${code.value}`] : []),
         ...paragraphs,
-        `${action.label}: ${action.url}`,
+        ...(action ? [`${action.label}: ${action.url}`] : []),
         footnote,
         ...(footerAction ? [`${footerAction.label}: ${footerAction.url}`] : []),
         `${brand.name} · ${brand.url}`
@@ -198,6 +201,21 @@ export function signInEmail({ to, url, code, linksGoogle = false, linksMicrosoft
         ],
         action: { label: 'Sign in', url },
         footnote: 'If you did not ask to sign in, ignore this email.'
+    });
+}
+
+/** Sent once to the address of an account that was deleted: its owner hears of a deletion they did not make. */
+export function accountDeletedEmail({ to, deletedAt }: { to: string; deletedAt: string }) {
+    const when = new Intl.DateTimeFormat('en-GB', { dateStyle: 'long', timeStyle: 'short', timeZone: 'UTC' }).format(new Date(deletedAt));
+    return layoutEmail({
+        to,
+        subject: `Your ${brand.name} account was deleted`,
+        paragraphs: [
+            `The ${brand.name} account for ${to} was deleted on ${when} UTC.`,
+            'Your profile, sign-in methods and workspace access are removed. Projects and feedback you contributed stay in their workspaces.',
+            'Signing in with this address again creates a new account.'
+        ],
+        footnote: `If you did not delete your account, write to ${brand.contact.privacy}.`
     });
 }
 

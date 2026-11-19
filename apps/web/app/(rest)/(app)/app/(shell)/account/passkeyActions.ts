@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import type { PublicKeyCredentialCreationOptionsJSON } from '@simplewebauthn/server';
-import { KnownPageLinks, KnownPages } from '@/src/knownPages';
+import { KnownPageLinks } from '@/src/knownPages';
 import { actionResult, UserFacingError, type ActionState } from '@/src/lib/app/actionResult';
 import { appContextOrThrow } from '@/src/lib/app/context';
 import {
@@ -78,5 +78,5 @@ export async function removePasskeyAction(passkeyId: string) {
 
 /** A fresh sign-in, so the person can add a passkey: back to Account afterwards */
 export async function signInAgainAction() {
-    redirect(`${KnownPages.AppSignIn}?add=1&next=${encodeURIComponent(KnownPageLinks.account('sign-in'))}`);
+    redirect(KnownPageLinks.signInAgain(KnownPageLinks.account('sign-in')));
 }

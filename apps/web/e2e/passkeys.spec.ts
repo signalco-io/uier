@@ -131,7 +131,7 @@ test('adding a passkey needs a recent sign-in, and Sign in again comes back to A
     await expect(section).toContainText('To add a passkey, sign in again. Adding one needs a sign-in from the last 10 minutes.');
     await expect(section.getByRole('button', { name: 'Add a passkey' })).toHaveCount(0);
     await section.getByRole('button', { name: 'Sign in again' }).click();
-    await expect(page).toHaveURL(`${base}/app/sign-in?add=1&next=%2Fapp%2Faccount%2Fsign-in`);
+    await expect(page).toHaveURL(`${base}/app/sign-in?add=1&again=1&next=%2Fapp%2Faccount%2Fsign-in`);
     await signIn(page, email, { from: page.url() });
     await expect(page).toHaveURL(`${base}/app/account/sign-in`);
     await expect(section.getByRole('button', { name: 'Add a passkey' })).toBeVisible();

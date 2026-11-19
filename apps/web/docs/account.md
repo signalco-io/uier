@@ -112,10 +112,15 @@ identity. Project feedback and workspace history follow their normal retention r
 
 The card (`DeleteAccountSection`) is the row of a project’s danger zone: what deleting does, then the
 button, under the text on a phone. The page tells the dialog whether the sign-in is recent, as it does
-for passkeys. With an older one the dialog has no email field: it says why and offers Sign in again,
-which comes back to Account. The server checks the time again, so a sign-in that got old while the page
-was open turns the dialog into the same state. A request that succeeded keeps the dialog busy until the
-browser has left the page.
+for passkeys. With an older one the dialog has no email field: it says why and offers Sign in again
+(`KnownPageLinks.signInAgain`, [sign-in](sign-in.md#sign-in-again)), which comes back to Account. The
+server checks the time again, so a sign-in that got old while the page was open turns the dialog into the
+same state. A request that succeeded keeps the dialog busy until the browser has left the page.
+
+The page the browser continues on says the account was deleted: Account for another signed-in account,
+the sign-in page otherwise. Its `deleted` value is a signed token that lasts two minutes and names the
+account the browser continues as (`accountDeletedNotice.ts`), so a link someone wrote cannot tell a
+person their account is gone.
 
 The service checks every workspace before deleting the user. A shared workspace needs a remaining
 admin. A sole member can transfer or explicitly delete projects first. Their project-free workspace
@@ -124,13 +129,22 @@ needs a handoff comes back in one answer, one line each, and the dialog lists th
 once per workspace. Nothing is deleted in that case, and the workspaces it had reserved are released.
 
 The user and current avatar are deleted in the same Cosmos transaction that commits the cleanup request.
-Cleanup starts after the browser response. The scheduled
+Memberships are removed before the browser gets its answer, which releases the workspaces for other
+admins; the rest of the cleanup starts after the response. The scheduled
 worker retries interrupted cleanup and releases abandoned workspace reservations. Cleanup removes
 personal credentials, email and provider lookups, memberships, notification settings, read cursors,
 personal saved views and old invitation links. A final pass collects in-flight writes. The privacy
 contact remains available for scoped erasure of retained feedback and history.
 
-While a deletion prepares and until its cleanup has removed the membership, access changes and new
-projects in the person’s workspaces answer “Workspace access is changing. Try again shortly.” That is
-normally moments; after an interrupted cleanup it lasts until the worker’s next run. A project transfer
-that was still finishing when its old workspace closed settles without that workspace.
+While a deletion prepares and until the membership is removed, access changes and new projects in the
+person’s workspaces answer “Workspace access is changing. Try again shortly.” That ends with the
+deleting request itself. A workspace document that changed meanwhile is read again a few times, and
+one workspace that fails does not hold the others; only what still fails waits for the worker’s next
+run. A project transfer that was still finishing when its old workspace closed settles without that
+workspace.
+
+One email tells the deleted account’s address what happened (`accountDeletedEmail`), so its owner
+hears of a deletion they did not make; it names the privacy contact and has no button. The request
+claims the notice before sending, so cleanup runs that overlap send it once. When the provider refuses
+it, the request stays open with the address and the worker tries again, for up to an hour; then the
+request completes without it. The address is never logged.

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server.js';
 import { userIdSchema } from '@/src/lib/app/validation';
 import { z } from 'zod';
+import { accountDeletedNotice } from '@/src/lib/app/accountDeletedNotice';
 import { removeBrowserAccount, switchBrowserAccount } from '@/src/lib/app/browserAccounts';
 import { assertAppOrigin } from '@/src/lib/app/avatarUpload';
 import { safeNextPath } from '@/src/lib/app/signIn';
@@ -58,7 +59,8 @@ export async function POST(request: NextRequest) {
                 throw apiErrors.signInRequired('Your session has ended. Sign in again.');
             const { deleteAccount } = await import('@/src/lib/app/accountDeletion');
             await deleteAccount(session, input.confirmation);
-            next = await removeBrowserAccount(jar) ? '/app/account?deleted=1' : '/app/sign-in?deleted=1';
+            const continuesAs = await removeBrowserAccount(jar);
+            next = `${continuesAs ? '/app/account' : '/app/sign-in'}?deleted=${accountDeletedNotice(continuesAs)}`;
         }
         else if (!await removeBrowserAccount(jar, input.action === 'sign-out-all')) next = '/app/sign-in';
         response.headers.set('Content-Type', 'application/json');

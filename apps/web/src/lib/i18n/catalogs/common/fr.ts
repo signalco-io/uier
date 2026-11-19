@@ -2,6 +2,7 @@ import type en from './en';
 const messages: Record<keyof typeof en, string> = {
     "Delete account": "Supprimer le compte",
     "Delete your account?": "Supprimer votre compte ?",
+    "Sign in to the same account to continue.": "Connectez-vous au même compte pour continuer.",
     "Removes your profile, sign-in methods and workspace access. Projects and feedback stay in their workspaces. This can't be undone.": "Supprime votre profil, vos moyens de connexion et vos accès. Les projets et les retours restent dans leurs espaces de travail. Cela ne peut pas être annulé.",
     "To delete your account, sign in again. Deleting it needs a sign-in from the last 10 minutes.": "Pour supprimer votre compte, reconnectez-vous. La suppression nécessite une connexion datant de moins de 10 minutes.",
     "Your profile, sign-in methods and workspace access will be removed. Projects and feedback stay in their workspaces. Empty workspaces where you are the only member will close. This is permanent.": "Votre profil, vos moyens de connexion et vos accès seront supprimés. Les projets et les retours resteront dans leurs espaces de travail. Les espaces vides dont vous êtes le seul membre seront fermés. Cette action est définitive.",

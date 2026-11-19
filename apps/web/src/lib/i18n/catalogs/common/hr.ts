@@ -2,6 +2,7 @@ import type en from './en';
 const messages: Record<keyof typeof en, string> = {
     "Delete account": "Izbriši račun",
     "Delete your account?": "Želite li izbrisati račun?",
+    "Sign in to the same account to continue.": "Prijavite se istim računom za nastavak.",
     "Removes your profile, sign-in methods and workspace access. Projects and feedback stay in their workspaces. This can't be undone.": "Uklanja vaš profil, načine prijave i pristup radnim prostorima. Projekti i povratne informacije ostaju u svojim radnim prostorima. Ovo se ne može poništiti.",
     "To delete your account, sign in again. Deleting it needs a sign-in from the last 10 minutes.": "Za brisanje računa prijavite se ponovno. Potrebna je prijava u posljednjih 10 minuta.",
     "Your profile, sign-in methods and workspace access will be removed. Projects and feedback stay in their workspaces. Empty workspaces where you are the only member will close. This is permanent.": "Vaš profil, načini prijave i pristup radnim prostorima bit će uklonjeni. Projekti i povratne informacije ostaju u svojim radnim prostorima. Prazni radni prostori u kojima ste jedini član bit će zatvoreni. Ova je radnja trajna.",

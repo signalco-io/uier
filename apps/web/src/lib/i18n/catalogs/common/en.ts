@@ -1,6 +1,7 @@
 const messages = {
     "Delete account": "Delete account",
     "Delete your account?": "Delete your account?",
+    "Sign in to the same account to continue.": "Sign in to the same account to continue.",
     "Removes your profile, sign-in methods and workspace access. Projects and feedback stay in their workspaces. This can't be undone.": "Removes your profile, sign-in methods and workspace access. Projects and feedback stay in their workspaces. This can't be undone.",
     "To delete your account, sign in again. Deleting it needs a sign-in from the last 10 minutes.": "To delete your account, sign in again. Deleting it needs a sign-in from the last 10 minutes.",
     "Your profile, sign-in methods and workspace access will be removed. Projects and feedback stay in their workspaces. Empty workspaces where you are the only member will close. This is permanent.": "Your profile, sign-in methods and workspace access will be removed. Projects and feedback stay in their workspaces. Empty workspaces where you are the only member will close. This is permanent.",

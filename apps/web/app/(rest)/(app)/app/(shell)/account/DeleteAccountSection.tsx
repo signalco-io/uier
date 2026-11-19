@@ -10,7 +10,7 @@ import { Button, buttonVariants } from '@/src/components/ui/button';
 import { Field, FieldLabel } from '@/src/components/ui/field';
 import { Input } from '@/src/components/ui/input';
 import { Spinner } from '@/src/components/ui/spinner';
-import { KnownPages } from '@/src/knownPages';
+import { KnownPageLinks, KnownPages } from '@/src/knownPages';
 import { DELETE_ACCOUNT_SIGN_IN_AGAIN } from '@/src/lib/app/limits';
 import { useAppI18n } from '@/src/lib/i18n/client';
 import { cn } from '@/src/lib/utils';
@@ -94,7 +94,7 @@ export function DeleteAccountSection({ email, userId, recentSignIn }: { email: s
                                 <AlertDialogCancel disabled={busy}>{t('Cancel')}</AlertDialogCancel>
                                 {signInAgain
                                     ? (
-                                        <a className={buttonVariants()} href={`${KnownPages.AppSignIn}?add=1&next=${encodeURIComponent(KnownPages.AppAccount)}`}>
+                                        <a className={buttonVariants()} href={KnownPageLinks.signInAgain(KnownPages.AppAccount)}>
                                             <LogInIcon data-icon="inline-start" />{t('Sign in again')}
                                         </a>
                                     )

@@ -9,6 +9,7 @@ import { requireAppContext } from '@/src/lib/app/context';
 import { listVisibleProjects } from '@/src/lib/app/projects';
 import { loadWorkspaceAccess } from '@/src/lib/app/access';
 import { avatarUrl } from '@/src/lib/app/avatars';
+import { isAccountDeletedNotice } from '@/src/lib/app/accountDeletedNotice';
 import { RECENT_SIGN_IN_SECONDS } from '@/src/lib/app/limits';
 import { getSessionSignIn } from '@/src/lib/app/session';
 import { DeleteAccountSection } from './DeleteAccountSection';
@@ -46,7 +47,7 @@ async function AccountPageContent({ searchParams }: PageProps<'/app/account'>) {
 
     return (
         <>
-            {deleted === '1' && <Alert role="status"><AlertDescription>{t('Account deleted. You are now using {email}.', { email: context.user.email })}</AlertDescription></Alert>}
+            {isAccountDeletedNotice(deleted, context.user.id) && <Alert role="status"><AlertDescription>{t('Account deleted. You are now using {email}.', { email: context.user.email })}</AlertDescription></Alert>}
             <AccountForm name={context.user.name} avatarUrl={avatarUrl(context.user)} />
             <AppLanguageForm language={userAppLanguage(context.user)} />
             <AppearanceSection />

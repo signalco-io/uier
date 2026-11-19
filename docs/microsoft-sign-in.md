@@ -52,6 +52,11 @@ not find or create an account without proving its inbox.
 - Account linking requires a sign-in from the last 10 minutes, checked at the start and at the
   callback against the flow's creation time. The callback must use the initiating user's session.
   It links to that user regardless of the suggested Microsoft email.
+- Sign in again (`?add=1&again=1`, from a step that needs a recent sign-in: adding a passkey, linking,
+  deleting the account) sends `prompt=login` instead of `select_account`, so Microsoft asks for the
+  credentials and does not continue with the session the browser has there. The parameter is in the
+  browser's address, so it stops a click-through, not someone who edits the address: the ID token's
+  `auth_time` would prove it, and uier does not request that optional claim.
 - Each uier user can link one Microsoft identity. An identity belonging to another user is refused.
   Unlinking removes the user-side record first; sign-in requires that it and the unique identity
   claim agree. A leftover claim cannot continue signing in after an interrupted unlink.

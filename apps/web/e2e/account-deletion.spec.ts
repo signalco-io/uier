@@ -1,8 +1,11 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { expectNoAxeViolations } from './accessibility';
 import { createProject, signIn, uniqueEmail } from './support/app';
 import { RECENT_SIGN_IN_SECONDS } from '../src/lib/app/limits';
 import { signToken, verifyToken } from '../src/lib/app/tokens';
+
+/** Waits for the dialog to finish opening before an axe scan: its text is too faint while it fades in */
+const settled = (page: Page) => page.waitForFunction(() => document.getAnimations().every(animation => animation.playState !== 'running'));
 
 test('confirming an account deletion ends its sessions and opens a fresh account on the next sign-in', async ({ page, browser, context }) => {
     const email = uniqueEmail('delete-account');
@@ -16,6 +19,7 @@ test('confirming an account deletion ends its sessions and opens a fresh account
         const field = dialog.getByRole('textbox');
         const confirm = dialog.getByRole('button', { name: 'Delete account' });
         await expect(field).toBeFocused();
+        await settled(page);
         await expectNoAxeViolations(page, { include: ['[role="alertdialog"]'] });
         await field.fill(uniqueEmail('wrong'));
         await expect(confirm).toBeDisabled();
@@ -24,8 +28,12 @@ test('confirming an account deletion ends its sessions and opens a fresh account
         await expect(field).toHaveValue('');
         await field.fill(email);
         await confirm.click();
-        await expect(page).toHaveURL(/\/app\/sign-in\?deleted=1$/);
+        await expect(page).toHaveURL(/\/app\/sign-in\?deleted=[\w.-]{40,}$/);
         await expect(page.getByText('Your account has been deleted.')).toBeVisible();
+        // The notice is signed: a link someone wrote does not show it
+        await page.goto('/app/sign-in?deleted=1');
+        await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
+        await expect(page.getByText('Your account has been deleted.')).toHaveCount(0);
         const oldSession = await otherDevice.request.get(new URL('/api/account/sessions', page.url()).href);
         expect(await oldSession.json()).toEqual({ userId: null });
         await signIn(page, email, { welcome: 'stay' });
@@ -44,6 +52,9 @@ test('deleting the active account preserves the other signed-in account on this 
     await dialog.getByRole('textbox').fill(removed);
     await dialog.getByRole('button', { name: 'Delete account' }).click();
     await expect(page.getByText(`Account deleted. You are now using ${kept}.`)).toBeVisible();
+    await page.goto('/app/account?deleted=1');
+    await expect(page.getByRole('region', { name: 'Delete account' })).toBeVisible();
+    await expect(page.getByText(/^Account deleted\./)).toHaveCount(0);
     const after = await (await page.request.get('/api/account/sessions')).json();
     expect(after.userId).toBe(before.userId);
     await page.goto('/app/account');
@@ -75,9 +86,16 @@ test('an older sign-in is offered a fresh one instead of the confirmation, and c
     await trigger.click();
     await expect(dialog).toContainText(notice);
     await expect(dialog.getByRole('button', { name: 'Delete account' })).toHaveCount(0);
+    await settled(page);
     await expectNoAxeViolations(page, { include: ['[role="alertdialog"]'] });
     await dialog.getByRole('link', { name: 'Sign in again' }).click();
-    await expect(page).toHaveURL(/\/app\/sign-in\?add=1&next=%2Fapp%2Faccount$/);
+    await expect(page).toHaveURL(/\/app\/sign-in\?add=1&again=1&next=%2Fapp%2Faccount$/);
+    // The card says what this is, and Microsoft is told to ask for the credentials again
+    await expect(page.getByRole('heading', { name: 'Sign in again' })).toBeVisible();
+    await expect(page.getByText('Sign in to the same account to continue.')).toBeVisible();
+    const microsoft = await page.getByRole('link', { name: 'Sign in with Microsoft' }).getAttribute('href');
+    const started = await page.request.get(microsoft!, { maxRedirects: 0 });
+    expect(new URL(started.headers().location!).searchParams.get('prompt')).toBe('login');
     await signIn(page, email, { from: page.url() });
     await expect(page).toHaveURL(/\/app\/account$/);
     await trigger.click();
@@ -98,6 +116,7 @@ test('workspaces that need a handoff are named in the dialog, and the account st
     const personal = 'Transfer or delete the projects in Personal, or add another admin.';
     await expect(dialog.getByRole('alert')).toHaveText(personal);
     await expect(dialog.getByRole('textbox')).toHaveValue(email);
+    await settled(page);
     await expectNoAxeViolations(page, { include: ['[role="alertdialog"]'] });
 
     // Several workspaces come back in one answer, one per line

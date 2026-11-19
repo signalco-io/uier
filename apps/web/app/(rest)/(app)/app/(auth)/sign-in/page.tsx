@@ -10,6 +10,7 @@ import { safeNextPath } from '@/src/lib/app/signIn';
 import { appLinkMetadata, describeAppLink } from '@/src/lib/metadata';
 import { SignedInAccounts } from '@/src/components/app/shell/SignedInAccounts';
 import { ACCOUNT_LIMIT_MESSAGE } from '@/src/lib/app/browserAccounts';
+import { isAccountDeletedNotice } from '@/src/lib/app/accountDeletedNotice';
 import { Alert, AlertDescription } from '@/src/components/ui/alert';
 import { SignInForm } from './SignInForm';
 import { GoogleSignInButton, GoogleSignInProblem } from './GoogleSignIn';
@@ -27,7 +28,7 @@ export async function generateMetadata({ searchParams }: PageProps<'/app/sign-in
 
 async function SignInPageContent({ searchParams }: PageProps<'/app/sign-in'>) {
     const { t } = await getAppI18n();
-    const { next, google, microsoft, with: method, add, deleted, accounts: accountProblem } = await searchParams;
+    const { next, google, microsoft, with: method, add, again, deleted, accounts: accountProblem } = await searchParams;
     const nextPath = safeNextPath(next);
     if (add !== '1' && await getSessionUser())
         redirect(nextPath ?? KnownPages.App);
@@ -37,16 +38,16 @@ async function SignInPageContent({ searchParams }: PageProps<'/app/sign-in'>) {
     return (
         <>
         <SignedInAccounts accounts={accounts} next={nextPath} />
-        <SignInForm addingAccount={add === '1'} next={nextPath} withEmail={method === 'email'} lastUsed={lastUsed}
+        <SignInForm addingAccount={add === '1'} again={add === '1' && again === '1'} next={nextPath} withEmail={method === 'email'} lastUsed={lastUsed}
             problems={<>
-                {deleted === '1' && <Alert role="status"><AlertDescription>{t('Your account has been deleted.')}</AlertDescription></Alert>}
+                {isAccountDeletedNotice(deleted, null) && <Alert role="status"><AlertDescription>{t('Your account has been deleted.')}</AlertDescription></Alert>}
                 {accountProblem === 'full' && <Alert role="alert"><AlertDescription>{t(ACCOUNT_LIMIT_MESSAGE)}</AlertDescription></Alert>}
                 <GoogleSignInProblem outcome={google} />
                 <MicrosoftSignInProblem outcome={microsoft} />
             </>}
             alternatives={<>
                 <GoogleSignInButton addingAccount={add === '1'} next={nextPath} lastUsed={lastUsed === 'google'} />
-                <MicrosoftSignInButton addingAccount={add === '1'} next={nextPath} lastUsed={lastUsed === 'microsoft'} />
+                <MicrosoftSignInButton addingAccount={add === '1'} again={add === '1' && again === '1'} next={nextPath} lastUsed={lastUsed === 'microsoft'} />
             </>} />
         </>
     );
