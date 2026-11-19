@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState, useSyncExternalStore, type PropsWithChildren, type KeyboardEvent, type ReactNode } from 'react';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { cx } from '@signalco/ui-primitives/cx';
-import { Drag } from '@signalco/ui-icons';
+import { Drag, PanelRightClose } from '@signalco/ui-icons';
 import { readPreference, savePreference, useReviewDrag, useReviewViewport } from '../hooks/useReviewMovement';
 import { useAnnounce } from './Announcer';
 import { useMessages } from '../i18n';
@@ -131,6 +131,20 @@ function dockAt(point: { x: number; y: number }, view: Box): PanelDock {
 }
 
 const PanelHandleContext = createContext<ReactNode>(null);
+const PanelSideContext = createContext<PanelSide>('right');
+
+/**
+ * A docked panel's slide in and out, toward the side it is docked on (uier #487); only a fade with reduced motion.
+ * The `-full` values: tailwindcss-animate's bare `slide-in-from-left` compiles to nothing here.
+ */
+export const panelEnter = 'animate-in fade-in duration-200 ease-out motion-safe:data-[side=left]:slide-in-from-left-full motion-safe:data-[side=right]:slide-in-from-right-full';
+export const panelExit = 'animate-out fade-out fill-mode-forwards duration-150 ease-in motion-safe:data-[side=left]:slide-out-to-left-full motion-safe:data-[side=right]:slide-out-to-right-full';
+
+/** Close's icon, pointing to the side the panel is docked on (Lucide's panel-right-close, mirrored on the left: panel-left-close) */
+export function PanelCloseIcon() {
+    const side = useContext(PanelSideContext);
+    return <PanelRightClose size={16} aria-hidden="true" data-uier-panel-close-icon={side} className={side === 'left' ? '-scale-x-100' : undefined} />;
+}
 
 /** The panel's drag handle (also the arrow keys), for the panel's own header */
 export function PanelHandle() {
@@ -216,7 +230,9 @@ export function DockablePanel({ id, label, children, className, onKeyDown }: Pro
                 className={cx('fixed z-50 flex flex-col rounded-2xl border bg-background text-foreground shadow-(--brand-shadow-review)', className)}
                 style={box}>
                 <PanelHandleContext value={handle}>
-                    <div className="min-h-0 flex-1">{children}</div>
+                    <PanelSideContext value={dockSide(dock)}>
+                        <div className="min-h-0 flex-1">{children}</div>
+                    </PanelSideContext>
                 </PanelHandleContext>
             </aside>
         </>
