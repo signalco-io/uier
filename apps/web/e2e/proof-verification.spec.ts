@@ -60,7 +60,7 @@ async function publishReview(page: Page) {
     await dialog.getByRole('button', { name: 'Create review link' }).click();
     const share = await dialog.getByRole('textbox', { name: 'Review link', exact: true }).inputValue();
 
-    return { share, source: source! };
+    return { share, source: source!, project, dialog };
 }
 
 function guestContext(browser: Browser, isMobile: boolean) {
@@ -69,7 +69,7 @@ function guestContext(browser: Browser, isMobile: boolean) {
 
 test('the original guest reopens a share in the same tab and checks two revised details', async ({ page, browser, isMobile }) => {
     test.setTimeout(120_000);
-    const { share, source } = await publishReview(page);
+    const { share, source, project, dialog } = await publishReview(page);
     const guest = await guestContext(browser, isMobile);
     try {
         const review = await guest.newPage();
