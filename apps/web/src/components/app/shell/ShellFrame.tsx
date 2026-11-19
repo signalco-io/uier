@@ -17,7 +17,7 @@ import {
 } from '@/src/components/ui/sidebar';
 import { cn } from '@/src/lib/utils';
 import { Bar, HeaderOutline } from '../loading/outlines';
-import { AppIcon } from './WorkspaceSwitcher';
+import { WorkspaceMark } from '../workspace/WorkspaceMark';
 
 /** The shell's inset panel and the column a page sits in; shared with the loaded layout so the two cannot drift */
 export const shellInsetClassName = 'min-w-0 lg:h-[calc(100svh-1rem)] lg:overflow-hidden';
@@ -61,7 +61,7 @@ export function ShellFrame() {
                         <SidebarMenu>
                             <SidebarMenuItem>
                                 <div className="flex h-12 w-full items-center gap-2 rounded-md p-2">
-                                    <AppIcon />
+                                    <WorkspaceMark />
                                     <span className="grid flex-1 gap-1.5">
                                         <SideBar className="h-3.5 w-24" />
                                         <SideBar className="h-3 w-12" />

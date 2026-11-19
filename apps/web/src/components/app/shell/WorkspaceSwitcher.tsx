@@ -5,7 +5,6 @@ import { useAppI18n } from '@/src/lib/i18n/client';
 import { useActionState, useId, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { Building2Icon, CheckIcon, ChevronsUpDownIcon, PlusIcon, SettingsIcon } from 'lucide-react';
-import { Mark } from '@uier/brand/Mark';
 import { Button } from '@/src/components/ui/button';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/src/components/ui/dialog';
 import {
@@ -24,11 +23,13 @@ import { Spinner } from '@/src/components/ui/spinner';
 import { KnownPages } from '@/src/knownPages';
 import { MAX_WORKSPACE_NAME_LENGTH } from '@/src/lib/app/limits';
 import { FormMessage } from '../FormMessage';
+import { WorkspaceMark } from '../workspace/WorkspaceMark';
 import { createWorkspaceAction, switchWorkspaceAction } from './actions';
 
 export type WorkspaceOption = {
     id: string;
     name: string;
+    logoUrl?: string;
     /** The person's role, or what the workspace is to them */
     role: string;
     /**
@@ -37,15 +38,6 @@ export type WorkspaceOption = {
      */
     feedback?: boolean;
 };
-
-/** The app icon: the mark on an ink plate (BRAND.md "App icon") */
-export function AppIcon() {
-    return (
-        <span aria-hidden="true" className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-            <Mark size={15} />
-        </span>
-    );
-}
 
 function WorkspaceLabel({ workspace }: { workspace: WorkspaceOption }) {
     const { t } = useAppI18n();
@@ -122,7 +114,7 @@ export function WorkspaceSwitcher({ workspaces, currentWorkspaceId, canManage = 
             <SidebarMenuItem>
                 <DropdownMenu>
                     <DropdownMenuTrigger render={<SidebarMenuButton size="lg" disabled={pending} className="data-popup-open:bg-sidebar-accent data-popup-open:text-sidebar-accent-foreground" />}>
-                        <AppIcon />
+                        <WorkspaceMark logoUrl={current.logoUrl} />
                         <span className="sr-only">{t("Workspace:")}{' '}</span>
                         <WorkspaceLabel workspace={current} />
                         <ChevronsUpDownIcon className="ml-auto" />

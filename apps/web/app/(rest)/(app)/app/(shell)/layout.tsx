@@ -21,6 +21,7 @@ import { InviteProvider } from '@/src/components/app/users/InviteDialog';
 import { AppShortcuts } from '@/src/components/app/keyboard/AppShortcuts';
 import { isGoogleSignInConfigured } from '@/src/lib/app/google/config';
 import { isMicrosoftSignInConfigured } from '@/src/lib/app/microsoft/config';
+import { KnownPageLinks } from '@/src/knownPages';
 
 /** The signed-in app: the sidebar, a top bar with the breadcrumbs (and a project's Open review at its right end), and the page in an inset panel, with the keyboard shortcuts */
 async function AppShellLayoutContent({ children }: PropsWithChildren) {
@@ -67,6 +68,7 @@ async function AppShellLayoutContent({ children }: PropsWithChildren) {
                         return {
                             id: workspace.id,
                             name: feedback ? t('Feedback on uier') : workspace.name,
+                            logoUrl: workspace.logoVersion ? KnownPageLinks.workspaceLogo(workspace.id, workspace.logoVersion) : undefined,
                             role: feedback ? t('Sent with Give feedback') : member.role === 'admin' ? t('Admin') : t('Commenter'),
                             feedback
                         };

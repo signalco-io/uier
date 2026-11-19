@@ -112,6 +112,15 @@
   use time: workspace edits affect inheriting/appending projects immediately, including after transfer.
   Do not store computed effective values or put private settings into reviewer DTOs.
 
+### Workspace logo
+
+Workspace → Settings → Workspace logo lets admins upload, replace or remove the logo. Changes
+save immediately. PNG, JPEG, WebP and GIF uploads are limited to 4 MB and 4096 pixels per side.
+The server checks the bytes, keeps the first frame and fits it into 32 px and 64 px WebP images
+without cropping or upscaling. The original and its metadata are discarded. Each replacement
+changes the URL and deletes the old variants in the same transaction. Removal restores the
+uier mark. See [logo access](access-and-membership.md#workspace-logo).
+
 ### Toolbar language
 
 The review toolbar's language ([toolbar note](../../../packages/toolbar/docs/localization.md)): English, German,

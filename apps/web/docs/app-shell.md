@@ -163,7 +163,10 @@ the separately bundled review toolbar owns its own query cache.
   drawn while loading. The old addresses
   (`/app/users`, `/app/teams`, `/app/clients`, `/app/settings` and the team and person pages) redirect there
   (`next.config.ts`). Each page keeps its own authorization: Users, Teams, Activity and Settings are admin-only.
-  Settings has General (the name) and Email domains ([access and membership](access-and-membership.md#email-domains)).
+  Settings has General (the name), a [Workspace logo](project-settings.md#workspace-logo) and Email domains
+  ([access and membership](access-and-membership.md#email-domains)).
+  The uploaded logo replaces the 32 px uier icon in the current workspace's switcher, including the collapsed
+  sidebar and mobile sheet. The uier icon shows while the image loads, on failure and without a logo.
   Activity renders access events as sentences (`teams/activityText.ts`, pure, with names from
   `teams/activityNames.ts`, which also looks up people who left, archived teams and who accepted an
   invitation); never show raw actions, ids or before/after JSON. Users shows its filters only past

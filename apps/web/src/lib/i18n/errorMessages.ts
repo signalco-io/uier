@@ -4,6 +4,7 @@ const templates = [
     'Use at most {count} characters for the review brief.',
     'Use at most {count} characters for the client name.',
     'Use at most {count} characters for the description.',
+    'Use an image up to {count} MB.',
     'A project can have up to {count} addresses.',
     'A project can have up to {count} links.',
     'A workspace can have up to {count} active teams.',

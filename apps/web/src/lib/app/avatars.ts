@@ -29,7 +29,7 @@ export const avatarErrors = {
 export type AvatarImage = { data: Buffer; size: number };
 
 /** The format from the file's first bytes, never from its name or declared type */
-function sniffImage(data: Buffer) {
+export function sniffPictureFormat(data: Buffer) {
     if (data.length >= 8 && data.readUInt32BE(0) === 0x89504e47 && data.readUInt32BE(4) === 0x0d0a1a0a) return 'png';
     if (data.length >= 3 && data[0] === 0xff && data[1] === 0xd8 && data[2] === 0xff) return 'jpeg';
     if (data.length >= 12 && data.toString('latin1', 0, 4) === 'RIFF' && data.toString('latin1', 8, 12) === 'WEBP') return 'webp';
@@ -45,7 +45,7 @@ function sniffImage(data: Buffer) {
 export async function normalizeAvatar(input: Buffer, maxBytes = MAX_AVATAR_UPLOAD_BYTES): Promise<AvatarImage | string> {
     if (input.length === 0) return avatarErrors.empty;
     if (input.length > maxBytes) return avatarErrors.tooLarge(maxBytes);
-    if (!sniffImage(input)) return avatarErrors.type;
+    if (!sniffPictureFormat(input)) return avatarErrors.type;
     const decode = () => sharp(input, { limitInputPixels: MAX_INPUT_PIXELS, pages: 1, failOn: 'error' });
     try {
         const { width, height } = await decode().metadata();
