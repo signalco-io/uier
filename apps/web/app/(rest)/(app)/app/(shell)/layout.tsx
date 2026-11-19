@@ -22,6 +22,8 @@ import { AppShortcuts } from '@/src/components/app/keyboard/AppShortcuts';
 import { isGoogleSignInConfigured } from '@/src/lib/app/google/config';
 import { isMicrosoftSignInConfigured } from '@/src/lib/app/microsoft/config';
 import { KnownPageLinks } from '@/src/knownPages';
+import { ownWorkspaceId } from '@/src/lib/app/workspaces';
+import { CachedShell } from '@/src/components/app/shell/CachedShell';
 
 /** The signed-in app: the sidebar, a top bar with the breadcrumbs (and a project's Open review at its right end), and the page in an inset panel, with the keyboard shortcuts */
 async function AppShellLayoutContent({ children }: PropsWithChildren) {
@@ -52,7 +54,8 @@ async function AppShellLayoutContent({ children }: PropsWithChildren) {
     };
 
     return (
-        <SidebarProvider>
+        // `data-app-shell` marks the live shell: the cached copy (`CachedShell`) gives way to it
+        <SidebarProvider data-app-shell="">
             <AccountSessionBoundary userId={context.user.id} />
             <ShellInfoProvider
                 key={`${context.user.id}:${context.workspace.id}`}
@@ -67,7 +70,7 @@ async function AppShellLayoutContent({ children }: PropsWithChildren) {
                 <AppSidebar
                     accounts={accounts}
                     isAdmin={context.isAdmin && context.workspace.id !== PUBLIC_WORKSPACE_ID}
-                    user={{ name: context.user.name, email: context.user.email, avatarUrl: avatarUrl(context.user) }}
+                    user={{ id: context.user.id, name: context.user.name, email: context.user.email, avatarUrl: avatarUrl(context.user) }}
                     currentWorkspaceId={context.workspace.id}
                     workspaces={context.memberships.map(({ workspace, member }) => {
                         // Everyone joins uier's workspace to send feedback on the app; its admins (uier staff) work in it.
@@ -78,7 +81,8 @@ async function AppShellLayoutContent({ children }: PropsWithChildren) {
                             name: feedback ? t('Feedback on uier') : workspace.name,
                             logoUrl: workspace.logoVersion ? KnownPageLinks.workspaceLogo(workspace.id, workspace.logoVersion) : undefined,
                             role: feedback ? t('Sent with Give feedback') : member.role === 'admin' ? t('Admin') : t('Commenter'),
-                            feedback
+                            feedback,
+                            home: workspace.id === ownWorkspaceId(context.user.id) || undefined
                         };
                     })}
                     projectOrder={projectOrder}
@@ -118,8 +122,15 @@ async function AppShellLayoutContent({ children }: PropsWithChildren) {
 
 /**
  * The frame first (`ShellFrame`, the static shell of every page here), then the language and the workspace together:
- * one step from the first bytes to the app, with nothing that moves between them.
+ * one step from the first bytes to the app, with nothing that moves between them. Where this browser has a copy of
+ * the shell (`CachedShell`, beside the boundary so it hydrates while the request is read), the copy draws in the
+ * frame's place: the workspace, its projects and the account as they were last time.
  */
 export default function AppShellLayout(props: Parameters<typeof AppShellLayoutContent>[0]) {
-    return <AppBoundary fallback={<ShellFrame />}><AppShellLayoutContent {...props} /></AppBoundary>;
+    return (
+        <>
+            <CachedShell />
+            <AppBoundary fallback={<ShellFrame />}><AppShellLayoutContent {...props} /></AppBoundary>
+        </>
+    );
 }

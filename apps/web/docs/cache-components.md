@@ -27,6 +27,10 @@ is the group's Suspense boundary with the app's language, tooltips and toaster u
   the sidebar toggle). Labels are bars because text needs the language; the workspace, the projects, the account,
   the breadcrumbs and the page are data. Workspace is not drawn: only some roles have it. The sidebar's bars use
   `bg-sidebar-accent` (the default skeleton is the sidebar's own grey).
+- Beside the sidebar layout's boundary, `CachedShell` draws this browser's copy of the shell in `ShellFrame`'s place
+  when it has one: the workspace, its projects and the account as the last load showed them, in the app's language
+  ([local shell cache](app-shell.md#local-shell-cache)). It is beside the boundary because a streamed fallback is never
+  hydrated; the live shell replaces it like the frame.
 - `AuthFrame` with `loading` for the sign-in card's pages and a coding tool's consent: the logo and the card with an
   outline of its content (`AuthCardOutline`, inside the card's padding). Each page's own fallback is the same
   outline with that page's number of lines and controls (`AuthCardLoading`), so the card keeps its size as the form

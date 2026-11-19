@@ -1,8 +1,8 @@
 'use client';
 
-import { useAppI18n } from '@/src/lib/i18n/client';
+import { useAppCatalog, useAppI18n } from '@/src/lib/i18n/client';
 
-import { useEffect, useId, useState, type ReactNode } from 'react';
+import { useContext, useEffect, useId, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { toast } from 'sonner';
@@ -38,6 +38,8 @@ import { WorkspaceSwitcher, type WorkspaceOption } from './WorkspaceSwitcher';
 import { useSidebarProjects } from './ShellInfo';
 import { saveProjectOrderAction } from './actions';
 import { useRovingTabStop } from '../keyboard/keys';
+import { CachedShellContext } from './cachedShellContext';
+import { saveAppCatalog, saveShellSnapshot } from '@/src/lib/app/shellCache';
 
 /** The navigation's one tab stop and its place among the links (`useRovingTabStop`) */
 type RovingProps = { 'data-roving-item': string; tabIndex: number };
@@ -106,24 +108,52 @@ function ProjectItem({ project, current, roving }: { project: SidebarProject; cu
 
 const statusLabels = { active: 'Active', done: 'Done' } as const;
 
-/**
- * The app's navigation: the workspace switcher (its menu opens the workspace area), My work, Projects, the active
- * projects for quick switching (or, grouped by status, every project), then at the bottom feedback on the app and
- * the signed-in person. Collapses to icons on desktop and opens as a sheet on small screens.
- */
-export function AppSidebar({ isAdmin, user, accounts, workspaces, currentWorkspaceId, projectOrder, hasClients }: {
+export type AppSidebarProps = {
     isAdmin: boolean;
     accounts: BrowserAccount[];
-    user: { name: string; email: string; avatarUrl?: string };
+    user: { id: string; name: string; email: string; avatarUrl?: string };
     workspaces: WorkspaceOption[];
     currentWorkspaceId: string;
     /** How this browser lists them (a cookie, so the first render is already in order) */
     projectOrder: ProjectOrder;
     /** Whether a project the person can see has a client (the workspace menu opens its clients then) */
     hasClients: boolean;
+};
+
+/** What the shell's copy in this browser keeps (`shellCache`): the sidebar's props and the projects it lists */
+export type CachedSidebar = AppSidebarProps & { projects: SidebarProject[] };
+
+/**
+ * Keeps what the live sidebar shows in this browser (`shellCache`), so the next full load or switch to this account
+ * and workspace draws it at once. Every render of the layout (a refresh, an action) and every newer count saves the
+ * newer version.
+ */
+function useShellCopy({ isAdmin, accounts, user, workspaces, currentWorkspaceId, projectOrder, hasClients }: AppSidebarProps, projects: SidebarProject[]) {
+    const copy = useContext(CachedShellContext);
+    const i18n = useAppCatalog();
+    useEffect(() => {
+        if (copy || !i18n)
+            return;
+        const sidebar: CachedSidebar = { isAdmin, accounts, user, workspaces, currentWorkspaceId, projectOrder, hasClients, projects };
+        void saveShellSnapshot({ userId: user.id, workspaceId: currentWorkspaceId, language: i18n.language, sidebar });
+        void saveAppCatalog(i18n.language, i18n.catalog);
+    }, [copy, i18n, isAdmin, accounts, user, workspaces, currentWorkspaceId, projectOrder, hasClients, projects]);
+}
+
+/**
+ * The app's navigation: the workspace switcher (its menu opens the workspace area), My work, Projects, the active
+ * projects for quick switching (or, grouped by status, every project), then at the bottom feedback on the app and
+ * the signed-in person. Collapses to icons on desktop and opens as a sheet on small screens.
+ */
+export function AppSidebar({ projects: copied, ...props }: AppSidebarProps & {
+    /** The projects of the shell's copy (`CachedShell`), in place of the shell's own (`useSidebarProjects`) */
+    projects?: SidebarProject[];
 }) {
+    const { isAdmin, workspaces, currentWorkspaceId, projectOrder, hasClients, accounts, user } = props;
+    const shellProjects = useSidebarProjects();
+    const projects = copied ?? shellProjects;
+    useShellCopy(props, projects);
     const { t } = useAppI18n();
-    const projects = useSidebarProjects();
     const pathname = usePathname();
     const groupId = useId();
     // Applied at once. Saving sets the cookie, so Next renders the layout again: after switching to Recent activity

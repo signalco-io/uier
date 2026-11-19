@@ -15,20 +15,42 @@ const AppI18nContext = createContext(createAppI18n('en', {}));
  */
 let lastAppI18n: ReturnType<typeof createAppI18n> | undefined;
 
+/** The language's catalog as the provider received it, for the shell's copy in this browser (`shellCache`) */
+const AppCatalogContext = createContext<{ language: AppLanguage; catalog: AppCatalog } | null>(null);
+
 /** Only the chosen language's catalog crosses the server/client boundary. */
 export function AppI18nProvider({ language, catalog, children }: PropsWithChildren<{ language: AppLanguage; catalog: AppCatalog }>) {
     const value = useMemo(() => createAppI18n(language, catalog), [language, catalog]);
+    const source = useMemo(() => ({ language, catalog }), [language, catalog]);
     useEffect(() => {
         const previous = document.documentElement.lang;
         document.documentElement.lang = language;
         return () => { document.documentElement.lang = previous; };
     }, [language]);
     useEffect(() => { lastAppI18n = value; }, [value]);
-    return <AppI18nContext.Provider value={value}><div lang={language} className="contents" data-app-language={language}>{children}</div></AppI18nContext.Provider>;
+    return (
+        <AppCatalogContext.Provider value={source}>
+            <AppI18nContext.Provider value={value}><div lang={language} className="contents" data-app-language={language}>{children}</div></AppI18nContext.Provider>
+        </AppCatalogContext.Provider>
+    );
 }
 
 export function useAppI18n() {
     return useContext(AppI18nContext);
+}
+
+/** The provider's language and catalog; `null` outside every `AppI18nProvider` */
+export function useAppCatalog() {
+    return useContext(AppCatalogContext);
+}
+
+/**
+ * The language of a copy the shell draws before the app's own provider is there (`CachedShell`): its words only, without
+ * the document's language or the provider's element, which stay the live app's
+ */
+export function CachedAppI18nProvider({ language, catalog, children }: PropsWithChildren<{ language: AppLanguage; catalog: AppCatalog }>) {
+    const value = useMemo(() => createAppI18n(language, catalog), [language, catalog]);
+    return <AppI18nContext.Provider value={value}><div lang={language} className="contents">{children}</div></AppI18nContext.Provider>;
 }
 
 /**
