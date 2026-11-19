@@ -25,6 +25,7 @@ import {
 } from '@/src/components/ui/sidebar';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/src/components/ui/tooltip';
 import { KnownPageLinks, KnownPages } from '@/src/knownPages';
+import { projectIconSizes } from '@/src/lib/app/projectIconSizes';
 import { orderProjects, type ProjectOrder } from '@/src/lib/app/projectOrder';
 import type { SidebarProject } from '@/src/lib/app/sidebarProjects';
 import { ClientMark } from '../clients/ClientMark';
@@ -83,7 +84,7 @@ function ProjectItem({ project, current, roving }: { project: SidebarProject; cu
                 {/* A 20 px tile with the mark's own 2 px padding inside its border (uier #87), so the favicon sits on the tile
                     as in the project header and the projects list. The negative margin keeps it in the 16 px icon slot:
                     names line up with the pages above, also collapsed and in the sheet */}
-                <ProjectMark name={project.name} projectId={project.id} url={project.url} className="-m-0.5 size-5 text-xs" />
+                <ProjectMark name={project.name} projectId={project.id} url={project.url} iconSize={projectIconSizes.sidebar} className="-m-0.5 size-5 text-xs" />
                 <span>{project.name}</span>
             </SidebarMenuButton>
             {count > 0 && <SidebarMenuBadge id={countId} className="text-muted-foreground">
