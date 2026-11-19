@@ -96,7 +96,7 @@ function ProjectItem({ project, current, roving }: { project: SidebarProject; cu
 const statusLabels = { active: 'Active', done: 'Done' } as const;
 
 /**
- * The app's navigation: the workspace switcher (its menu opens the workspace area), Projects, My work, the active
+ * The app's navigation: the workspace switcher (its menu opens the workspace area), My work, Projects, the active
  * projects for quick switching (or, grouped by status, every project), then at the bottom feedback on the app and
  * the signed-in person. Collapses to icons on desktop and opens as a sheet on small screens.
  */
@@ -138,7 +138,7 @@ export function AppSidebar({ isAdmin, user, accounts, workspaces, currentWorkspa
     const projectsCurrent = isCurrent(pathname, KnownPages.AppProjects) && !inListedProject;
     // The navigation is one tab stop, like a list (the current page's link, or the one last focused): ↓ and ↑ move
     // between its links, Home and End to the first and the last. The group's buttons (order, Create project) keep theirs.
-    const links = [KnownPages.AppProjects, KnownPages.AppMyWork, ...(!active.length && isAdmin ? [KnownPages.AppNewProject] : []),
+    const links = [KnownPages.AppMyWork, KnownPages.AppProjects, ...(!active.length && isAdmin ? [KnownPages.AppNewProject] : []),
         ...listed.map(project => KnownPageLinks.project(project.id))];
     const currentLink = isCurrent(pathname, KnownPages.AppMyWork) ? KnownPages.AppMyWork
         : projectsCurrent ? KnownPages.AppProjects
@@ -152,12 +152,12 @@ export function AppSidebar({ isAdmin, user, accounts, workspaces, currentWorkspa
             </SidebarHeader>
             <SidebarContent>
                 <nav aria-label={t("App")} className="contents" {...roving.containerProps}>
-                    {/* The app's own pages: Projects and the person's own work */}
+                    {/* The app's own pages: the person's own work first (uier #472), then Projects */}
                     <SidebarGroup>
                         <SidebarGroupContent>
                             <SidebarMenu>
-                                <NavItem href={KnownPages.AppProjects} label={t("Projects")} icon={LayoutGridIcon} current={projectsCurrent} roving={roving.itemProps(KnownPages.AppProjects)} />
                                 <NavItem href={KnownPages.AppMyWork} label={t("My work")} icon={InboxIcon} current={isCurrent(pathname, KnownPages.AppMyWork)} roving={roving.itemProps(KnownPages.AppMyWork)} />
+                                <NavItem href={KnownPages.AppProjects} label={t("Projects")} icon={LayoutGridIcon} current={projectsCurrent} roving={roving.itemProps(KnownPages.AppProjects)} />
                             </SidebarMenu>
                         </SidebarGroupContent>
                     </SidebarGroup>
