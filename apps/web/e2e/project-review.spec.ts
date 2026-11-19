@@ -531,8 +531,8 @@ test('guest edits and original reproduction details persist; only members see an
     expect(copied).toContain(`Operating system: macOS 15.1\nViewport: ${originalViewport[0]}×${originalViewport[1]} CSS px`);
     expect(copied).toContain(`Input: ${input}\nColour scheme: Dark\nReduced motion: On\nPage language: en\n`);
     expect(copied).not.toMatch(/never-copy-this|toolbar-code|uier-token|session_token|#private/);
-    await thread.getByRole('button', { name: 'More options for this comment' }).click();
-    await page.getByRole('dialog', { name: 'Comment options', exact: true }).getByRole('button', { name: 'Edit', exact: true }).click();
+    await thread.getByRole('button', { name: 'Thread options', exact: true }).click();
+    await page.getByRole('dialog', { name: 'Thread options', exact: true }).getByRole('button', { name: 'Edit', exact: true }).click();
     await thread.getByRole('textbox', { name: 'Edit comment', exact: true }).fill('Admin clarified the report.');
     await thread.getByRole('button', { name: 'Save changes' }).click();
     await expect(thread).toContainText('Admin clarified the report. (edited)');

@@ -23,8 +23,8 @@ for (const colorScheme of ['light', 'dark'] as const) {
         const inbox = page.getByRole('complementary', { name: 'Comments' });
         // A matching anchor is quiet: reattaching it is in the comment's menu
         const reattachFromMenu = async () => {
-            await inbox.getByRole('button', { name: /^More options for (your|this) comment$/ }).click();
-            await page.getByRole('dialog', { name: 'Comment options' }).getByRole('button', { name: 'Reattach comment', exact: true }).click();
+            await inbox.getByRole('button', { name: 'Thread options', exact: true }).click();
+            await page.getByRole('dialog', { name: 'Thread options', exact: true }).getByRole('button', { name: 'Reattach comment', exact: true }).click();
         };
         await (await inboxSearch(inbox)).fill('Recover this');
         await expect(inbox.getByText('Target is missing from this page.')).toBeVisible();

@@ -1,6 +1,6 @@
 # Device details
 
-The browser, OS and screen a comment was left from, shown after the first message's time
+The browser, OS and screen a comment was left from, shown in the thread's header line, before its actions
 (`components/info/`, `hooks/useHoverPopover.ts`). What the API stores and who receives it:
 [the comments API](../../../docs/api.md#comments-api).
 
@@ -19,7 +19,7 @@ The browser, OS and screen a comment was left from, shown after the first messag
 
 ## In the thread
 
-`CommentDevice` is the app's `CommentDevice` in the toolbar: after the first message's time, a desktop, tablet or
+`CommentDevice` is the app's `CommentDevice` in the toolbar: in the thread's header line before Add reaction, a desktop, tablet or
 mobile icon (only when the size is known) and the browser's mark (`BrowserMark` over `src/devices.ts`, a globe
 when unknown). It shows only with the API's member-only `reproduction` field.
 

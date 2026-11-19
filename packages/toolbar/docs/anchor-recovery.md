@@ -2,7 +2,7 @@
 
 `CommentAnchorDetails` shows anchors that need attention (moved text, hidden, missing, ambiguous) with
 Reattach comment; a matching anchor stays quiet (`data-uier-anchor-state` only) and author/admin
-reattachment is in the first message's menu (`useReattach`). An anchor in a closed menu, popover or
+reattachment is in Thread options, with the first message's other options (`useReattach`). An anchor in a closed menu, popover or
 dialog (`closed`) is not broken: its line says which element opens it, without Reattach.
 `layerAnchor.ts` (`withLayer`) saves that element when an anchor is chosen (new comments and
 reattaching) while the layer is open: `modalLayer.ts`'s `layerOpener` finds the expanded
