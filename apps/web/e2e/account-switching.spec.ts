@@ -168,10 +168,13 @@ test('coding-tool and extension consent reload their own URL when the active acc
         await select(userB);
         for (const tab of [consent, extension]) {
             // Send one foreground signal atomically: bringToFront can already start the reload
-            // before a following evaluate reaches the previous document.
+            // before a following evaluate reaches the previous document. A tab that has started the reload by
+            // itself has no document to signal any more, which is the outcome this waits for.
             await tab.evaluate(() => {
                 Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
                 window.dispatchEvent(new Event('focus'));
+            }).catch((error: unknown) => {
+                if (!/Execution context was destroyed|navigation/i.test(String(error))) throw error;
             });
         }
         await expect(consent.getByText(`Signed in as ${b}.`)).toBeVisible();

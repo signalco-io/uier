@@ -159,10 +159,16 @@ test('SSO requires the companion cookie, current membership, a configured parent
         expect(denied.status()).toBe(403);
         expect(denied.headers()['access-control-allow-origin']).toBeUndefined();
     }
-    // An existing app login is upgraded on its next first-party app visit.
+    // Only an explicit session change writes the companion: an app visit does not bring it back, so a late
+    // page response cannot undo a switch or a sign-out. Selecting the account again writes it.
     await context.clearCookies({ name: '__Secure-uier_review_sso' });
     expect((await context.request.post(endpoint, { headers, data })).status()).toBe(204);
     await page.goto('/app/projects');
+    expect((await context.request.post(endpoint, { headers, data })).status()).toBe(204);
+    const { userId } = await (await context.request.get('/api/account/sessions')).json();
+    expect((await context.request.post('/api/account/sessions', {
+        headers: { ...headers, 'Sec-Fetch-Site': 'same-origin' }, data: { action: 'switch', userId }
+    })).status()).toBe(200);
     expect((await context.request.post(endpoint, { headers, data })).status()).toBe(200);
     // Leave the app before removing its identity: an open app tab reconciles ended sessions.
     await page.goto('about:blank');

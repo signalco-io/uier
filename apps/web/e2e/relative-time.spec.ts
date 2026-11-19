@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { createProject, hydrated, openComment, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 import { startReviewedSite } from './support/reviewedSite';
 
@@ -10,7 +10,7 @@ let site: Awaited<ReturnType<typeof startReviewedSite>>;
 test.beforeAll(async ({ baseURL }) => { site = await startReviewedSite(new URL(baseURL!).origin); });
 test.afterAll(async () => { await site.close(); });
 
-test('a row and its open thread move from just now to minutes ago on their own', async ({ page, request }) => {
+test('a row and its open thread move from just now to minutes ago on their own', async ({ page, request }, testInfo) => {
     await signIn(page, uniqueEmail('relative-time'));
     const project = await createProject(page, { urls: [site.origin()] });
     await setProjectAccess(page, project, 'Anyone with the link');
@@ -25,9 +25,16 @@ test('a row and its open thread move from just now to minutes ago on their own',
     const row = page.getByRole('listitem').filter({ has: page.getByRole('link', { name: /^Comment #\d+/ }) }).filter({ hasText: 'Guest thread' });
     const thread = page.getByRole('article');
     await expect(row.locator('time')).toHaveText('just now');
-    await expect(thread.locator('time').first()).toHaveText('just now');
+    // Beside the list the first thread is open. A phone shows a thread in the list's place, once it is opened
+    const phone = testInfo.project.name.startsWith('Mobile');
+    if (!phone) await expect(thread.locator('time').first()).toHaveText('just now');
 
+    // The clock ticks for times that are on it: wait until the row's is, or the jump passes before it listens
+    await hydrated(row.locator('time'));
     await page.clock.runFor('02:05');
     await expect(row.locator('time')).toHaveText('2 min ago');
+    if (phone) await openComment(page, 'Guest thread');
     await expect(thread.locator('time').first()).toHaveText('2 minutes ago');
+    await page.clock.runFor('03:00');
+    await expect(thread.locator('time').first()).toHaveText('5 minutes ago');
 });

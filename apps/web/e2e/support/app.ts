@@ -162,6 +162,19 @@ export async function appNavigation(page: Page) {
     }
     await expect(navigation).toBeVisible();
     await animationsDone(page);
+    // The sheet's slide may not have started when the animations were read. It is in place once it stops moving
+    await sidebarSheet(page).evaluateAll(sheets => Promise.all(sheets.map(sheet => new Promise<void>(resolve => {
+        let last = sheet.getBoundingClientRect().x;
+        let still = 0;
+        const frame = () => {
+            const x = sheet.getBoundingClientRect().x;
+            still = x === last ? still + 1 : 0;
+            last = x;
+            if (still >= 3) resolve();
+            else requestAnimationFrame(frame);
+        };
+        requestAnimationFrame(frame);
+    }))));
     return navigation;
 }
 

@@ -110,8 +110,9 @@ for (const colorScheme of ['light', 'dark'] as const) {
             await expect(page.locator('[data-board-card]').locator('[data-assignee-avatar]')).toHaveCount(2);
             await page.goto('/app/my-work');
             await expect(page.getByRole('list', { name: 'Assigned to you', exact: true })).toContainText('Shared checkout fix');
+            // The Board chosen above is remembered: the assigned filter opens on it
             await page.goto(`/app/projects/${project}?people=assigned`);
-            await expect(commentRows(page)).toContainText('Shared checkout fix');
+            await expect(page.locator('[data-board-card]')).toContainText('Shared checkout fix');
             // The toolbar uses the same two people, preserving the other person's agents on removal.
             await page.goto(`/app/review/${project}?url=${encodeURIComponent(`${site.origin()}/${project}/pricing`)}&comment=${id}`);
             const toolbarThread = page.getByRole('article').filter({ hasText: 'Shared checkout fix' });

@@ -30,7 +30,8 @@ test('status API reports the same checks for monitors', async ({ request }) => {
 
 test('status page is linked from the footer', async ({ page }) => {
     await page.goto('/');
-    await expect(page.getByRole('contentinfo').getByRole('link', { name: 'Status' })).toHaveAttribute('href', '/status');
+    // Exact: the footer also links "Statuses and board"
+    await expect(page.getByRole('contentinfo').getByRole('link', { name: 'Status', exact: true })).toHaveAttribute('href', '/status');
 });
 
 test('status page is accessible', ({ page }) => assertAccessibility(page, '/status'));
