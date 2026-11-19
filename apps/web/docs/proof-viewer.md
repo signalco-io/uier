@@ -67,7 +67,9 @@ the format or page geometry differs.
 first-site addition, uploads, animation, guest pin placement, immutable permalinks,
 comparison and revocation on desktop and touch. The PDF renderer fixture uses
 real PDF bytes with synthetic asset metadata so canvas, text and page pairing
-are exercised even when new PDF uploads are paused.
+are exercised even when new PDF uploads are paused. The published PDF test
+also enables the format, uploads a PDF through the library, selects text on the
+second rendered page, and reopens that exact quote through the thread permalink.
 
 The two-thread [verification spec](../e2e/proof-verification.spec.ts) places revised locations on the
 same point on touch and checks focus when the reviewer advances. Placement and pan own pointer

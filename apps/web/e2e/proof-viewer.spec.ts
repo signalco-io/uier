@@ -227,3 +227,50 @@ test('PDF renderer paints real pages, searches text and pairs reordered pages', 
     await expect(page.locator('del')).toHaveText('45');
     await expect(page.locator('ins')).toHaveText('49');
 });
+
+test('a published PDF preserves a selectable-text annotation at its original page', async ({ page }) => {
+    test.setTimeout(120_000);
+    await makeFileOnlyProject(page);
+    await page.getByRole('button', { name: 'File formats', exact: true }).click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByRole('checkbox', { name: 'PDFs', exact: true }).click();
+    await dialog.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(dialog).toBeHidden();
+
+    await page.getByRole('button', { name: 'Upload file', exact: true }).click();
+    await dialog.getByLabel('Choose file').setInputFiles({
+        name: 'Menu.pdf', mimeType: 'application/pdf', buffer: pdf(['Cover', 'Dinner 45 EUR'])
+    });
+    await dialog.getByRole('button', { name: 'Upload file', exact: true }).click();
+    const version = dialog.getByRole('link', { name: 'Version 1 · Menu.pdf', exact: true });
+    await expect(version).toBeVisible({ timeout: 80_000 });
+    await version.click();
+
+    await page.getByRole('button', { name: 'Next page or frame', exact: true }).click();
+    const surface = page.locator('[data-proof-surface]').first();
+    const quote = surface.locator('.proof-pdf-text span').filter({ hasText: /\bDinner\b/ }).first();
+    await expect(quote).toBeVisible();
+    const pageId = await surface.getAttribute('data-proof-surface');
+    await choose(page, 'Review tool', 'Quote text');
+    await quote.evaluate(element => {
+        const range = document.createRange();
+        const first = element.firstChild!;
+        const start = first.textContent!.indexOf('Dinner');
+        range.setStart(first, start);
+        range.setEnd(first, start + 'Dinner'.length);
+        window.getSelection()?.removeAllRanges();
+        window.getSelection()?.addRange(range);
+        element.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
+    });
+    await expect(page.getByText('Using the selected location.')).toBeVisible();
+    await page.getByRole('textbox', { name: 'Add comment', exact: true }).fill('Confirm this price');
+    const created = page.waitForResponse(response => response.request().method() === 'POST' && response.url().endsWith('/threads'));
+    await page.getByRole('button', { name: 'Add comment', exact: true }).click();
+    const response = await created;
+    expect(response.ok()).toBe(true);
+    const { thread } = await response.json() as { thread: { href: string; location: { anchor: unknown } } };
+    expect(thread.location.anchor).toEqual({ kind: 'text', surfaceId: pageId, quote: 'Dinner' });
+    await page.goto(thread.href);
+    await expect(page.locator('[data-proof-surface]').first()).toHaveAttribute('data-proof-surface', pageId!);
+    await expect(page.locator('[data-proof-quote]').first()).toContainText('Dinner');
+});
