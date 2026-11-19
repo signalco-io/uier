@@ -35,14 +35,39 @@ test('Projects Active → Done is already immediate with its query-only opt-out'
         await expect(link).toHaveAttribute('aria-current', 'page');
         await capture(page, testInfo, 'done-list-immediate');
     });
+});
+
+// Releasing instant() starts a Next refresh. Test browser history and reload independently of that refresh.
+test('Projects status selection survives Back, Forward and reload', async ({ page }) => {
+    await statusFixture(page);
+    const tabs = page.getByRole('navigation', { name: 'Project status' });
+    const done = tabs.getByRole('link', { name: 'Done 1', exact: true });
+    const active = tabs.getByRole('link', { name: 'Active 1', exact: true });
+    const finished = page.getByRole('list', { name: 'Done projects' }).getByRole('link', { name: 'Finished site', exact: true });
+    const ongoing = page.getByRole('list', { name: 'Active projects' }).getByRole('link', { name: 'Ongoing site', exact: true });
+    await hydrated(done);
+    await done.click();
+    await expect(page).toHaveURL(url => url.pathname === '/app/projects' && url.search === '?status=done');
+    await expect(finished).toBeVisible();
     await page.goBack();
     await expect(page).toHaveURL(url => url.pathname === '/app/projects' && url.search === '');
-    await expect(page.getByRole('list', { name: 'Active projects' }).getByRole('link', { name: 'Ongoing site', exact: true })).toBeVisible();
+    await expect(ongoing).toBeVisible();
     await page.goForward();
     await expect(page).toHaveURL(url => url.pathname === '/app/projects' && url.search === '?status=done');
-    await expect(page.getByRole('list', { name: 'Done projects' }).getByRole('link', { name: 'Finished site', exact: true })).toBeVisible();
-    await page.reload();
-    await expect(link).toHaveAttribute('aria-current', 'page');
+    await expect(finished).toBeVisible();
+    expect((await page.reload())?.ok()).toBe(true);
+    await expect(page).toHaveURL(url => url.pathname === '/app/projects' && url.search === '?status=done');
+    await expect(done).toHaveAttribute('aria-current', 'page');
+    await expect(finished).toBeVisible();
+
+    await hydrated(active);
+    await active.press('Enter');
+    await expect(page).toHaveURL(url => url.pathname === '/app/projects' && url.search === '');
+    await expect(ongoing).toBeVisible();
+    expect((await page.reload())?.ok()).toBe(true);
+    await expect(page).toHaveURL(url => url.pathname === '/app/projects' && url.search === '');
+    await expect(active).toHaveAttribute('aria-current', 'page');
+    await expect(ongoing).toBeVisible();
 });
 
 test('Projects Done → Active is already immediate with keyboard focus retained', async ({ page }) => {
@@ -62,8 +87,6 @@ test('Projects Done → Active is already immediate with keyboard focus retained
         await expect(page.getByRole('list', { name: 'Done projects' })).toBeHidden();
         await expect(link).toBeFocused();
     });
-    await page.reload();
-    await expect(page.getByRole('list', { name: 'Active projects' }).getByRole('link', { name: 'Ongoing site', exact: true })).toBeVisible();
 });
 
 test('Projects card → Project reads a changed private name at navigation', async ({ page }, testInfo) => {
