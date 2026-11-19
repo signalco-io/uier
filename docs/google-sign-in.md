@@ -28,7 +28,10 @@ like the integrations' OAuth (no auth framework):
    state Google sends back, can recreate it. The browser gets a signed HttpOnly SameSite=Lax cookie
    that holds only the record id (`appCookieOptions`, `__Host-` and Secure outside local runtime).
 2. Google's authorization endpoint gets `scope=openid email profile`, the state, the nonce, the S256
-   challenge and `prompt=select_account`.
+   challenge and `prompt=select_account`. Sign in again (a step that needs a recent sign-in) gets the
+   same request: Google has no parameter that makes a person authenticate again ("Google does not
+   support Google Account reauth requests"), so a Google session in the browser continues after the
+   account is chosen. Microsoft is asked with `prompt=login` ([Microsoft sign-in](microsoft-sign-in.md)).
 3. `GET /app/sign-in/google/callback` reads and clears the binding cookie. The record must exist,
    match the state's hash and still be inside its 10 minutes; a delete uses it up, and only the
    winner of that delete exchanges the code. A missing or foreign binding, a replayed callback and a

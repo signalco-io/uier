@@ -7,6 +7,7 @@ import { sweepRecordings } from '../recordings/service';
 import { runApprovalMail } from '../proofs/approvals/mail';
 import { sweepProofStorage } from '../proofs/cleanup';
 import { sweepCommentCleanup } from '../comments/cleanup';
+import { sweepAccountDeletions } from '../app/accountDeletion';
 import { sweepProjectDeletions } from '../app/projectDeletion';
 import { sweepProjectTransfers } from '../app/projectTransfer';
 import { retryNotificationDelivery, runNotificationWorker } from '../notifications/delivery';
@@ -65,7 +66,11 @@ function phasesFor(options: WorkerOptions, baseUrl: string, now: () => number): 
             console.info(`[screenshots] Migrated ${migration.migrated} legacy preview images; swept ${cleanup.removed} preview blobs.`);
             return migration.failed + cleanup.failed + recordings.failed;
         } });
-        phases.push({ name: 'project-deletions', async run() {
+        phases.push({ name: 'account-deletions', async run() {
+            const result = await sweepAccountDeletions();
+            if (result.failed) console.error(`[accounts] ${result.failed} account deletions need retry.`);
+            return result.failed;
+        } }, { name: 'project-deletions', async run() {
             const result = await sweepProjectDeletions({ comments });
             if (result.failed) console.error(`[projects] ${result.failed} project deletions need retry.`);
             return result.failed;

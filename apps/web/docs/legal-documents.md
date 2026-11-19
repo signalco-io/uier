@@ -53,6 +53,11 @@ in the message's thread, and are removed when replaced, deleted or made private.
 no longer says recordings are never copied to connected services. This wording needs the same owner
 review before merge.
 
+The privacy policy and terms of service were updated on 19 November 2026 to describe self-service account deletion in Account →
+General, workspace handoff, retention of contributed feedback and history, and the one email that
+confirms the deletion to the account's address. The cookie policy's 20 November 2026 update adds that
+deleting the account removes its `uier-app` copy, as signing out does. The existing owner review applies before merge.
+
 The privacy policy's 19 November 2026 update describes the composer's screenshot thumbnail ([uier #476](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2F&comment=comment_MHq-BrZmONnqI7ugzvoOX)):
 the comment box shows the automatic screenshot as a thumbnail that can be previewed, and removing it
 (turning off Attach screenshot in browser extension 0.1.9 and earlier) omits only the automatic

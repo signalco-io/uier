@@ -23,6 +23,10 @@ to one `McpIdentity` in `credentials.ts` (user, `connection: { id, kind, name, c
   are shown once and only hashes are stored. They become
   `{ kind: 'selected', workspaces: [{ workspaceId, projects }] }` internally.
 
+Deleting the owning account ends the connection. Code exchange, token refresh and authenticated
+MCP calls require a live owner, including while [account deletion](account.md#deleting-an-account)
+is cleaning up stored credentials.
+
 Never accept cookies, review tokens, project codes or guest ids as MCP authentication.
 
 **Grants are evaluated live.** A grant stores a selection (`AgentAccess`: `all`, or chosen workspaces

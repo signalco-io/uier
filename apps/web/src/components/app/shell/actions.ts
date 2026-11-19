@@ -3,7 +3,7 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
-import { KnownPages } from '@/src/knownPages';
+import { KnownPageLinks, KnownPages } from '@/src/knownPages';
 import { endSession } from '@/src/lib/app/session';
 import { appContextOrThrow } from '@/src/lib/app/context';
 import { selectWorkspace } from '@/src/lib/app/workspaceCookie';
@@ -28,7 +28,7 @@ export async function signOutAction() {
  */
 export async function signInAgainWithEmailAction(formData: FormData) {
     const next = safeNextPath(formData.get('next')) ?? KnownPages.App;
-    redirect(`${KnownPages.AppSignIn}?${new URLSearchParams({ next, with: 'email', add: '1' })}`);
+    redirect(KnownPageLinks.signInAgain(next, true));
 }
 
 export async function switchWorkspaceAction(workspaceId: string) {

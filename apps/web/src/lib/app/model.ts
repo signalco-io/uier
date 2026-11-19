@@ -110,6 +110,8 @@ export type DbWorkspace = AppDoc & {
     name: string;
     createdBy: string;
     createdAt: string;
+    /** Holds the workspace access revision while an account deletion checks the admin handoff. */
+    accountDeletion?: { userId: string; attempt: string };
     /** The current logo in this partition, or absent for the uier mark. */
     logoVersion?: string;
     /** Serializes member removals through a conditional workspace/member transaction. */

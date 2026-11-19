@@ -3,8 +3,8 @@ import { statusWorkflowSchema } from './statusWorkflowSchema';
 import { feedbackTypesSchema } from './feedbackTypeSchema';
 import { nanoid } from 'nanoid';
 import { z } from 'zod';
-import { getAppStore, updateDoc } from './store';
-import { memberId, workspacePk, type DbMember, type DbUser, type DbWorkspace } from './model';
+import { getAppStore, updateDoc, type AppStore } from './store';
+import { memberId, userPk, workspacePk, type DbMember, type DbUser, type DbWorkspace } from './model';
 import { UserFacingError } from './actionErrors';
 import { MAX_CREATED_WORKSPACES, MAX_WORKSPACE_NAME_LENGTH } from './limits';
 import { assertMutableWorkspace } from '../comments/publicProjectPolicy';
@@ -126,6 +126,21 @@ function newWorkspaceDocs(workspaceId: string, name: string, user: DbUser): [DbW
     }];
 }
 
+/** Serialize publishing a new workspace with deletion of its creator, across partitions.
+ * If deletion wins, neither the new workspace nor its member has been returned to the caller. */
+async function createOwnedWorkspace(docs: [DbWorkspace, DbMember], user: DbUser, store: AppStore) {
+    const owner = await store.get<DbUser>(userPk(user.id), user.id);
+    if (!owner) throw new UserFacingError('Your session has ended. Sign in again.');
+    if (!await store.createAll(docs)) return false;
+    // A successful write versions the user against any deletion that enumerated memberships
+    // before this workspace existed. Profile edits also use ETags and must retain their changes.
+    const live = await updateDoc<DbUser>(owner.doc.pk, owner.doc.id, current => current, store);
+    if (live) return true;
+    await store.delete(docs[1].pk, docs[1].id);
+    await store.delete(docs[0].pk, docs[0].id);
+    throw new UserFacingError('Your session has ended. Sign in again.');
+}
+
 /**
  * A new workspace with the user as its admin (`w_<nanoid>`), from the workspace menu. Like
  * {@link ensureOwnWorkspace}, the workspace and the membership are one transaction.
@@ -137,7 +152,7 @@ export async function createWorkspace(user: DbUser, name: unknown): Promise<DbWo
     if (created.length >= MAX_CREATED_WORKSPACES)
         throw new UserFacingError(`You can create up to ${MAX_CREATED_WORKSPACES} workspaces.`);
     const docs = newWorkspaceDocs(`w_${nanoid()}`, parsed, user);
-    if (!await store.createAll(docs))
+    if (!await createOwnedWorkspace(docs, user, store))
         throw new Error('Could not create the workspace');
     return docs[0];
 }
@@ -156,7 +171,7 @@ export async function ensureOwnWorkspace(user: DbUser): Promise<DbMember> {
     for (let generation = 1; generation <= MAX_OWN_WORKSPACES; generation++) {
         const workspaceId = ownWorkspaceId(user.id, generation);
         const docs = newWorkspaceDocs(workspaceId, 'Personal', user);
-        if (await store.createAll(docs))
+        if (await createOwnedWorkspace(docs, user, store))
             return docs[1];
 
         // It exists: a concurrent request created it (still a member), or an admin removed them from it

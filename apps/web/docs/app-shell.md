@@ -374,8 +374,8 @@ saves the new version, so a copy is never more than one load behind.
   background in the letter's place (`ProjectMark`) or the uier icon's (`WorkspaceMark`), and stays there offline. Larger
   tiles pad both layers with `[&>[data-mark-icon]]:p-*`. A copy older than a day is refetched in the background; marks
   inside the cached shell (`CachedShellContext`) draw their copy and request nothing.
-- **Privacy.** Signing out removes the account's copies; signing out of the last or of every account removes every
-  copy and image. The sign-in page forgets `shell-current` (and every copy when no account is left), so someone signing
+- **Privacy.** Signing out removes the account's copies, and so does deleting the account; signing out of the last or
+  of every account removes every copy and image. The sign-in page forgets `shell-current` (and every copy when no account is left), so someone signing
   in never sees another account's copy. The first save in each document removes the copies of accounts no longer signed
   in to this browser, and copies older than 30 days are never drawn. The cookie policy lists the database.
 - **Never a source of truth.** The copy is inert; pages and actions read and authorize for themselves.

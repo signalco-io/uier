@@ -118,7 +118,9 @@ credential), an exact origin, a name, a workspace id and an attempt. In order:
   refused, in the same hour or across its end ([projects](projects.md)). The receipt answers for 30 days.
 - **Creation.** The app's `createProject` with the receipt ([projects](projects.md)), so address and name
   validation, the invited-only default, the public id and the client record are the app's. Keep new creation rules
-  in `createProject` so both paths get them. A project that was created and then deleted or transferred, or that
+  in `createProject` so both paths get them. Both also refuse a workspace that an account deletion holds or has
+  closed ([account](account.md)); the popup shows the app's message, and the same attempt creates the project once
+  the workspace is free again. A project that was created and then deleted or transferred, or that
   no longer includes the address, answers 410: the worker forgets that attempt, and nothing is created again under
   the old code.
 

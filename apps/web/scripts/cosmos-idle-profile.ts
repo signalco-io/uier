@@ -38,6 +38,7 @@ export async function profileIdle(container: Container, prefix: string) {
             return (await inner.query<T>({ ...input, ...(input.pk ? { pk: physicalPk(input.pk) } : {}),
                 where: { ...input.where, profileRun: prefix } })).map(logical);
         },
+        partitionIds(pk) { return inner.partitionIds(physicalPk(pk)); },
         async count(input) { return inner.count({ ...input, ...(input.pk ? { pk: physicalPk(input.pk) } : {}), where: { ...input.where, profileRun: prefix } }); }
     };
     console.info = (...args) => { if (args[0] === '[cosmos]') logs.push(JSON.parse(String(args[1])) as Record<string, number | string>); };

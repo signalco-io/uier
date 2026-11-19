@@ -57,7 +57,7 @@ function sameHash(expected: string, actual: string) {
  * Starts the authorization code flow with PKCE and a nonce. Returns Microsoft's address and the
  * browser binding (the route sets it as a cookie). `link` links Microsoft to a recently signed-in user.
  */
-export async function beginMicrosoftSignIn(input: { next?: string; link?: { userId: string; signedInAt: number }; baseUrl: string; ipBucket?: string }) {
+export async function beginMicrosoftSignIn(input: { next?: string; link?: { userId: string; signedInAt: number }; baseUrl: string; ipBucket?: string; reauth?: boolean }) {
     if (!isMicrosoftSignInConfigured())
         throw new MicrosoftSignInError('not_configured');
     if (input.link && !signedInRecently(input.link.signedInAt))
@@ -78,7 +78,9 @@ export async function beginMicrosoftSignIn(input: { next?: string; link?: { user
     url.search = new URLSearchParams({
         client_id: config.clientId, redirect_uri: microsoftRedirectUri(input.baseUrl), response_type: 'code', scope: MICROSOFT_SCOPES,
         state, nonce, code_challenge: createHash('sha256').update(pkceVerifier(id, state)).digest('base64url'),
-        code_challenge_method: 'S256', prompt: 'select_account'
+        // A fresh sign-in for a step that needs a recent one: Microsoft asks for the credentials again
+        // instead of continuing with the session the browser has there.
+        code_challenge_method: 'S256', prompt: input.reauth ? 'login' : 'select_account'
     }).toString();
     return { url: url.href, binding: microsoftBindingToken('flow', id, MICROSOFT_SIGN_IN_TTL_SECONDS) };
 }

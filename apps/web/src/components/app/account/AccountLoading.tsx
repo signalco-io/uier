@@ -27,7 +27,7 @@ function IconTitle({ icon, children }: { icon: ReactNode; children: ReactNode })
     );
 }
 
-/** General: the profile (picture beside the name), the two languages, the theme and the person's access */
+/** General: the profile (picture beside the name), the two languages, the theme, the person's access and Delete account */
 export function AccountGeneralLoading() {
     const { t } = useAppI18n();
     return (
@@ -55,6 +55,13 @@ export function AccountGeneralLoading() {
                             <span className="flex h-5 items-center"><Bar className="h-3.5 w-40 max-w-full" /></span>
                         </div>
                     ))}
+                </div>
+            </SectionOutline>
+            <SectionOutline title={t(titles.deleteAccount)} description={false} footer={false}>
+                {/* What it does, then its button */}
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                    <span className="flex h-5 min-w-0 flex-1 basis-64 items-center"><Bar className="h-3.5 w-80 max-w-full" /></span>
+                    <Bar className="h-9 w-32 rounded-lg" />
                 </div>
             </SectionOutline>
         </Loading>

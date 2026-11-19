@@ -64,6 +64,8 @@ test('authorization uses PKCE, nonce and only OIDC scopes, storing no credential
     const params = new URL(started.url).searchParams;
     expect(Object.fromEntries(params)).toMatchObject({ client_id: microsoft.clientId, redirect_uri: `${baseUrl}/app/sign-in/microsoft/callback`,
         response_type: 'code', scope: 'openid email profile', code_challenge_method: 'S256', prompt: 'select_account' });
+    // Sign in again, for a step that needs a recent sign-in: Microsoft asks for the credentials
+    expect(new URL((await beginMicrosoftSignIn({ baseUrl, reauth: true })).url).searchParams.get('prompt')).toBe('login');
     expect(params.get('code_challenge')).toMatch(/^[A-Za-z0-9_-]{43}$/);
     const id = boundMicrosoftRecordId('flow', started.binding)!;
     const stored = (await getAppStore().get<DbMicrosoftSignIn>(microsoftSignInPk(id), id))!.doc;

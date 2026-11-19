@@ -2,6 +2,7 @@ import { nanoid } from 'nanoid';
 import { z } from 'zod';
 import { getAppStore, updateDoc } from './store';
 import { emailPk, userPk, type DbUser, type DbUserEmail } from './model';
+import { UserFacingError } from './actionErrors';
 import { MAX_NAME_LENGTH } from './limits';
 import { ensurePublicProject, joinPublicProject } from '../comments/publicProject';
 
@@ -40,6 +41,9 @@ export async function findOrCreateUserWithStatus(email: string): Promise<{ user:
             const user = await getUser(existing.doc.userId);
             if (user)
                 return { user: await enrollUser(user), created: false };
+            // Deletion releases the address after retiring old invitations and sign-in links.
+            if (await store.get(userPk(existing.doc.userId), 'account-deletion'))
+                throw new UserFacingError('Account deletion is in progress. Try signing in again shortly.');
         }
 
         const now = new Date().toISOString();
@@ -59,8 +63,11 @@ export async function findOrCreateUserWithStatus(email: string): Promise<{ user:
         // race) is never found, while an email pointing to a missing user would block the address
         await store.create(user);
         if (existing) {
-            // The email pointed to a user that no longer exists
-            await store.delete(existing.doc.pk, existing.doc.id);
+            // Never remove an email claim another sign-up replaced since our read.
+            if (!await store.transact([{ kind: 'delete', pk: existing.doc.pk, id: existing.doc.id, etag: existing.etag }])) {
+                await store.delete(user.pk, user.id);
+                continue;
+            }
         }
         if (await store.create<DbUserEmail>({ type: 'user-email', id: email, pk: emailPk(email), userId: user.id }))
             return { user: await enrollUser(user), created: true };

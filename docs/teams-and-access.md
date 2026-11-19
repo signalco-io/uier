@@ -194,7 +194,7 @@ from team, member and invitation grants through the same guard, in `project.dele
 ([project deletion](project-deletion.md)). Transferring a project to another workspace removes its
 grants in the old workspace the same way (`project.transferred-out`) and writes it into the new one
 without grants (`project.transferred-in`); both events carry the project's name, since it is gone from
-one of them ([project transfer](project-transfer.md)). There is no self-service account/workspace deletion flow today. For a verified erasure request, include team/name records,
+one of them ([project transfer](project-transfer.md)). People can [delete their account](../apps/web/docs/account.md#deleting-an-account) in Account → General. A shared workspace must retain an admin. A sole member must transfer or delete its projects first. For a verified erasure request, include team/name records,
 member/invitation relationships, email-hashed generation records and affected access events in
 the existing scoped operator process. For workspace erasure, enumerate all these types in that
 workspace partition, and delete the `domain-workspace` lookup of each of its `workspace-domain`

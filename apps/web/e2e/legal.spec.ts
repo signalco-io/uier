@@ -19,6 +19,7 @@ for (const document of documents) {
             await expect(page.getByRole('listitem').filter({ hasText: /^Deleted data can stay in backups for up to seven days\.$/ })).toBeVisible();
             await expect(page.getByRole('listitem').filter({ hasText: /^Passkeys: until you remove them on your Account page, or with your account\./ })).toBeVisible();
             await expect(page.getByText(/Your fingerprint, face or screen lock only unlocks the passkey on your device; none of it reaches us\./)).toBeVisible();
+            await expect(page.getByRole('main')).toContainText('Account → General → Delete account');
             await expect(page.getByRole('main')).toContainText('including signed-in feedback');
             await expect(page.getByRole('main')).toContainText('X-Uier-Visitor');
             await expect(page.getByRole('main')).toContainText('Signed-in feedback on our site and app is private');
@@ -55,7 +56,7 @@ for (const document of documents) {
 test('the privacy and cookie policies describe Google sign-in', async ({ page }) => {
     await page.goto('/legal/privacy-policy');
     await expect(page.getByText(/^If you choose Sign in with Google, you sign in at Google/)).toBeVisible();
-    await expect(page.getByRole('listitem').filter({ hasText: /^A linked Google account: until you unlink it or ask us to delete your account\./ })).toBeVisible();
+    await expect(page.getByRole('listitem').filter({ hasText: /^A linked Google account: until you unlink it or delete your account\./ })).toBeVisible();
     await page.goto('/legal/cookie-policy');
     const cookie = page.getByRole('listitem').filter({ has: page.getByText('__Host-uier_google_sign_in', { exact: true }) });
     await expect(cookie).toContainText('Holds a signed record id, with no email address or Google data.');

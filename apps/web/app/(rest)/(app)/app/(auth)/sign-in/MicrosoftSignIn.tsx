@@ -25,12 +25,14 @@ export async function MicrosoftSignInProblem({ outcome }: { outcome?: string | s
     return <Alert role="alert" className="mb-3"><CircleAlertIcon /><AlertDescription>{t(problem)}</AlertDescription></Alert>;
 }
 
-export async function MicrosoftSignInButton({ next, lastUsed, addingAccount = false }: { next?: string; lastUsed?: boolean; addingAccount?: boolean }) {
+/** `again`: a fresh sign-in for a step that needs a recent one, so Microsoft asks for the credentials */
+export async function MicrosoftSignInButton({ next, lastUsed, addingAccount = false, again = false }: { next?: string; lastUsed?: boolean; addingAccount?: boolean; again?: boolean }) {
     const { t } = await getAppI18n();
     if (!isMicrosoftSignInConfigured()) return null;
     const params = new URLSearchParams();
     if (next) params.set('next', next);
     if (addingAccount) params.set('add', '1');
+    if (again) params.set('again', '1');
     return (
         // Full navigation: this route starts a sign-in and must never be prefetched.
         <a href={`${KnownPages.AppSignInMicrosoft}${params.size ? `?${params}` : ''}`}

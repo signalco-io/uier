@@ -56,7 +56,7 @@ workspaces on desktop, mobile and tablet with the production-build navigation lo
   its own shape (`components/app/account/AccountLoading.tsx`): its cards with their real titles (`accountTitles`
   in `accountSections.ts`, which the loaded cards read too) on `SectionOutline`, with outlines where the account's
   data goes, and one status per section ("Loading account", "Loading sign-in", "Loading notifications", "Loading
-  usage", "Loading coding agents"). General draws its five cards. Sign-in draws Google, Microsoft and Passkeys;
+  usage", "Loading coding agents"). General draws its six cards. Sign-in draws Google, Microsoft and Passkeys;
   Sign out needs nothing from the account, so `SignOutSection` is outside the page's boundary and is the real card
   and button from the start. A deployment without Google or Microsoft sign-in has no such card, so there that
   outline goes away when the page arrives (the fallback cannot read the configuration: the shell is built before
@@ -102,3 +102,54 @@ that becomes a spinner while the switch runs. The email is never truncated, sinc
 person's accounts apart: a long one wraps, before the @ first, and an account whose name is its email shows
 it once. Every choice opens the project's own workspace, so the description names it once instead of each
 row repeating it ([uier #390](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fswitch-project-account&comment=comment_i1j9YVrhB9l6lP51Qxz9H)).
+
+## Deleting an account
+
+Account → General → Delete account requires the active account’s email and a sign-in within the last
+ten minutes (`RECENT_SIGN_IN_SECONDS`, the passkeys’ limit). Deletion drops the active account
+from the browser and resumes another signed-in account if present. Signing up again creates a fresh
+identity. Project feedback and workspace history follow their normal retention rules.
+
+The card (`DeleteAccountSection`) is the row of a project’s danger zone: what deleting does, then the
+button, under the text on a phone. The page tells the dialog whether the sign-in is recent, as it does
+for passkeys. With an older one the dialog has no email field: it says why and offers Sign in again
+(`KnownPageLinks.signInAgain`, [sign-in](sign-in.md#sign-in-again)), which comes back to Account. The
+server checks the time again, so a sign-in that got old while the page was open turns the dialog into the
+same state. A request that succeeded keeps the dialog busy until the browser has left the page.
+
+The page the browser continues on says the account was deleted: Account for another signed-in account,
+the sign-in page otherwise. Its `deleted` value is a signed token that lasts two minutes and names the
+account the browser continues as (`accountDeletedNotice.ts`), so a link someone wrote cannot tell a
+person their account is gone.
+The browser also drops its copies of the deleted account's sidebar ([app shell](app-shell.md)), as it does on
+sign-out, and every copy when no account is left.
+
+The service checks every workspace before deleting the user. A shared workspace needs a remaining
+admin. A sole member can transfer or explicitly delete projects first. Their project-free workspace
+closes with the account. uier’s provisioned feedback workspace always stays open. Every workspace that
+needs a handoff comes back in one answer, one line each, and the dialog lists them: nobody is sent back
+once per workspace. Nothing is deleted in that case, and the workspaces it had reserved are released.
+
+The user and current avatar are deleted in the same Cosmos transaction that commits the cleanup request.
+Memberships are removed before the browser gets its answer, which releases the workspaces for other
+admins; the rest of the cleanup starts after the response. The scheduled
+worker retries interrupted cleanup and releases abandoned workspace reservations. Cleanup removes
+personal credentials, email and provider lookups, memberships, notification settings, read cursors,
+personal saved views and old invitation links. A final pass collects in-flight writes. The privacy
+contact remains available for scoped erasure of retained feedback and history.
+
+While a deletion prepares and until the membership is removed, access changes and new projects in the
+person’s workspaces answer “Workspace access is changing. Try again shortly.” That ends with the
+deleting request itself. Every way to create a project goes through `projectCreation` (`clients.ts`), the app’s
+form and the extension popup’s repeatable request alike: its transaction includes the workspace document as it
+was read, so a workspace that was reserved or closed meanwhile receives nothing. Give a new way to create a
+project the same operations. A workspace document that changed meanwhile is read again a few times, and
+one workspace that fails does not hold the others; only what still fails waits for the worker’s next
+run. A project transfer that was still finishing when its old workspace closed settles without that
+workspace.
+
+One email tells the deleted account’s address what happened (`accountDeletedEmail`), so its owner
+hears of a deletion they did not make; it names the privacy contact and has no button. The request
+claims the notice before sending, so cleanup runs that overlap send it once. When the provider refuses
+it, the request stays open with the address and the worker tries again, for up to an hour; then the
+request completes without it. The address is never logged.

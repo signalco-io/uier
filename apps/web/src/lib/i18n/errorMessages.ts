@@ -1,5 +1,7 @@
 /** Service errors keep their existing English API contract. UI presentation translates known templates. */
 const templates = [
+    'Make someone else an admin of {workspace} before deleting your account.',
+    'Transfer or delete the projects in {workspace}, or add another admin.',
     'Use at most {count} characters.',
     'Use at most {count} characters for the review brief.',
     'Use at most {count} characters for the client name.',

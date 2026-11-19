@@ -546,10 +546,10 @@ test('a request is the same request for the stated 30 days; its receipt and mark
         // The store commits the project and its marker, and the request stops before it reads anything back
         const committed = await reserveProjectCreation(owner, site('committed'), random(), limit);
         await expect(createProject(owner, site('committed'), { receipt: committed, store: { ...store,
-            createAll: async docs => { await store.createAll(docs); throw new Error('stopped after the commit'); } } })).rejects.toThrow('stopped after the commit');
+            transact: async operations => { await store.transact(operations); throw new Error('stopped after the commit'); } } })).rejects.toThrow('stopped after the commit');
         // A request that stopped after claiming its code: no project, no marker
         const stopped = await reserveProjectCreation(owner, site('stopped'), random(), limit);
-        await expect(createProject(owner, site('stopped'), { receipt: stopped, store: { ...store, createAll: async () => { throw new Error('stopped'); } } })).rejects.toThrow('stopped');
+        await expect(createProject(owner, site('stopped'), { receipt: stopped, store: { ...store, transact: async () => { throw new Error('stopped'); } } })).rejects.toThrow('stopped');
         expect(await store.get(workspacePk(own), stopped.projectId)).toBeNull();
         // Every claim is permanent from the moment it is made: none carries an expiry
         for (const id of [committed.projectId, stopped.projectId]) {

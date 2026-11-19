@@ -72,6 +72,8 @@ export type AppStore = {
     replace<T extends AppDoc>(doc: T, etag: string): Promise<ReplaceResult>;
     /** Returns `false` when the document does not exist */
     delete(pk: string, id: string): Promise<boolean>;
+    /** Identifiers only, for cleanup of a retired account or workspace partition. */
+    partitionIds(pk: string): Promise<string[]>;
     query<T extends AppDoc>(query: DocQuery<T['type']>): Promise<T[]>;
     /** Exact count over the complete match set, without loading documents or a TOP cap. */
     count<T extends AppDoc>(query: DocCount<T['type']>): Promise<number>;
@@ -272,6 +274,10 @@ export function createCosmosAppStore(container: () => Container = cosmosDataCont
                 throw error;
             }
         },
+        async partitionIds(pk) {
+            return cosmosQueryAll(container().items.query<string>('SELECT VALUE c.id FROM c', { partitionKey: pk }),
+                { operation: 'app.partition-ids', container: container().id, partition: 'single' });
+        },
         async query<T extends AppDoc>(input: DocQuery<T['type']>) {
             const { pk } = input;
             const resources = await cosmosQueryAll(container().items.query<Record<string, unknown>>(
@@ -389,6 +395,7 @@ export function createMemoryAppStore(): AppStore {
         async delete(pk, id) {
             return partition(pk).delete(id);
         },
+        async partitionIds(pk) { return [...partition(pk).keys()]; },
         async count(input) { return (await this.query(input)).length; },
         async query<T extends AppDoc>({ type, pk, where = {}, limit, orderBy, descending, dueBefore, afterId, missingTtl, nameContains, targetId }: DocQuery<T['type']>) {
             validateQueryBounds({ limit, orderBy, dueBefore, afterId, descending });
