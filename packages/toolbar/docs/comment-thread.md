@@ -4,7 +4,9 @@ A saved comment is a pin on the page with its thread in a popover (`components/C
 `CommentThread*.tsx`, `PinParticipants.tsx`); the inbox shows the same thread. Where the pin and its popover go,
 the people beside a pin, the hover preview and the new comment's form are in [popovers](composer-popovers.md).
 
-The app's `CommentCard` follows the same layout, icons and words: change both together.
+The app's `CommentCard` follows the same layout, icons and words: change both together. One difference: the app's
+thread has its title and details between its top line and the messages, so its first message keeps its own header
+line (author, time, device, Add reaction; its options are already in the thread's More actions).
 
 ## The pin
 
@@ -30,7 +32,11 @@ Checked in `apps/web/e2e/toolbar-thread.spec.ts`.
   it read-only ([hover preview](composer-popovers.md#hover-preview)). The popover has the reply form.
 - One thread layout for the popover and the inbox, so an opened thread shows its messages and reply box first.
 - The source line shows in the inbox, and on the page only when the original source is unavailable.
-- Messages have an avatar column and no dividers.
+- Messages have an avatar column and no dividers. The first message is the thread itself
+  ([uier #470](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fwl3q4fzid2uh&comment=comment_9tXqLlAhDRyRV0Y8QbPLq)):
+  its author, time and device are in [the header](#the-header) line and its text starts right under that line, at
+  full width (`CommentThreadItem`'s `header`). Replies keep their avatar, their own header line with Add reaction
+  and More options.
 - A longer thread shows its first and last message with "Show all N messages" between them, set between two
   `bg-border` lines so the gap reads as hidden messages (uier #443). Using it shows them and moves focus to the first.
 - No thread activity (who changed what): that history is in the app only (uier #374).
@@ -52,23 +58,37 @@ rules as other comments.
 
 ## The header
 
-`CommentThreadHeader.tsx` is one line:
+`CommentThreadHeader.tsx` is one line, the thread's and its first message's together (uier #470). It wraps only
+where it is too narrow, as in a pin's 288 px popover: the first message's author and time move under the status as
+one piece, its name truncated, and the device marks and actions stay on the first line. Where even the status and
+the actions don't fit side by side (a 320 px phone, whose touch targets are 44 px), the actions wrap to a line of
+their own, at the right, rather than cover the status. `e2e/toolbar-thread.spec.ts` checks it at 320 px.
 
 - The status: a menu like the app's `StateMenu` (Open, In progress, Ready to verify, Done) for those who may
   change it, else a badge ([status changes](optimistic-status.md)). Its dot glows like the app's status chip
   (`GlowingStatusDot`, the app's `GlowingStateDot`, [uier #462](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_nq7Ckm6_THp5pfj30OEra)); the menu's options do not.
 - `#id`, then the blue unread dot, which marks the thread read.
 - A priority other than Normal.
-- The assignee's avatar from `CommentAssignment.tsx`, with the AI agent working under them stacked on it (the
+- The first message's author (no avatar), "via" its agent and its time.
+- At the right: the assignee's avatar from `CommentAssignment.tsx`, with the AI agent working under them stacked on it (the
   marks from `agents.ts`), named by its tooltip ("Assigned to you, with Claude").
+- The first message's device marks ([device details](device-details.md)).
+- Add reaction to the first message ([reactions](reactions.md)), hidden while it is edited.
 - Then **Copy**: a menu with Copy issue ([feedback export](feedback-export.md)) and Copy link (`?uier-comment=`,
   `src/review.ts`), each described.
-- Then **Thread options** (`CommentThreadMenu.tsx`), with the triage and email controls each person may use:
-  assign (the people open under the line: Unassign, the people, Done; until the people load, two outlines of a
+- Add reaction, Copy and Thread options are 24 px buttons with 14 px icons (Thread options' is 16 px); a coarse
+  pointer still gets its 44 px hit area.
+- Then **Thread options** (`CommentThreadMenu.tsx`), the thread's one menu: first the first message's Edit and
+  Reattach comment, then the triage and email controls each person may use: assign (the people open under the line: Unassign, the people, Done; until the people load, two outlines of a
   person's row hold their place, `aria-hidden`, and a visually hidden `role="status"` says "Loading people…"),
   priority, Request verification ([fix verification](fix-verification.md)),
-  Follow / Unfollow thread, Mute project emails and, once read, Mark as unread. No menu when there is none.
-  Members (the project's viewer is a member, `useProjectViewer`) also get Open in app, last: a link to the thread in the
+  Follow / Unfollow thread, Mute project emails and, once read, Mark as unread, Open in app, and last the first message's
+  Delete… (destructive), which asks in the menu what deleting does before Delete. The menu is no taller than the
+  window's room on its side and scrolls inside, so Delete stays reachable by touch and End on a 480×320 screen
+  (`e2e/toolbar-thread.spec.ts`). The first message's items are
+  left out while it is edited, and wait while it saves. No menu when there is none, and none on a comment still
+  on its way.
+  Members (the project's viewer is a member, `useProjectViewer`) also get Open in app: a link to the thread in the
   app's inbox (`/app/projects/<code>?comment=<id>`, as in [the app's inbox](../../../apps/web/docs/comments-inbox.md)) in
   a new tab ([uier #445](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_z-D8sz84XrnMwNuGLXLMF)).
   Each item has a 16 px icon, like the toolbar's other menus. Opened from the inbox, the menu renders in the ink
@@ -76,9 +96,10 @@ rules as other comments.
 
 ## Message options
 
-`components/CommentThreadItemMenu.tsx`: edit, with Save and Cancel and stale-edit protection; Reattach comment on
-the first message ([anchor recovery](anchor-recovery.md)); delete, with a confirmation. For an edit,
-`CommentThreadItem.tsx` renders an inline `CommentComposer`, keeps failed text and returns the focus to the menu.
+A reply's More options (`components/CommentThreadItemMenu.tsx`): edit, with Save and Cancel and stale-edit
+protection; delete, with a confirmation. The first message's edit, Reattach comment ([anchor recovery](anchor-recovery.md))
+and delete are in Thread options. For an edit, `CommentThreadItem.tsx` renders an inline `CommentComposer`, keeps
+failed text and returns the focus to the menu it came from (Thread options for the first message).
 The edit's Cancel (a cross) and Save changes (a check) are icon buttons with tooltips and those accessible names, so
 long translations fit the narrow editor ([uier #395](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1%2Fpage-checks&comment=comment_F7pueH_f-8c5J-ATyyooS)).
 

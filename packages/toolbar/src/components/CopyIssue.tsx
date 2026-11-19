@@ -53,9 +53,10 @@ export function useCopyIssue(commentId: string) {
  * issue tracker or a coding tool) and the link (opens this page at the thread). "Issue copied." shows
  * under the button for two seconds; the shared announcer reports it to screen readers once.
  */
-export function CopyMenu({ state, className, linkAvailable, onCopyLink }: {
+export function CopyMenu({ state, className, iconSize = 16, linkAvailable, onCopyLink }: {
     state: ReturnType<typeof useCopyIssue>;
     className?: string;
+    iconSize?: number;
     linkAvailable: boolean;
     onCopyLink: () => void;
 }) {
@@ -78,7 +79,7 @@ export function CopyMenu({ state, className, linkAvailable, onCopyLink }: {
             trigger={(
                 <IconButton size="xs" variant="plain" className={className} aria-label={t.copy.label} aria-busy={state.pending} data-uier-thread-control=""
                     disabled={state.pending} {...triggerProps}>
-                    <Copy size={16} />
+                    <Copy size={iconSize} />
                 </IconButton>
             )}
             {...contentProps}>

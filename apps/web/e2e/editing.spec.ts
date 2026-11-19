@@ -13,10 +13,10 @@ test('own comments and replies can be edited, canceled and opened in the inbox a
     await page.reload();
     await page.locator('[data-uier-comment]').click();
     const thread = openThread(page);
-    const menu = thread.getByRole('button', { name: 'More options for your comment' });
+    const menu = thread.getByRole('button', { name: 'Thread options', exact: true });
     const startEdit = async () => {
         await menu.click();
-        await page.getByRole('dialog', { name: 'Comment options', exact: true }).getByRole('button', { name: 'Edit', exact: true }).click();
+        await page.getByRole('dialog', { name: 'Thread options', exact: true }).getByRole('button', { name: 'Edit', exact: true }).click();
     };
     await startEdit();
     const editor = thread.getByRole('textbox', { name: 'Edit comment', exact: true });
@@ -65,8 +65,8 @@ test('failed and stale edits keep the attempted text and never overwrite the new
     await page.reload();
     await page.locator('[data-uier-comment]').click();
     const thread = openThread(page);
-    await thread.getByRole('button', { name: 'More options for your comment' }).click();
-    await page.getByRole('dialog', { name: 'Comment options', exact: true }).getByRole('button', { name: 'Edit', exact: true }).click();
+    await thread.getByRole('button', { name: 'Thread options', exact: true }).click();
+    await page.getByRole('dialog', { name: 'Thread options', exact: true }).getByRole('button', { name: 'Edit', exact: true }).click();
     const editor = thread.getByRole('textbox', { name: 'Edit comment', exact: true });
     await editor.fill('Keep my attempted correction');
     const endpoint = `**/api/comments/${comment.id}/replies/${comment.thread.items[0]!.id}`;
@@ -91,8 +91,8 @@ test('failed and stale edits keep the attempted text and never overwrite the new
     await expect(editor).toHaveText('Keep my attempted correction', { useInnerText: true });
     await thread.getByRole('button', { name: 'Cancel', exact: true }).click();
     await expect(thread).toContainText('Newer saved message (edited)');
-    await thread.getByRole('button', { name: 'More options for your comment' }).click();
-    await page.getByRole('dialog', { name: 'Comment options', exact: true }).getByRole('button', { name: 'Edit', exact: true }).click();
+    await thread.getByRole('button', { name: 'Thread options', exact: true }).click();
+    await page.getByRole('dialog', { name: 'Thread options', exact: true }).getByRole('button', { name: 'Edit', exact: true }).click();
     await expect(editor).toHaveText('Newer saved message', { useInnerText: true });
     await editor.fill('Reviewed correction');
     await thread.getByRole('button', { name: 'Save changes' }).click();
