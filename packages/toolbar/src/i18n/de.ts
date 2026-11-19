@@ -711,6 +711,7 @@ export const de: Messages = {
         assignedToMe: 'Mir zugewiesen',
         reviewBrief: 'Review-Briefing',
         close: 'Seitenleiste schließen',
+        openInApp: 'In der App öffnen',
         filters: {
             archived: "Archiv",
             unresolved: 'Aktiv',

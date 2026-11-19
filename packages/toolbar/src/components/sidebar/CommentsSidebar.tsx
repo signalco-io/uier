@@ -15,6 +15,8 @@ import { InboxSearch } from './InboxSearch';
 import { RestoredPanelContext } from '../../openPanel';
 import { useMessages } from '../../i18n';
 import { InboxDrafts, type InboxDraft } from './InboxDrafts';
+import { inboxAppLink } from './inboxAppLink';
+import { toolbarConfig } from '../../config';
 
 export type CommentsSidebarProps = {
     /**
@@ -93,6 +95,10 @@ export function CommentsSidebar({ filter, onFilterChange: setFilter, onClose, on
                 <Stack ref={contentRef} tabIndex={0} data-uier-inbox-scroll="" className="h-full overflow-y-auto rounded-b-2xl outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
                     <Stack spacing={2} className="shrink-0 px-4 pt-3">
                         <CommentsSidebarHeader onClose={handleClose} autoFocus={!restored}
+                            // The same comments in the uier app, for members (only they can open the project there)
+                            appLink={isMember && toolbarConfig.project
+                                ? inboxAppLink({ apiUrl: toolbarConfig.apiUrl, project: toolbarConfig.project, filter, scope: inbox.scope, currentPath: inbox.currentPath, environment })
+                                : undefined}
                             search={<InboxSearch value={filter.keywords ?? ''} onChange={keywords => setFilter({ ...filter, keywords })}
                                 open={searchOpen} onOpenChange={setSearchOpen} />} />
                         {/* The search and filters are one group, closer together than the title and the tabs */}

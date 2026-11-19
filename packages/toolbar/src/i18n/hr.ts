@@ -712,6 +712,7 @@ export const hr: Messages = {
         assignedToMe: 'Dodijeljeno meni',
         reviewBrief: 'Upute za pregled',
         close: 'Zatvori bočnu ploču',
+        openInApp: 'Otvori u aplikaciji',
         filters: {
             archived: "Arhiva",
             unresolved: 'Aktivno',

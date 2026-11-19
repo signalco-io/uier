@@ -712,6 +712,7 @@ export const it: Messages = {
         assignedToMe: 'Assegnati a me',
         reviewBrief: 'Indicazioni per la revisione',
         close: 'Chiudi il pannello laterale',
+        openInApp: 'Apri nell’app',
         filters: {
             archived: "Archivio",
             unresolved: 'Attivi',

@@ -734,6 +734,7 @@ export const en = {
         assignedToMe: 'Assigned to me',
         reviewBrief: 'Review brief',
         close: 'Close sidebar',
+        openInApp: 'Open in app',
         filters: {
             archived: "Archive",
             unresolved: 'Active',
