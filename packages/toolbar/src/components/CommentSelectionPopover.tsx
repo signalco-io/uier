@@ -78,7 +78,7 @@ export function CommentSelectionPopover({ rects, onCreate, onRewrite }: CommentS
                 aria-label={t.selection.label}
                 aria-orientation="horizontal"
                 onKeyDown={handleKeyDown}
-                className="absolute z-[52] -translate-x-1/2 rounded-full border bg-background p-1 text-foreground shadow-[0_8px_24px_rgba(0,0,0,0.16)]"
+                className="absolute z-[52] -translate-x-1/2 rounded-full border bg-background p-1 text-foreground shadow-(--brand-shadow-review)"
                 style={{ left: leftFixed, top: topFixed }}>
                 <Row>
                     {actions.map((action, index) => (

@@ -69,7 +69,7 @@ function ToastList({ items }: { items: Toast[] }) {
                     <div
                         key={toast.id}
                         role="alert"
-                        className="flex items-start gap-2 rounded-xl border bg-background p-3 text-foreground shadow-[0_8px_24px_rgba(0,0,0,0.16)] animate-in fade-in slide-in-from-bottom-2"
+                        className="flex items-start gap-2 rounded-xl border bg-background p-3 text-foreground shadow-(--brand-shadow-review) animate-in fade-in slide-in-from-bottom-2"
                         onPointerEnter={() => hold(toast.id)}
                         onPointerLeave={event => { if (!event.currentTarget.matches(':focus-within')) scheduleDismiss(toast); }}
                         onFocus={() => hold(toast.id)}
