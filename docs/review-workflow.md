@@ -712,6 +712,10 @@ showcase contexts produced these endpoint counts:
 | Adaptive active | 8 | 8 | 16 | 8 | 32 |
 | Adaptive settled idle | 2 | 2 | 4 | 2 | 8 |
 
+With archiving (#599), each page and site list also reads a separate archived window.
+The current budget checks 16 ordinary and 16 archived comment GETs while active, and four of each
+while settled idle. Including identity and activity, those windows allow 48 and 12 GETs respectively.
+
 Settled idle cycles and endpoint reads fall **75%**; the healthy maximum discovery delay rises from
 15 to 60 seconds, plus round-trip time. The clock test introduces a remote update immediately
 after an idle read and checks discovery at the next idle deadline, unread preservation and return

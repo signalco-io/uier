@@ -437,18 +437,20 @@ test('app bulk read follows environment, page and people filters in list and boa
 });
 
 
-type RefreshCounts = { identity: number; comments: number; activity: number };
+type RefreshCounts = { identity: number; comments: number; archivedComments: number; activity: number };
 
 // Count only background rounds: attach after initial loads and keep mutations/explicit returns
 // outside the measured windows. The open inbox mounts both page and site-list queries.
 function refreshCounter(page: Page, identityPath: string, commentsPath: string) {
-    const counts: RefreshCounts = { identity: 0, comments: 0, activity: 0 };
+    const counts: RefreshCounts = { identity: 0, comments: 0, archivedComments: 0, activity: 0 };
     const pending = new Set<import('@playwright/test').Request>();
     page.on('request', request => {
         if (request.method() !== 'GET') return;
-        const path = new URL(request.url()).pathname;
-        const key = path === identityPath ? 'identity' : path === commentsPath ? 'comments'
-            : path === `${commentsPath}/activity` ? 'activity' : undefined;
+        const url = new URL(request.url());
+        let key: keyof RefreshCounts | undefined;
+        if (url.pathname === identityPath) key = 'identity';
+        else if (url.pathname === commentsPath) key = url.searchParams.get('archive') === 'only' ? 'archivedComments' : 'comments';
+        else if (url.pathname === `${commentsPath}/activity`) key = 'activity';
         if (key) { counts[key]++; pending.add(request); }
     });
     page.on('requestfinished', request => pending.delete(request));
@@ -614,15 +616,20 @@ for (const mode of ['showcase', 'project'] as const) {
                     await reviewer.page.clock.runFor(15_000);
                     await counter.settle();
                 }
-                return { identity: counts.identity - start.identity, comments: counts.comments - start.comments, activity: counts.activity - start.activity };
+                return {
+                    identity: counts.identity - start.identity,
+                    comments: counts.comments - start.comments,
+                    archivedComments: counts.archivedComments - start.archivedComments,
+                    activity: counts.activity - start.activity
+                };
             };
             const active = await sample(true);
-            expect(active).toEqual({ identity: 8, comments: 16, activity: 8 });
+            expect(active).toEqual({ identity: 8, comments: 16, archivedComments: 16, activity: 8 });
             await sample(); // Reach the healthy idle cap, outside the observation window.
             const idle = await sample();
-            expect(idle).toEqual({ identity: 2, comments: 4, activity: 2 });
+            expect(idle).toEqual({ identity: 2, comments: 4, archivedComments: 4, activity: 2 });
             await testInfo.attach(`${mode}-polling-counts`, { body: JSON.stringify({ windowSeconds: 120, active, idle,
-                baseline: { identity: 8, comments: 16, activity: 8 }, reduction: '75%' }), contentType: 'application/json' });
+                reduction: '75%' }), contentType: 'application/json' });
             console.log(mode, 'scheduled refresh counts (120 seconds)', { active, idle });
             // Align with a completed idle round so the update exercises the full idle bound.
             const beforeAlignment = counts.activity;
