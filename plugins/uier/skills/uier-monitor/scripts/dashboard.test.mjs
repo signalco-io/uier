@@ -327,6 +327,37 @@ test('the page is one self-contained script without template syntax, in the bran
     }
 });
 
+test('the machine total counts every monitor\'s sessions and claims against the shared limit, and shows who waits', () => {
+    const fresh = new Date().toISOString();
+    const a = stateDir({ project: { id: 'pa', name: 'A' }, updatedAt: fresh, max: 6,
+        groups: { g1: { state: 'building' }, g2: { state: 'reviewing' }, g3: { state: 'queued' }, g4: { state: 'queued' } } }, { 'watch.json': { heartbeatAt: fresh } });
+    const b = stateDir({ project: { id: 'pb', name: 'B' }, updatedAt: fresh, groups: { g1: { state: 'fixing' }, g2: { state: 'queued' } } }, { 'watch.json': { heartbeatAt: fresh } });
+    const left = stateDir({ project: { id: 'pc', name: 'Left behind' }, updatedAt: '2026-10-01T00:00:00Z', groups: { g1: { state: 'building' } } });
+    const states = [a, b, left];
+    assert.deepEqual(collect({ ...outside, states }).capacity, { max: 12, used: 3, waiting: 0 }, 'default 12; an inactive monitor holds nothing');
+
+    writeFileSync(join(home, 'settings.json'), JSON.stringify({ maxSessions: 4 }));
+    writeFileSync(join(home, 'slots.json'), JSON.stringify({
+        claims: {
+            live: { monitor: 'ka', dir: a, group: 'g3', from: 'queued', at: Date.now() },
+            recorded: { monitor: 'ka', dir: a, group: 'g1', from: 'queued', at: Date.now() },
+            expired: { monitor: 'ka', dir: a, group: 'g4', from: 'queued', at: Date.now() - 16 * 60_000 }
+        },
+        waiting: { kb: { dir: b, since: Date.now() - 5 * 60_000, project: 'B' } }
+    }));
+    try {
+        const shown = collect({ ...outside, states });
+        assert.deepEqual(shown.capacity, { max: 4, used: 4, waiting: 1 }, 'only the claim still waiting for its session counts');
+        const byName = Object.fromEntries(shown.monitors.map(entry => [entry.project.name, entry]));
+        assert.deepEqual(byName.B.waiting.map(item => item.key), ['sessions', 'capacity']);
+        assert.equal(byName.B.waiting[1].text, 'A free session slot on this machine');
+        assert.ok(!byName.A.waiting.some(item => item.key === 'capacity'));
+    } finally {
+        rmSync(join(home, 'settings.json'), { force: true });
+        rmSync(join(home, 'slots.json'), { force: true });
+    }
+});
+
 test('the command line prints a snapshot as JSON and explains itself', () => {
     const dir = stateDir({ project: { id: 'p1', name: 'Printed fixture' } });
     mkdirSync(join(home, 'monitors'), { recursive: true });
