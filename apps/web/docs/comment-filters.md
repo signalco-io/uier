@@ -11,6 +11,10 @@
   Clear filters clears it too) and `onView` for its own List/Board memory, and leaves out `environments` (no Environment
   and page filter) and `statusCounts` (no status tabs, and no Status filter on its board, which groups by category).
   A project's comments pass neither `projects` nor `onView`.
+- On a project's comments the filter row ends in the app's divider (`filtersDivider` in `CommentsViewToggle.tsx`,
+  `border-border`, as wide as the row, in the list and the board, the loading header too) and sits 12 px under the
+  project's tabs instead of the other pages' 24 px (`data-project-comments` on the comments, read by the project layout;
+  [uier #495](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_LR-sL0UFZLeYvt-vbZbdS)).
 - The comments' filter bar (`CommentFilters.tsx`): in the list the status tabs first, left-aligned at the list's left edge
   ([uier #405](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_fQEilWWPBW-H35qpwStTM); below), then at the right end of that row the filters in
   effect, the Archive's sort (in the Archive only), Filter, Group by, the search and List/Board, the search directly left of List/Board in the list and the board
