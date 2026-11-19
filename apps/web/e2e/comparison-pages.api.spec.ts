@@ -18,6 +18,29 @@ test('both comparison tables document Pastel HTML uploads and the agent workflow
     }
 });
 
+test('comparison HTML links the scoped file proof and approval claims', async ({ request }) => {
+    const docs = 'https://github.com/signalco-io/uier/blob/main/apps/web/docs';
+    for (const path of ['/compare/pastel', '/compare/website-feedback-tools']) {
+        const response = await request.get(path, { headers: { 'User-Agent': 'Googlebot' } });
+        expect(response.status(), path).toBe(200);
+        const html = await response.text();
+        expect(html).toContain('Six format families, enabled per project');
+        expect(html).toContain('Images, searchable PDFs, selected Figma frames, MP4, ProRes MOV and WebM video, uploaded EML, and interactive HTML from ZIP uploads.');
+        expect(html).toContain('Guest review of HTML ZIP uploads is in preview.');
+        expect(html).toContain('PDF previews are sanitized. Authorized reviewers can download the original separately.');
+        expect(html).toContain('HTML runs on an isolated host. Email is upload-only. Inbound SMTP is unavailable.');
+        expect(html).toContain('Reviewing a finished fix');
+        expect(html).toContain('Approving a file version');
+        expect(html).toContain('Required reviewers each approve or request changes on the whole file version.');
+        expect(html).toContain('Set an optional deadline for the round.');
+        expect(html).toContain('No task due dates.');
+        expect(html).toContain(`href="${docs}/proof-api.md#format-settings-and-processing"`);
+        expect(html).toContain(`href="${docs}/proof-api.md#version-approvals-and-review-record"`);
+        expect(html).toContain(`href="${docs}/proof-viewer.md"`);
+        expect(html).not.toContain('No file proofing');
+    }
+});
+
 test('comparison caveats and official evidence are present in crawler HTML', async ({ request }) => {
     const response = await request.get('/compare/website-feedback-tools', { headers: { 'User-Agent': 'Googlebot' } });
     expect(response.status()).toBe(200);
@@ -33,6 +56,8 @@ test('comparison caveats and official evidence are present in crawler HTML', asy
     expect(html).toContain('edit mode is unavailable in web app projects');
     expect(html).not.toContain('No live site editing');
     expect(html).toContain('Custom statuses and labels');
+    expect(html).toContain('use the project-scoped REST API for a custom integration');
+    expect(html).toContain('href="/developers/api"');
     expect(html).not.toContain('no custom statuses');
     expect(html).not.toContain('1,000 recent threads');
 });

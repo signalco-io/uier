@@ -37,10 +37,21 @@ for (const populated of [false, true]) {
         test.setTimeout(60_000);
         await signIn(page, uniqueEmail('partial'));
         if (populated) await createProject(page, { urls: ['https://partial.example.com'], name: 'Partial project' });
+        // Observe the sidebar Link's own shell prefetch from Projects. Hydration alone can leave Next's
+        // discovery and shell requests in flight when instant() takes the lock.
+        const shellPrefetch = page.waitForResponse(response => {
+            const headers = response.request().headers();
+            return new URL(response.url()).pathname === '/app/my-work'
+                && headers['next-url'] === '/app/projects'
+                && headers['next-router-prefetch'] === '3'; // Next's RuntimeShell request
+        });
         await page.goto('/app/projects');
         const navigation = await appNavigation(page);
         const link = navigation.getByRole('link', { name: 'My work', exact: true });
         await hydrated(link);
+        const shell = await shellPrefetch;
+        expect(shell.ok()).toBe(true);
+        expect(await shell.finished()).toBeNull();
         await instant(page, async () => {
             await link.click();
             await expect(page).toHaveURL(/\/app\/my-work$/);

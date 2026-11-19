@@ -25,22 +25,61 @@ documents single files and folders or ZIPs with bundled assets. An agent can upl
 canvas using the CLI or MCP. The [MCP reference](https://help.usepastel.com/en/articles/16399713-connect-your-ai-agent-to-pastel-mcp-server)
 documents its permissions and comment tools. The ledger distinguishes an uploaded prototype from a live website URL.
 
-uier’s integration summary covers its five project destinations, MCP access for coding tools and the REST API for custom integrations.
+uier’s integration summary covers its five project destinations, MCP access for coding tools and the project-scoped REST API for custom integrations. The hub, overview and each pair link the public REST reference.
 
 uier's claims follow the shipped feature pages, `docs/review-workflow.md`, the reproduction
 allowlist and screenshot/recording policies. Short screen recordings have explicit browser,
 permission, size and duration limits; built-in capture has no audio and ends on full-page navigation.
 The ledger marks them available and keeps those limits in the detail text.
-Keep its absent replay, console/network capture,
-file proofing, surveys, due dates and release-wide approval visible. Custom statuses and
-labels are shipped: up to 30 workspace statuses, with project overrides, refine the five categories
+Keep the limits on replay, console/network capture, surveys, task due dates and release-wide
+approval visible. Up to 30 workspace statuses, with project overrides, refine the five categories
 Open, In progress, Ready to verify, Done and Archive, while guest actions
 retain their category permissions. Project search covers the authorized scope with paged results;
 the former 1,000-recent-thread cap does not apply. Bulk operations still affect at most 50 shown
-threads. Fix verification needs project opt-in and a per-thread request. Image attachments do not imply
-asset proofing, in-browser checks do not imply scheduled site crawling, and per-thread reviewer
-confirmation does not approve an entire asset version or release. No competitor-history importer
-is provided. Change these entries with the product.
+threads. In-browser checks cover the reviewed page. No competitor-history importer is provided.
+Change these entries with the product.
+
+## File review and approval scope
+
+The hub, overview and tables describe six file format families. Each project enables the families
+it needs. The proofing row uses “Has limits” for project settings and input scope, including
+upload-only EML. Inbound SMTP is unavailable. The public comparisons mark guest review of
+interactive HTML ZIP uploads as preview.
+
+- Images cover member and guest review. Selected Figma frames can be resynced after a rename.
+  The review link stays stable, and the existing thread keeps its original version and location.
+- Protected preview tested two real PDF revisions with three and four searchable pages.
+  The sanitized display PDF and the authorized original download were served separately.
+- Hosted video qualification covered two versions each of MP4, ProRes MOV converted for playback,
+  and WebM. The browser could play and seek all six versions. Authorized original downloads
+  matched their source digests.
+- Hosted EML qualification covered two uploaded versions.
+- Two HTML ZIP revisions opened and ran interactively on the isolated preview host. Hosted
+  acceptance at `47235b6e` reopened historical native controls and showed a captured reference for
+  the custom menu state. A scoped MCP client published a second version, and revoking the share
+  blocked guest access. [Hosted preview deployment](https://github.com/signalco-io/uier/actions/runs/44520142945)
+- On production `24040d3c`, the dedicated renderer returned the expected anonymous 404 at its root.
+  A signed production guest review with an interactive render is still pending.
+  [Production deployment run](https://github.com/signalco-io/uier/actions/runs/44522256999)
+
+Preview recorded two independent whole-version approvals and a separate fix verification on an
+existing thread. The matrix has separate rows for
+[version approval](proof-api.md#version-approvals-and-review-record) and
+[per-thread fix verification](fix-verification.md). Fix verification needs project opt-in and a
+request on the thread. An approval round may have a deadline, while tasks have no due dates.
+A new file version starts with fresh approval decisions. The [file viewer](proof-viewer.md) and
+[format settings](proof-api.md#format-settings-and-processing) document the review workflows.
+
+Follow the [release plan](../../../docs/design/file-design-proofing.md#release-and-verification)
+for the workflows the comparisons describe. Remove the HTML guest review preview label after
+the signed guest journey passes in production.
+
+The approval row points to official sources that distinguish actual decisions from version history
+and task status. BugHerd documents asset versions in beta. Marker.io documents an issue review status.
+ruttl documents page and image approval. Those sources do not establish per-version file decisions.
+Pastel documents decisions tied to individual canvas versions.
+
+## Website editing and capture scope
 
 The CSS and text demonstration row describes a single-element preview and exact original and proposed
 values for implementation in source. The linked pinned-comments page explains how to use it. ruttl's
@@ -109,5 +148,5 @@ competitor account or a performance benchmark.
 responsive width and accessibility. The shared SEO and social-card API suites cover generated
 HTML, sitemap inclusion and actual card PNGs. The public-footer suite includes all eight pages.
 Focused comparison coverage also guards general and scope-specific source-review dates, CSS and text
-claims, current custom-status/paging claims, distinct examples, ruttl's announced checks and pricing
-conflicts, and the shared MCP limits.
+claims, current custom-status/paging claims, the six proofing families and their scope, distinct
+approval and verification rows, distinct examples, ruttl's announced checks and pricing conflicts, and the shared MCP limits.

@@ -4,6 +4,7 @@ import type { WorkflowKind } from './WorkflowPicture';
 const originalReview = { date: '2026-11-11', label: '11 November 2026' };
 const currentReview = { date: '2026-11-15', label: '15 November 2026' };
 const editingReview = { date: '2026-11-19', label: '19 November 2026' };
+const proofingReview = { date: '2026-11-19', label: '19 November 2026' };
 type Review = { date: string; label: string };
 type Source = { label: string; url: string; reviewed?: Review };
 export type Support = 'yes' | 'limited' | 'no' | 'unknown';
@@ -16,9 +17,10 @@ export const dimensions = [
     { id: 'replay', name: 'Session replay before a report' },
     { id: 'diagnostics', name: 'Console and network capture' },
     { id: 'assets', name: 'File and design proofing' },
+    { id: 'confirmation', name: 'Reviewing a finished fix' },
+    { id: 'approval', name: 'Approving a file version' },
     { id: 'research', name: 'Surveys and request voting' },
     { id: 'workflow', name: 'Organizing the work' },
-    { id: 'confirmation', name: 'Reviewing a finished fix' },
     { id: 'mcp', name: 'MCP for coding tools' },
     { id: 'checks', name: 'Accessibility and SEO checks' }
 ] as const;
@@ -41,9 +43,17 @@ export type Product = {
 const fact = (support: Support, label: string, detail: string, source?: string): Fact => ({ support, label, detail, source });
 const unverified = (source: string) => fact('unknown', 'Not verified', 'The sources checked do not establish support or absence.', source);
 
+export const uierHtmlGuestReview = 'Guest review of HTML ZIP uploads is in preview.';
+export const uierProofFormats = `Images, searchable PDFs, selected Figma frames, MP4, ProRes MOV and WebM video, uploaded EML, and interactive HTML from ZIP uploads. ${uierHtmlGuestReview}`;
+export const uierProofSources = {
+    viewer: `${brand.repository}/blob/main/apps/web/docs/proof-viewer.md`,
+    formats: `${brand.repository}/blob/main/apps/web/docs/proof-api.md#format-settings-and-processing`,
+    approvals: `${brand.repository}/blob/main/apps/web/docs/proof-api.md#version-approvals-and-review-record`
+};
+
 export const uier: Product = {
-    name: brand.name, reviewed: currentReview, kind: 'review', focus: 'Live-page review → a checked fix',
-    bestFor: 'Preview proposed text and style changes on the page, assign the feedback and ask a named reviewer to check the fix.',
+    name: brand.name, reviewed: currentReview, kind: 'review', focus: 'Live pages and file versions',
+    bestFor: 'Preview changes on a live page and request a fix check. Collect feedback and named approvals on file versions.',
     facts: {
         website: fact('yes', 'Element, text, area and drawing', 'Review the actual page with anchored comments or draw a change on the page.', '/features/pinned-comments'),
         editing: fact('yes', 'On-page text and style previews', 'With Text rewrites available, propose replacement text, text and background colors, text size and weight, padding and corner radius on one eligible element. Switch between Original and Proposed on the page while the target matches. Copy the exact values from the thread for your team to implement in the site’s source.', '/features/pinned-comments#preview-a-change'),
@@ -51,10 +61,11 @@ export const uier: Product = {
         recording: fact('yes', 'Short screen recordings', 'Attach a recording up to 60 seconds and 25 MiB. Browser capture needs permission and a secure context; upload MP4 or WebM when capture is unavailable. Built-in capture has no audio and ends on full-page navigation.', `${brand.repository}/blob/main/docs/recordings.md`),
         replay: fact('no', 'Not supported', 'No timeline of what happened before a report.'),
         diagnostics: fact('no', 'Not supported', 'Browser details are captured; console logs and network requests are not.'),
-        assets: fact('no', 'No file proofing', 'Images can accompany a thread. There are no PDF, design-file, video or email review canvases.'),
+        assets: fact('limited', 'Six format families, enabled per project', `${uierProofFormats} PDF previews are sanitized. Authorized reviewers can download the original separately. Play and seek video in the browser. ProRes MOV is converted for playback. HTML runs on an isolated host. Email is upload-only. Inbound SMTP is unavailable.`, uierProofSources.formats),
         research: fact('no', 'Not supported', 'No NPS or CSAT surveys, public voting board or product roadmap.'),
-        workflow: fact('yes', 'Custom statuses and labels', 'Up to 30 workspace statuses, with project overrides, grouped under Open, In progress, Ready to verify, Done and Archive. Search covers the authorized project scope with paged results; bulk actions affect at most 50 shown threads. No due dates.', `${brand.repository}/blob/main/apps/web/docs/project-settings.md#custom-statuses`),
-        confirmation: fact('limited', 'Named reviewer per thread', 'An admin enables fix verification for the project. A member can then request a reviewer’s check. Ordinary Done and admin overrides remain separate; this is not release or asset-version approval.', '/features/fix-verification'),
+        workflow: fact('yes', 'Custom statuses and labels', 'Up to 30 workspace statuses, with project overrides, grouped under Open, In progress, Ready to verify, Done and Archive. Search covers the authorized project scope with paged results. Bulk actions affect at most 50 shown threads. No task due dates.', `${brand.repository}/blob/main/apps/web/docs/project-settings.md#custom-statuses`),
+        confirmation: fact('limited', 'Named reviewer per thread', 'A project admin enables fix verification. A member can request a named reviewer’s check on one thread. Ordinary Done and admin overrides remain separate.', '/features/fix-verification'),
+        approval: fact('yes', 'Named reviewers per version', 'Required reviewers each approve or request changes on the whole file version. Set an optional deadline for the round. Each new version starts with fresh decisions. Fix verification is a separate check on one thread.', uierProofSources.approvals),
         mcp: fact('yes', 'Read and approved actions', 'Coding tools can work with feedback. An agent cannot confirm a fix.', '/features/ai'),
         checks: fact('limited', 'In-browser page checks', 'Accessibility and SEO checks on reviewed pages; no site-wide scheduled crawler or compliance certification.', '/features/page-checks')
     },
@@ -70,7 +81,10 @@ export const uier: Product = {
         { label: 'Paged project search and bulk selection', url: `${brand.repository}/blob/main/apps/web/docs/comments-inbox.md#paged-project-comments` },
         { label: 'Drawings and protected reply images', url: `${brand.repository}/blob/main/docs/feedback-context.md` },
         { label: 'uier features and pricing', url: '/#features' },
-        { label: 'On-page text and style previews', url: '/features/pinned-comments#preview-a-change', reviewed: editingReview }
+        { label: 'On-page text and style previews', url: '/features/pinned-comments#preview-a-change', reviewed: editingReview },
+        { label: 'File viewer and version links', url: uierProofSources.viewer, reviewed: proofingReview },
+        { label: 'File formats and project settings', url: uierProofSources.formats, reviewed: proofingReview },
+        { label: 'Approval rounds and review records', url: uierProofSources.approvals, reviewed: proofingReview }
     ]
 };
 
@@ -78,13 +92,15 @@ const bugherdSources = {
     features: 'https://bugherd.com/features', pricing: 'https://bugherd.com/pricing',
     video: 'https://bugherd.com/video-feedback-tool', board: 'https://bugherd.com/use-case/website-qa-tool',
     mcp: 'https://bugherd.com/feature/mcp', editing: 'https://bugherd.com/feature/suggest-text-edits',
-    setup: 'https://support.bugherd.com/en/articles/11424313-get-feedback-from-clients-on-websites-and-files'
+    setup: 'https://support.bugherd.com/en/articles/11424313-get-feedback-from-clients-on-websites-and-files',
+    versions: 'https://support.bugherd.com/en/articles/17594088-asset-versioning-beta'
 };
 const markerSources = {
     pricing: 'https://marker.io/pricing', integrations: 'https://marker.io/integrations',
     annotation: 'https://marker.io/website-design-feedback',
     replay: 'https://help.marker.io/en/articles/6673880-session-replay-videos',
-    handoff: 'https://help.marker.io/en/articles/14430683-why-are-console-logs-network-requests-and-replays-linked-instead-of-attached'
+    handoff: 'https://help.marker.io/en/articles/14430683-why-are-console-logs-network-requests-and-replays-linked-instead-of-attached',
+    statuses: 'https://help.marker.io/en/articles/13645268-issue-statuses'
 };
 const usersnapSources = {
     features: 'https://usersnap.com/features', pricing: 'https://usersnap.com/pricing', integrations: 'https://usersnap.com/integrations',
@@ -115,6 +131,7 @@ const ruttlSources = {
     comments: 'https://www.ruttl.com/features/comment-on-website',
     webApps: 'https://www.ruttl.com/features/review-web-applications',
     editing: 'https://www.ruttl.com/blog/marker-io-alternatives-best-web-annotation-bug-reporting-tools',
+    approvals: 'https://v3-website.ruttl.com/support/using-ruttl',
     integrations: 'https://www.ruttl.com/features/integrations', mcp: 'https://www.ruttl.com/mcp'
 };
 
@@ -133,6 +150,7 @@ export const competitors = {
             research: unverified(bugherdSources.features),
             workflow: fact('yes', 'Custom Kanban columns', 'Assignment, priority and due dates on a project board.', bugherdSources.board),
             confirmation: unverified(bugherdSources.board),
+            approval: fact('unknown', 'Version approval unverified', 'BugHerd documents file versions and feedback tied to those versions in beta. Approval decisions per version are unverified.', bugherdSources.versions),
             mcp: fact('yes', 'MCP, currently beta', 'Read task context, update tasks and add comments; included for subscribers.', bugherdSources.mcp),
             checks: unverified(bugherdSources.features)
         },
@@ -145,7 +163,8 @@ export const competitors = {
             { label: 'Features and capture', url: bugherdSources.features }, { label: 'Video recording', url: bugherdSources.video },
             { label: 'Kanban workflow', url: bugherdSources.board }, { label: 'Plans, files and integrations', url: bugherdSources.pricing },
             { label: 'Client access and setup', url: bugherdSources.setup }, { label: 'BugHerd MCP', url: bugherdSources.mcp },
-            { label: 'Text replacement suggestions', url: bugherdSources.editing, reviewed: editingReview }
+            { label: 'Text replacement suggestions', url: bugherdSources.editing, reviewed: editingReview },
+            { label: 'Asset versions in beta', url: bugherdSources.versions, reviewed: proofingReview }
         ]
     },
     'marker-io': {
@@ -162,6 +181,7 @@ export const competitors = {
             research: unverified(markerSources.pricing),
             workflow: fact('yes', 'Issue-tracker handoff', 'Route reports into a connected task tool. Integration availability depends on the plan.', markerSources.integrations),
             confirmation: unverified(markerSources.pricing),
+            approval: fact('unknown', 'Version approval unverified', 'Marker.io documents a review status for individual issues. Approval decisions per file version are unverified.', markerSources.statuses),
             mcp: fact('yes', 'MCP listed', 'The current plan matrix includes AI and MCP capabilities; check the selected plan.', markerSources.pricing),
             checks: fact('limited', 'Scheduled monitoring', 'Accessibility and content checks are listed. The matrix marks broken links and SEO as coming soon, although the FAQ describes broken links as current; verify that availability.', markerSources.pricing)
         },
@@ -175,7 +195,8 @@ export const competitors = {
             { label: 'Session replay and recording limitations', url: markerSources.replay },
             { label: 'Integration marketplace', url: markerSources.integrations },
             { label: 'What stays linked in Marker.io', url: markerSources.handoff },
-            { label: 'Screenshot annotations for website design feedback', url: markerSources.annotation, reviewed: editingReview }
+            { label: 'Screenshot annotations for website design feedback', url: markerSources.annotation, reviewed: editingReview },
+            { label: 'Issue review statuses', url: markerSources.statuses, reviewed: proofingReview }
         ]
     },
     usersnap: {
@@ -192,6 +213,7 @@ export const competitors = {
             research: fact('yes', 'Surveys and voting boards', 'NPS, CSAT, polls, targeting and public requests. Boards and roadmaps depend on the plan.', usersnapSources.features),
             workflow: fact('yes', 'Feedback and opportunities', 'Organize feedback evidence and connect it to opportunities and external tools.', usersnapSources.integrations),
             confirmation: unverified(usersnapSources.features),
+            approval: unverified(usersnapSources.features),
             mcp: fact('yes', 'Feedback and opportunities', 'Read evidence and create opportunities; company access must be enabled. Raw feedback editing and deletion are unavailable through MCP.', usersnapSources.mcp),
             checks: unverified(usersnapSources.features)
         },
@@ -222,7 +244,8 @@ export const competitors = {
             assets: fact('yes', 'Multi-format canvases', 'Pin comments on PDFs and images, or review videos and marketing emails. An agent can upload an HTML prototype as a single file, folder or ZIP with its CSS, JavaScript and images. Reviewers use the same canvas link across revisions.', pastelSources.html),
             research: unverified(pastelSources.faq),
             workflow: fact('yes', 'Canvas organization', 'Assignments, labels, deadlines, folders and pausing comments.', pastelSources.pricing),
-            confirmation: fact('yes', 'Asset-version approval', 'Approve or request changes per canvas version. New versions need a new decision; this differs from per-thread fix verification.', pastelSources.approvals),
+            confirmation: fact('unknown', 'Per-thread verification unverified', 'Pastel documents comment status updates. A named reviewer’s check of a specific fix is unverified.', pastelSources.mcp),
+            approval: fact('yes', 'Asset-version approval', 'Approve or request changes per canvas version. Each new version requires a fresh decision.', pastelSources.approvals),
             mcp: fact('yes', 'Canvas and comment tools', 'A connected agent can upload an HTML revision, read comments, reply and update their status within the user’s permissions.', pastelSources.mcp),
             checks: unverified(pastelSources.faq)
         },
@@ -253,6 +276,7 @@ export const competitors = {
             research: fact('limited', 'Surveys and feature portal', 'Surveys, voting and product-feedback collection are listed on Business and above.', userbackSources.pricing),
             workflow: fact('yes', 'Custom feedback workflows', 'Configure statuses, automation and privacy per site. Userback distinguishes site settings from feedback collection settings.', userbackSources.workflow),
             confirmation: unverified(userbackSources.features),
+            approval: unverified(userbackSources.features),
             mcp: fact('limited', 'OAuth and feedback tools', 'Read feedback and logs, comment, assign and update workflow through approved tool calls. OAuth follows existing workspace permissions; plan availability is covered below.', userbackSources.mcp),
             checks: unverified(userbackSources.features)
         },
@@ -290,6 +314,7 @@ export const competitors = {
             research: unverified(ruttlSources.features),
             workflow: fact('yes', 'Custom Kanban lists', 'Assign work, set priorities and deadlines, and organize comments in custom lists.', ruttlSources.comments),
             confirmation: unverified(ruttlSources.comments),
+            approval: fact('limited', 'Page and image approval', 'ruttl documents approval for website pages and images. Decisions tied to a specific file version are unverified.', ruttlSources.approvals),
             mcp: fact('yes', 'Agent access to feedback', 'The MCP page documents reading and resolving feedback, with one-click Claude/Cursor setup and tokens for other clients. Resolution is not proof of human approval.', ruttlSources.mcp),
             checks: fact('unknown', 'Checks announced', 'Accessibility and SEO entries on the product page are marked coming soon. Current availability is not verified.', ruttlSources.features)
         },
@@ -303,6 +328,7 @@ export const competitors = {
             { label: 'Website project CSS and text demonstrations', url: ruttlSources.editing, reviewed: editingReview },
             { label: 'Web application edit mode FAQ', url: ruttlSources.webApps, reviewed: editingReview },
             { label: 'Images, PDFs, video and announced checks', url: ruttlSources.features },
+            { label: 'Page and image approvals', url: ruttlSources.approvals, reviewed: proofingReview },
             { label: 'Integration catalog', url: ruttlSources.integrations },
             { label: 'MCP setup and feedback actions', url: ruttlSources.mcp },
             { label: 'Current pricing and allowance caveats', url: ruttlSources.pricing }

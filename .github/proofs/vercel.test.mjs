@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import timers from 'node:timers/promises';
 import project from '../vercel-project.json' with { type: 'json' };
 import { configureHtml, setMailEnvironment, verifyMailOrigin } from './vercel.mjs';
 
@@ -11,11 +12,23 @@ const build = 'https://uier-built-preview-signalco.vercel.app';
 const wanted = { id: 'dpl_Wanted', url: new URL(build).hostname, readyState: 'READY', ownerId: orgId, projectId, target: null };
 const old = { ...wanted, id: 'dpl_Old', url: 'uier-old-preview-signalco.vercel.app' };
 const sso = 'https://vercel.com/sso-api';
+const ssoLocation = (host = preview, nonce = 'fixture-nonce') =>
+    sso + '?' + new URLSearchParams({ url: new URL(host).href, nonce });
 const binding = (url, deployment = wanted) => ({ alias: new URL(url).hostname, deploymentId: deployment.id, projectId });
 const absent = () => Response.json({ error: { code: 'not_found' } }, { status: 404 });
-const ssoRedirect = () => new Response(null, { status: 302, headers: { Location: sso } });
+const ssoRedirect = ({ host } = {}) => new Response(null, { status: 302, headers: { Location: ssoLocation(host) } });
+const bareSsoRedirect = () => new Response(null, { status: 302, headers: { Location: sso } });
+const deploymentNotFound = () => new Response(null, { status: 404, headers: { 'x-vercel-error': 'DEPLOYMENT_NOT_FOUND' } });
+const protectionResponses = [
+    ['401', () => new Response(null, { status: 401 })],
+    ['302 to Vercel SSO with parameters', ssoRedirect],
+    ['302 to bare Vercel SSO endpoint', bareSsoRedirect]
+];
 
-function fixture(t, { current, prior = old, next = wanted, domains = [], status = 404, settings = {}, resolvedHost = next.url, assignment, published } = {}) {
+function fixture(t, {
+    current, prior = old, next = wanted, domains = [], status = 404, settings = {},
+    resolvedHost = next.url, assignment, published, aliasAfterProbe
+} = {}) {
     const env = {
         VERCEL_TOKEN: 'fixture-api-token',
         UIER_PROOF_VERCEL_BYPASS: '',
@@ -52,10 +65,11 @@ function fixture(t, { current, prior = old, next = wanted, domains = [], status 
         if (url.pathname === '/v9/projects/' + projectId + '/domains')
             return Response.json({ domains: domains.map(domain => typeof domain === 'string' ? { name: domain } : domain), pagination: { next: null } });
         if (url.pathname === '/v4/aliases/uier.io' && published)
-            return Response.json(binding('https://uier.io', published));
+            return Response.json(binding('https://uier.io', typeof published === 'function' ? published(probes.length) : published));
         if (url.pathname.startsWith('/v4/aliases/')) {
             assert.equal(url.searchParams.has('projectId'), false);
-            return current instanceof Response ? current : current ? Response.json(current) : absent();
+            const observed = probes.length && aliasAfterProbe ? aliasAfterProbe : current;
+            return observed instanceof Response ? observed : observed ? Response.json(observed) : absent();
         }
         if (url.pathname === '/v2/deployments/' + next.id + '/aliases') {
             assert.equal(options.method, 'POST');
@@ -72,11 +86,11 @@ function fixture(t, { current, prior = old, next = wanted, domains = [], status 
 }
 
 test('assigns the dedicated preview hostname and retries its protected root on the same host', async t => {
-    for (const [name, protection] of [['401', () => new Response(null, { status: 401 })], ['302 to Vercel SSO', ssoRedirect]]) {
+    for (const [name, protection] of protectionResponses) {
         await t.test(name, async t => {
             const { writes, probes } = fixture(t, {
                 settings: { UIER_PROOF_VERCEL_BYPASS: 'fixture-bypass' },
-                status: ({ bypass }) => bypass ? new Response(null, { status: 404 }) : protection()
+                status: probe => probe.bypass ? new Response(null, { status: 404 }) : protection(probe)
             });
             await configureHtml('preview');
             await configureHtml('preview');
@@ -149,13 +163,47 @@ test('allows the dedicated production hostname on production and a verified same
     assert.deepEqual(probes, [{ host: production, bypass: null }]);
 });
 
+test('retries a new production binding while the edge reports DEPLOYMENT_NOT_FOUND', async t => {
+    const next = { ...wanted, target: 'production' };
+    const waits = t.mock.method(timers, 'setTimeout', async () => {});
+    let rootRequests = 0;
+    const { writes, probes } = fixture(t, {
+        next, published: next,
+        status: () => rootRequests++ === 0 ? deploymentNotFound() : new Response(null, { status: 404 })
+    });
+    await configureHtml('production', { requirePublished: true });
+    assert.deepEqual(writes, [new URL(production).hostname]);
+    assert.deepEqual(probes, [{ host: production, bypass: null }, { host: production, bypass: null }]);
+    assert.equal(waits.mock.callCount(), 1);
+});
+
+test('limits production propagation retries to the new, unchanged binding and the expected edge error', async t => {
+    const next = { ...wanted, target: 'production' };
+    for (const [label, settings, error, attempts, delays] of [
+        ['persistent edge error', {}, /reject its root/, 6, 5],
+        ['existing binding', { current: binding(production, next) }, /reject its root/, 1, 0],
+        ['changed proof binding', { aliasAfterProbe: binding(production, old) }, /alias changed/, 1, 1],
+        ['changed app binding', { published: requests => requests ? old : next }, /alias changed/, 1, 1],
+        ['unrelated edge error', { status: () => new Response(null, { status: 404, headers: { 'x-vercel-error': 'NOT_FOUND' } }) }, /reject its root/, 1, 0]
+    ]) {
+        await t.test(label, async t => {
+            const waits = t.mock.method(timers, 'setTimeout', async () => {});
+            const { probes } = fixture(t, { next, status: deploymentNotFound, ...settings });
+            await assert.rejects(configureHtml('production', { requirePublished: Boolean(settings.published) }), error);
+            assert.deepEqual(probes, Array.from({ length: attempts }, () => ({ host: production, bypass: null })));
+            assert.equal(waits.mock.callCount(), delays);
+            assert.ok(waits.mock.calls.reduce((total, call) => total + call.arguments[0], 0) <= 30_000);
+        });
+    }
+});
+
 test('rejects protected production even when a bypass could reach the app', async t => {
     const next = { ...wanted, target: 'production' };
-    for (const [name, protection] of [['401', () => new Response(null, { status: 401 })], ['302 to Vercel SSO', ssoRedirect]]) {
+    for (const [name, protection] of protectionResponses) {
         await t.test(name, async t => {
             const { probes } = fixture(t, {
                 next, current: binding(production, next), settings: { UIER_PROOF_VERCEL_BYPASS: 'fixture-bypass' },
-                status: ({ bypass }) => bypass ? new Response(null, { status: 404 }) : protection()
+                status: probe => probe.bypass ? new Response(null, { status: 404 }) : protection(probe)
             });
             await assert.rejects(configureHtml('production'), /production proof hostname must be publicly accessible/);
             assert.deepEqual(probes, [{ host: production, bypass: null }]);
@@ -195,13 +243,24 @@ test('accepts an isolated custom domain and never sends its host the bypass secr
 test('rejects unexpected redirects and Vercel edge errors without using the bypass', async t => {
     for (const [label, status, headers, host = preview] of [
         ['missing Location', 302, {}],
-        ['ordinary redirect', 302, { Location: 'https://vercel.com/login' }],
-        ['foreign origin', 302, { Location: 'https://vercel.com.example.net/sso-api' }],
+        ['ordinary redirect', 302, { Location: ssoLocation().replace('/sso-api?', '/login?') }],
+        ['foreign origin', 302, { Location: ssoLocation().replace('vercel.com/', 'vercel.com.example.net/') }],
         ['relative destination', 302, { Location: '/sso-api' }],
-        ['modified SSO URL', 302, { Location: sso + '?redirect=https://example.net' }],
-        ['different redirect status', 307, { Location: sso }],
-        ['custom hostname', 302, { Location: sso }, custom],
-        ['edge error with SSO Location', 302, { Location: sso, 'x-vercel-error': 'DEPLOYMENT_NOT_FOUND' }],
+        ['empty query', 302, { Location: sso + '?' }],
+        ['bare endpoint with fragment', 302, { Location: sso + '#fragment' }],
+        ['SSO path suffix', 302, { Location: ssoLocation().replace('/sso-api?', '/sso-api/other?') }],
+        ['additional parameter', 302, { Location: ssoLocation() + '&redirect=https://example.net' }],
+        ['duplicate parameter', 302, { Location: ssoLocation() + '&nonce=another' }],
+        ['wrong return host', 302, { Location: ssoLocation(production) }],
+        ['wrong return path', 302, { Location: ssoLocation(preview + '/app') }],
+        ['return URL query', 302, { Location: ssoLocation(preview + '/?next=other') }],
+        ['blank nonce', 302, { Location: ssoLocation(preview, ' ') }],
+        ['SSO destination fragment', 302, { Location: ssoLocation() + '#fragment' }],
+        ['SSO destination explicit port', 302, { Location: ssoLocation().replace('vercel.com/', 'vercel.com:443/') }],
+        ['different redirect status', 307, { Location: ssoLocation() }],
+        ['custom hostname', 302, { Location: ssoLocation(custom) }, custom],
+        ['custom hostname with bare SSO Location', 302, { Location: sso }, custom],
+        ['edge error with SSO Location', 302, { Location: ssoLocation(), 'x-vercel-error': 'DEPLOYMENT_NOT_FOUND' }],
         ['edge error with 401', 401, { 'x-vercel-error': 'DEPLOYMENT_NOT_FOUND' }]
     ]) {
         await t.test(label, async t => {
@@ -219,7 +278,7 @@ test('rejects unexpected redirects and Vercel edge errors without using the bypa
 test('rejects an ordinary app root or a Vercel platform 404', async t => {
     for (const [label, status] of [
         ['existing custom site', () => new Response(null, { status: 200 })],
-        ['platform error', () => new Response(null, { status: 404, headers: { 'x-vercel-error': 'DEPLOYMENT_NOT_FOUND' } })]
+        ['platform error', deploymentNotFound]
     ]) {
         await t.test(label, async t => {
             const { writes } = fixture(t, { current: binding(custom, old), settings: { UIER_PROOF_HTML_ORIGIN_PREVIEW: custom }, status });
