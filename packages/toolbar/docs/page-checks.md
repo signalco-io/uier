@@ -131,7 +131,9 @@ The panels share one layout (`components/checks/ChecksParts.tsx`), so they read 
   Accessibility and SEO when they are on and no anchor is being chosen), this one checked. The button and each item
   show the panel's icon before its name, the same icon as its toolbar button
   ([uier #319](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2F&comment=comment_uF0MmPs535f5qBd3Zf-gc)). Choosing another closes this
-  panel and opens that one, whose Close takes the focus (one already open on the other side gets it too). ↑ ↓ move
+  panel and opens that one, whose Close takes the focus (one already open on the other side gets it too). That one shows where this one was docked (`takePanelPlace`), without sliding in, so only the contents change; one
+  already open elsewhere moves there. Opening a panel beside it is the toolbar's job
+  ([uier #491](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_HuFua_u4U9LKVK67kWh6f)). ↑ ↓ move
   between them, Escape closes only the menu; with a single panel the title is plain text. The menu is as wide as its
   longest name, each on one line from the start, shortened with an ellipsis on a narrow screen
   ([uier #350](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_V17jODbToGJuzjwYeA7tB)).

@@ -111,8 +111,12 @@ test('inbox docks on either side with mouse or touch without losing filters or r
     await expect(search).toHaveAccessibleName('Search comments: discussion');
     await drag(page, handle, { x: 920, y: 100 }, Boolean(testInfo.project.use.hasTouch));
     await expect(inbox).toHaveAttribute('data-side', 'right');
+    // Close's icon points to the side it is docked on (uier #487)
+    const closeIcon = inbox.locator('[data-uier-panel-close-icon]');
+    await expect(closeIcon).toHaveAttribute('data-uier-panel-close-icon', 'right');
     await handle.press('ArrowLeft');
     await expect(inbox).toHaveAttribute('data-side', 'left');
+    await expect(closeIcon).toHaveAttribute('data-uier-panel-close-icon', 'left');
     await handle.press('ArrowRight');
     await expect(inbox).toHaveAttribute('data-side', 'right');
     await page.setViewportSize({ width: 393, height: 650 });

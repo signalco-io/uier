@@ -1077,6 +1077,8 @@ export const de: Messages = {
             showOrder: 'Tab-Reihenfolge zeigen',
             focusNote: 'Bewegt den Fokus durch die Bedienelemente der Seite, führt ihre Fokus-Handler aus und listet jene auf, die keine sichtbare Änderung zeigen.',
             checkFocus: 'Fokusanzeigen prüfen',
+            indicators: 'Fokusanzeigen',
+            notRun: 'Noch nicht geprüft: Die Prüfung bewegt den Fokus und läuft daher nur auf Anfrage.',
             moving: 'Der Fokus wird durch die Seite bewegt…',
             focusFailed: 'Die Fokusprüfung konnte nicht laufen.'
         },

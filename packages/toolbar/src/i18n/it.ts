@@ -1078,6 +1078,8 @@ export const it: Messages = {
             showOrder: 'Mostra l’ordine di tabulazione',
             focusNote: 'Sposta il focus tra i controlli della pagina, eseguendo i loro gestori di focus, ed elenca quelli che non mostrano alcun cambiamento visibile.',
             checkFocus: 'Controlla gli indicatori di focus',
+            indicators: 'Indicatori di focus',
+            notRun: 'Non ancora controllato: il controllo sposta il focus, quindi si avvia solo su richiesta.',
             moving: 'Spostamento del focus nella pagina…',
             focusFailed: 'Non è stato possibile eseguire il controllo del focus.'
         },

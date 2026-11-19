@@ -1078,6 +1078,8 @@ export const es: Messages = {
             showOrder: 'Mostrar el orden de tabulación',
             focusNote: 'Mueve el foco por los controles de la página, ejecutando sus manejadores de foco, y lista los que no muestran ningún cambio visible.',
             checkFocus: 'Comprobar los indicadores de foco',
+            indicators: 'Indicadores de foco',
+            notRun: 'Aún sin comprobar: mueve el foco, así que solo se ejecuta a petición.',
             moving: 'Moviendo el foco por la página…',
             focusFailed: 'No se pudo ejecutar la comprobación del foco.'
         },

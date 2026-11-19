@@ -5,7 +5,7 @@ import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { Button } from '@signalco/ui-primitives/Button';
 import { Typography } from '@signalco/ui-primitives/Typography';
 import { cx } from '@signalco/ui-primitives/cx';
-import { ExpandDown, ExternalLink, PanelRightClose } from '@signalco/ui-icons';
+import { ExpandDown, ExternalLink } from '@signalco/ui-icons';
 import { Popper } from '@signalco/ui-primitives/Popper';
 import { Stack } from '@signalco/ui-primitives/Stack';
 import { useProjectViewer } from '../../project/ProjectGate';
@@ -14,7 +14,7 @@ import { CommentsBootstrapperContext } from '../CommentsBootstrapperContext';
 import { StatusDot } from '../CommentThreadHeader';
 import { floatingShadowClassName } from '../@types/Comments';
 import { toolbarSurface } from '../../toolbarReview';
-import { PanelHandle } from '../DockablePanel';
+import { PanelCloseIcon, PanelHandle } from '../DockablePanel';
 import { PanelTitle } from '../PanelTitle';
 import { moveFocusInMenu, useRovingFocus } from '../../focusKeys';
 import { useMessages } from '../../i18n';
@@ -40,7 +40,7 @@ export function CommentsSidebarHeader({ onClose, autoFocus = true, search, appLi
                     {brief && <Button size="sm" variant="plain" aria-expanded={briefOpen} onClick={() => setBriefOpen(!briefOpen)}>{t.inbox.reviewBrief}</Button>}
                     <IconTooltip label={t.inbox.close}>
                         <IconButton onClick={onClose} variant="plain" size="sm" aria-label={t.inbox.close} autoFocus={autoFocus} data-uier-close-inbox="" data-uier-panel-close="">
-                            <PanelRightClose size={16} aria-hidden="true" />
+                            <PanelCloseIcon />
                         </IconButton>
                     </IconTooltip>
                 </Row>

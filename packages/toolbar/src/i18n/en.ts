@@ -1121,6 +1121,9 @@ export const en = {
             showOrder: 'Show tab order',
             focusNote: "Moves the focus through the page's controls, running their focus handlers, and lists the ones that show no visible change.",
             checkFocus: 'Check focus indicators',
+            /** The Focus indicators row before its check ran, and why */
+            indicators: 'Focus indicators',
+            notRun: 'Not checked yet: it moves the focus, so it runs only on request.',
             moving: 'Moving the focus through the page…',
             focusFailed: 'The focus check could not run.'
         },

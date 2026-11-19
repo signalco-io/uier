@@ -10,13 +10,18 @@ and `ScreenReaderSection.tsx`.
 ## Tools
 
 **Show tab order** and **Check focus indicators** are two buttons with icons (Lucide's list-ordered
-and focus, drawn in `ChecksIcons.tsx`) above the Keyboard section's card, in the Keyboard tab
-([uier #228](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_wJf6YX8AiP9Go6faFCjO2)):
-`[data-uier-keyboard-tools]`, one bordered card each, side by side and stacked when narrow. Each card
-keeps its description under its button, also once the tool ran; the focus check's status is in its
-card and its findings are rows of the Keyboard section. They show once the section has a report
-(Show tab order only with a stop). The focus button shows a spinner while the check runs.
-A label longer than its card (a narrow panel, a longer language) wraps inside its button, which grows
+and focus, drawn in `ChecksIcons.tsx`) in the Keyboard section's card, in the Keyboard tab
+([uier #228](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_wJf6YX8AiP9Go6faFCjO2)),
+each in the row of the check it belongs to (`[data-uier-keyboard-tool]`, `ReportSection`'s `extras`): Show tab order
+in **Tab stops** ([uier #493](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_KDsA5BAxn00QpH6g1Q56d)),
+Check focus indicators in **Focus indicators**
+([uier #492](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_U1iE1kSQy1vjDeRMYWooA)).
+Until the focus check ran, that row is a note, "Not checked yet" (its info button says it runs only on request); its
+result's Focus indicators row replaces it, the button after its elements. Each tool keeps its description under its
+button, also once the tool ran; the focus check's status is in its row. They show once the section has a report
+(Show tab order only with a stop). The focus button shows a spinner while the check runs. A filter of the summary
+tiles shows a tool only with its row.
+A label longer than the panel is wide (a narrow panel, a longer language) wraps inside its button, which grows
 with it, the icon on the first line
 ([uier #234](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2F5uauxu25b2es&comment=comment_Zt07Ue_Ah6QrUoURMoDMW)).
 
