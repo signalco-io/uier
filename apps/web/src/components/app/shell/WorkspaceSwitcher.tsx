@@ -4,7 +4,7 @@ import { useAppI18n } from '@/src/lib/i18n/client';
 
 import { useActionState, useId, useState, useTransition } from 'react';
 import Link from 'next/link';
-import { CheckIcon, ChevronsUpDownIcon, PlusIcon, SettingsIcon } from 'lucide-react';
+import { Building2Icon, CheckIcon, ChevronsUpDownIcon, PlusIcon, SettingsIcon } from 'lucide-react';
 import { Mark } from '@uier/brand/Mark';
 import { Button } from '@/src/components/ui/button';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/src/components/ui/dialog';
@@ -95,13 +95,16 @@ function CreateWorkspaceForm() {
 /**
  * The current workspace at the top of the sidebar. Its menu lists the person's workspaces (the current one
  * checked, also when it is the only one) to switch between, creates a new one,
- * opens the workspace settings for admins (`canManage`). uier's feedback workspace (`feedback`) is not
+ * opens the workspace settings for admins (`canManage`), and for everyone else the clients of their projects
+ * (`hasClients`): the sidebar has no Workspace link of its own (uier #471). uier's feedback workspace (`feedback`) is not
  * listed (uier #257), unless a saved selection still has the person in it: then it is listed, checked, with their own to switch to.
  */
-export function WorkspaceSwitcher({ workspaces, currentWorkspaceId, canManage = false }: {
+export function WorkspaceSwitcher({ workspaces, currentWorkspaceId, canManage = false, hasClients = false }: {
     workspaces: WorkspaceOption[];
     currentWorkspaceId: string;
     canManage?: boolean;
+    /** Whether a project the person can see has a client: without `canManage`, the menu opens the workspace's clients */
+    hasClients?: boolean;
 }) {
     const { t } = useAppI18n();
     const { isMobile } = useSidebar();
@@ -148,6 +151,11 @@ export function WorkspaceSwitcher({ workspaces, currentWorkspaceId, canManage = 
                                 <DropdownMenuItem render={<Link href={KnownPages.AppSettings} />}>
                                     <SettingsIcon />
                                     {t("Workspace settings")}{' '}</DropdownMenuItem>
+                            )}
+                            {!canManage && hasClients && (
+                                <DropdownMenuItem render={<Link href={KnownPages.AppClients} />}>
+                                    <Building2Icon />
+                                    {t("Workspace")}{' '}</DropdownMenuItem>
                             )}
                             <DropdownMenuItem onClick={() => setCreating(true)}>
                                 <PlusIcon />

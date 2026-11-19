@@ -3,7 +3,7 @@ import { seedEmailBounce } from './support/emailReports';
 import { expect, test } from '@playwright/test';
 import { extensionRelease, firefoxExtensionRelease } from '../src/lib/extension/release';
 import { expectNoAxeViolations } from './accessibility';
-import { projectPublicId, appNavigation, openFeedbackWorkspace, closeAppNavigation, createProject, hydrated, openEmailSignIn, openProjectInvite, requestSignInEmail, setProjectAccess, signIn, uniqueEmail, backToComments, commentRowLink, inBackground, openComment, openCommentFilters } from './support/app';
+import { projectPublicId, appNavigation, workspaceMenu, openFeedbackWorkspace, closeAppNavigation, createProject, hydrated, openEmailSignIn, openProjectInvite, requestSignInEmail, setProjectAccess, signIn, uniqueEmail, backToComments, commentRowLink, inBackground, openComment, openCommentFilters } from './support/app';
 import { pngImage } from './support/images';
 import { animationsFinished, newVisitor, showcaseHint, toolbar } from './support/toolbar';
 
@@ -638,7 +638,8 @@ test('the sidebar has the sections, the active projects and the account', async 
     const navigation = await appNavigation(page);
     await expect(navigation.getByRole('link', { name: 'Projects', exact: true })).toHaveAttribute('href', '/app/projects');
     await expect(navigation.getByRole('link', { name: 'Create project' })).toBeVisible();
-    await expect(navigation.getByRole('link', { name: 'Workspace', exact: true })).toHaveAttribute('href', '/app/workspace/users');
+    // The workspace area opens from the workspace menu, not a link at the bottom (uier #471)
+    await expect(navigation.getByRole('link', { name: 'Workspace', exact: true })).toHaveCount(0);
     await navigation.getByRole('link', { name: 'Sidebar site' }).click();
     await expect(page).toHaveURL(new RegExp(`/app/projects/${projectId}$`));
     // Small screens close the sheet after a link
@@ -685,9 +686,8 @@ test('admins rename the workspace from its menu; commenters have no workspace se
     await expect(page.getByRole('status').filter({ hasText: 'The workspace name is saved.' })).toBeVisible();
     await expectNoAxeViolations(page);
 
-    // The sidebar and the area's header show the new name; the sidebar's Workspace opens the area
-    const navigation = await appNavigation(page);
-    await expect(navigation.getByRole('link', { name: 'Workspace', exact: true })).toBeVisible();
+    // The sidebar and the area's header show the new name
+    await appNavigation(page);
     await expect(page.getByRole('button', { name: /^Workspace:/ })).toContainText('Acme studio');
     await closeAppNavigation(page);
     await page.reload();
@@ -703,8 +703,7 @@ test('admins rename the workspace from its menu; commenters have no workspace se
     // A saved selection can still have the person in it: listed then, checked, with their own workspace to
     // switch back to. There it has no settings link, and the page is not there.
     await openFeedbackWorkspace(page);
-    const commenterNavigation = await appNavigation(page);
-    await expect(commenterNavigation.getByRole('link', { name: 'Workspace', exact: true })).toHaveCount(0);
+    await appNavigation(page);
     await page.getByRole('button', { name: /^Workspace:/ }).click();
     await expect(page.getByRole('menuitem', { name: /^Feedback on uier.*current/ })).toBeVisible();
     await expect(page.getByRole('menuitem', { name: 'Workspace settings' })).toHaveCount(0);
@@ -717,10 +716,11 @@ test('admins rename the workspace from its menu; commenters have no workspace se
     await page.getByRole('menuitem', { name: /Acme studio.*Admin/ }).click();
     // Back in their own workspace, with its settings again (on small screens the sheet closes on the way)
     await expect(async () => {
-        const navigation = await appNavigation(page);
+        await appNavigation(page);
         await expect(page.getByRole('button', { name: /^Workspace:/ })).toContainText('Acme studio', { timeout: 1000 });
-        await expect(navigation.getByRole('link', { name: 'Workspace', exact: true })).toBeVisible({ timeout: 1000 });
     }).toPass();
+    await expect((await workspaceMenu(page)).getByRole('menuitem', { name: 'Workspace settings' })).toBeVisible();
+    await page.keyboard.press('Escape');
     await closeAppNavigation(page);
 });
 

@@ -17,7 +17,7 @@
   it to both its menu and trigger, and the sidebar's client groups pass it too (uier #419). More colours need new brand tokens first.
   Show clients only through visible projects: pages call `listVisibleProjects` first, then `loadClients`,
   and `projectClients` / `clientNames` / `projectClient` keep only clients those projects point to (the
-  Clients tab, the sidebar's Workspace link, the suggestions, the filter, cards and the project header). The filter
+  Clients tab, the workspace menu's Workspace item, the suggestions, the filter, cards and the project header). The filter
   value is the client id (`?client=<id>` or `none`); old `name:<name>` links redirect to it. The client
   field (`ClientNameInput`) is free text that suggests existing clients: it is built on
   `src/components/ui/autocomplete.tsx`, Base UI's Autocomplete styled like shadcn's Combobox (shadcn has

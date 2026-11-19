@@ -165,6 +165,15 @@ export async function appNavigation(page: Page) {
     return navigation;
 }
 
+/** Opens the workspace menu at the top of the sidebar (the way to the workspace area, uier #471) and returns it */
+export async function workspaceMenu(page: Page) {
+    await appNavigation(page);
+    await page.getByRole('button', { name: /^Workspace:/ }).click();
+    const menu = page.getByRole('menu');
+    await expect(menu).toBeVisible();
+    return menu;
+}
+
 /**
  * Opens uier's own workspace, where every account sends feedback on the app. The workspace menu leaves it out for
  * people who are not uier staff (uier #257), so this selects it as a saved selection would and opens the projects.
