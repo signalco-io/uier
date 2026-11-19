@@ -25,7 +25,7 @@ documents single files and folders or ZIPs with bundled assets. An agent can upl
 canvas using the CLI or MCP. The [MCP reference](https://help.usepastel.com/en/articles/16399713-connect-your-ai-agent-to-pastel-mcp-server)
 documents its permissions and comment tools. The ledger distinguishes an uploaded prototype from a live website URL.
 
-uier’s integration summary covers its five project destinations, MCP access for coding tools and the REST API for custom integrations.
+uier’s integration summary covers its five project destinations, MCP access for coding tools and the project-scoped REST API for custom integrations. The hub, overview and each pair link the public REST reference.
 
 uier's claims follow the shipped feature pages, `docs/review-workflow.md`, the reproduction
 allowlist and screenshot/recording policies. Short screen recordings have explicit browser,
@@ -41,27 +41,32 @@ Change these entries with the product.
 
 ## File review and approval scope
 
-The release copy marks file proofing limited to formats enabled by project. The protected preview
-qualified member and guest image review, selected Figma frame import and rename resync,
-and an EML upload across two versions. A Figma resync keeps the review link and the existing thread
-retains its original version and location. The [file viewer](proof-viewer.md) and
-[format settings](proof-api.md#format-settings-and-processing) document those contracts.
+The hub, overview and tables describe six file format families. Each project enables the families
+it needs. The proofing row uses “Has limits” for project settings and input scope, including
+upload-only EML. Inbound SMTP is unavailable.
 
-Hosted video qualification covered two versions each of MP4, ProRes MOV converted for playback,
-and WebM. The browser could play and seek all six versions. Authorized original downloads
-matched their source digests.
+- Images cover member and guest review. Selected Figma frames can be resynced after a rename.
+  The review link stays stable, and the existing thread keeps its original version and location.
+- Protected preview tested two real PDF revisions with three and four searchable pages.
+  The sanitized display PDF and the authorized original download were served separately.
+- Hosted video qualification covered two versions each of MP4, ProRes MOV converted for playback,
+  and WebM. The browser could play and seek all six versions. Authorized original downloads
+  matched their source digests.
+- Hosted EML qualification covered two uploaded versions.
+- Two HTML ZIP revisions opened and ran interactively on the isolated preview host. Historical
+  HTML evidence is still in final hosted acceptance. The public copy covers opening interactive
+  ZIP uploads.
 
 Preview recorded two independent whole-version approvals and a separate fix verification on an
 existing thread. The matrix has separate rows for
 [version approval](proof-api.md#version-approvals-and-review-record) and
 [per-thread fix verification](fix-verification.md). Fix verification needs project opt-in and a
 request on the thread. An approval round may have a deadline, while tasks have no due dates.
-A new file version starts with fresh approval decisions.
+A new file version starts with fresh approval decisions. The [file viewer](proof-viewer.md) and
+[format settings](proof-api.md#format-settings-and-processing) document the review workflows.
 
-Publish this copy after the corresponding workflows deploy, following the
-[release plan](../../../docs/design/file-design-proofing.md#release-and-verification). PDF review,
-isolated HTML proofing and real SMTP ingress still need hosted qualification. Keep the email
-claim scoped to EML upload. The broader proofing claim requires all six formats and live ingress qualification.
+Publish the comparison draft after production verification of the workflows it describes, following
+the [release plan](../../../docs/design/file-design-proofing.md#release-and-verification).
 
 The approval row points to official sources that distinguish actual decisions from version history
 and task status. BugHerd documents asset versions in beta. Marker.io documents an issue review status.
@@ -137,5 +142,5 @@ competitor account or a performance benchmark.
 responsive width and accessibility. The shared SEO and social-card API suites cover generated
 HTML, sitemap inclusion and actual card PNGs. The public-footer suite includes all eight pages.
 Focused comparison coverage also guards general and scope-specific source-review dates, CSS and text
-claims, current custom-status/paging claims, limited file proofing, distinct approval and verification
-rows, distinct examples, ruttl's announced checks and pricing conflicts, and the shared MCP limits.
+claims, current custom-status/paging claims, the six proofing families and their scope, distinct
+approval and verification rows, distinct examples, ruttl's announced checks and pricing conflicts, and the shared MCP limits.

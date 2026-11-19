@@ -17,10 +17,10 @@ export const dimensions = [
     { id: 'replay', name: 'Session replay before a report' },
     { id: 'diagnostics', name: 'Console and network capture' },
     { id: 'assets', name: 'File and design proofing' },
-    { id: 'research', name: 'Surveys and request voting' },
-    { id: 'workflow', name: 'Organizing the work' },
     { id: 'confirmation', name: 'Reviewing a finished fix' },
     { id: 'approval', name: 'Approving a file version' },
+    { id: 'research', name: 'Surveys and request voting' },
+    { id: 'workflow', name: 'Organizing the work' },
     { id: 'mcp', name: 'MCP for coding tools' },
     { id: 'checks', name: 'Accessibility and SEO checks' }
 ] as const;
@@ -43,6 +43,7 @@ export type Product = {
 const fact = (support: Support, label: string, detail: string, source?: string): Fact => ({ support, label, detail, source });
 const unverified = (source: string) => fact('unknown', 'Not verified', 'The sources checked do not establish support or absence.', source);
 
+export const uierProofFormats = 'Images, searchable PDFs, selected Figma frames, MP4, ProRes MOV and WebM video, uploaded EML, and interactive HTML from ZIP uploads.';
 export const uierProofSources = {
     viewer: `${brand.repository}/blob/main/apps/web/docs/proof-viewer.md`,
     formats: `${brand.repository}/blob/main/apps/web/docs/proof-api.md#format-settings-and-processing`,
@@ -50,8 +51,8 @@ export const uierProofSources = {
 };
 
 export const uier: Product = {
-    name: brand.name, reviewed: currentReview, kind: 'review', focus: 'Live-page review → a checked fix',
-    bestFor: 'Preview proposed text and style changes on the page and ask a named reviewer to check the fix. Collect feedback and approvals on file versions in formats enabled for the project.',
+    name: brand.name, reviewed: currentReview, kind: 'review', focus: 'Live pages and file versions',
+    bestFor: 'Preview changes on a live page and request a fix check. Collect feedback and named approvals on file versions.',
     facts: {
         website: fact('yes', 'Element, text, area and drawing', 'Review the actual page with anchored comments or draw a change on the page.', '/features/pinned-comments'),
         editing: fact('yes', 'On-page text and style previews', 'With Text rewrites available, propose replacement text, text and background colors, text size and weight, padding and corner radius on one eligible element. Switch between Original and Proposed on the page while the target matches. Copy the exact values from the thread for your team to implement in the site’s source.', '/features/pinned-comments#preview-a-change'),
@@ -59,11 +60,11 @@ export const uier: Product = {
         recording: fact('yes', 'Short screen recordings', 'Attach a recording up to 60 seconds and 25 MiB. Browser capture needs permission and a secure context; upload MP4 or WebM when capture is unavailable. Built-in capture has no audio and ends on full-page navigation.', `${brand.repository}/blob/main/docs/recordings.md`),
         replay: fact('no', 'Not supported', 'No timeline of what happened before a report.'),
         diagnostics: fact('no', 'Not supported', 'Browser details are captured; console logs and network requests are not.'),
-        assets: fact('limited', 'Project-enabled file review', 'Review images, selected Figma frames, EML uploads and MP4, ProRes MOV or WebM videos. Play and seek video versions in the browser. ProRes MOV is converted for playback. Formats are enabled per project.', uierProofSources.formats),
+        assets: fact('limited', 'Six format families, enabled per project', `${uierProofFormats} PDF previews are sanitized. Authorized reviewers can download the original separately. Play and seek video in the browser. ProRes MOV is converted for playback. HTML runs on an isolated host. Email is upload-only. Inbound SMTP is unavailable.`, uierProofSources.formats),
         research: fact('no', 'Not supported', 'No NPS or CSAT surveys, public voting board or product roadmap.'),
         workflow: fact('yes', 'Custom statuses and labels', 'Up to 30 workspace statuses, with project overrides, grouped under Open, In progress, Ready to verify, Done and Archive. Search covers the authorized project scope with paged results. Bulk actions affect at most 50 shown threads. No task due dates.', `${brand.repository}/blob/main/apps/web/docs/project-settings.md#custom-statuses`),
         confirmation: fact('limited', 'Named reviewer per thread', 'A project admin enables fix verification. A member can request a named reviewer’s check on one thread. Ordinary Done and admin overrides remain separate.', '/features/fix-verification'),
-        approval: fact('yes', 'Named reviewers per version', 'Set a deadline for an approval round. Required reviewers each approve or request changes on that file version. Each new version starts with fresh decisions. Fix verification remains a separate thread check.', uierProofSources.approvals),
+        approval: fact('yes', 'Named reviewers per version', 'Required reviewers each approve or request changes on the whole file version. Set an optional deadline for the round. Each new version starts with fresh decisions. Fix verification is a separate check on one thread.', uierProofSources.approvals),
         mcp: fact('yes', 'Read and approved actions', 'Coding tools can work with feedback. An agent cannot confirm a fix.', '/features/ai'),
         checks: fact('limited', 'In-browser page checks', 'Accessibility and SEO checks on reviewed pages; no site-wide scheduled crawler or compliance certification.', '/features/page-checks')
     },
