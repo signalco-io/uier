@@ -1,3 +1,4 @@
+import { createRequire } from 'node:module';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import sharp from 'sharp';
 import { hydrated, setProjectAccess, signIn, uniqueEmail } from './support/app';
@@ -175,6 +176,10 @@ function pdf(pages: string[]) {
 
 test('PDF renderer paints real pages, searches text and pairs reordered pages', async ({ page }) => {
     test.setTimeout(90_000);
+    const { version: pdfVersion } = createRequire(import.meta.url)('pdfjs-dist/package.json') as { version: string };
+    const font = await page.request.get(`/proof-pdf/${pdfVersion}/standard_fonts/LiberationSans-Regular.ttf`);
+    expect(font.ok()).toBe(true);
+    expect(font.headers()['cache-control']).toContain('immutable');
     const projectId = 'pdf-fixture-123456789';
     const assetId = '00000000-0000-4000-8000-000000000001';
     const route = `/api/proofs/${projectId}/assets/${assetId}`;
