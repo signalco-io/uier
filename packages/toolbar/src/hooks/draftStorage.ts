@@ -2,6 +2,7 @@ import { runtimeAdapters } from '../adapters';
 const storage = () => runtimeAdapters()?.draftStorage ?? localStorage;
 import type { CommentAnchor, Mention } from '../components/@types/Comments';
 import { isChangeProposal, type ChangeProposal } from '../changeProposal';
+import { hasProposalEdits, isProposalDraft, type ProposalDraft } from '../proposalDraft';
 
 export const draftStoragePrefix = 'uier:draft:v1:';
 const maxDraftRecordLength = 64_000;
@@ -11,15 +12,20 @@ export type DraftDetails = {
     /** `drawing`: a canvas mode comment's area; its shapes stay in memory */
     anchor?: { kind: 'comment' | 'rewrite' | 'drawing'; position: CommentAnchor };
     originalText?: string;
+    proposalDraft?: ProposalDraft;
+    /** Earlier drafts stored only the validated payload. */
     proposal?: ChangeProposal;
 };
+export const hasDraftProposal = (value: DraftDetails | undefined) => Boolean(value?.proposalDraft || value?.proposal);
+export const hasDraftContent = (value: (DraftDetails & { text: string }) | undefined) =>
+    Boolean(value && (value.text.trim() || value.proposal || (value.proposalDraft && hasProposalEdits(value.proposalDraft))));
 /** Text being sent in the background: the form is empty, the text stays here until the send settles */
 type Sending = { id: string; text: string; mentions?: Mention[]; anchor?: string; proposal?: string };
 type Attempt = { content: string; key: string };
 type Recovery = { text: string; mentions?: Mention[]; attempt?: Attempt };
 /**
- * `unsettled`: the texts (trimmed) of sends this page never saw settle (`recoverSending`). Saved or not, the page's
- * comments tell: one of yours with the same text means it was saved (`CommentsGlobal`).
+ * `unsettled`: trimmed message texts for the legacy recovery check (`CommentsGlobal`). Element suggestions
+ * use their submission key on explicit retry, since similar existing feedback cannot identify a specific send.
  */
 type RecordValue = DraftDetails & { text: string; updatedAt: number; attempt?: Attempt; sending?: Sending[]; recoveries?: Recovery[]; unsettled?: string[] };
 const maxTextLength = 1000;
@@ -43,7 +49,7 @@ function recoverSending(value: RecordValue): RecordValue {
         for (const entry of [...sending].reverse()) {
             if (entry && typeof entry.text === 'string' && entry.text.length <= maxTextLength) {
                 recovered = withSentText(recovered, entry.text, Array.isArray(entry.mentions) ? entry.mentions : undefined);
-                unsettled.push(entry.text.trim());
+                if (!entry.proposal && !hasDraftProposal(value)) unsettled.push(entry.text.trim());
             }
         }
     }
@@ -154,8 +160,11 @@ export function createDraftStore(scope: string[], onWrite?: () => void, persiste
         }
         if (value.unsettled !== undefined && (!Array.isArray(value.unsettled) || value.unsettled.length > 20
             || value.unsettled.some(text => typeof text !== 'string' || text.length > maxTextLength))) delete value.unsettled;
-        if (value.proposal !== undefined && (!isChangeProposal(value.proposal) || value.anchor?.kind !== 'comment'
-            || value.anchor.position.type !== 'point' || value.anchor.position.widthNormal !== undefined)) delete value.proposal;
+        const position = value.anchor?.position;
+        const proposalAnchor = value.anchor?.kind === 'comment' && position?.type === 'point' && position.widthNormal === undefined;
+        if (value.proposal !== undefined && (!proposalAnchor || !isChangeProposal(value.proposal))) delete value.proposal;
+        if (value.proposalDraft !== undefined && (!proposalAnchor || !isProposalDraft(value.proposalDraft))) delete value.proposalDraft;
+        if (hasDraftProposal(value)) delete value.unsettled;
         if (value.recoveries !== undefined) {
             value.recoveries = Array.isArray(value.recoveries)
                 ? value.recoveries.filter(entry => entry && typeof entry.text === 'string' && entry.text.length <= maxTextLength)
@@ -233,7 +242,7 @@ export function createDraftStore(scope: string[], onWrite?: () => void, persiste
             const previous = read(key);
             const id = Array.from(crypto.getRandomValues(new Uint8Array(8)), value => value.toString(16).padStart(2, '0')).join('');
             write(key, { ...previous, text: '', mentions: [], updatedAt: Date.now(),
-                sending: [...(previous?.sending ?? []), { id, text, mentions, anchor: JSON.stringify(previous?.anchor), proposal: JSON.stringify(previous?.proposal) }] });
+                sending: [...(previous?.sending ?? []), { id, text, mentions, anchor: JSON.stringify(previous?.anchor), proposal: JSON.stringify(previous?.proposalDraft ?? previous?.proposal) }] });
             return id;
         },
         /** Saved: the draft goes (unless something new was written meanwhile). Not saved: its text is back. */
@@ -244,13 +253,13 @@ export function createDraftStore(scope: string[], onWrite?: () => void, persiste
             const sending = current.sending!.filter(item => item.id !== id);
             const rest: RecordValue = { ...current, attempt: saved ? undefined : current.attempt, sending: sending.length ? sending : undefined };
             if (saved && !rest.text.trim() && !sending.length && !rest.recoveries?.length
-                && JSON.stringify(rest.anchor) === entry.anchor && JSON.stringify(rest.proposal) === entry.proposal) {
+                && JSON.stringify(rest.anchor) === entry.anchor && JSON.stringify(rest.proposalDraft ?? rest.proposal) === entry.proposal) {
                 remove(key);
                 return;
             }
             if (saved) { write(key, rest); return; }
             const failed: RecordValue = { ...withSentText(rest, entry.text, entry.mentions), updatedAt: Date.now() };
-            write(key, leaving ? { ...failed, unsettled: [...(failed.unsettled ?? []), entry.text.trim()] } : failed);
+            write(key, leaving && !entry.proposal ? { ...failed, unsettled: [...(failed.unsettled ?? []), entry.text.trim()] } : failed);
         },
         available: () => available,
         pending: (key: string) => pendingSends.has(prefix + key),

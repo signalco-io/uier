@@ -1,6 +1,6 @@
 import { commentCheck, feedbackTypeSnapshot, isCommentKind } from '@uier/toolbar/feedback-types';
 import { commentDrawing } from '@uier/toolbar/drawing';
-import type { ChangeProposal } from '@uier/toolbar/change-proposal';
+import { isProposalLabelHash, type ChangeProposal } from '@uier/toolbar/change-proposal';
 import { commentProposal } from './proposal';
 import { commentPriority, type CommentPriority } from '@uier/toolbar/triage';
 import type { DbComment, DbCommentKind, DbCommentLayer, DbCommentPosition, DbDeviceSize, DbThreadItem } from '../db/schema';
@@ -120,7 +120,7 @@ function toLayerDto(layer: unknown): { layer: DbCommentLayer } | Record<string, 
 }
 
 /** Copies only the known position fields (old documents may contain anything) */
-function toPositionDto(position: unknown): DbCommentPosition | null {
+function toPositionDto(position: unknown, withProposalLabel = false): DbCommentPosition | null {
     if (typeof position !== 'object' || position === null)
         return null;
 
@@ -135,7 +135,8 @@ function toPositionDto(position: unknown): DbCommentPosition | null {
             ...(typeof value.widthNormal === 'number' && typeof value.heightNormal === 'number'
                 ? { widthNormal: value.widthNormal, heightNormal: value.heightNormal }
                 : {}),
-            ...toLayerDto(value.layer)
+            ...toLayerDto(value.layer),
+            ...(withProposalLabel && isProposalLabelHash(value.proposalLabelHash) ? { proposalLabelHash: value.proposalLabelHash } : {})
         };
     }
 
@@ -206,12 +207,12 @@ function toThreadItemDto(item: DbThreadItem, visitorAuthorId: string | undefined
  * be represented.
  */
 export function toCommentDto(comment: DbComment, visitorAuthorId: string | undefined, names = new Map<string, string>()): CommentDto | null {
-    const position = toPositionDto(comment.position);
+    const proposal = commentProposal(comment);
+    const position = toPositionDto(comment.position, Boolean(proposal));
     if (!position)
         return null;
     // Only on an area, where it is drawn
     const drawing = position.type === 'point' && position.widthNormal !== undefined ? commentDrawing(comment.drawing) : undefined;
-    const proposal = commentProposal(comment);
 
     const items = Array.isArray(comment.thread?.items) ? comment.thread.items : [];
     const authorId = optionalString(comment.authorId);

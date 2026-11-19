@@ -5,7 +5,7 @@ import { commentCheckCountMax, commentCheckIdPattern, commentCheckTypes } from '
 import { feedbackStatusTargets } from '@uier/toolbar/verification';
 import { pageLanguagePattern } from '@uier/toolbar/devices';
 import { parseDrawing } from '@uier/toolbar/drawing';
-import { isChangeProposal, type ChangeProposal } from '@uier/toolbar/change-proposal';
+import { isChangeProposal, isProposalLabelHash, type ChangeProposal } from '@uier/toolbar/change-proposal';
 import type { MarkdownMention } from '@uier/toolbar/markdown';
 import { apiErrors } from './http';
 import { rewriteReplacement } from './proposal';
@@ -124,9 +124,12 @@ export const pointPositionSchema = z.object({
     yNormal: normalSchema,
     widthNormal: areaSizeSchema.optional(),
     heightNormal: areaSizeSchema.optional(),
-    layer: layerSchema.optional()
+    layer: layerSchema.optional(),
+    proposalLabelHash: z.string().refine(isProposalLabelHash, 'Invalid proposal label fingerprint').optional()
 })
     .refine(point => (point.widthNormal === undefined) === (point.heightNormal === undefined), 'An area needs a width and a height')
+    .refine(point => point.proposalLabelHash === undefined || (point.widthNormal === undefined && !point.selector.startsWith(toolbarAnchorPrefix)),
+        'A proposal label belongs to a page element')
     .refine(point => point.widthNormal === undefined || point.heightNormal === undefined
         || (point.xNormal + point.widthNormal <= 1 + areaTolerance && point.yNormal + point.heightNormal <= 1 + areaTolerance),
     'An area must be within its element');
@@ -265,6 +268,9 @@ export const createCommentSchema = z.object({
     input => !input.proposal || (input.kind === 'comment' && input.position.type === 'point' && input.position.widthNormal === undefined)
         || (input.kind === 'rewrite' && input.position.type === 'text' && input.proposal.text !== undefined),
     { path: ['proposal'], message: 'A change proposal belongs to a pinned element or a text rewrite' }
+).refine(
+    input => input.position.type !== 'point' || input.position.proposalLabelHash === undefined || input.proposal !== undefined,
+    { path: ['position', 'proposalLabelHash'], message: 'A proposal label belongs to a change proposal' }
 ).refine(
     input => input.text !== undefined || (input.kind === 'comment' && input.proposal !== undefined),
     { path: ['text'], message: 'Text must not be empty' }

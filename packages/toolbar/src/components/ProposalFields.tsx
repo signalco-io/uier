@@ -1,10 +1,10 @@
 import { useId, useLayoutEffect, useRef, type ReactNode } from 'react';
 import { Input } from '@signalco/ui-primitives/Input';
-import { changeProposalTextMaxLength, changeStyleProperties, isChangeProposal, isChangeStyleValue, type ChangeProposal, type ChangeStyleProperty } from '../changeProposal';
+import { changeProposalStyleMaxLength, changeProposalTextMaxLength, changeStyleProperties, isChangeStyleValue, type ChangeStyleProperty } from '../changeProposal';
+import type { ProposalTarget } from '../proposalDraft';
 import { useMessages } from '../i18n';
 import { destructiveTextClassName, inputFocusRingClassName } from './@types/Comments';
 
-export type ProposalTarget = { text?: string; styles: Partial<Record<ChangeStyleProperty, string>> };
 const paddingProperties = ['padding-top', 'padding-right', 'padding-bottom', 'padding-left'] as const;
 const mainProperties = changeStyleProperties.filter(property => !property.startsWith('padding-'));
 const inputClassName = `min-w-0 [&>input]:text-base sm:[&>input]:text-sm pointer-coarse:[&>input]:min-h-11 ${inputFocusRingClassName}`;
@@ -14,36 +14,6 @@ function pickerColor(value: string) {
     if (hex) return `#${hex.length < 5 ? [...hex.slice(0, 3)].map(digit => digit.repeat(2)).join('') : hex.slice(0, 6)}`;
     const rgb = /^rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*[\d.]+)?\)$/.exec(value);
     return rgb ? `#${rgb.slice(1, 4).map(channel => Math.min(255, Number(channel)).toString(16).padStart(2, '0')).join('')}` : undefined;
-}
-
-/** Keep editable input values separately so incomplete CSS can be corrected before saving. */
-export function buildElementProposal(original: ProposalTarget, values: ProposalTarget) {
-    const styles: ChangeProposal['styles'] = {};
-    const invalid: (ChangeStyleProperty | 'text')[] = [];
-    for (const property of changeStyleProperties) {
-        const before = original.styles[property];
-        const after = values.styles[property]?.trim();
-        if (before === undefined || after === undefined || before === after) continue;
-        const change = { original: before, proposed: after };
-        if (isChangeProposal({ styles: { [property]: change } }) && CSS.supports(property, after)) styles[property] = change;
-        else invalid.push(property);
-    }
-    const proposal: ChangeProposal = { styles };
-    if (original.text !== undefined && values.text !== undefined && original.text !== values.text) {
-        const text = { original: original.text, proposed: values.text };
-        if (isChangeProposal({ text, styles: {} })) proposal.text = text;
-        else invalid.push('text');
-    }
-    return { proposal: isChangeProposal(proposal) ? proposal : undefined, invalid };
-}
-
-export function proposalValues(proposal: ChangeProposal, side: 'original' | 'proposed'): ProposalTarget {
-    const styles: ProposalTarget['styles'] = {};
-    for (const property of changeStyleProperties) {
-        const change = proposal.styles[property];
-        if (change) styles[property] = change[side];
-    }
-    return { text: proposal.text?.[side], styles };
 }
 
 export function ProposalFields({ original, values, invalid, onChange, children }: {
@@ -69,7 +39,7 @@ export function ProposalFields({ original, values, invalid, onChange, children }
         return <div key={property} className="grid min-w-0 content-start gap-1">
             <div className={color ? 'grid min-w-0 grid-cols-[minmax(0,1fr)_44px] items-end gap-1' : 'min-w-0'}>
                 <Input label={t.properties[property]} title={property} data-uier-proposal-input={property}
-                    fullWidth spellCheck={false} autoComplete="off" value={value} maxLength={128}
+                    fullWidth spellCheck={false} autoComplete="off" value={value} maxLength={changeProposalStyleMaxLength}
                     aria-invalid={bad || undefined} aria-describedby={`${id}-${property}${bad ? ` ${id}-invalid` : ''}`}
                     className={inputClassName} onChange={event => updateStyle(property, event.target.value)}
                     onKeyDown={event => { if (event.key === 'Enter') event.preventDefault(); }} />
@@ -108,7 +78,7 @@ export function ProposalFields({ original, values, invalid, onChange, children }
             {mainProperties.map(styleField)}
             {originalLeft !== undefined && originalRight !== undefined && <div className="grid min-w-0 content-start gap-1">
                 <Input label={t.sidePadding} data-uier-proposal-input="side-padding" fullWidth spellCheck={false} autoComplete="off"
-                    value={left === right ? left : ''} placeholder={left !== right ? t.mixedValues : undefined} maxLength={128}
+                    value={left === right ? left : ''} placeholder={left !== right ? t.mixedValues : undefined} maxLength={changeProposalStyleMaxLength}
                     aria-invalid={sideInvalid || undefined} aria-describedby={`${id}-side-padding${sideInvalid ? ` ${id}-invalid` : ''}`}
                     className={inputClassName} onKeyDown={event => { if (event.key === 'Enter') event.preventDefault(); }}
                     onChange={event => {

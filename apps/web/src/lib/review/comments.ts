@@ -25,7 +25,7 @@ import { moveMentions } from '@uier/toolbar/mentions';
 import { withNotificationEvent } from '../notifications/events';
 import { commitChangeSubmission, commitNewSubmission, commitReplySubmission, recoverSubmission, submission, type Submission } from '../comments/submissions';
 import { withEditedThreadItem } from '../comments/editing';
-import { withEditedRewriteProposal } from '../comments/proposal';
+import { withEditedRewriteProposal, withoutCommentProposal } from '../comments/proposal';
 import type { EditThreadItemInput } from '../comments/validation';
 import type { DbComment, DbCommentDevice, DbThreadItem, DbMention } from '../db/schema';
 import { messageAgentClaimSchema, messageAgentFor, type MessageAgentClaim } from './messageAgent';
@@ -708,8 +708,7 @@ export async function deleteProjectCommentItem(project: DbProject, actor: Projec
             delete kept.device;
             delete kept.screenshot;
             delete kept.recording;
-            delete kept.proposal;
-            return withSyncMark(project, comment, withThreadHistory(comment, kept, actorAuthorId(actor)!));
+            return withSyncMark(project, comment, withThreadHistory(comment, withoutCommentProposal(kept), actorAuthorId(actor)!));
         }
 
         const remaining = items.filter(other => other !== item);

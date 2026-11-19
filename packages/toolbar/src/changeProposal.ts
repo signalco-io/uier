@@ -16,7 +16,11 @@ export type ChangeProposal = {
 
 export const changeProposalTextMaxLength = 1000;
 
-const maxStyleValueLength = 128;
+export function isProposalLabelHash(value: unknown): value is string {
+    return typeof value === 'string' && value.length === 19 && /^v1-[\da-f]{16}$/.test(value);
+}
+
+export const changeProposalStyleMaxLength = 128;
 const hexColor = /^#(?:[\da-f]{3}|[\da-f]{4}|[\da-f]{6}|[\da-f]{8})$/i;
 const length = '(?:\\d{1,5}(?:\\.\\d{1,8})?|\\.\\d{1,8})(?:px|r?em|r?lh|ch|ex|cap|ic|%|[sld]?v[whib]|[sld]?vmin|[sld]?vmax|cm|mm|q|in|pt|pc)';
 const lengthOrZero = `(?:0|${length})`;
@@ -48,7 +52,7 @@ const knownProperty = (key: PropertyKey): key is ChangeStyleProperty =>
 
 /** A single literal CSS value for an allowlisted property. Computed colours use RGB or a CSS colour space. */
 export function isChangeStyleValue(property: ChangeStyleProperty, value: string): boolean {
-    if (!value || value.length > maxStyleValueLength || /[^\x20-\x7e]/.test(value) || value.trim() !== value) return false;
+    if (!value || value.length > changeProposalStyleMaxLength || /[^\x20-\x7e]/.test(value) || value.trim() !== value) return false;
     switch (property) {
         case 'color':
         case 'background-color':

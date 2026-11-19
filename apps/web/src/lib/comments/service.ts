@@ -13,7 +13,7 @@ import { getReadSequence, loadReadSequences, unreadComments } from './readState'
 import { nanoid } from 'nanoid';
 import { submission, recoverSubmission, commitNewSubmission, commitReplySubmission } from './submissions';
 import { withEditedThreadItem } from './editing';
-import { withEditedRewriteProposal } from './proposal';
+import { withEditedRewriteProposal, withoutCommentProposal } from './proposal';
 import type { EditThreadItemInput } from './validation';
 import { screenshotDocumentId, type DbComment, type DbCommentDevice, type DbCommentScreenshot, type DbScreenshot, type DbThreadItem } from '../db/schema';
 import { commentsContainerName, DEFAULT_COMMENTS_CONTAINER_NAME } from '../db/client';
@@ -472,8 +472,7 @@ function withoutFirstItem(comment: DbComment, context: CommentsApiContext): DbCo
     delete updated.device;
     delete updated.screenshot;
     delete updated.recording;
-    delete updated.proposal;
-    return updated;
+    return withoutCommentProposal(updated);
 }
 
 /**

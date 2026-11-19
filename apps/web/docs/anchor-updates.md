@@ -7,4 +7,8 @@ Retain the original and immediately previous position plus change time/count in 
 actor identifiers. DTOs allowlist its fields. It follows comment visibility and retention; no image or
 message is replaced. Keep the privacy policy and toolbar guide aligned with this context.
 
+Point suggestions can retain a fixed-length visible-label fingerprint as part of the anchor. The
+toolbar captures it when the reviewer picks the target or explicitly reattaches a proposal. It is
+available on the saved thread for replay and does not appear in the exported feedback anchor.
+
 `e2e/reattach.spec.ts` checks both anchor changes and their context after reload in the restored inbox.

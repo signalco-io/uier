@@ -61,6 +61,10 @@ test('pinned and rewrite drafts restore text/anchors on navigation and reload, w
     await expect(page.locator('[data-uier-comment="new"]')).toHaveCount(2);
     expect(await page.evaluate(() => JSON.stringify(Object.values(localStorage)))).not.toContain('data:image');
     await rewrite.getByRole('button', { name: 'Discard' }).click();
+    await expect(page.locator('[data-uier-comment="new"]')).toHaveCount(1);
+    // Opening the rewrite can scroll its composer into view. Bring the other draft's real anchor
+    // back into view, since the pin itself uses fixed positioning.
+    await page.getByRole('heading', { level: 1 }).scrollIntoViewIfNeeded();
     await page.getByRole('button', { name: 'New comment', exact: true }).click();
     await expect(draft.getByRole('textbox', { name: 'Comment', exact: true })).toHaveText('Another anchored draft', { useInnerText: true });
     await draft.getByRole('button', { name: 'Discard' }).click();

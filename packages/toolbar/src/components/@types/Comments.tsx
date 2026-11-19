@@ -40,6 +40,8 @@ export type CommentPoint = {
     widthNormal?: number;
     heightNormal?: number;
     layer?: CommentLayer;
+    /** Bounded visible-label fingerprint for previewing a proposal on a structural anchor. */
+    proposalLabelHash?: string;
 };
 
 /**

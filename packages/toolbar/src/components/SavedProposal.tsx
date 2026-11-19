@@ -35,8 +35,8 @@ export function ProposalSwitch({ session, position, disabled = false }: { sessio
     const group = useRef<HTMLDivElement>(null);
     useLayoutEffect(() => {
         const sheet = group.current?.closest<HTMLDialogElement>('dialog[data-uier-proposal-sheet]');
-        if (sheet?.open) revealProposalTarget(position, sheet);
-    }, [position, proposed]);
+        if (sheet?.open && !disabled && session.result !== 'stale') revealProposalTarget(position, sheet);
+    }, [position, proposed, disabled, session.result]);
     return <div ref={group} role="group" aria-label={t.preview} data-uier-proposal-switch="" className="flex flex-wrap items-center gap-1">
         <Button size="xs" variant={proposed ? 'plain' : 'outlined'} type="button" className="pointer-coarse:min-h-11"
             data-uier-proposal-side="original" aria-pressed={!proposed} onClick={session.showOriginal}>{t.original}</Button>

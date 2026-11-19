@@ -70,8 +70,11 @@ Rewrite tool visibility. The editor shows the captured computed originals, exact
 for text and background, replacement text where available, text size and weight, padding and corner radius.
 **Side padding** updates both horizontal sides in one entry. **Padding details** exposes all four sides for
 individual overrides. Each changed value previews on that element and the entire change posts under one pin.
-The note is optional. Valid changes and the note are kept in the existing scoped draft, including proposals
-with an empty note. On a narrow touch screen the editor uses a bottom sheet with a transparent backdrop.
+The note is optional. The scoped draft keeps the captured originals, exact editor values and note across
+closing and reloading, including suggestions with an empty note or an unfinished CSS value. Every posting
+action requires a change and checks all edited fields. For an invalid draft, Post suggestion in the inbox
+reopens the editor so the reviewer can correct the marked fields. On a narrow touch screen the editor uses
+a bottom sheet with a transparent backdrop.
 
 The preview starts when the page matches the captured values. Before capturing a screenshot, the toolbar
 restores the page and waits until capture finishes to apply a newly requested preview. Submitting, closing,
@@ -95,10 +98,10 @@ replies use the thread id, and edits use `edit:<commentId>:<itemId>` with the or
 Typing writes immediately; reopening the same box after a reload or toolbar remount restores its text and
 mentions. The kept text is the cue: no composer says "Draft saved in this browser" under its box ([uier #218](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects&comment=comment_xQbZJy4bLvce3eONhs0J-),
 [uier #295](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fmy-work&comment=comment_kAQn2JJ3-PFQNEGtg3L2V)). Successful sends/saves and explicit Discard/Cancel clear the appropriate draft; failed or uncertain
-sends retain it. A send the page never saw settle (it was reloaded or left meanwhile, or failed while it was being
-left) comes back as a draft too, marked `unsettled`: it may have been saved. Once the page's comments are loaded and
-one of yours has its text, it was, and the draft goes (`CommentsGlobal`), so a comment posted just before a reload is
-not listed as unsent; one that was not saved stays. A plain failed send (an error shown in the form) is not marked.
+sends retain it. If the page leaves before a send settles, its draft returns on the next visit. Message-only
+drafts keep the existing `unsettled` text check against loaded comments (`CommentsGlobal`). Element suggestions
+stay available for explicit retry. The same submission key either saves that attempt or returns its existing
+thread. This also applies to element drafts saved before raw editor values were stored.
 The authorized reviewer, API, project and canonical page scope never includes a build id.
 Screenshots, attached images and device details stay in memory. The app's own feedback-mode toolbar is
 loaded on demand again with Give feedback after a document reload; this reuses the same draft keys.
@@ -123,13 +126,13 @@ several (`new`, `new-rewrite`) comes back as one of them. A drawing's comment st
 drawing is in memory, [canvas mode](canvas-mode.md)), and each comment's submission key is kept in its own draft
 (`CreateCommentInput.draftKey`).
 
-- The page's comment and rewrite drafts with text come back as closed pins on load and on each page
+- The page's drafts with text or element changes come back as closed pins on load and on each page
   (`restorePageDrafts`, the newest 50; the store's `keys()` lists a page's records). Records left without text (a
   form open when the page was left) are removed then, so they do not pile up. A closed pin is captured when its form
   opens or it is sent, not when it comes back, so many drafts cost nothing on load.
 - **Resume draft** above the pill opens the latest closed one. The inbox lists them all.
 - The inbox lists this page's drafts above its threads, newest first (`sidebar/InboxDrafts.tsx`, current through the
-  store's `subscribeAll` and `version`): those with text whose form is closed, under Active and All, while the chosen
+  store's `subscribeAll` and `version`): those with text or element changes whose form is closed, under Active and All, while the chosen
   pages include this page, not with the unread or Assigned to me filters, and only those with every word of the
   search. A card has "Draft comment" (or "Draft rewrite suggestion") and when it last changed, the quoted text, the
   text without its Markdown and, when its target is not on the page, why; then Resume draft (only while its pin can be

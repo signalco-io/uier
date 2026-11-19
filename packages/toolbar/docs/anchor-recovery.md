@@ -68,19 +68,34 @@ layout frames (the versions are `hooks/useLayoutVersion.ts`). No pin for a missi
 
 `proposalPreview.ts` reads and replays point text against the element's whole visible label. An old
 label that survives as a substring of a longer label is stale. Text selections require the complete
-saved selection at valid offsets in uniquely matched elements. Replay checks the exact captured DOM
-text and computed values of every proposed property before it applies any change. Page and area
+saved selection at valid offsets in uniquely matched elements. Replay verifies the original label or
+selection and the computed values of every proposed property before it applies any change. Page and area
 anchors, toolbar UI, forms and editable content are ineligible.
 
-Text previews update existing text nodes. A replacement may span adjacent text nodes. When the
-changed words would need to be reassigned across markup boundaries, the proposal is unavailable.
+Point suggestions with structural selectors also check the target's label. When the reviewer picks
+the element, the toolbar fingerprints its complete, bounded visible label if that label distinguishes
+it from elements on the same path with different ordinals. The point stores only the fingerprint.
+Replay requires the exact selector and label to agree and the label to remain unique within those
+paths. A legacy point suggestion can use its original text or a stable selector identifying the
+target itself. A legacy CSS-only suggestion on a structural selector stays available in Exact values.
+The same identity check runs during a preview and uses the original text of nodes edited by uier.
+
+Selected text can match its exact source or the rendered quote after CSS whitespace collapse.
+The resolver preserves nonbreaking spaces and requires exact source text for whitespace-preserving
+content. Legacy rewrite quotes can
+also use the verified quote with outer collapsible whitespace trimmed. The engine maps the changed
+portion of the quote to raw text offsets, which preserves unchanged indentation, line breaks and
+spaces when it edits the existing nodes. A replacement may span adjacent text nodes. When the changed
+words would need to be reassigned across markup boundaries, the proposal is unavailable.
 The internal `trackPreviewTextRange` helper gives the pin and selection highlight the edited range,
 including a caret-sized position for a deletion, until the preview stops.
 
 Only one preview can be active. The engine applies allowlisted literal CSS values as inline
 declarations and restores their original values and priorities. An authored inline shorthand must
 expose each affected declaration through the CSSOM so it can be restored independently. The engine
-observes the edited nodes and restores the parts it still owns. New text written by the page and
+settles transitions on its edited properties when applying and restoring them, so the original is
+ready for capture or immediate replay. Unrelated transitions continue and event listeners stay attached. The
+engine observes the edited nodes and restores the parts it still owns. New text written by the page and
 unrelated inline edits survive cleanup. A replacement node stays under the page's control. The
 toolbar calls the returned cleanup when its preview UI goes away.
 [`proposal-preview-engine.spec.ts`](../../../apps/web/e2e/proposal-preview-engine.spec.ts) covers the

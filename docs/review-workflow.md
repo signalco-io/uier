@@ -568,7 +568,8 @@ redaction and automatic copies to integrations or AI providers are separate feat
 
 ## Draft recovery and submission retries
 
-The toolbar keeps unsent comment, rewrite, page feedback, bug, reply and edit text in the reviewed
+The toolbar keeps unsent comment, rewrite, page feedback, bug, reply and edit text, plus raw element
+suggestion inputs, in the reviewed
 site's local storage for seven days after the last change. Versioned `uier:draft:v1:` keys include
 the API, project, server-authorized reviewer scope, canonical page key (`@uier/toolbar/page-state`)
 and thread/item. Pinned drafts retain their element/text anchor and return as closed pins without taking focus; edits retain the original text
@@ -600,8 +601,10 @@ capture status, the per-comment screenshot choice and the name of an attached im
 Saved screenshots keep their expandable thumbnail behavior.
 
 Create/reply requests from the toolbar and app reply actions carry a random `idempotencyKey`, kept with the draft.
-Unchanged retries keep it, including after reload; changing the submitted text/anchor/kind starts
-a new attempt. Pending sends share a lock across composer instances. This is recovery of authored
+Unchanged retries keep it, including after reload. Changing the submitted text, anchor, kind or proposal starts
+a new attempt. Interrupted element suggestions remain drafts until the reviewer retries or discards them. The
+retry uses the receipt for that specific attempt even when another suggestion has the same CSS and anchor.
+Pending sends share a lock across composer instances. This is recovery of authored
 work, with an explicit send action, not a background queue. Both comments APIs accept optional
 keys (16–128 URL-safe characters). Receipts are scoped to the server actor and partition, shared
 across create/reply operations, and reject conflicting content with 409. Capture/device changes

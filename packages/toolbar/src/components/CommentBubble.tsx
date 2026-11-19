@@ -13,6 +13,7 @@ import { getCommentPlacement, lowestRect, resolveAnchorElement, useCommentPlacem
 import { cancelCommentScreenshot, captureCommentScreenshot } from '../screenshot';
 import { useRecording, type RecordingClip } from '../recordings';
 import { newCommentDraftKey, newDrawingDraftKey, newRewriteDraftKey, useDrafts } from '../hooks/useDrafts';
+import { hasDraftContent } from '../hooks/draftStorage';
 import { CommentThread } from './CommentThread';
 import { CommentComposer, type CommentComposerHandle } from './CommentComposer';
 import { CommentSelectionHighlight } from './CommentSelectionHighlight';
@@ -44,7 +45,8 @@ import { useToolbarFeatures } from '../hooks/useToolbarFeatures';
 import { useProposalSession } from '../hooks/useProposalSession';
 import { readProposalTarget } from '../proposalPreview';
 import { revealProposalTarget, stopProposalSession } from '../proposalSession';
-import { buildElementProposal, ProposalFields, proposalValues, type ProposalTarget } from './ProposalFields';
+import { buildElementProposal, proposalValues, type ProposalDraft, type ProposalTarget } from '../proposalDraft';
+import { ProposalFields } from './ProposalFields';
 import { ProposalSwitch, rewriteProposal, savedProposal } from './SavedProposal';
 import { literalTextToMarkdown } from '../editor/markdownDoc';
 
@@ -287,12 +289,14 @@ export function CommentBubble(props: CommentBubbleProps) {
     const draftText = useSyncExternalStore(listener => creating ? drafts.subscribe(draftKey, listener) : () => {}, () => creating ? drafts.get(draftKey) : undefined);
     const rewriteMentions = useSyncExternalStore(listener => rewriting ? drafts.subscribe(draftKey, listener) : () => {}, () => rewriting ? drafts.details(draftKey)?.mentions : undefined);
     const draftProposal = useSyncExternalStore(listener => canSuggest ? drafts.subscribe(draftKey, listener) : () => {}, () => canSuggest ? drafts.details(draftKey)?.proposal : undefined);
-    const [proposalEditor, setProposalEditor] = useState<{ original: ProposalTarget; values: ProposalTarget }>();
+    const storedProposalEditor = useSyncExternalStore(listener => canSuggest ? drafts.subscribe(draftKey, listener) : () => {}, () => canSuggest ? drafts.details(draftKey)?.proposalDraft : undefined);
+    const [legacyProposalEditor, setLegacyProposalEditor] = useState<ProposalDraft>();
+    const proposalEditor = storedProposalEditor ?? legacyProposalEditor;
     const [proposalUnavailable, setProposalUnavailable] = useState(false);
     const suggesting = canSuggest && Boolean(proposalEditor || draftProposal);
     const newLabel = rewriting ? t.pin.newRewrite : suggesting ? t.proposal.suggest : t.pin.newComment;
     const narrowTouch = useProposalSheet();
-    const elementChanges = useMemo(() => proposalEditor ? buildElementProposal(proposalEditor.original, proposalEditor.values) : undefined, [proposalEditor]);
+    const elementChanges = useMemo(() => proposalEditor ? buildElementProposal(proposalEditor) : undefined, [proposalEditor]);
     const rewriteChanges = useMemo(() => {
         if (!rewriting || !draftText) return undefined;
         const leading = draftText.length - draftText.trimStart().length;
@@ -307,7 +311,7 @@ export function CommentBubble(props: CommentBubbleProps) {
         stopProposalSession();
         const target = readProposalTarget(position, before.text);
         const original = { text: before.text ?? target?.text, styles: { ...target?.styles, ...before.styles } };
-        setProposalEditor({ original, values: { ...original, ...after, text: after.text ?? original.text, styles: { ...original.styles, ...after.styles } } });
+        setLegacyProposalEditor({ original, values: { text: after.text ?? original.text, styles: { ...original.styles, ...after.styles } } });
     }, [open, position, draftProposal, proposalEditor]);
 
     const openProposalEditor = () => {
@@ -318,19 +322,18 @@ export function CommentBubble(props: CommentBubbleProps) {
             return;
         }
         setProposalUnavailable(false);
-        setProposalEditor({ original, values: original });
+        drafts.setDetails(draftKey, { proposalDraft: { original, values: original }, proposal: undefined });
         draftSession.showProposed();
     };
     const updateProposal = (values: ProposalTarget) => {
         if (!proposalEditor) return;
-        setProposalEditor({ ...proposalEditor, values });
-        drafts.setDetails(draftKey, { proposal: buildElementProposal(proposalEditor.original, values).proposal });
+        drafts.setDetails(draftKey, { proposalDraft: { ...proposalEditor, values }, proposal: undefined });
     };
     const clearProposal = () => {
         stopProposalSession();
         draftSession.showOriginal();
-        setProposalEditor(undefined);
-        drafts.setDetails(draftKey, { proposal: undefined });
+        setLegacyProposalEditor(undefined);
+        drafts.setDetails(draftKey, { proposalDraft: undefined, proposal: undefined });
     };
     const announce = useAnnounce();
     const triggerRef = useRef<HTMLButtonElement>(null);
@@ -395,11 +398,28 @@ export function CommentBubble(props: CommentBubbleProps) {
         await createComment(text, mentions, capture, false);
     };
 
+    // Read from the store at submission time, including when the editor has not been mounted.
+    const pointProposalForSend = (saved: ReturnType<typeof drafts.details>) => {
+        if (!saved?.proposalDraft && !saved?.proposal) return { blocked: false };
+        if (!canSuggest) return { blocked: true };
+        const legacy = saved.proposal;
+        const editor = saved.proposalDraft ?? { original: proposalValues(legacy!, 'original'), values: proposalValues(legacy!, 'proposed') };
+        const { proposal, invalid } = buildElementProposal(editor);
+        return { proposal: saved.proposalDraft ? proposal : legacy, blocked: !proposal || invalid.length > 0 };
+    };
+
     // `quiet`: sent from the inbox, its form closed (`send`)
     const createComment = async (text: string, mentions: Mention[] | undefined, sent: typeof capture, quiet: boolean) => {
-        stopProposalSession();
+        const pointProposal = pointProposalForSend(drafts.details(draftKey));
+        if (pointProposal.blocked) throw new Error(t.proposal.invalid);
         const draft = props.draft!;
-        const proposal = rewriting ? rewriteProposal(selectedText, text, mentions) : canSuggest ? drafts.details(draftKey)?.proposal : undefined;
+        const proposal = rewriting ? rewriteProposal(selectedText, text, mentions) : pointProposal.proposal;
+        stopProposalSession();
+        let position = draft.position;
+        if (!proposal && position.type === 'point' && position.proposalLabelHash !== undefined) {
+            const { proposalLabelHash: _labelHash, ...point } = position;
+            position = point;
+        }
         const quotedText = draft.position.type === 'text'
             ? draft.position.text.trim().slice(0, commentTextMaxLength)
             : undefined;
@@ -407,7 +427,7 @@ export function CommentBubble(props: CommentBubbleProps) {
         const posting = create.mutateAsync({
             localId,
             draftKey,
-            position: draft.position,
+            position,
             kind: rewriting ? 'rewrite' : proposal ? 'comment' : undefined,
             text,
             mentions,
@@ -436,12 +456,15 @@ export function CommentBubble(props: CommentBubbleProps) {
     const { needsName } = useProjectViewer();
     useImperativeHandle(props.ref, () => ({
         send: () => {
-            const text = drafts.get(draftKey) ?? '';
+            if (!creating) return false;
+            const saved = drafts.details(draftKey);
+            if (saved?.sending?.length) return true;
+            const text = saved?.text ?? '';
             const trimmed = text.trim();
-            const proposal = canSuggest ? drafts.details(draftKey)?.proposal : undefined;
-            if (!creating || (!trimmed && !proposal) || attachment.reading || recording.busy || (needsName && !getGuestName())) return false;
+            const { proposal, blocked } = pointProposalForSend(saved);
+            if (blocked || (!trimmed && !proposal) || attachment.reading || recording.busy || (needsName && !getGuestName())) return false;
             stopProposalSession();
-            const mentions = drafts.details(draftKey)?.mentions ?? [];
+            const mentions = saved?.mentions ?? [];
             const leading = text.length - text.trimStart().length;
             const selected = mentions.filter(mention => mention.end <= text.trimEnd().length)
                 .map(mention => ({ userId: mention.userId, start: mention.start - leading, end: mention.end - leading }));
@@ -550,10 +573,9 @@ export function CommentBubble(props: CommentBubbleProps) {
             // A new comment with text stays on the page as a draft pin; reopening it brings the text
             // back. A rewrite whose text is still the selected text has nothing to keep. A drawing is
             // something to keep by itself: Discard removes it.
-            const text = drafts.get(draftKey)?.trim();
             const saved = drafts.details(draftKey);
-            const unchangedRewrite = rewriting && selectedText !== undefined && text === literalTextToMarkdown(selectedText).trim();
-            if (creating && !drawingDraft && !recording.current() && !saved?.proposal && (!text?.length || unchangedRewrite)) {
+            const unchangedRewrite = rewriting && selectedText !== undefined && saved?.text.trim() === literalTextToMarkdown(selectedText).trim();
+            if (creating && !drawingDraft && !recording.current() && (!hasDraftContent(saved) || unchangedRewrite)) {
                 drafts.delete(draftKey);
                 onCanceled?.();
             }
@@ -720,7 +742,7 @@ export function CommentBubble(props: CommentBubbleProps) {
                 label={rewriting ? t.pin.suggestedText : suggesting ? t.proposal.note : (creating ? t.pin.comment : t.pin.reply)}
                 placeholder={rewriting ? t.pin.suggestionPlaceholder : suggesting ? t.proposal.note : (creating ? t.pin.commentPlaceholder : t.thread.replyPlaceholder)}
                 submitLabel={rewriting || suggesting ? t.pin.postSuggestion : (creating ? t.pin.postComment : t.thread.postReply)}
-                allowEmpty={suggesting && Boolean(draftProposal)}
+                allowEmpty={suggesting && Boolean(elementChanges?.proposal)}
                 draftKey={draftKey}
                 quote={selectedText}
                 // Not when it appears in a thread that is closing (its comment was saved after
@@ -728,7 +750,7 @@ export function CommentBubble(props: CommentBubbleProps) {
                 autoFocus={open && !reading && !suggesting && (!sheet || creating)}
                 tall={expanded && !sheet}
                 error={mutation.error ?? props.draft?.sendError}
-                holdSubmit={attachment.reading || (suggesting && (!draftProposal || Boolean(elementChanges?.invalid.length)))}
+                holdSubmit={attachment.reading || (suggesting && (!elementChanges?.proposal || Boolean(elementChanges.invalid.length)))}
                 recording={{ ...recording, start: () => { stopProposalSession(); setExpanded(false); return recording.start(); } }}
                 // Replies wait until the comment is saved (they need its id); the reply box
                 // is there already, so the thread keeps its size and the focus stays in it

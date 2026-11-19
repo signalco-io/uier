@@ -6,7 +6,9 @@ import type { CommentPoint, CommentSelection } from '../../../packages/toolbar/s
 declare global {
     interface Window {
         proposalEngine: typeof import('../../../packages/toolbar/src/proposalPreview')
-            & Pick<typeof import('../../../packages/toolbar/src/hooks/useCommentItemRects'), 'getCommentPlacement'>;
+            & Pick<typeof import('../../../packages/toolbar/src/hooks/useCommentItemRects'), 'getCommentPlacement'>
+            & typeof import('../../../packages/toolbar/src/anchorSelector')
+            & Pick<typeof import('../../../packages/toolbar/src/proposalSession'), 'holdProposalSessions' | 'showProposalSession'>;
     }
 }
 
@@ -16,9 +18,13 @@ let bundle: string;
 test.beforeAll(async () => {
     const result = await build({
         stdin: { contents: `
-            import { readProposalTarget, startProposalPreview } from './proposalPreview';
+            import { anchorSelector, hasIndependentAnchorSelector, withoutAnchorOrdinals } from './anchorSelector';
+            import { readProposalTarget, startProposalPreview, withProposalTargetIdentity } from './proposalPreview';
+            import { holdProposalSessions, showProposalSession } from './proposalSession';
             import { getCommentPlacement } from './hooks/useCommentItemRects';
-            window.proposalEngine = { readProposalTarget, startProposalPreview, getCommentPlacement };
+            window.proposalEngine = { anchorSelector, hasIndependentAnchorSelector, withoutAnchorOrdinals,
+                readProposalTarget, startProposalPreview, withProposalTargetIdentity, getCommentPlacement,
+                holdProposalSessions, showProposalSession };
         `, resolveDir: fileURLToPath(new URL('../../../packages/toolbar/src/', import.meta.url)) },
         bundle: true, write: false, platform: 'browser', format: 'iife',
         define: { __UIER_DEV__: 'false', __UIER_API_URL__: JSON.stringify('https://uier.test'), 'process.env.NODE_ENV': JSON.stringify('production') },
@@ -87,6 +93,101 @@ test('saved offsets scope a repeated selection and the pin follows its edited te
         restored: 'Get started / Get started today', unavailable: [null, null, null] });
 });
 
+test('a rendered selection replays at its raw offsets and preserves its source whitespace', async ({ page }) => {
+    const result = await page.evaluate(() => {
+        const main = document.querySelector('main')!;
+        main.innerHTML = '<p id="target"></p>';
+        const target = main.firstElementChild!;
+        const prefix = 'Try our bread / ';
+        const raw = 'Try  our\n  bread';
+        const suffix = ' today';
+        const node = document.createTextNode(prefix + raw + suffix);
+        target.append(node);
+        const range = document.createRange();
+        range.setStart(node, prefix.length);
+        range.setEnd(node, prefix.length + raw.length);
+        const selection = window.getSelection()!;
+        selection.removeAllRanges();
+        selection.addRange(range);
+        const text = selection.toString();
+        selection.removeAllRanges();
+        const position = {
+            type: 'text', text, startSelector: '#target', startType: 'text', startOffset: prefix.length,
+            endType: 'text', endOffset: prefix.length + raw.length,
+        } as const;
+        const { getCommentPlacement, readProposalTarget, showProposalSession } = window.proposalEngine;
+        const read = readProposalTarget(position)?.text;
+        const states: string[] = [];
+        const stop = showProposalSession(position, { text: { original: text, proposed: 'Try the bread' }, styles: {} }, state => states.push(state));
+        const during = [node.data, getCommentPlacement(position).state];
+        stop();
+        return { text, read, states, during, restored: node.data, sameNode: target.firstChild === node };
+    });
+    expect(result).toEqual({ text: 'Try our bread', read: 'Try our bread', states: ['proposed', 'original'],
+        during: ['Try our bread / Try  the\n  bread today', 'exact'],
+        restored: 'Try our bread / Try  our\n  bread today', sameNode: true });
+});
+
+test('legacy selection quotes replay literally while significant whitespace mismatches are stale', async ({ page }) => {
+    const result = await page.evaluate(() => {
+        const main = document.querySelector('main')!;
+        main.innerHTML = '<p id="target"></p>';
+        const target = main.firstElementChild as HTMLElement;
+        const { readProposalTarget, startProposalPreview } = window.proposalEngine;
+        const replay = (raw: string, text: string, original: string, whiteSpace: string) => {
+            target.style.whiteSpace = whiteSpace;
+            target.textContent = raw;
+            const position = {
+                type: 'text', text, startSelector: '#target', startType: 'text', startOffset: 0,
+                endType: 'text', endOffset: raw.length,
+            } as const;
+            const available = readProposalTarget(position, original)?.text;
+            const stop = startProposalPreview(position, { text: { original, proposed: 'Try the bread' }, styles: {} });
+            const during = target.textContent;
+            stop?.();
+            return [available ?? null, during, target.textContent];
+        };
+        return {
+            trimmed: replay('  Try  our bread  ', ' Try our bread ', 'Try our bread', 'normal'),
+            raw: replay('Try  our bread', 'Try our bread', 'Try  our bread', 'normal'),
+            preserved: replay('Try  our\n bread', 'Try  our\n bread', 'Try  our\n bread', 'pre-wrap'),
+            changedPreserved: replay('Try  our\n bread', 'Try our bread', 'Try our bread', 'pre-wrap'),
+            changedBreak: replay('Try\nour bread', 'Try our bread', 'Try our bread', 'pre-line'),
+            storedBreak: replay('Try our bread', 'Try\nour bread', 'Try\nour bread', 'normal'),
+            nonBreaking: replay('Try\u00a0our bread', 'Try our bread', 'Try our bread', 'normal'),
+        };
+    });
+    expect(result).toEqual({
+        trimmed: ['Try our bread', '  Try  the bread  ', '  Try  our bread  '],
+        raw: ['Try  our bread', 'Try the bread', 'Try  our bread'],
+        preserved: ['Try  our\n bread', 'Try the bread', 'Try  our\n bread'],
+        changedPreserved: [null, 'Try  our\n bread', 'Try  our\n bread'],
+        changedBreak: [null, 'Try\nour bread', 'Try\nour bread'],
+        storedBreak: [null, 'Try our bread', 'Try our bread'],
+        nonBreaking: [null, 'Try\u00a0our bread', 'Try\u00a0our bread'],
+    });
+});
+
+test('normalized selection edits preserve adjacent markup and reject changes crossing its boundary', async ({ page }) => {
+    const result = await page.evaluate(() => {
+        document.querySelector('main')!.innerHTML = '<p id="target">Try  <a href="/bread"> our bread</a></p>';
+        const target = document.querySelector('#target')!;
+        const link = target.querySelector('a')!;
+        const position = {
+            type: 'text', text: 'Try our bread', startSelector: '#target', startType: 'text', startOffset: 0,
+            endSelector: '#target a', endType: 'text', endOffset: link.textContent!.length,
+        } as const;
+        const { startProposalPreview } = window.proposalEngine;
+        const preview = (proposed: string) => startProposalPreview(position, { text: { original: position.text, proposed }, styles: {} });
+        const unsafe = preview('Explore pastries');
+        const stop = preview('Try our rolls');
+        const during = [target.textContent, link.textContent, target.querySelector('a') === link];
+        stop?.();
+        return { unsafe: Boolean(unsafe), during, restored: target.textContent };
+    });
+    expect(result).toEqual({ unsafe: false, during: ['Try   our rolls', ' our rolls', true], restored: 'Try   our bread' });
+});
+
 test('a change may leave nested link copy intact but cannot redistribute copy across markup', async ({ page }) => {
     const result = await page.evaluate(position => {
         document.querySelector('main')!.innerHTML = '<p id="target">Read <a href="/help">the guide</a>.</p>';
@@ -149,6 +250,55 @@ test('style cleanup preserves host changes and restores the other affected decla
     }, point);
     expect(result).toEqual({ during: ['8px', '4% 6px', 'Preview'], afterUnrelatedWrite: ['8px', 0],
         restored: ['2px', '3px', 'important', '1px', '20px', 'important', 'navy', '9px', 'Host copy', 0] });
+});
+
+test('transitioning styles settle before capture or immediate replay and preserve host changes', async ({ page }) => {
+    const result = await page.evaluate(async position => {
+        document.querySelector('main')!.innerHTML = '<style>button { color: navy; opacity: 1; transition: color 250ms, opacity 30s; }</style>'
+            + '<button id="target">Original</button>';
+        const target = document.querySelector<HTMLButtonElement>('#target')!;
+        const { holdProposalSessions, readProposalTarget, showProposalSession } = window.proposalEngine;
+        const computed = () => getComputedStyle(target).color;
+        const original = readProposalTarget(position)!.styles.color!;
+        const proposed = (color: string) => ({ styles: { color: { original, proposed: color } } });
+        const states: string[] = [];
+        const notify = (state: string) => states.push(state);
+        let clicks = 0;
+        target.addEventListener('click', () => {
+            target.style.opacity = '.6';
+            target.style.marginLeft = `${++clicks}px`;
+        });
+        showProposalSession(position, proposed('#ff0000'), notify);
+        const preview = computed();
+        target.click();
+        const opacityTransition = () => target.getAnimations().find(animation =>
+            animation instanceof CSSTransition && animation.transitionProperty === 'opacity');
+        const hostTransition = opacityTransition();
+        const release = holdProposalSessions();
+        const originalAtCapture = computed();
+        const stop = showProposalSession(position, proposed('#008000'), notify);
+        await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+        const originalNextFrame = computed();
+        release();
+        const replay = computed();
+        stop();
+        const restored = computed();
+        const stopImmediate = showProposalSession(position, proposed('#ff0000'), notify);
+        const immediateReplay = computed();
+        stopImmediate();
+        target.click();
+        return {
+            preview, originalAtCapture, originalNextFrame, replay, restored, immediateReplay, states,
+            hostTransition: Boolean(hostTransition && opacityTransition() === hostTransition),
+            transition: getComputedStyle(target).transitionProperty, clicks, margin: target.style.marginLeft,
+        };
+    }, point);
+    expect(result).toEqual({
+        preview: 'rgb(255, 0, 0)', originalAtCapture: 'rgb(0, 0, 128)', originalNextFrame: 'rgb(0, 0, 128)',
+        replay: 'rgb(0, 128, 0)', restored: 'rgb(0, 0, 128)', immediateReplay: 'rgb(255, 0, 0)',
+        states: ['proposed', 'original', 'pending', 'proposed', 'original', 'proposed', 'original'],
+        hostTransition: true, transition: 'color, opacity', clicks: 2, margin: '2px',
+    });
 });
 
 test('style restoration works under a strict attribute policy and preserves logical padding precedence', async ({ page }) => {
@@ -222,4 +372,90 @@ test('starting a second preview and same-document navigation restore active prev
         return { during, after: texts(), invalidations };
     }, point);
     expect(result).toEqual({ during: ['Original', 'Second preview'], after: ['Original', 'Other'], invalidations: 2 });
+});
+
+test('CSS-only point replay keeps its captured identity through reorder and reload', async ({ page }) => {
+    const markup = '<ul id="list" style="color: navy"><li>First label</li><li>Second label</li></ul>';
+    const result = await page.evaluate(async ({ point, markup }) => {
+        document.querySelector('main')!.innerHTML = markup;
+        const list = document.getElementById('list')!;
+        const [first, second] = Array.from(list.children) as [HTMLLIElement, HTMLLIElement];
+        const { anchorSelector, readProposalTarget, startProposalPreview, withProposalTargetIdentity } = window.proposalEngine;
+        const position = withProposalTargetIdentity({ ...point, selector: anchorSelector(first) }, first);
+        const before = readProposalTarget(position)!;
+        const proposal = { styles: { color: { original: before.styles.color!, proposed: '#ff0000' } } };
+        let invalidations = 0;
+        const stop = startProposalPreview(position, proposal, () => invalidations++);
+        const previewColor = getComputedStyle(first).color;
+        list.prepend(second);
+        await Promise.resolve();
+        const reordered = { colors: [getComputedStyle(first).color, getComputedStyle(second).color], invalidations,
+            read: readProposalTarget(position), replayed: Boolean(startProposalPreview(position, proposal)) };
+        stop?.();
+        return { position, proposal, previewColor, reordered };
+    }, { point, markup });
+    expect(result.position).toMatchObject({ selector: '#list>li:nth-of-type(1)', proposalLabelHash: /^v1-[0-9a-f]{16}$/ });
+    expect(JSON.stringify(result.position)).not.toContain('First label');
+    expect(result.previewColor).toBe('rgb(255, 0, 0)');
+    expect(result.reordered).toEqual({ colors: ['rgb(0, 0, 128)', 'rgb(0, 0, 128)'], invalidations: 1, read: null, replayed: false });
+
+    await page.reload();
+    await page.addScriptTag({ content: bundle });
+    const afterReload = await page.evaluate(({ markup, position, proposal }) => {
+        document.querySelector('main')!.innerHTML = markup;
+        const list = document.getElementById('list')!;
+        list.prepend(list.lastElementChild!);
+        return {
+            replayed: Boolean(window.proposalEngine.startProposalPreview(position, proposal)),
+            colors: Array.from(list.children, element => getComputedStyle(element).color)
+        };
+    }, { markup, position: result.position, proposal: result.proposal });
+    expect(afterReload).toEqual({ replayed: false, colors: ['rgb(0, 0, 128)', 'rgb(0, 0, 128)'] });
+});
+
+test('structural point labels must stay unique even while the preview edits the target text', async ({ page }) => {
+    const result = await page.evaluate(async point => {
+        document.querySelector('main')!.innerHTML = '<ul id="list"><li>First label</li><li>Second label</li></ul>';
+        const list = document.getElementById('list')!;
+        const first = list.firstElementChild!;
+        const { anchorSelector, readProposalTarget, startProposalPreview, withProposalTargetIdentity } = window.proposalEngine;
+        const pointAtFirst = { ...point, selector: anchorSelector(first) };
+        const position = withProposalTargetIdentity(pointAtFirst, first);
+        const proposal = { styles: {}, text: { original: 'First label', proposed: 'Preview text' } };
+        let invalidations = 0;
+        const stop = startProposalPreview(position, proposal, () => invalidations++);
+        const during = first.textContent;
+        const duplicate = document.createElement('li');
+        duplicate.textContent = 'First label';
+        list.append(duplicate);
+        await Promise.resolve();
+        const duplicatePosition = withProposalTargetIdentity(pointAtFirst, first);
+        const duplicateRead = readProposalTarget(position);
+        const duplicateReplay = startProposalPreview(position, proposal);
+        stop?.();
+        return { during, invalidations, restored: first.textContent, duplicate: duplicate.textContent,
+            recaptured: 'proposalLabelHash' in duplicatePosition, duplicateRead, duplicateReplay: Boolean(duplicateReplay) };
+    }, point);
+    expect(result).toEqual({ during: 'Preview text', invalidations: 1, restored: 'First label', duplicate: 'First label',
+        recaptured: false, duplicateRead: null, duplicateReplay: false });
+});
+
+test('legacy CSS requires an independent selector and legacy point text requires a unique original label', async ({ page }) => {
+    const result = await page.evaluate(point => {
+        document.querySelector('main')!.innerHTML = '<ul id="list" style="color: navy"><li>First label</li><li>Second label</li></ul><p id="target" style="color: navy"></p>';
+        const { readProposalTarget, startProposalPreview } = window.proposalEngine;
+        const structural = { ...point, selector: '#list>li:nth-of-type(1)' };
+        const css = { styles: { color: { original: 'rgb(0, 0, 128)', proposed: '#ff0000' } } };
+        const legacyText = { styles: {}, text: { original: 'First label', proposed: 'Preview text' } };
+        const structuralCss = startProposalPreview(structural, css);
+        const independentCss = startProposalPreview(point, css);
+        independentCss?.();
+        const structuralText = startProposalPreview(structural, legacyText);
+        structuralText?.();
+        document.querySelector('#list li:last-child')!.textContent = 'First label';
+        return { structuralRead: readProposalTarget(structural), structuralCss: Boolean(structuralCss),
+            independentCss: Boolean(independentCss), structuralText: Boolean(structuralText),
+            duplicateText: Boolean(startProposalPreview(structural, legacyText)) };
+    }, point);
+    expect(result).toEqual({ structuralRead: null, structuralCss: false, independentCss: true, structuralText: true, duplicateText: false });
 });

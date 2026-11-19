@@ -150,12 +150,52 @@ function rangeFromOffsets(position: CommentSelection): Range | null {
     return starts.length === 1 && ends.length === 1 ? rangeFromElements(position, starts[0]!, ends[0]!, false) : null;
 }
 
+const collapsiblePreviewWhitespace = /[ \t\r\n]+/g;
+
+/** Map the trimmed and collapsed text's UTF-16 boundaries back to the source. */
+export function previewTextOffsets(text: string) {
+    const offsets = [0];
+    let cursor = 0;
+    for (const run of text.matchAll(collapsiblePreviewWhitespace)) {
+        const start = run.index;
+        const end = start + run[0].length;
+        while (cursor < start) offsets.push(++cursor);
+        if (start === 0) offsets[0] = end;
+        else if (end < text.length) offsets.push(end);
+        cursor = end;
+    }
+    while (cursor < text.length) offsets.push(++cursor);
+    return offsets;
+}
+
+function rangeCollapsesWhitespace(range: Range) {
+    const root = range.commonAncestorContainer;
+    const nodes = root instanceof Text ? [root] : textNodesOf(root).filter(node => range.intersectsNode(node));
+    return nodes.every(node => {
+        const start = node === range.startContainer ? range.startOffset : 0;
+        const end = node === range.endContainer ? range.endOffset : node.length;
+        return node.data.slice(start, end).search(collapsiblePreviewWhitespace) < 0
+            || Boolean(node.parentElement && getComputedStyle(node.parentElement).whiteSpaceCollapse === 'collapse');
+    });
+}
+
 /** Proposals require the complete saved selection at its offsets, without page-wide text recovery. */
-export function resolvePreviewTextRange(position: CommentSelection, start: Element, end: Element): Range | null {
+export function resolvePreviewTextRange(position: CommentSelection, start: Element, end: Element) {
     const range = rangeFromElements(position, start, end, true);
-    const renderedWhitespace = (text: string) => text.replace(/\s+/g, ' ').trim();
-    const expected = renderedWhitespace(position.text);
-    return range && expected && renderedWhitespace(range.toString()) === expected ? range : null;
+    if (!range || !position.text.trim()) return null;
+
+    const raw = range.toString();
+    let projected: string | undefined;
+    let canCollapse: boolean | undefined;
+    const matches = (quote: string) => {
+        if (raw === quote) return true;
+        // A rendered quote can include one space at either boundary. Interior runs and line
+        // breaks in the quote itself can be significant and require an exact source match.
+        const rendered = quote.replace(/^ | $/g, '');
+        if (!rendered || rendered !== (projected ??= raw.replace(collapsiblePreviewWhitespace, ' ').replace(/^ | $/g, ''))) return false;
+        return canCollapse ??= rangeCollapsesWhitespace(range);
+    };
+    return matches(position.text) ? { range, matches } : null;
 }
 
 /** Shorter texts are not searched for: they would be found in too many places */

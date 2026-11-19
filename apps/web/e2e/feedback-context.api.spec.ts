@@ -15,11 +15,13 @@ import { pngImage } from './support/images';
 
 test('public change proposals persist without a note, participate in retries, and are removed with the first message', async ({ request, playwright, baseURL }) => {
     const proposal = { styles: { 'padding-left': { original: '4px', proposed: '12px' }, color: { original: 'rgb(0, 0, 0)', proposed: '#123' } } };
-    const input = { path: `/change-${randomUUID()}`, position: { type: 'point', selector: '#hero', xNormal: 0.5, yNormal: 0.5 }, proposal, idempotencyKey: randomUUID() };
+    const position = { type: 'point', selector: '#hero>li:nth-of-type(1)', xNormal: 0.5, yNormal: 0.5, proposalLabelHash: 'v1-0123456789abcdef' };
+    const input = { path: `/change-${randomUUID()}`, position, proposal, idempotencyKey: randomUUID() };
     const response = await request.post('/api/comments', { data: input });
     expect(response.status(), await response.text()).toBe(201);
     const saved = await response.json();
     expect(saved.proposal).toEqual(proposal);
+    expect(saved.position).toEqual(position);
     expect(saved.thread.items[0].text).toBe('Suggested change');
     const retry = await request.post('/api/comments', { data: { ...input, text: '' } });
     expect(retry.status()).toBe(201);
@@ -28,23 +30,30 @@ test('public change proposals persist without a note, participate in retries, an
     expect(conflict.status()).toBe(409);
 
     const url = `/api/comments/${saved.id}`;
-    expect((await (await request.get(url)).json()).proposal).toEqual(proposal);
+    expect(await (await request.get(url)).json()).toMatchObject({ proposal, position });
     expect(await (await request.get(`/api/comments?path=${input.path}`)).json()).toEqual([expect.objectContaining({ id: saved.id, proposal })]);
     const packet = await (await request.get(`${url}/context`)).json();
     expect(packet.context.proposal).toEqual(proposal);
+    expect(JSON.stringify(packet)).not.toContain(position.proposalLabelHash);
     expect(packet.markdown).toContain('Original CSS:\n\n```text\ncolor: rgb(0, 0, 0);\npadding-left: 4px;\n```');
     expect(packet.markdown).toContain('Proposed CSS:\n\n```text\ncolor: #123;\npadding-left: 12px;\n```');
     const message = saved.thread.items[0];
     const note = await request.patch(`${url}/replies/${message.id}`, { data: { text: 'Leave room for the label.', expectedText: message.text } });
     expect(note.status()).toBe(200);
     expect((await note.json()).proposal).toEqual(proposal);
+    const moved = await request.patch(`${url}/anchor`, { data: { path: input.path, expectedRevision: null,
+        position: { ...position, selector: '#hero>li:nth-of-type(2)' } } });
+    expect(moved.status(), await moved.text()).toBe(200);
 
     const stranger = await playwright.request.newContext({ baseURL });
     try {
         expect((await stranger.post(`${url}/replies`, { data: { text: 'I will make the change.' } })).status()).toBe(201);
         const deleted = await request.delete(url);
         expect(deleted.status()).toBe(200);
-        expect(await deleted.json()).not.toHaveProperty('proposal');
+        const remaining = await deleted.json();
+        expect(remaining).not.toHaveProperty('proposal');
+        expect(remaining.position.selector).toBe('#hero>li:nth-of-type(2)');
+        expect(JSON.stringify(remaining)).not.toContain(position.proposalLabelHash);
         const redacted = await (await stranger.get(`${url}/context`)).json();
         expect(redacted.context.feedback.deleted).toBe(true);
         expect(redacted.context).not.toHaveProperty('proposal');

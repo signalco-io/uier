@@ -1,6 +1,6 @@
 import { hasVisibleReplacement, isChangeProposal, type ChangeProposal } from '@uier/toolbar/change-proposal';
 import { markdownPlainText, type MarkdownMention } from '@uier/toolbar/markdown';
-import type { DbComment } from '../db/schema';
+import type { DbComment, DbCommentPosition } from '../db/schema';
 import { apiErrors } from './http';
 
 export function rewriteReplacement(proposal: ChangeProposal, markdown: string, mentions?: readonly MarkdownMention[]) {
@@ -29,4 +29,21 @@ export function commentProposal(comment: Pick<DbComment, 'kind' | 'proposal' | '
     if (comment.kind !== 'rewrite' || !saved.text) return saved;
     const styles = { styles: saved.styles };
     return rewriteReplacement(saved, first.text, first.mentions) ?? (isChangeProposal(styles) ? styles : undefined);
+}
+
+function withoutProposalLabel(position: DbCommentPosition): DbCommentPosition {
+    if (position?.type !== 'point' || position.proposalLabelHash === undefined) return position;
+    const { proposalLabelHash: _labelHash, ...point } = position;
+    return point;
+}
+
+/** Removing the first message removes the proposal and its evidence from every stored anchor. */
+export function withoutCommentProposal(comment: DbComment): DbComment {
+    const { proposal: _proposal, anchorContext, ...rest } = comment;
+    return {
+        ...rest,
+        position: withoutProposalLabel(comment.position),
+        ...(anchorContext ? { anchorContext: { ...anchorContext,
+            original: withoutProposalLabel(anchorContext.original), previous: withoutProposalLabel(anchorContext.previous) } } : {})
+    };
 }

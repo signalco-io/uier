@@ -1,10 +1,11 @@
-import { changeProposalTextMaxLength, changeStyleProperties, isChangeProposal, isChangeStyleValue } from './changeProposal';
+import { hasIndependentAnchorSelector, withoutAnchorOrdinals } from './anchorSelector';
+import { changeProposalTextMaxLength, changeStyleProperties, isChangeProposal, isChangeStyleValue, isProposalLabelHash } from './changeProposal';
 import type { ChangeProposal, ChangeStyleProperty } from './changeProposal';
-import type { CommentAnchor, CommentItemPosition } from './components/@types/Comments';
+import type { CommentAnchor, CommentItemPosition, CommentPoint } from './components/@types/Comments';
 import { isCommentArea } from './components/@types/Comments';
-import { resolvePreviewAnchor, resolvePreviewTextRange, trackPreviewTextRange } from './hooks/useCommentItemRects';
+import { previewTextOffsets, resolvePreviewAnchor, resolvePreviewTextRange, trackPreviewTextRange } from './hooks/useCommentItemRects';
 import { getToolbarHost } from './mount';
-import { isToolbarAnchor } from './toolbarReview';
+import { isToolbarAnchor, queryAnchorElements } from './toolbarReview';
 
 type StyleValues = Partial<Record<ChangeStyleProperty, string>>;
 type TextPart = { node: Text; start: number; end: number };
@@ -53,6 +54,57 @@ function* textNodes(root: Node): Generator<Text> {
     for (let node = walker.nextNode(); node; node = walker.nextNode()) yield node as Text;
 }
 
+const maxLabelNodes = 128;
+const maxLabelCandidates = 128;
+
+function pointLabel(element: Element, before?: ReadonlyMap<Text, string>) {
+    let text = '';
+    let nodes = 0;
+    for (const node of textNodes(element)) {
+        if (++nodes > maxLabelNodes) return undefined;
+        const original = before?.get(node);
+        const length = original?.length ?? node.length;
+        if (!length || !canPreviewText(node)) continue;
+        if (text.length + length > changeProposalTextMaxLength) return undefined;
+        text += original ?? node.data;
+    }
+    return text.trim().replace(/\s+/g, ' ') || undefined;
+}
+
+function labelHash(label: string) {
+    // FNV-1a over the complete bounded label. Only the fingerprint leaves the page.
+    let hash = 0xcbf29ce484222325n;
+    for (let index = 0; index < label.length; index++) {
+        hash = BigInt.asUintN(64, (hash ^ BigInt(label.charCodeAt(index))) * 0x100000001b3n);
+    }
+    return `v1-${hash.toString(16).padStart(16, '0')}`;
+}
+
+function uniquePointLabel(position: CommentPoint, element: Element, label: string) {
+    const alternatives = queryAnchorElements(withoutAnchorOrdinals(position.selector));
+    return alternatives.length <= maxLabelCandidates && alternatives.includes(element)
+        && alternatives.every(candidate => candidate === element || pointLabel(candidate) !== label);
+}
+
+/** Capture on the element the reviewer actually picked, before a draft can outlive this layout. */
+export function withProposalTargetIdentity(anchor: CommentAnchor, picked?: Element): CommentAnchor {
+    if (anchor.type !== 'point' || !picked || previewTarget(anchor)?.element !== picked
+        || hasIndependentAnchorSelector(anchor.selector, picked)) return anchor;
+    const label = pointLabel(picked);
+    return label && uniquePointLabel(anchor, picked, label) ? { ...anchor, proposalLabelHash: labelHash(label) } : anchor;
+}
+
+function matchesPointIdentity(position: CommentAnchor, element: Element, original?: string, before?: ReadonlyMap<Text, string>) {
+    if (position.type !== 'point') return true;
+    if (position.proposalLabelHash === undefined && hasIndependentAnchorSelector(position.selector, element)) return true;
+    // Legacy text proposals already record the original label. Legacy CSS-only proposals on a
+    // structural selector have no identity evidence even when all their computed values match.
+    const expected = position.proposalLabelHash ?? (original && labelHash(original.trim().replace(/\s+/g, ' ')));
+    if (!isProposalLabelHash(expected)) return false;
+    const label = pointLabel(element, before);
+    return Boolean(label && labelHash(label) === expected && uniquePointLabel(position, element, label));
+}
+
 function selectedParts(range: Range) {
     const parts: TextPart[] = [];
     for (const node of textNodes(range.commonAncestorContainer)) {
@@ -79,22 +131,29 @@ function pointTextParts(element: Element) {
     return parts;
 }
 
-function targetText(position: CommentAnchor, target: Target, quote?: string) {
-    const range = position.type === 'text' ? resolvePreviewTextRange(position, target.element, target.end) : undefined;
+type PreviewSelection = NonNullable<ReturnType<typeof resolvePreviewTextRange>>;
+
+function targetText(position: CommentAnchor, target: Target, selection?: PreviewSelection | null, quote?: string) {
+    const range = selection?.range;
     const parts = position.type === 'point' ? pointTextParts(target.element) : range && selectedParts(range);
     if (!parts) return null;
-    const text = textOf(parts);
-    if (!text.trim() || text.length > changeProposalTextMaxLength
-        || (range && !range.getClientRects().length)
-        || (quote !== undefined && quote !== text && !(position.type === 'text' && quote === position.text))) return null;
-    return { text, parts };
+    const raw = textOf(parts);
+    if (!raw.trim() || raw.length > changeProposalTextMaxLength || (range && !range.getClientRects().length)) return null;
+    const text = quote ?? (position.type === 'text' ? position.text : raw);
+    if (text === raw) return { text, raw, parts };
+    // Older rewrite messages can hold the exact captured quote with its outer whitespace trimmed.
+    if (text.length > changeProposalTextMaxLength || position.type !== 'text'
+        || (text !== position.text && text !== position.text.trim()) || !selection?.matches(text)) return null;
+    return { text, raw, parts };
 }
 
 export function readProposalTarget(position: CommentItemPosition, quotedText?: string): { text?: string; styles: StyleValues } | null {
     if (position.type === 'page') return null;
     const target = previewTarget(position);
-    if (!target || (position.type === 'text' && !resolvePreviewTextRange(position, target.element, target.end))) return null;
-    const text = targetText(position, target, quotedText)?.text;
+    if (!target || !matchesPointIdentity(position, target.element, quotedText)) return null;
+    const selection = position.type === 'text' ? resolvePreviewTextRange(position, target.element, target.end) : undefined;
+    if (selection === null) return null;
+    const text = targetText(position, target, selection, quotedText)?.text;
     const computed = getComputedStyle(target.element);
     const styles: StyleValues = {};
     for (const property of changeStyleProperties) {
@@ -113,40 +172,61 @@ function rangeOf(parts: TextPart[]) {
     return range;
 }
 
-function planText(parts: TextPart[], original: string, proposed: string) {
+function sourceOffsets(raw: string, quote: string, start: number, end: number) {
+    if (raw === quote) return [start, end] as const;
+    const source = previewTextOffsets(raw);
+    const firstRendered = quote.startsWith(' ') ? 1 : 0;
+    const lastRendered = quote.endsWith(' ') ? quote.length - 1 : quote.length;
+    function sourceOffset(offset: number) {
+        // Browsers may include a collapsed edge space in the selection. The whole run maps to
+        // that space; when no edge space was selected, leave the run intact.
+        if (offset < firstRendered) return source[0]! > 0 ? 0 : undefined;
+        if (offset > lastRendered) return source.at(-1)! < raw.length ? raw.length : undefined;
+        return source[offset - firstRendered];
+    }
+    const first = sourceOffset(start);
+    const last = sourceOffset(end);
+    return first === undefined || last === undefined ? null : [first, last] as const;
+}
+
+function planText({ parts, text: original, raw }: NonNullable<ReturnType<typeof targetText>>, proposed: string) {
     let prefix = 0;
     while (prefix < original.length && prefix < proposed.length && original[prefix] === proposed[prefix]) prefix++;
     let suffix = 0;
     while (suffix < original.length - prefix && suffix < proposed.length - prefix
         && original[original.length - 1 - suffix] === proposed[proposed.length - 1 - suffix]) suffix++;
 
-    const end = original.length - suffix;
+    const offsets = sourceOffsets(raw, original, prefix, original.length - suffix);
+    if (!offsets) return null;
+    const [start, end] = offsets;
     const replacement = proposed.slice(prefix, proposed.length - suffix);
     const patches: TextPatch[] = [];
     let cursor = 0;
     const updated = parts.map(part => {
-        const { node, start } = part;
-        const next = cursor + part.end - start;
-        const insertion = prefix === end && cursor <= prefix && next >= prefix;
-        const overlap = cursor < end && next > prefix;
-        const from = start + Math.max(prefix - cursor, 0);
-        const to = start + Math.min(end - cursor, part.end - start);
+        const { node } = part;
+        const next = cursor + part.end - part.start;
+        const insertion = start === end && cursor <= start && next >= start;
+        const overlap = cursor < end && next > start;
+        const from = part.start + Math.max(start - cursor, 0);
+        const to = part.start + Math.min(end - cursor, part.end - part.start);
         cursor = next;
         if (!insertion && !overlap) return part;
         const value = patches.length ? '' : replacement;
         const before = node.data;
         patches.push({ node, parent: node.parentElement, before, preview: before.slice(0, from) + value + before.slice(to), owned: true });
-        return { node, start, end: part.end + value.length - (to - from) };
+        return { node, start: part.start, end: part.end + value.length - (to - from) };
     });
 
     // A change can cross adjacent text nodes. Across an element boundary we cannot infer which
     // words should become part of a link, label or emphasis, or where to insert at that boundary.
     if (!patches.length || patches.some((patch, i) => i > 0 && patches[i - 1]!.node.nextSibling !== patch.node)) return null;
     const parents = updated.map(({ node }) => node.parentElement);
+    const editedNodes = new Map(patches.map(({ node, preview }) => [node, preview]));
+    const expected = updated.map(({ node, start, end }) => (editedNodes.get(node) ?? node.data).slice(start, end)).join('');
     const range = () => {
         if (updated.some(({ node, end }, index) => !node.isConnected || node.parentElement !== parents[index] || end > node.length)) return null;
         const live = rangeOf(updated);
-        return live.toString() === proposed ? live : null;
+        return live.toString() === expected ? live : null;
     };
     return { patches: patches.filter(edit => edit.before !== edit.preview), range };
 }
@@ -157,6 +237,18 @@ function declaration(style: CSSStyleDeclaration, name: string): Declaration {
 
 function hasDeclaration(style: CSSStyleDeclaration, { name, preview }: StylePatch) {
     return style.getPropertyValue(name) === preview.value && style.getPropertyPriority(name) === preview.priority;
+}
+
+function settleStyleTransitions(element: Target['element'], patches: StylePatch[]) {
+    if (!patches.length || !element.isConnected) return;
+    const owned = new Set(patches.filter(patch => patch.owned).map(patch => patch.name));
+    if (!owned.size) return;
+
+    // Transitions take precedence over inline !important. getAnimations flushes styles so both
+    // the change and its reversal can settle synchronously, including for an original capture.
+    for (const animation of element.getAnimations()) {
+        if (animation instanceof CSSTransition && owned.has(animation.transitionProperty)) animation.cancel();
+    }
 }
 
 function planStyles(element: Target['element'], styles: ChangeProposal['styles']) {
@@ -221,11 +313,13 @@ export function startProposalPreview(position: CommentItemPosition, proposal: Ch
     const target = previewTarget(position);
     if (!target) return null;
     const { element, end } = target;
-    if (position.type === 'text' && !resolvePreviewTextRange(position, element, end)) return null;
-    const live = proposal.text ? targetText(position, target, proposal.text.original) : null;
-    const text = proposal.text && live?.text === proposal.text.original
-        ? planText(live.parts, live.text, proposal.text.proposed) : null;
+    if (!matchesPointIdentity(position, element, proposal.text?.original)) return null;
+    const selection = position.type === 'text' ? resolvePreviewTextRange(position, element, end) : undefined;
+    if (selection === null) return null;
+    const live = proposal.text ? targetText(position, target, selection, proposal.text.original) : null;
+    const text = proposal.text && live ? planText(live, proposal.text.proposed) : null;
     if (proposal.text && !text) return null;
+    const beforeText = text ? new Map(text.patches.map(edit => [edit.node, edit.before])) : undefined;
     const plannedStyles = planStyles(element, proposal.styles);
     if (!plannedStyles) return null;
     const styles = plannedStyles;
@@ -245,6 +339,7 @@ export function startProposalPreview(position: CommentItemPosition, proposal: Ch
         element.style.cssText = oldStyle.cssText;
     }
     const appliedStyle = oldStyle.cssText;
+    settleStyleTransitions(element, styles.filter(patch => hasDeclaration(element.style, patch)));
 
     const untrack = text && position.type === 'text' ? trackPreviewTextRange(position, element, text.range) : undefined;
     const navigation = window.navigation;
@@ -288,6 +383,7 @@ export function startProposalPreview(position: CommentItemPosition, proposal: Ch
         } else {
             restoreDeclarations(element.style, styles, originalOrder);
         }
+        settleStyleTransitions(element, styles);
         return true;
     }
 
@@ -297,6 +393,7 @@ export function startProposalPreview(position: CommentItemPosition, proposal: Ch
     function isCurrent() {
         const current = previewTarget(anchor);
         return location.href === url && current?.element === element && current.end === end
+            && matchesPointIdentity(anchor, element, proposal.text?.original, beforeText)
             && styles.every(patch => patch.owned)
             && (!text || (text.patches.every(edit => edit.owned && edit.node.parentElement === edit.parent && canPreviewText(edit.node))
                 && (position.type === 'point' ? textOf(pointTextParts(element)) === proposal.text?.proposed : Boolean(text.range()))));

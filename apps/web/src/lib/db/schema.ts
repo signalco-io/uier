@@ -21,6 +21,7 @@ export type DbCommentPoint = {
     widthNormal?: number;
     heightNormal?: number;
     layer?: DbCommentLayer;
+    proposalLabelHash?: string;
 };
 
 export type DbCommentSelection = {
