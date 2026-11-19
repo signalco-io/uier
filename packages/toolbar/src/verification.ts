@@ -3,6 +3,7 @@ export type VerificationOutcome = 'pending' | 'confirmed' | 'needs-work' | 'canc
 export type VerificationDetails = {
     id: string; revision: string; outcome: VerificationOutcome; requestedAt: string;
     requester: string; reviewer: string; summary?: string; fixUrl?: string;
+    stagingEvidence?: { before: boolean; afterItemId?: string };
     decision?: { kind: 'confirm' | 'reject' | 'cancel'; actor: string; at: string; override: boolean };
 };
 export type VerificationPermissions = { selfId?: string; request: boolean; respond: boolean; cancel: boolean; override: boolean; defaultReviewer: boolean };

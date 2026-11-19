@@ -24,6 +24,8 @@ export type ShellInfo = {
     signIn: { google: boolean; microsoft: boolean };
     /** The projects the person can see, by id */
     projects: Record<string, {
+        id: string;
+        publicId: string;
         name: string;
         /** Its first address, for `ProjectMark` */
         url?: string;

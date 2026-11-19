@@ -21,11 +21,11 @@ import { accountSections } from '../account/accountSections';
 import { ProjectMark } from '../projects/ProjectMark';
 
 /** A project the breadcrumbs can name: its name, and its first address for its favicon */
-export type BreadcrumbProject = { name: string; url?: string };
+export type BreadcrumbProject = { id?: string; name: string; url?: string };
 
 type Crumb = { label: string; href: string; translate?: boolean; mark?: { projectId: string; url?: string } };
 
-const projectPages: Record<string, string> = { install: 'Install', settings: 'Settings' };
+const projectPages: Record<string, string> = { files: 'Files', install: 'Install', settings: 'Settings' };
 
 /** The workspace area's tabs, and what one of their own pages is (a team, a person) */
 const workspacePages: Record<string, { label: string; href: string; item?: string }> = {
@@ -55,7 +55,7 @@ function crumbs(pathname: string, projects: Record<string, BreadcrumbProject>): 
         const known = projects[id];
         // A known project carries its favicon (`ProjectMark`, as in the sidebar and the project header)
         const project = known
-            ? { label: known.name, translate: false, href: KnownPageLinks.project(id), mark: { projectId: id, url: known.url } }
+            ? { label: known.name, translate: false, href: KnownPageLinks.project(known.id ?? id), mark: { projectId: known.id ?? id, url: known.url } }
             : { label: 'Project', href: KnownPageLinks.project(id) };
         const pageLabel = page ? projectPages[page] : undefined;
         if (!pageLabel)

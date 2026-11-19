@@ -7,6 +7,7 @@ import type { AppContext } from '@/src/lib/app/context';
 import type { PublicProject } from '@/src/lib/app/projectPublicIds';
 import { loadProjectComments } from '@/src/lib/app/projectComments';
 import { appBaseUrl } from '@/src/lib/app/request';
+import { Section } from '../PageHeader';
 import { InstallGuide } from './InstallGuide';
 import { InstallationStatus } from './InstallationStatus';
 import { ReviewLinksMenu } from './ReviewLinksMenu';
@@ -17,6 +18,16 @@ import { ReviewLinksMenu } from './ReviewLinksMenu';
  */
 export async function ProjectInstallGuide({ context, project }: { context: AppContext; project: PublicProject }) {
     const { t } = await getAppI18n();
+    if (!project.urls.length) {
+        return (
+            <Section title={t("Installation")} description={t("This project has no site addresses yet.")}>
+                <Link href={context.isAdmin ? KnownPageLinks.projectSettings(project.id, 'environments') : KnownPageLinks.projectFiles(project.publicId)}
+                    className={buttonVariants({ variant: 'outline' })}>
+                    {t(context.isAdmin ? "Add a site address" : "Files")}
+                </Link>
+            </Section>
+        );
+    }
     const lastCommentAt = (await loadProjectComments(context, project))
         .filter(comment => comment.source.available)
         .map(comment => comment.createdAt).filter(Boolean).sort().at(-1);

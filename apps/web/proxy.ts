@@ -8,6 +8,7 @@ import { botIdPath, proxyBotId } from './src/lib/botIdProxy';
 import { KnownPageLinks, KnownPages } from './src/knownPages';
 import { appPageAccess } from './src/lib/app/pageAccess';
 import { cookieNames, readMigratingCookie } from './src/lib/cookieNames';
+import { proofPreviewOrigin } from './src/lib/proofs/previewOrigin';
 import { isIntegrationCatalogKey } from './src/lib/integrations/catalog';
 
 /** App pages that work signed out */
@@ -22,18 +23,32 @@ const integrationReturns = new Set(['/app/notion/callback', '/app/github/setup',
  */
 export async function proxy(request: NextRequest) {
     const { pathname } = request.nextUrl;
+    const previewOrigin = proofPreviewOrigin();
+    if (previewOrigin && request.headers.get('host') === previewOrigin.host) {
+        if (pathname.startsWith('/proof-preview/')) return NextResponse.next();
+        return new NextResponse(null, { status: 404 });
+    }
+    if (pathname.startsWith('/proof-preview/')) return new NextResponse(null, { status: 404 });
+    // The private design frame and its first-party approval each send their own framing policy.
+    if (/^\/(?:api\/review\/[A-Za-z0-9_-]+\/staging-preview|app\/staging-preview\/[A-Za-z0-9_-]+)\/[a-f0-9]{64}$/.test(pathname)) return NextResponse.next();
     if (pathname.toLowerCase() === botIdPath || pathname.toLowerCase().startsWith(`${botIdPath}/`))
         return proxyBotId(request);
     const appPage = pathname === '/app' || pathname.startsWith('/app/');
+    const proofPage = pathname.startsWith('/proof/');
     const extensionDemo = pathname === KnownPages.ExtensionDemo;
     const bridge = pathname === '/review-verification' || pathname === '/review-session' || pathname === '/extension-verification';
-    const nonce = appPage || pathname === '/review-verification' || pathname === '/extension-verification' ? randomBytes(16).toString('base64') : undefined;
+    const nonce = appPage || proofPage || pathname === '/review-verification' || pathname === '/extension-verification' ? randomBytes(16).toString('base64') : undefined;
     const development = process.env.NODE_ENV === 'development';
     const preview = process.env.UIER_DEPLOYMENT_ENV === 'preview';
+    const proofHtmlOrigin = proofPage ? previewOrigin?.origin : undefined;
+    const proofSources = proofPage ? [{
+        scriptSrc: ["'wasm-unsafe-eval'"],
+        ...(proofHtmlOrigin ? { frameSrc: [proofHtmlOrigin] } : {})
+    }] : [];
     const policy = createSecureHeaders({
         ...combineSecureHeaders(['uier.io'], false, development, [
             { connectSrc: [request.nextUrl.origin.replace(/^http/, 'ws')] },
-            ...(pathname === KnownPages.DeveloperApi ? [] : siteExternalUrls(development, preview)), ...(bridge ? [{ frameAncestors: pathname === '/extension-verification' ? extensionFrameAncestors(request.nextUrl) : ['*'] }] : [])
+            ...(pathname === KnownPages.DeveloperApi ? [] : siteExternalUrls(development, preview)), ...proofSources, ...(bridge ? [{ frameAncestors: pathname === '/extension-verification' ? extensionFrameAncestors(request.nextUrl) : ['*'] }] : [])
         ], nonce, Boolean(nonce)),
         ...(bridge ? { frameGuard: false } : {})
     });
@@ -57,7 +72,8 @@ export async function proxy(request: NextRequest) {
         for (const { key, value } of policy) response.headers.set(key, value);
         response.headers.set('Content-Security-Policy', csp);
         if (bridge || nonce || extensionDemo) response.headers.set('Cache-Control', 'no-store');
-        if (extensionDemo) response.headers.set('X-Robots-Tag', 'noindex');
+        if (extensionDemo || proofPage) response.headers.set('X-Robots-Tag', 'noindex');
+        if (proofPage) response.headers.set('Referrer-Policy', 'no-referrer');
         if (!bridge) {
             response.headers.set('Permissions-Policy', permissionsPolicy);
             // The installation popup must retain its WindowProxy across the customer-site redirect.

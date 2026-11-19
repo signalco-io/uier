@@ -86,7 +86,7 @@ async function ProjectsPageContent({ searchParams }: PageProps<'/app/projects'>)
                                         <CardTitle className="truncate">
                                             {/* The whole card opens the project; the buttons sit above the link */}
                                             <Link
-                                                href={KnownPageLinks.project(project.id)}
+                                                href={project.urls.length ? KnownPageLinks.project(project.id) : KnownPageLinks.projectFiles(project.publicId)}
                                                 className="outline-none after:absolute after:inset-0 after:rounded-xl focus-visible:after:ring-3 focus-visible:after:ring-ring/50 focus-visible:after:ring-inset">
                                                 {project.name}
                                             </Link>
@@ -95,7 +95,7 @@ async function ProjectsPageContent({ searchParams }: PageProps<'/app/projects'>)
                                         <div className="relative z-10 -my-1.5 -mr-1.5 flex items-center">
                                             <ReviewLinksMenu projectId={project.id} urls={project.urls} compact={{ projectName: project.name }} />
                                             {canManageProjects && (
-                                                <ProjectActionsMenu projectId={project.id} projectName={project.name} status={project.status} className="text-muted-foreground hover:text-foreground" />
+                                                <ProjectActionsMenu projectId={project.id} projectName={project.name} status={project.status} filesHref={KnownPageLinks.projectFiles(project.publicId)} hasSites={project.urls.length > 0} className="text-muted-foreground hover:text-foreground" />
                                             )}
                                         </div>
                                         <CardDescription className="col-span-2 flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1">

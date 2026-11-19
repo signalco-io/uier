@@ -5,6 +5,9 @@ import type { Metadata } from 'next';
 import { CircleCheckIcon } from 'lucide-react';
 import { feedbackStages } from '@uier/toolbar/verification';
 import { requireAppContext } from '@/src/lib/app/context';
+import { ProofInbox } from '@/src/components/app/proofs/ProofInbox';
+import { loadProofInbox } from '@/src/lib/proofs/threadInbox';
+import { listVisibleProjects } from '@/src/lib/app/projects';
 import { loadMyWork } from '@/src/lib/app/myWork';
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/src/components/ui/empty';
 import { MyWorkViews } from '@/src/components/app/comments/MyWorkBoard';
@@ -22,13 +25,17 @@ export async function generateMetadata(): Promise<Metadata> {
 async function MyWorkPageContent() {
     const { t } = await getAppI18n();
     const context = await requireAppContext();
-    const { assigned, mentions, unread, capped, assignees } = await loadMyWork(context, t);
+    const projects = listVisibleProjects(context);
+    const [{ assigned, mentions, unread, capped, assignees }, proofInbox] = await Promise.all([
+        loadMyWork(context, t, projects), loadProofInbox(context, projects)
+    ]);
     return (
         <>
+            <ProofInbox inbox={proofInbox} />
             {/* Always mounted, empty too: My work's board keeps the threads changed on it, and its open thread, until a reload.
                 The groups as lists, or every thread on a board (List/Board, `?view=`), under search and Filter */}
             <MyWorkViews assigned={assigned} mentions={mentions} unread={unread} assignees={assignees} userId={context.user.id} empty={(
-                <Empty data-my-work-empty className="border">
+                (proofInbox.count || proofInbox.activity.length) ? null : <Empty data-my-work-empty className="border">
                     <EmptyHeader>
                         <EmptyMedia variant="icon"><CircleCheckIcon /></EmptyMedia>
                         <EmptyTitle>{t("Nothing needs you")}</EmptyTitle>

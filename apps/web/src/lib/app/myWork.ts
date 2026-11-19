@@ -31,8 +31,9 @@ export type MyWork = {
  * The same authorized snapshot as each project's comments page, with its people to assign (the same member list,
  * read once per project); nothing new is stored.
  */
-export async function loadMyWork(context: AppContext, t: AppTranslator = englishAppTranslator): Promise<MyWork> {
-    const projects = await listVisibleProjects(context);
+export async function loadMyWork(context: AppContext, t: AppTranslator = englishAppTranslator,
+    projectsForRequest = listVisibleProjects(context)): Promise<MyWork> {
+    const projects = await projectsForRequest;
     let capped = false;
     const options = new Map<string, MyWork['assignees'][string]>();
     const perProject = await Promise.all(projects.map(async project => {

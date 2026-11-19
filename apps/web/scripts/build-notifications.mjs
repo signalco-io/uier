@@ -6,6 +6,7 @@ import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { mkdtemp } from 'node:fs/promises';
 import { build } from 'esbuild';
+import { isProofProcessorTraceNoise, proofProcessorAssetFiles, proofProcessorExternals, proofProcessorTraceEntries, proofVideoFile } from './proof-processor-files.mjs';
 
 const app = fileURLToPath(new URL('../', import.meta.url));
 const root = resolve(app, '../..');
@@ -15,17 +16,19 @@ await rm(entry, { recursive: true, force: true });
 await rm(output, { recursive: true, force: true });
 await mkdir(entry, { recursive: true });
 await build({ entryPoints: [join(app, 'scripts/notifications-worker.ts')], outfile: join(entry, 'notifications-worker.mjs'),
-    bundle: true, platform: 'node', format: 'esm', external: ['@azure/*', '@vercel/*', 'next/*', 'sharp'],
+    bundle: true, platform: 'node', format: 'esm', external: ['@azure/*', '@vercel/*', 'next/*', 'sharp', ...proofProcessorExternals],
     banner: { js: "import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);" } });
 for (const name of ['run-notifications.mjs', 'worker-settings.mjs']) await cp(join(app, 'scripts', name), join(entry, name));
 const { nodeFileTrace } = createRequire(import.meta.url)('next/dist/compiled/@vercel/nft');
-const { fileList, warnings } = await nodeFileTrace([join(entry, 'run-notifications.mjs')], { base: root, processCwd: app });
+const { fileList, warnings } = await nodeFileTrace([join(entry, 'run-notifications.mjs'), ...proofProcessorTraceEntries(root)], { base: root, processCwd: app });
 // sharp probes optional binaries for other platforms; nft also attempts to parse shell/native
 // assets. Require the current platform's sharp below, and reject other unresolved dependencies.
-const unexpected = [...warnings].filter(warning => !/^Failed to resolve dependency "@img\/sharp-/.test(warning.message)
+const unexpected = [...warnings].filter(warning => !isProofProcessorTraceNoise(warning.message)
+    && !/^Failed to resolve dependency "@img\/sharp-/.test(warning.message)
     && !/^Failed to parse .*\/(?:open\/xdg-open|@img\/sharp-libvips-[^/]+\/lib\/[^/]+\.(?:dylib|so[^/]*)) as /.test(warning.message));
 if (unexpected.length) throw new Error(`The worker dependency trace is incomplete: ${unexpected[0].message}`);
 createRequire(import.meta.url)('sharp');
+for (const file of [...proofProcessorAssetFiles(root), ...proofVideoFile(root)]) fileList.add(file);
 const links = [];
 for (const name of fileList) {
     if (name.startsWith('../') || /(^|\/)\.env(?:\.|$)/.test(name)) throw new Error('Unexpected worker package path.');

@@ -265,3 +265,6 @@ the opener and omitting replies. Detected URLs carry no manual-link removal perm
 `pull-requests.spec.ts` checks the same links in the thread, list card and board.
 
 Image thumbnails reserve at least 44 px in each dimension, including tiny supplied evidence, so their border cannot collapse the image and expansion remains usable. The project-review screenshot case covers a 3×2 replacement in the toolbar and app.
+
+[File threads](proof-review.md) use the same stored conversation, activity, statuses and
+submission receipts with a versioned asset target and their own authorization scope.

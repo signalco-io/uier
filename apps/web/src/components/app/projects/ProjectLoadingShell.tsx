@@ -21,7 +21,7 @@ const headerClassName = 'min-w-0 pb-4 group-has-[[data-header-wide]]/project:pag
  */
 export function ProjectLoadingHeader() {
     const { projectId } = useParams<{ projectId: string }>();
-    const project = useShellInfo()?.projects[projectId];
+    const project = useShellProject(projectId);
     if (!project) return <HeaderOutline media className={headerClassName} />;
     return (
         <PageHeader
@@ -43,16 +43,23 @@ export function ProjectLoadingHeader() {
 export function ProjectLoadingTabs() {
     const { projectId } = useParams<{ projectId: string }>();
     const pathname = usePathname();
-    const project = useShellInfo()?.projects[projectId];
+    const project = useShellProject(projectId);
+    const filesEnabled = !useShellInfo()?.workspace.feedback;
     const install = isInstallPage(pathname, projectId) && project?.open === 0 && !project.feedback;
-    return <ProjectTabs projectId={projectId} install={install} />;
+    return <ProjectTabs projectId={project?.id ?? projectId} publicId={project?.publicId} hasSites={project ? Boolean(project.url) : undefined} filesEnabled={filesEnabled} install={install} />;
+}
+
+function useShellProject(projectId: string) {
+    const projects = useShellInfo()?.projects;
+    return projects?.[projectId] ?? Object.values(projects ?? {}).find(project => project.publicId === projectId);
 }
 
 /** The loading state of the project page being opened, by its address: the comments, the page checks, a settings section, or the install steps */
-export function ProjectLoadingPage({ comments, pageChecks, settings, install }: { comments: ReactNode; pageChecks: ReactNode; settings: ReactNode; install: ReactNode }) {
+export function ProjectLoadingPage({ comments, files, pageChecks, settings, install }: { comments: ReactNode; files: ReactNode; pageChecks: ReactNode; settings: ReactNode; install: ReactNode }) {
     const { projectId } = useParams<{ projectId: string }>();
     const pathname = usePathname();
     if (pathname === KnownPageLinks.project(projectId)) return comments;
+    if (pathname === KnownPageLinks.projectFiles(projectId)) return files;
     if (pathname === KnownPageLinks.projectPageChecks(projectId)) return pageChecks;
     const settingsPath = KnownPageLinks.projectSettings(projectId);
     if (pathname === settingsPath || pathname.startsWith(`${settingsPath}/`)) return settings;

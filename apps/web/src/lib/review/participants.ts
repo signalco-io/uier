@@ -4,7 +4,7 @@ import type { DbProject } from '../app/model';
 import { listProjectMembers } from '../app/members';
 import { apiErrors } from '../comments/http';
 import { memberActor, type ProjectActor } from './actor';
-import { canSeeComment } from './comments';
+import { canSeeComment, canSeeCommentPrivacy } from './comments';
 import { userIdSchema } from '../app/validation';
 
 export const mentionsSchema = z.array(z.object({
@@ -17,20 +17,20 @@ export const mentionsSchema = z.array(z.object({
 export async function eligibleParticipants(project: DbProject, actor: ProjectActor, comment?: DbComment) {
     await assertParticipantEditor(project, actor, comment);
     return (await listProjectMembers(project.workspaceId, project.id))
-        .filter(({ member, user }) => user && (!comment || canSeeComment(comment, { kind: 'member', userId: member.userId, name: '', isAdmin: member.role === 'admin' })))
+        .filter(({ member, user }) => user && (!comment || canSeeCommentPrivacy(comment, { kind: 'member', userId: member.userId, name: '', isAdmin: member.role === 'admin' })))
         .map(({ member, name }) => ({ id: member.userId, name }));
 }
 
 export async function assertParticipantEditor(project: DbProject, actor: ProjectActor, comment?: DbComment) {
     const current = actor.kind === 'member' ? await memberActor(project, actor.userId) : null;
     if (!current) throw apiErrors.forbidden('Sign in to choose project participants.');
-    if (comment && !canSeeComment(comment, current)) throw apiErrors.notFound();
+    if (comment && !canSeeComment(comment, { ...current, proofThread: actor.proofThread })) throw apiErrors.notFound();
 }
 
 /** Recheck current membership and thread visibility at mutation time, including optimistic retries. */
 export async function assertEligibleParticipant(project: DbProject, comment: DbComment, userId: string) {
     const recipient = await memberActor(project, userId);
-    if (!recipient || !canSeeComment(comment, recipient))
+    if (!recipient || !canSeeCommentPrivacy(comment, recipient))
         throw apiErrors.forbidden('Choose someone who still has access to this thread.');
 }
 

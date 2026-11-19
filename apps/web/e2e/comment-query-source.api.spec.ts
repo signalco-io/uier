@@ -43,7 +43,7 @@ test('Cosmos source drains more than 1000 rows and empty continuation pages with
     expect(query.options).toMatchObject({ partitionKey: domain, maxItemCount: 100 });
     expect(query.options.abortSignal).toBeInstanceOf(AbortSignal);
     expect(query.input.query).not.toMatch(/\bTOP\b|SELECT\s+\*/i);
-    expect(query.input.query).toContain('WHERE c.domain = @domain AND IS_STRING(c.path) AND (NOT (');
+    expect(query.input.query).toContain('WHERE c.domain = @domain AND IS_STRING(c.path) AND NOT IS_DEFINED(c.assetTarget) AND (NOT (');
     expect(query.input.query).toContain('OR c.authorId = @readerId)');
     expect(query.input.query).toContain('AND NOT IS_STRING(c.archivedAt) AND (c.priority = @q0 OR c.number = @q1)');
     expect(query.input.parameters).toContainEqual({ name: '@readerId', value: 'viewer' });

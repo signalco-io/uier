@@ -18,7 +18,7 @@ function plainLabel(value: string, limit = SUBJECT_COMPONENT_LIMIT) {
 /** Only the recipient's eligible batch may reach this formatter. Never expand recipients. */
 export function digestContent(project: DbProject, comment: DbComment, recipient: string, batch: NotificationEvent[], names: Map<string, string>) {
     // The subject describes the page, never its approved query/hash state. Links keep that state.
-    const path = plainLabel(comment.path.split(/[?#]/, 1)[0] || '/');
+    const path = comment.assetTarget ? 'File review' : plainLabel(comment.path.split(/[?#]/, 1)[0] || '/');
     const thread = comment.number ? `#${comment.number}` : path;
     const place = comment.number ? `${thread} (${path})` : path;
     const actionLines: string[] = [];

@@ -6,7 +6,7 @@ import { setIntegrationBinding } from '../connection';
 import type { IntegrationSync } from '../model';
 import { integrationPk, integrationSyncId, enqueueIntegrationSync } from '../discovery';
 import { getCommentsStore } from '../../repo/commentsStore';
-import { isPrivateAppFeedback } from '../../comments/publicProject';
+import { canSyncThread } from '../source';
 import { acquireOwner, currentSlackGrant, releaseOwner, SlackConnectionError, rawSlackConnection, requireSlackProject, slackAccessToken } from './connection';
 import { isSlackConfigured, slackFileScopes, slackId, slackLabel } from './config';
 import { slackMethods, slackRequest, type SlackMethod } from './client';
@@ -191,7 +191,7 @@ export async function resumeSlackNotification(project: DbProject, userId: string
     const connection = await rawSlackConnection(project);
     const source = (await getCommentsStore().get(`project:${project.id}`, threadId))?.comment;
     if (!connection?.enabled || connection.status !== 'connected' || project.integrations?.slack?.connectionId !== connection.id
-        || !source || source.projectId !== project.id || source.private || isPrivateAppFeedback(source)) throw new SlackConnectionError('resume_unavailable');
+        || !source || source.projectId !== project.id || !await canSyncThread(project, source, getAppStore())) throw new SlackConnectionError('resume_unavailable');
     const id = integrationSyncId('slack', connection.id, project.id, threadId);
     const ledger = (await getAppStore().get<IntegrationSync>(integrationPk('slack', project.id), id))?.doc;
     const state = ledger?.state as SlackState | undefined;
@@ -254,6 +254,7 @@ export async function resolveSlackUncertainPost(project: DbProject, userId: stri
         || (source && source.projectId !== project.id) || input.confirmed !== true
         || !['adopt', 'absent'].includes(input.decision) || typeof input.operationId !== 'string' || input.operationId.length > 100
         || (input.decision === 'adopt' && !/^\d{1,20}\.\d{1,20}$/.test(input.ts ?? ''))) throw new SlackConnectionError('resolution_unavailable');
+    const canResume = input.decision === 'absent' && source && await canSyncThread(project, source, getAppStore());
     const pk = integrationPk('slack', project.id); const id = integrationSyncId('slack', connection.id, project.id, threadId);
     await updateDoc<IntegrationSync>(pk, id, ledger => {
         if (ledger.lease && Date.parse(ledger.lease.until) > Date.now()) throw new SlackConnectionError('notification_busy');
@@ -275,7 +276,7 @@ export async function resolveSlackUncertainPost(project: DbProject, userId: stri
                 if (post.step === 'post_root' && !state.root) state.root = target;
                 else { state.notifications = [...(state.notifications ?? []), target]; state.resolvedSummary = true; }
             } else state.retired = [...(state.retired ?? []), target];
-        } else if (source && !source.private && !isPrivateAppFeedback(source) && post.step === 'post_root' && post.destinationRevision === connection.destinationRevision) {
+        } else if (canResume && post.step === 'post_root' && post.destinationRevision === connection.destinationRevision) {
             state.resume = { id: randomUUID(), requestedAt: new Date().toISOString(), destinationRevision: connection.destinationRevision };
         }
         return { ...ledger, state, attempt: attempt?.operationId === input.operationId ? undefined : attempt,

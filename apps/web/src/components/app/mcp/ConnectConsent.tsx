@@ -15,7 +15,7 @@ import { RadioGroup } from '@/src/components/ui/radio-group';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select';
 import { Spinner } from '@/src/components/ui/spinner';
 import type { AgentAccess, ClientPresentation, McpAccountAccess } from '@/src/lib/mcp/oauth/grants';
-import type { McpScope } from '@/src/lib/mcp/scopes';
+import { hasMcpReadScope, type McpScope } from '@/src/lib/mcp/scopes';
 import { approveConnectionAction, cancelConnectionAction, switchConnectionAccountAction } from '@/src/lib/mcp/oauth/actions';
 import { ChoiceCard } from '../ChoiceCard';
 import { FormMessage } from '../FormMessage';
@@ -97,7 +97,7 @@ export function ConnectConsent({ requestId, request }: { requestId: string; requ
         </>;
     if (outcome || !request)
         return <ExpiredRequest />;
-    return <ConsentForm requestId={requestId} request={request} onOutcome={setOutcome} />;
+    return <ConsentForm key={`${requestId}:${request.userId}`} requestId={requestId} request={request} onOutcome={setOutcome} />;
 }
 
 /** A profile's choice as the existing connection has it, without workspaces and projects it can no longer open. */
@@ -125,8 +125,10 @@ function ConsentForm({ requestId, request: { userId, email, client, requestedSco
             : { included: current ? false : account.id === userId, kind: 'all', workspaces: {} }];
     })));
     // What the tool asked for, on top of what its connection already has. Creating access tokens is never pre-selected for a new one.
-    const [scopes, setScopes] = useState<McpScope[]>(() => [...new Set<McpScope>(['feedback:read', ...requestedScopes.filter(scope => scope !== 'tokens:create'),
-        ...(current?.scopes ?? [])])]);
+    const [scopes, setScopes] = useState<McpScope[]>(() => {
+        const selected = [...new Set([...requestedScopes.filter(scope => scope !== 'tokens:create'), ...(current?.scopes ?? [])])];
+        return hasMcpReadScope(selected) ? selected : ['feedback:read', ...selected];
+    });
     const [name, setName] = useState(current?.name ?? client.name);
     const [replaceChecked, setReplaceChecked] = useState(replace?.mode === 'optional' ? replace.checked : false);
     const [replaceId, setReplaceId] = useState(replace?.mode === 'required' ? replace.defaultId ?? '' : '');
@@ -197,17 +199,18 @@ function ConsentForm({ requestId, request: { userId, email, client, requestedSco
                             </div>
                             <FieldGroup className="gap-3">
                                 {scopeOptions.map(option => {
-                                    const required = option.scope === 'feedback:read';
+                                    const checked = scopes.includes(option.scope);
+                                    const required = checked && !hasMcpReadScope(scopes.filter(scope => scope !== option.scope));
                                     return (
                                         <Field key={option.scope} orientation="horizontal" data-disabled={required || undefined}>
-                                            <Checkbox id={`scope-${option.scope}`} checked={scopes.includes(option.scope)} disabled={required}
+                                            <Checkbox id={`scope-${option.scope}`} checked={checked} disabled={required}
                                                 aria-describedby={`scope-${option.scope}-description`}
                                                 onCheckedChange={checked => setScopes(previous => checked === true
                                                     ? [...previous, option.scope] : previous.filter(scope => scope !== option.scope))} />
                                             <FieldContent>
                                                 <FieldLabel htmlFor={`scope-${option.scope}`}>{t(option.label)}</FieldLabel>
                                                 <FieldDescription id={`scope-${option.scope}-description`}>
-                                                    {t(option.description)}{required ? t(" Always included.") : ''}
+                                                    {t(option.description)}
                                                 </FieldDescription>
                                             </FieldContent>
                                         </Field>

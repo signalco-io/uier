@@ -21,10 +21,14 @@ export function isInstallPage(pathname: string, projectId: string) {
  * One underline slides from the current tab to the next, Settings too (uier #427): measured after hydration, it
  * replaces each tab's own underline, which shows until then. With reduced motion it moves without sliding.
  */
-export function ProjectTabs({ projectId, install }: { projectId: string; install: boolean }) {
+export function ProjectTabs({ projectId, publicId = projectId, hasSites = true, filesEnabled = true, install }: {
+    projectId: string; publicId?: string; hasSites?: boolean; filesEnabled?: boolean; install: boolean;
+}) {
     const { t } = useAppI18n();
     const pathname = usePathname();
     const comments = KnownPageLinks.project(projectId);
+    const files = KnownPageLinks.projectFiles(publicId);
+    const filesTab = { href: files, label: t("Files"), current: pathname === files };
     const pageChecks = KnownPageLinks.projectPageChecks(projectId);
     const rowRef = useRef<HTMLDivElement>(null);
     const [indicator, setIndicator] = useState<{ left: number; width: number; slide: boolean } | null>(null);
@@ -62,7 +66,7 @@ export function ProjectTabs({ projectId, install }: { projectId: string; install
             nav?.removeEventListener('scroll', follow);
             observer.disconnect();
         };
-    }, [pathname, install]);
+    }, [pathname, install, hasSites, filesEnabled]);
     return (
         // The tabs' line runs to the panel's edges (uier #237), dividing the project's header from its page: a 1px
         // line whose shadow is clipped to its own row, so it adds no scrolling and the panel's frame clips it. The
@@ -75,8 +79,10 @@ export function ProjectTabs({ projectId, install }: { projectId: string; install
                 label={t("Project")}
                 className="relative min-w-0 flex-1"
                 tabs={[
+                    ...filesEnabled && !hasSites ? [filesTab] : [],
                     { href: comments, label: t("Comments"), current: pathname === comments },
-                    { href: pageChecks, label: t("Page checks"), current: pathname === pageChecks },
+                    ...filesEnabled && hasSites ? [filesTab] : [],
+                    ...hasSites ? [{ href: pageChecks, label: t("Page checks"), current: pathname === pageChecks }] : [],
                     ...install ? [{ href: KnownPageLinks.projectInstall(projectId), label: t("Install"), current: isInstallPage(pathname, projectId) }] : []
                 ]} />
             <ProjectSettingsButton projectId={projectId} installTab={install} />

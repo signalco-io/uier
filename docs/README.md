@@ -16,6 +16,7 @@ Start with the [project README](../README.md) to run uier locally or find the ma
 
 ## Product and APIs
 
+- [File and design proofing plan](design/file-design-proofing.md) covers file review, version comparison, existing fix verification and whole-version approval.
 - [Filtering and ordering design](design/filtering/README.md): Notion/Linear research, app/toolbar guidelines, Cosmos-first architecture and costs, component contracts and delivery plan.
 - [Loading states](design/loading-states/README.md): every loading state of the app, the toolbar and the extension, before and after, with the rules they follow and how to capture them again.
 - [Toolbar guide](../packages/toolbar/README.md): embedding, modes and configuration.

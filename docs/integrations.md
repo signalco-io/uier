@@ -79,6 +79,12 @@ a durable selection. Queueing progress counts local delivery requests, not compl
 The worker queues bounded batches; a changed destination cancels an old selection. Forced backfill
 is separate from ordinary source intent and never replays an old selection into a new destination.
 
+An enabled connection can mirror nonprivate file threads from its project. Copies contain the saved
+discussion, ordinary status and a uier permalink to the original revision. Source credentials, guest
+identity, private notes, preview files and named decisions stay in uier. The permalink checks each
+reader's current file permissions. Making a thread private or deleting it or its file queues
+cleanup of reachable copies. Transferring a project disconnects its old destinations.
+
 ## Two-way status sync
 
 GitHub, Linear, Azure DevOps and Notion each have an independent **Enable two-way status sync**

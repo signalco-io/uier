@@ -24,7 +24,7 @@ export function serverCard(origin: string) {
         version: mcpServerInfo.version,
         title: brand.name,
         // At most 100 characters (the card's schema).
-        description: 'Website feedback for coding agents: read threads with page context, reply, assign and set status.',
+        description: 'Website and file feedback for coding agents: read threads, reply, assign and set status.',
         websiteUrl: brand.url,
         repository: { url: REPOSITORY, source: 'github' },
         icons: [

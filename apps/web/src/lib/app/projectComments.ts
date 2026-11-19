@@ -48,6 +48,7 @@ import { isNotificationParticipant, notificationPk, type NotificationSubscriptio
 import { getAppStore } from './store';
 import { loadIntegrationLinks } from '../integrations/links';
 import type { ExternalFeedbackLink } from '@uier/toolbar/feedback-context';
+import { stagingDesignPath } from '../proofs/stagingModel';
 import { threadTitle } from '../titles/model';
 import { aiTitlesEnabled } from '../titles/settings';
 import { assignedUserIds } from '../review/assignments';
@@ -137,6 +138,7 @@ export type ProjectCommentView = {
     following?: boolean;
     activity?: ReadActivity;
     id: string;
+    designReferenceHref?: string;
     /** The page it was left on, as it was addressed (`/plans/`): origin and source path */
     url: string;
     path: string;
@@ -284,6 +286,9 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
     const title = threadTitle(comment, titles);
     const proposal = commentProposal(comment);
     return {
+        ...(actor.kind === 'member' && comment.stagingDesign ? {
+            designReferenceHref: stagingDesignPath(project.publicId ?? project.id, comment.id)
+        } : {}),
         verificationEnabled: project.verificationEnabled === true,
         verification: verificationDetails(comment, project, actor, participants),
         verificationPermissions: verificationPermissions(comment, project, actor, participants),

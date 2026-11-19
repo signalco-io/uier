@@ -96,6 +96,9 @@ function ThreadContents({ commentItem, reading, onPage, allMessages, previewOnPa
     return (
         // Tight around the messages (uier #215): the messages and what follows them are 8 px apart
         <Stack ref={threadRef} spacing={1} className="px-4 py-3">
+            {commentItem.hasDesignReference && toolbarConfig.project && <a className="inline-flex min-h-11 items-center self-start text-sm underline underline-offset-2"
+                href={`${toolbarConfig.apiUrl}/api/proofs/${encodeURIComponent(toolbarConfig.project)}/staging/thread/${encodeURIComponent(commentItem.id)}`}
+                target="_blank" rel="noopener noreferrer">{t.staging.approvedDesign}</a>}
             {/* The messages, one under the other like a chat; the replies' avatars make the column. The first message
                 is the thread: its author and actions are in the header line, its text right under it (uier #470) */}
             <Stack spacing={2}>

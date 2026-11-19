@@ -6,6 +6,7 @@ import { isPrivateAppFeedback, isUierFeedbackProject } from '../comments/publicP
 import type { DbComment } from '../db/schema';
 import { getCommentsStore } from '../repo/commentsStore';
 import type { ProjectActor } from '../review/actor';
+import { canSyncThread } from './source';
 import { getIntegrationConnection } from './connection';
 import { integrationPk, integrationSyncId, type DiscoveryOptions } from './discovery';
 import { integrationRegistry } from './registry';
@@ -39,7 +40,8 @@ export async function loadIntegrationLinks(project: DbProject, actor: ProjectAct
                 if (!visibleIds.has(ledger.threadId) || ledger.workspaceId !== project.workspaceId || ledger.provider !== adapter.provider
                     || ledger.status === 'suppressed' || ledger.tombstoned || ledger.deletion) return;
                 const source = (await comments.get(`project:${project.id}`, ledger.threadId))?.comment;
-                if (!source || source.private || isPrivateAppFeedback(source)) return;
+                if (!source || (actor.proofThread && source.assetTarget?.assetId !== actor.proofThread.assetId)
+                    || !await canSyncThread(current, source, store)) return;
                 try {
                     const value = externalLink(connection, ledger);
                     if (!value) return;

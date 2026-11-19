@@ -26,8 +26,9 @@
   completed destination before trusting locked failures. Local service status is operational.
 - CONTRACTS:
   - `/app/projects` → real Create project Link → `/app/projects/new`: heading,
-    explanation, four onboarding steps and the form itself immediately: the addresses and
-    the name can be typed at once and stay as typed. The client field's control is an
+    explanation and project type immediately. Website mode shows four onboarding steps and
+    the site addresses. Files-only mode hides them. The addresses and the project name can
+    be typed at once and stay as typed. The client field's control is an
     outline ("Loading the form") and Create project is disabled until the authorization
     and the private client suggestions stream in. Empty/populated variants.
   - `/app/projects` → sidebar Account menu's Next Link → `/app/account`: Account

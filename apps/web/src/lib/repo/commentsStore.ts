@@ -1,3 +1,4 @@
+import type { ProofThreadFilter } from './proofThreadFilter';
 import type { ArchiveFilter } from './archiveFilter';
 import type { OriginFilter } from './originFilter';
 import type { RealtimeComment } from '../realtime/source';
@@ -46,13 +47,15 @@ export type CommentsStore = {
     listNotificationPending(): Promise<DbComment[]>;
     /** Canonical view, newest first. Only legacy records use a base-path query-string fallback. */
     list(domain: string, path: string, limit: number, originFilter?: OriginFilter, authorId?: string, archive?: ArchiveFilter): Promise<DbComment[]>;
-    /** Every comment of the partition (all pages), newest first; author selection precedes limit. */
-    listAll(domain: string, limit: number, originFilter?: OriginFilter, authorId?: string, archive?: ArchiveFilter): Promise<DbComment[]>;
+    /** Website threads across all pages, or every stored thread during project deletion. */
+    listAll(domain: string, limit: number, originFilter?: OriginFilter, authorId?: string, archive?: ArchiveFilter, options?: { includeProofs?: boolean }): Promise<DbComment[]>;
     /**
      * One keyset page, newest first by `createdAt` then id: the comments older than `before` that match every filter
      * (visibility included), at most `limit`. Cursor and filters apply before the limit (`commentPage.ts`).
      */
     listPage(domain: string, options: CommentPageOptions): Promise<DbComment[]>;
+    /** Exact count over the same live proof predicate as listPage, before cursor and page limit. */
+    countProofThreads(domain: string, filter: ProofThreadFilter): Promise<number>;
     /** All thread activity, without message text or images; authoritative badge counts. */
     listActivity(domain: string): Promise<DbCommentActivity[]>;
     /** Exact unfinished, unarchived thread count with visibility applied before aggregation. */

@@ -42,7 +42,7 @@ async function AppShellLayoutContent({ children }: PropsWithChildren) {
         workspace: { name: context.workspace.name, admin: context.isAdmin, feedback: context.workspace.id === PUBLIC_WORKSPACE_ID, teams: access && access.teams.length > 0, clients: projects.some(project => project.clientId) },
         signIn: { google: isGoogleSignInConfigured(), microsoft: isMicrosoftSignInConfigured() },
         projects: Object.fromEntries(projects.map(project => [project.id, {
-            name: project.name, url: project.urls[0], status: project.status === 'done' ? 'done' as const : 'active' as const,
+            id: project.id, publicId: project.publicId, name: project.name, url: project.urls[0], status: project.status === 'done' ? 'done' as const : 'active' as const,
             open: listed.get(project.id)?.openCount,
             // Activity after its creation is a thread the person can see (read only when the projects are ordered by it)
             feedback: (listed.get(project.id)?.activityAt ?? '') > project.createdAt || undefined
@@ -80,9 +80,9 @@ async function AppShellLayoutContent({ children }: PropsWithChildren) {
                     <header className={shellTopBarClassName}>
                         <SidebarTrigger />
                         <Separator orientation="vertical" className="mr-1 data-vertical:h-4 data-vertical:self-center" />
-                        <AppBreadcrumbs projects={Object.fromEntries(projects.map(project => [project.id, { name: project.name, url: project.urls[0] }]))} />
+                        <AppBreadcrumbs projects={Object.fromEntries(projects.flatMap(project => [project.id, project.publicId].map(id => [id, { id: project.id, name: project.name, url: project.urls[0] }])))} />
                         {/* A project's Open review, right-aligned beside the breadcrumbs (uier #406) */}
-                        <AppTopBarActions projects={Object.fromEntries(projects.map(project => [project.id, { urls: project.urls }]))} />
+                        <AppTopBarActions projects={Object.fromEntries(projects.flatMap(project => [project.id, project.publicId].map(id => [id, { urls: project.urls }])))} />
                     </header>
                     <div className="flex-1 lg:overflow-y-auto">
                         {/* While an element marked data-page-width="wide" is in it, this is a container, so the column can

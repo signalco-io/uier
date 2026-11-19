@@ -6,6 +6,7 @@ import { feedbackWorkflows } from './workflows';
 import { noteMcpError } from './telemetry';
 
 export function registerFeedbackPrompts(server: McpServer, identity: McpIdentity) {
+    if (!identity.scopes.includes('feedback:read')) return;
     for (const workflow of feedbackWorkflows(identity.scopes)) {
         server.registerPrompt(workflow.name, {
             title: workflow.title,

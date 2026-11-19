@@ -15,9 +15,10 @@ import { ensurePublicProject, isUierProvisionedProject } from '../comments/publi
 import { assertMutableWorkspace, assertMutableProject } from '../comments/publicProjectPolicy';
 import { ensureProjectPublicId, isLiveProject, isProjectPublicId, projectByPublicId } from './projectPublicIds';
 import { createProjectWithClient, ensureProjectClient } from './clients';
-import { normalizeSiteUrl } from './siteUrl';
+import { defaultProjectName, normalizeSiteUrl } from './siteUrl';
 import { normalizeProjectLinkUrl } from './projectLinks';
 import { projectRewriteInstructionsSchema } from '../rewrite/settings';
+import { UserFacingError } from './actionErrors';
 
 export { projectClientNameSchema } from './clients';
 export { defaultProjectName, normalizeSiteUrl } from './siteUrl';
@@ -159,9 +160,20 @@ export const getVisibleProject = cache(async (context: AppContext, projectId: st
     return project && hasProjectAccess(access, context.member, project) ? project : null;
 });
 
+/** Website setup is the default for older clients. File setup is an explicit creation choice. */
+export const projectSetupSchema = z.enum(['website', 'files']);
+
+function projectSetup(input: { mode: z.infer<typeof projectSetupSchema>; name: string; urls: string[] }) {
+    const urls = input.mode === 'files' ? [] : projectUrlsSchema.parse(input.urls);
+    const name = projectNameSchema.parse(input.name.trim() || (urls[0] ? defaultProjectName(urls[0]) : ''));
+    return { name, urls };
+}
+
 /** A new project; `clientName` (`projectClientNameSchema`) picks the client with that name or creates one */
-export async function createProject(context: AppContext, { name, urls, clientName }: { name: string; urls: string[]; clientName?: string }) {
+export async function createProject(context: AppContext, input: { mode?: z.infer<typeof projectSetupSchema>; name: string; urls: string[]; clientName?: string }) {
     assertMutableWorkspace(context.workspace.id);
+    const { name, urls } = projectSetup({ ...input, mode: input.mode ?? 'website' });
+    const { clientName } = input;
     const store = getAppStore();
     const now = new Date().toISOString();
     for (let attempt = 0; attempt < 3; attempt++) {
@@ -211,7 +223,7 @@ export type ProjectUpdate = Partial<{
     access: ProjectAccess;
 }>;
 
-export async function updateProject(workspaceId: string, projectId: string, update: ProjectUpdate) {
+export async function updateProject(workspaceId: string, projectId: string, update: ProjectUpdate, { firstSite = false }: { firstSite?: boolean } = {}) {
     assertMutableProject(workspaceId, projectId, Object.keys(update));
     if (update.verificationEnabled !== undefined) update = { ...update, verificationEnabled: z.boolean().parse(update.verificationEnabled) };
     if (update.rewriteInstructions !== undefined)
@@ -220,10 +232,11 @@ export async function updateProject(workspaceId: string, projectId: string, upda
     if (update.threadLabels !== undefined) update = { ...update, threadLabels: projectThreadLabelsSchema.parse(update.threadLabels) };
     if (update.statusWorkflow !== undefined) update = { ...update, statusWorkflow: projectStatusWorkflowSchema.parse(update.statusWorkflow) };
     if (update.feedbackTypes !== undefined) update = { ...update, feedbackTypes: projectFeedbackTypesSchema.parse(update.feedbackTypes) };
+    if (update.urls !== undefined) update = { ...update, urls: projectUrlsSchema.parse(update.urls) };
     if (update.links !== undefined) update = { ...update, links: projectLinksSchema.parse(update.links) };
-    return await updateDoc<DbProject>(workspacePk(workspaceId), projectId, project => ({
-        ...project,
-        ...update,
-        updatedAt: new Date().toISOString()
-    }));
+    return await updateDoc<DbProject>(workspacePk(workspaceId), projectId, project => {
+        if (firstSite && project.urls.length)
+            throw new UserFacingError('A site was already added. Reload this page and try again.');
+        return { ...project, ...update, updatedAt: new Date().toISOString() };
+    });
 }

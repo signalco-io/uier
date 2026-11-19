@@ -19,7 +19,7 @@ on:
         required: false
 permissions: {}
 concurrency:
-  group: file-proof-providers
+  group: ${{ inputs.feature == 'html' && inputs.target == 'production' && 'file-proof-html-production' || 'file-proof-providers' }}
   cancel-in-progress: false
 jobs:
   configure:

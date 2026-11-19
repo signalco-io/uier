@@ -36,7 +36,11 @@ export function slackRootMessage(context: FeedbackContext, projectName: string, 
     const details = literal([t(context.status === 'done' ? 'Done' : 'Open'), priority === 'normal' ? '' : t('Priority: {priority}', { priority: t(priorityLabels[priority]) }),
         Array.from(path).length > 60 ? `${limit(path, 59)}…` : path, slackLabel(context.source.environment)].filter(Boolean).join(' · '));
     let reviewLink: string | undefined;
-    if (context.identity.projectId && /^[a-z0-9]{12}$/.test(context.identity.projectId)) {
+    if (context.proof && context.links.comment) {
+        const url = new URL(context.links.comment);
+        if (url.origin === new URL(baseUrl).origin && url.protocol === 'https:' && !url.username && !url.password
+            && url.href.length <= 256) reviewLink = url.href;
+    } else if (context.identity.projectId && /^[a-z0-9]{12}$/.test(context.identity.projectId)) {
         const url = new URL(`/app/review/${context.identity.projectId}`, baseUrl);
         url.searchParams.set('comment', context.identity.commentId);
         if (url.protocol === 'https:' && !url.username && !url.password && url.href.length <= 256) reviewLink = url.href;
