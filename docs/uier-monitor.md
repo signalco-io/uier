@@ -49,6 +49,8 @@ A project can enroll several of one person's accounts, such as a personal and a 
 
 Use `allow` or `remove` with named projects to change the allowlist, `status` to inspect it, `stop` to pause dispatch, and a bare invocation to resume. Existing independent monitors keep their owners. An explicit handoff can reuse a stopped project's saved state. An in-progress fix, open PR, pending deploy, failed write or verification keeps the managed worker open. When comments and deliveries are complete, the watcher stops, T3 settles its thread, and native sessions retain their transcripts. New work gets a new thread.
 
+In T3, the supervisor thread is named `🧭 uier orchestrator` and pinned on start and resume. Resume also unsettles the thread. The supervisor saves the thread ID and UTC pin timestamp. Stopping unpins the saved supervisor thread and clears its pin receipt.
+
 The local dashboard shows supervisor health, harness, last heartbeat and each allowed project's phase or error. The supervisor keeps its allowlist, checkout mappings and session receipts in `~/.uier-monitor/monitor.sqlite` (`UIER_MONITOR_HOME` overrides the home). Installation starts nothing. Restart the supervisor after a machine restart. See the [orchestrator skill](../plugins/uier/skills/uier-orchestrator/SKILL.md) for permissions, handoff and recovery.
 
 ### GitHub and GitLab

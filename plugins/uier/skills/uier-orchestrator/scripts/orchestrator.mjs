@@ -377,6 +377,20 @@ async function serve(instance) {
 
 async function main([command, ...args]) {
     if (command === 'status') { const s = load(); return { ...s, running: Boolean(s.enabled && supervisorAlive(s)) }; }
+    if (command === 'record-pin' || command === 'clear-pin') {
+        const [threadId] = args;
+        requireValue(threadId, 'Expected: ' + command + ' THREAD_ID');
+        return change(s => {
+            if (command === 'clear-pin') {
+                if (s.t3Thread?.id === threadId) delete s.t3Thread;
+            } else {
+                requireValue(s.enabled && s.harness === 't3', 'Start the T3 supervisor before recording its pin.');
+                requireValue(!s.t3Thread || s.t3Thread.id === threadId, 'Clear the previous supervisor thread pin first.');
+                s.t3Thread = { id: threadId, pinnedAt: now() };
+            }
+            return { t3Thread: s.t3Thread ?? null };
+        });
+    }
     if (command === 'serve') { await serve(args[0]); return; }
     if (command === 'enter') return enter(args[0], args[1], args[2]);
     if (command === 'allow') {
@@ -418,7 +432,7 @@ async function main([command, ...args]) {
         Object.assign(s, { instance, enabled: true, harness, cli, pid: child.pid, startedAt: now(), heartbeatAt: null });
         return { pid: child.pid };
     });
-    throw new Error('Use allow, remove, start, status, stop, retry or enter.');
+    throw new Error('Use allow, remove, start, status, stop, retry, enter, record-pin or clear-pin.');
 }
 if (process.argv[1] && realpathSync(process.argv[1]) === script) {
     try { const result = await main(process.argv.slice(2)); if (result !== undefined) console.log(JSON.stringify(result)); }
