@@ -13,8 +13,8 @@ its own button and lets the click toggle it
 ## The form
 
 `ComposerAttachmentsHeader` is the title line: the title and Expand (and an attached image's problem).
-The bottom-left corner of the text box holds **Attach** (`ComposerAttachMenu`, a paperclip) and then the screenshot
-toggle (`ComposerScreenshotToggle`, `CommentComposer`'s `attachments`), so both read as a part of the comment
+The bottom-left corner of the text box holds **Attach** (`ComposerAttachMenu`, a paperclip) and then the screenshot's
+thumbnail with Remove screenshot (`ComposerScreenshot`, `CommentComposer`'s `attachments`), so both read as a part of the comment
 ([uier #391](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_napwWAvckuKEmZr-J0GGQ)). Attach is one button with a menu of what can be added now: Attach image, Record screen
 (where the browser can capture) and Upload recording; an item leaves the menu once its kind is attached, and the
 button goes when nothing is left. The menu renders in the expanded modal's dialog when there is one, else in the ink
@@ -37,7 +37,7 @@ preview belong to the form's owner, so expanding and collapsing retain it. Captu
 follow the same send/recovery boundaries as the message; recording bytes never enter the saved draft.
 
 `CommentComposer` is one bordered box: the text box (it grows with its text; Enter sends, Shift+Enter is a new
-line, `enterKeyHint`), Attach (from `image` and `recording`), its `attachments` (the screenshot toggle), the
+line, `enterKeyHint`), Attach (from `image` and `recording`), its `attachments` (the screenshot's thumbnail), the
 character counter near the limit, Discard while there is text, and Send.
 Discard and Send are plain icon buttons with their tooltips: an X, since Discard has no labeled button beside
 Send, and Send, since Enter sends. They are 44 px on touch screens. `beforeText` goes between the quote and the
@@ -49,7 +49,7 @@ A rewrite suggestion (the selected text's **Rewrite**) is the same form, one car
 ([uier #180](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_WMvFpcew7B7-K384zFTL4)):
 the header ("New rewrite suggestion", Expand), the quoted text, the instruction box, the
 suggestions once asked for, then the text box with the suggested text (it starts as the selected text), Attach
-and Attach screenshot in its corner and Discard and Post suggestion inside it. `RewriteSuggestions` is `CommentComposer`'s
+and the screenshot's thumbnail in its corner and Discard and Post suggestion inside it. `RewriteSuggestions` is `CommentComposer`'s
 `beforeText`, inside its form: the instruction is one box like the text box (the AI mark, the field, Suggest as a
 plain button), Enter in it asks for suggestions instead of posting (its `keydown` prevents the form's implicit
 submission), and its buttons are `type="button"`. A picked suggestion replaces the text as if typed. The
@@ -162,7 +162,7 @@ work budget. Both traversals yield and check cancellation between elements; scro
 TreeWalker instead of building a whole-page array. Partial scroll marks are cleaned up on cancellation.
 If page scroll changes during the offscreen scan, pruning is discarded for that capture. Encoding
 continues to use `toBlob`; no worker or new dependency is needed. These changes stay in capture code,
-so the screenshot toggle and image attachments use the same promise and cancellation contract.
+so Remove screenshot, Attach screenshot and image attachments use the same promise and cancellation contract.
 
 Measured locally in headless Chromium, 1674 × 1366, 4× CPU throttling, 20,000 feedback-like rows
 (100,000 elements), three fresh pages per version: before, the initiating call took 101–119 ms,

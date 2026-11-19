@@ -12,7 +12,7 @@ async function startComment(page: Page, text: string) {
     await page.mouse.click(box!.x + 20, box!.y + box!.height / 2);
     const draft = page.getByRole('dialog', { name: 'New comment', exact: true });
     await draft.getByRole('textbox', { name: 'Comment', exact: true }).fill(text);
-    const omit = draft.getByRole('button', { name: 'Attach screenshot' });
+    const omit = draft.getByRole('button', { name: 'Remove screenshot' });
     if (await omit.count()) await omit.click();
     return draft;
 }

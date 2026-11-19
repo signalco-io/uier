@@ -76,7 +76,7 @@ export default function BugReportingPage() {
         <PageSection id="privacy" title="Keep private details out of the report" lead="Check the page and the evidence before sending.">
             <Panel>
                 <Tile title="Choose the image">
-                    <p>The comment form has no screenshot preview. Turn Attach screenshot off before posting if the area contains private information, or attach an image you prepared yourself.</p>
+                    <p>The comment form shows the screenshot as a thumbnail you can preview. Remove it before posting if the area contains private information, or attach an image you prepared yourself.</p>
                     <p>Redact screenshot changes an already saved image. It is not automatic masking before upload, and it cannot remove downloaded copies.</p>
                 </Tile>
                 <Tile title="Review the clip and the text">

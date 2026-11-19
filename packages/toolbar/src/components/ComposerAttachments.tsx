@@ -1,12 +1,17 @@
 'use client';
 
-import { useEffect, useId, useState, type ReactNode } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
+import { Button } from '@signalco/ui-primitives/Button';
+import { Popper } from '@signalco/ui-primitives/Popper';
 import { cx } from '@signalco/ui-primitives/cx';
-import { Check } from '@signalco/ui-icons';
+import { Close } from '@signalco/ui-icons';
 import { useAttachedImage } from '../useAttachedImage';
-import { IconTooltip } from './IconTooltip';
-import { destructiveTextClassName } from './@types/Comments';
+import { ScreenshotImage } from '../screenshotImage';
+import { IconTooltip, useIconTooltip } from './IconTooltip';
+import { useToolbarPortalContainer } from './CommentsBootstrapperContext';
+import { useInkContainer } from './InkScope';
+import { destructiveTextClassName, floatingShadowClassName } from './@types/Comments';
 import { useMessages } from '../i18n';
 
 export { useAttachedImage, type AttachedImage } from '../useAttachedImage';
@@ -14,17 +19,17 @@ export { useAttachedImage, type AttachedImage } from '../useAttachedImage';
 type CaptureState = 'capturing' | 'ready' | 'failed';
 
 
-/** Whether an automatic capture (src/screenshot.ts) is still running; it resolves `undefined` when it failed or timed out */
-function useCaptureState(screenshot: Promise<string | undefined> | undefined): CaptureState {
-    const [settled, setSettled] = useState<{ screenshot: Promise<string | undefined>; ready: boolean }>();
+/** An automatic capture (src/screenshot.ts) and its image once taken; it resolves `undefined` when it failed or timed out */
+function useCapture(screenshot: Promise<string | undefined> | undefined): { state: CaptureState; data?: string } {
+    const [settled, setSettled] = useState<{ screenshot: Promise<string | undefined>; data: string | undefined }>();
     useEffect(() => {
         if (!screenshot) return;
         let active = true;
-        void screenshot.then(data => { if (active) setSettled({ screenshot, ready: Boolean(data) }); });
+        void screenshot.then(data => { if (active) setSettled({ screenshot, data }); });
         return () => { active = false; };
     }, [screenshot]);
-    if (!screenshot || settled?.screenshot !== screenshot) return 'capturing';
-    return settled.ready ? 'ready' : 'failed';
+    if (!screenshot || settled?.screenshot !== screenshot) return { state: 'capturing' };
+    return settled.data ? { state: 'ready', data: settled.data } : { state: 'failed' };
 }
 
 /** Lucide's camera and camera-off, drawn like the UI kit's icons (the kit has no camera) */
@@ -49,10 +54,9 @@ export function CameraIcon({ off, size = 16 }: { off?: boolean; size?: number })
 export const composerIconButtonClassName = 'size-7 shrink-0 rounded-md text-muted-foreground hover:text-foreground pointer-coarse:size-11';
 
 /**
- * The header of a new comment or feedback: its title and `actions` (Expand). The screenshot toggle
- * ({@link ComposerScreenshotToggle}) and Attach (`ComposerAttachMenu`) are in the text box's
- * bottom-left corner. Never a preview: composers stay without images (#81, #92). An attached image's
- * problem shows here.
+ * The header of a new comment or feedback: its title and `actions` (Expand). The screenshot's
+ * thumbnail ({@link ComposerScreenshot}) and Attach (`ComposerAttachMenu`) are in the text box's
+ * bottom-left corner. An attached image's problem shows here.
  */
 export function ComposerAttachmentsHeader({ title, attachment, actions }: {
     title: ReactNode;
@@ -74,12 +78,14 @@ export function ComposerAttachmentsHeader({ title, attachment, actions }: {
 }
 
 /**
- * Attach screenshot, after Attach in the text box's bottom-left corner: pressed (ink, with a check)
- * while the automatic screenshot will be sent, so the choice is visible before sending. It says in
- * its tooltip and description what will be attached; the status is read out, not shown. An attached
- * image replaces the screenshot, so the toggle makes way until it is removed.
+ * The automatic screenshot, after Attach in the text box's bottom-left corner (uier #476): a small
+ * thumbnail of the capture, which opens a larger preview, and Remove screenshot, which sends that one
+ * comment as text only. While it is taken, a placeholder of the thumbnail's size holds its place;
+ * removed, **Attach screenshot** (a camera) takes a new one. Its status is read out, not shown, and
+ * describes the thumbnail. An attached image replaces the screenshot, so it makes way until the image
+ * is removed; a capture that failed shows nothing.
  */
-export function ComposerScreenshotToggle({ screenshot, page, omitted, onOmittedChange, attachment }: {
+export function ComposerScreenshot({ screenshot, page, omitted, onOmittedChange, attachment }: {
     /** The capture started with the draft (src/screenshot.ts) */
     screenshot: Promise<string | undefined> | undefined;
     /** Feedback about the page: the screenshot is the visible page, not the commented part */
@@ -88,9 +94,26 @@ export function ComposerScreenshotToggle({ screenshot, page, omitted, onOmittedC
     onOmittedChange: (omitted: boolean) => void;
     attachment: ReturnType<typeof useAttachedImage>;
 }) {
-    const state = useCaptureState(screenshot);
+    const { state, data } = useCapture(screenshot);
     const statusId = useId();
     const t = useMessages();
+    const container = useToolbarPortalContainer(useInkContainer());
+    const [previewing, setPreviewing] = useState(false);
+    const previewTip = useIconTooltip(t.attachments.previewScreenshot);
+    const attachRef = useRef<HTMLButtonElement>(null);
+    const removeRef = useRef<HTMLButtonElement>(null);
+    // Removed or attached again with its own button: the focus moves to the one that takes its place
+    const moveFocus = useRef(false);
+    useLayoutEffect(() => {
+        if (!moveFocus.current) return;
+        moveFocus.current = false;
+        (omitted ? attachRef : removeRef).current?.focus();
+    }, [omitted]);
+    const change = (next: boolean) => {
+        moveFocus.current = true;
+        setPreviewing(false);
+        onOmittedChange(next);
+    };
     const { image, reading } = attachment;
     const message = image
         ? t.attachments.imageInstead(image.name)
@@ -105,30 +128,76 @@ export function ComposerScreenshotToggle({ screenshot, page, omitted, onOmittedC
                         : page
                             ? t.attachments.pageScreenshot
                             : t.attachments.regionScreenshot;
-    const toggleTip = omitted
-        ? t.attachments.attachScreenshot
-        : t.attachments.textOnly(message);
+    // The start of what it shows: the top-left corner of the commented part, as on the page
+    const thumbnailClassName = 'block h-7 w-10 rounded-l-md object-cover object-left-top pointer-coarse:h-11 pointer-coarse:w-16';
     return (
         <>
             <p id={statusId} role="status" className="sr-only">{message}</p>
-            {/* An attached image replaces the screenshot: the choice to omit it is back once the image is removed */}
-            {!image && (state !== 'failed' || omitted) && (
-                <IconTooltip label={toggleTip}>
+            {/* An attached image replaces the screenshot: the screenshot is back once the image is removed */}
+            {!image && (omitted ? (
+                <IconTooltip label={t.attachments.attachScreenshot}>
                     <IconButton
-                        variant={omitted ? 'plain' : 'solid'}
+                        ref={attachRef}
+                        variant="plain"
                         size="xs"
                         type="button"
                         aria-label={t.attachments.screenshotToggle}
-                        aria-pressed={!omitted}
                         aria-describedby={statusId}
-                        data-uier-screenshot-toggle=""
-                        className={cx('h-7 w-auto min-w-7 shrink-0 gap-0.5 rounded-md px-1.5 pointer-coarse:h-11 pointer-coarse:min-w-11', omitted && 'text-muted-foreground hover:text-foreground')}
-                        onClick={() => onOmittedChange(!omitted)}>
-                        {!omitted && <Check size={14} aria-hidden="true" />}
-                        <CameraIcon off={omitted} />
+                        data-uier-screenshot-attach=""
+                        className={composerIconButtonClassName}
+                        onClick={() => change(false)}>
+                        <CameraIcon />
                     </IconButton>
                 </IconTooltip>
-            )}
+            ) : state !== 'failed' && (
+                // One chip, so its X reads as the screenshot's own, not as Discard's; an outline takes no room from the 44 px targets
+                <span data-uier-screenshot="" className="flex shrink-0 items-center rounded-md bg-background ring-1 ring-border">
+                    {data ? <>
+                        {previewTip.tooltip}
+                        <Popper
+                            container={container}
+                            open={previewing}
+                            onOpenChange={setPreviewing}
+                            side="top"
+                            align="start"
+                            aria-label={t.screenshot.label}
+                            className={cx('z-[80] flex max-h-[min(var(--radix-popover-content-available-height),85vh)] w-auto min-w-48 max-w-[min(88vw,40rem)] flex-col gap-2 overflow-auto rounded-xl p-3', floatingShadowClassName)}
+                            trigger={(
+                                <Button
+                                    variant="plain"
+                                    type="button"
+                                    {...previewTip.triggerProps}
+                                    aria-label={t.attachments.previewScreenshot}
+                                    aria-describedby={statusId}
+                                    data-uier-screenshot-preview=""
+                                    className="block h-auto shrink-0 cursor-zoom-in overflow-hidden rounded-none rounded-l-md p-0">
+                                    {/* Named by the button; the preview has the image's own name */}
+                                    <span aria-hidden="true"><ScreenshotImage src={data} alt="" className={thumbnailClassName} /></span>
+                                </Button>
+                            )}>
+                            <Button variant="plain" type="button" className="min-h-11 self-end" onClick={() => setPreviewing(false)}>{t.screenshot.close}</Button>
+                            {/* At most its own size: a small capture is not blown up */}
+                            <ScreenshotImage src={data} alt={t.screenshot.expanded} className="block h-auto max-w-full self-center rounded-md border object-contain" />
+                        </Popper>
+                    </> : (
+                        // Being taken: its place is kept, and it can be removed already (its work stops)
+                        <span aria-hidden="true" data-image-placeholder="" className={cx(thumbnailClassName, 'animate-pulse bg-muted motion-reduce:animate-none')} />
+                    )}
+                    <IconTooltip label={t.attachments.removeScreenshot}>
+                        <IconButton
+                            ref={removeRef}
+                            variant="plain"
+                            size="xs"
+                            type="button"
+                            aria-label={t.attachments.removeScreenshot}
+                            data-uier-screenshot-remove=""
+                            className="h-7 w-6 shrink-0 rounded-none rounded-r-md text-muted-foreground hover:text-foreground pointer-coarse:size-11"
+                            onClick={() => change(true)}>
+                            <Close size={12} aria-hidden="true" />
+                        </IconButton>
+                    </IconTooltip>
+                </span>
+            ))}
         </>
     );
 }
