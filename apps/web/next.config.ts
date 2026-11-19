@@ -8,6 +8,15 @@ import { combineSecureHeaders } from './src/lib/secureHeaders';
 // packages/toolbar `dev:serve`), so several checkouts can each run their own pair.
 const toolbarDevOrigin = `http://localhost:${Number(process.env.PORT || 4004) + 1}`;
 
+const proofProcessorAssets = [
+    './node_modules/pdfjs-dist/{cmaps,standard_fonts,wasm}/**/*',
+    './node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs',
+    './node_modules/geist/dist/fonts/geist-sans/Geist-Regular.ttf',
+    './node_modules/@tesseract.js-data/eng/4.0.0_best_int/eng.traineddata.gz',
+    '../../node_modules/.pnpm/tesseract.js-core@*/node_modules/tesseract.js-core/tesseract-core-*-lstm.wasm.js',
+    './node_modules/tesseract.js/src/**/*'
+];
+
 const nextConfig: NextConfig = {
     cacheComponents: true,
     partialPrefetching: true,
@@ -28,7 +37,13 @@ const nextConfig: NextConfig = {
     reactCompiler: true,
     // The MCP endpoint serves the plugin's skills from their files (src/lib/mcp/skills.ts): they are read at
     // run time, so the deployment has to carry them.
-    outputFileTracingIncludes: { '/api/mcp': ['../../plugins/uier/skills/**/*', './dist/mcp/thread.html'] },
+    serverExternalPackages: ['pdfjs-dist', 'tesseract.js'],
+    outputFileTracingIncludes: {
+        '/api/mcp': ['./dist/proof-processor/ffmpeg', ...proofProcessorAssets, '../../plugins/uier/skills/**/*', './dist/mcp/thread.html'],
+        '/api/proofs/**': ['./dist/proof-processor/ffmpeg', ...proofProcessorAssets],
+        '/api/proof-mail': proofProcessorAssets,
+        '/proof-pdf/**': ['./node_modules/pdfjs-dist/{cmaps,standard_fonts,wasm}/**/*']
+    },
     // @uier/brand ships TypeScript sources (tokens, Mark, Logo); Next compiles them like app code.
     transpilePackages: ['@uier/brand', '@uier/comments-query'],
     images: {

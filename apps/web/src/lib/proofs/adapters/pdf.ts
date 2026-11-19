@@ -15,8 +15,9 @@ const maxTextBytes = 2 * 1024 * 1024;
 const maxRasterBytes = 16 * 1024 * 1024;
 const sha = (value: string | Uint8Array) => createHash('sha256').update(value).digest('hex');
 function packageFile(name: string) {
-    const fromApp = join(process.cwd(), 'apps/web/package.json');
-    const resolver = createRequire(existsSync(fromApp) ? fromApp : join(process.cwd(), 'package.json')).resolve;
+    const cwd = process.cwd();
+    const web = existsSync(join(cwd, 'apps/web/node_modules/pdfjs-dist')) ? join(cwd, 'apps/web') : cwd;
+    const resolver = createRequire(join(web, 'package.json')).resolve;
     return resolver(name);
 }
 

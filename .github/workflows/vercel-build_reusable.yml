@@ -70,14 +70,23 @@ jobs:
           key: turbo-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml', '.nvmrc') }}-vercel-${{ inputs.production && 'production' || 'preview' }}-${{ github.sha }}-${{ github.run_attempt }}
           restore-keys: |
             turbo-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml', '.nvmrc') }}-
+      - name: Install the pinned proof video processor
+        run: bash .github/proofs/install-video-processor.sh
       - name: Build with public project settings
         env:
           PRODUCTION: ${{ inputs.production }}
           UIER_DEPLOYMENT_ENV: ${{ inputs.production && 'production' || 'preview' }}
+          UIER_PROOF_HTML_ORIGIN_PREVIEW: ${{ vars.UIER_PROOF_HTML_ORIGIN_PREVIEW }}
+          UIER_PROOF_HTML_ORIGIN_PRODUCTION: ${{ vars.UIER_PROOF_HTML_ORIGIN_PRODUCTION }}
           UIER_TOOLBAR_RETAIN_FROM: https://uier.io
         run: |
           if [ "$PRODUCTION" = "true" ]; then
             node .github/scripts/search-index.mjs capture indexnow-before.json
+          fi
+          if [ "$PRODUCTION" = "true" ]; then
+            export NEXT_PUBLIC_UIER_PROOF_HTML_ORIGIN="$UIER_PROOF_HTML_ORIGIN_PRODUCTION"
+          else
+            export NEXT_PUBLIC_UIER_PROOF_HTML_ORIGIN="$UIER_PROOF_HTML_ORIGIN_PREVIEW"
           fi
           mkdir -p .vercel
           cp .github/vercel-project.json .vercel/project.json

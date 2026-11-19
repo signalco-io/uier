@@ -45,6 +45,8 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm -C packages/toolbar build
+      - name: Install the pinned proof video processor
+        run: bash .github/proofs/install-video-processor.sh
       - name: Build the self-contained worker package
         run: |
           node apps/web/scripts/build-notifications.mjs

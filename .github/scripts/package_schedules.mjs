@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { isProofProcessorTraceNoise, proofProcessorAssetFiles, proofProcessorExternals, proofProcessorTraceEntries, proofVideoFile } from '../../apps/web/scripts/proof-processor-files.mjs';
 
 export const workerFunction = '_uier/worker';
 export const workerHandler = 'apps/web/.next/scheduled-entry/index.mjs';
@@ -24,17 +25,18 @@ async function buildWorker(root) {
     await rm(dirname(entry), { recursive: true, force: true });
     await mkdir(dirname(entry), { recursive: true });
     await build({ entryPoints: [join(root, 'apps/web/scripts/scheduled-worker.ts')], outfile: entry,
-        bundle: true, platform: 'node', format: 'esm', external: ['@azure/*', '@vercel/*', 'next/*', 'sharp'],
+        bundle: true, platform: 'node', format: 'esm', external: ['@azure/*', '@vercel/*', 'next/*', 'sharp', ...proofProcessorExternals],
         banner: { js: "import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);" } });
     const { nodeFileTrace } = require('next/dist/compiled/@vercel/nft');
-    const { fileList, warnings } = await nodeFileTrace([entry], { base: root, processCwd: join(root, 'apps/web') });
+    const { fileList, warnings } = await nodeFileTrace([entry, ...proofProcessorTraceEntries(root)], { base: root, processCwd: join(root, 'apps/web') });
     // Match the standalone worker's native/optional binary handling. The current-platform sharp
     // package must load, and every other unresolved dependency remains a build error.
-    const unexpected = [...warnings].filter(warning => !/^Failed to resolve dependency "@img\/sharp-/.test(warning.message)
+    const unexpected = [...warnings].filter(warning => !isProofProcessorTraceNoise(warning.message)
+    && !/^Failed to resolve dependency "@img\/sharp-/.test(warning.message)
         && !/^Failed to parse .*\/(?:open\/xdg-open|@img\/sharp-libvips-[^/]+\/lib\/[^/]+\.(?:dylib|so[^/]*)) as /.test(warning.message));
     if (unexpected.length) throw new Error(`The scheduled worker dependency trace is incomplete: ${unexpected[0].message}`);
     require('sharp');
-    return [...fileList].map(dependencyPath);
+    return [...new Set([...fileList, ...proofProcessorAssetFiles(root), ...proofVideoFile(root)])].map(dependencyPath);
 }
 
 // Framework output, not apps/web/vercel.json, is what the credential-free CI build uploads.
