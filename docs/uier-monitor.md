@@ -14,7 +14,7 @@ In Claude Code, or a T3 Code thread on Claude, in a checkout of this repository:
 
 Add `status` to see where things stand, or `stop` to stop watching. Running it again resumes from
 the saved state. In Codex, ask it to use the uier-monitor skill for the project. Other options
-(`max=`, `scope=`, `also=`, provider instances) are listed in the skill.
+(`max=`, `global=`, `scope=`, `also=`, provider instances) are listed in the skill.
 
 To watch several projects, separate them with commas:
 
@@ -149,7 +149,9 @@ optional `--ru-price-per-million N --currency EUR` estimates only measured RU at
 Missing measurements stay unknown. AI token usage, hosting CPU/memory, storage and transfer are
 excluded. The dashboard details and `status` show the counters and call out idle model wakes.
 `context.json` retains the last compact wake and its
-delta baseline; `notification.json` tracks delivery without consuming the inbox. For a quick look:
+delta baseline; `notification.json` tracks delivery without consuming the inbox. What every monitor
+on the machine shares (the dashboard's registry and the [machine capacity](#machine-capacity) limit,
+claims and queue) is in `~/.uier-monitor`. For a quick look:
 
 ```bash
 node "$(git rev-parse --path-format=absolute --git-common-dir)/uier-monitor/monitor.mjs" status --project uier00000001
@@ -186,7 +188,8 @@ A card shows:
   running or not responding, with failing wake delivery and usage limits called out. Low disk space
   shows once, at the top of the page. Stopped and inactive monitors are dimmed.
 - **Sessions:** how many of the monitor's slots are working.
-- **Waiting on:** sessions still working, pull requests to merge, deploys to finish, a timer, events
+- **Waiting on:** sessions still working, a free session slot on this machine (when the machine's
+  limit holds the monitor back), pull requests to merge, deploys to finish, a timer, events
   the orchestrator hasn't taken yet, or you. Under it, one small muted line gives the orchestrator's
   last note (what it just did); hover it for the whole note, or open the card's details to read it in full.
 - **Work in progress:** one line per group under Building, In review, Pull request, Deploying or
@@ -214,7 +217,9 @@ nothing else on the page is redrawn or highlighted for it.
 last check-in, the activity feed, comments closed per day, the median time from start to close and
 the wakes of the last 24 hours. Badges next to the title count the monitors, the ones working and the
 ones waiting. The totals above the cards count every monitor that isn't stopped or
-inactive.
+inactive. Sessions working is the machine's count (every monitor's sessions and the slots claimed
+for sessions about to start) against the machine's limit when that is lower than the monitors' own
+maximums added up, with how many monitors wait for a slot.
 Each total has a small figure beside it: a slot meter for the sessions working, a line of the
 last 24 hours for the queued groups and the open pull requests (walked back from now through the
 journal's group events, sampled on the half hour; flat where the journal doesn't reach), a pip per
@@ -261,13 +266,37 @@ touched for a day is listed as Inactive, and one whose state folder is gone is l
 `events.jsonl`, the activity history the helper appends to: one line for each event the watcher
 finds, each wake and take, and each change of a group's state or a comment's decision or stage.
 Without that history (an older watcher) the feed shows the watcher's log instead. The journal rotates
-at 2 MB, keeping one earlier file.
+at 2 MB, keeping one earlier file. For the machine's session total it also reads `settings.json` and
+`slots.json` in `~/.uier-monitor`.
 
 **What it never does.** It doesn't change a monitor, uier or the repository, and it has no write
 endpoint. It binds to `127.0.0.1` and refuses requests under another host name, so a web page you
 visit can't read it. Its server fetches only the projects' site icons (not with `--no-icons`), and the page loads nothing from the internet unless you pass `--review` or saved a default review project. The browser receives a fixed set of fields,
 never the state files themselves or a token, and the page renders feedback text as text. Binding
 another address with `--host` makes the page readable by everyone who can reach that address.
+
+### Machine capacity
+
+Every monitor on a machine shares one limit on sessions working at once: 12 unless changed, on top
+of each monitor's own `max=` (6 by default). Fix, follow-up, rebase and review sessions all count,
+whichever monitor started them. Change it with `/uier-monitor global=16` (any project, or none), or
+directly:
+
+```bash
+node <git common dir>/uier-monitor/monitor.mjs capacity            # sessions per monitor, the queue
+node <git common dir>/uier-monitor/monitor.mjs capacity --max 16   # the limit for every monitor here
+```
+
+The limit lives in `~/.uier-monitor/settings.json` (`maxSessions`; `UIER_MONITOR_HOME` moves the
+folder). Before starting sessions, the orchestrator claims their slots with `monitor.mjs slot
+<group>…`, under a lock in that folder, so two monitors waking at the same moment can't both take the
+last slot. A claim counts until the patch that records the session, or 15 minutes. A monitor the
+machine refuses waits in a queue (`slots.json`), oldest first; when a slot frees, its watcher wakes it
+with a `capacity` event on its turn, and a monitor that got a slot goes to the back, so monitors take
+turns. A woken monitor that claims nothing within 15 minutes gives its place up. Only monitors whose
+watcher checked in within five minutes and that have room under their own `max` hold a place, so a
+stopped, crashed or full monitor never blocks the others. A monitor nobody touched for a day holds
+no slots.
 
 ## How it works
 
@@ -327,8 +356,9 @@ another address with `--host` makes the page readable by everyone who can reach 
   `prs <n>` fetches exact selected records, and `M detail <field>` fetches named extra state such as
   runtime evidence. Routing, scope, release restrictions and pending writes remain visible; closed
   history and transcripts remain on disk. A recovery packet is written before the inbox is drained.
-- **Sessions.** Up to 6 run at once. A slot frees as soon as a session opens its PR; CI, merges and
-  deploys don't hold one. Before starting one with less than 15 GiB free, the orchestrator removes
+- **Sessions.** Up to 6 run at once per monitor, and up to 12 across every monitor on the machine,
+  so ten monitors don't start sixty sessions (see [Machine capacity](#machine-capacity)). A slot frees
+  as soon as a session opens its PR; CI, merges and deploys don't hold one. Before starting one with less than 15 GiB free, the orchestrator removes
   worktrees of finished groups that are clean and fully pushed (`monitor.mjs cleanup --apply`). When
   a session hits a usage limit, its group and new sessions move to the other provider until the
   reset. Follow-ups for a PR go back to the session that wrote it while its context is fresh. Small fixes in the same area share one session and one PR, and simple
@@ -424,11 +454,13 @@ explicit opt-in for a harness without a usable event transport or token; it is r
 watcher record and every heartbeat-only delivery increments `idleWakes`. Existing interval model
 tasks must be disabled after a persistent replacement has a live PID and fresh heartbeat.
 
-The current helper is 1.7.0. To upgrade an existing monitor, keep its state, cursor, inbox, token,
+The current helper is 1.8.0. To upgrade an existing monitor, keep its state, cursor, inbox, token,
 target thread, routing and release restrictions; replace only the shared helper, start it with
 `watch --persistent --detach --thread <saved thread> --replace`, and verify its loaded version
 and heartbeat. Do not restart explicitly stopped monitors. The compact API capability probe
-falls back only for an older schema, not for authorization or network failures.
+falls back only for an older schema, not for authorization or network failures. Monitors on 1.8.0
+claim slots under the [machine capacity](#machine-capacity) limit; a watcher started by an older
+helper counts toward it but can't send `capacity` wakes until it is replaced.
 
 The two monitor read tools return `x-uier-database-ru` when supported, covering instrumented
 reads and the HTTP quota counter. This is response-time SDK charge accounting, independent of

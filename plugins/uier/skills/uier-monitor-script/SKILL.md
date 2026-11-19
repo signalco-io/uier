@@ -5,7 +5,7 @@ description: Recreate monitor.mjs, the watcher and state helper of the uier-moni
 
 # Recreate the uier monitor helper
 
-This skill carries `monitor.mjs` version 1.7.0, sha256 `5e45c595a3f7b37b7e5a0f18b3220889ad844338739468b75db571115dc193f2`. It needs Node 18 or later
+This skill carries `monitor.mjs` version 1.8.0, sha256 `846e6479e6a16e82a4dab9ac26ca514792b5b8620322e596fe4dcf3d89249721`. It needs Node 18 or later
 and has no dependencies. The uier-monitor skill runs it as `ROOT/monitor.mjs`, where `ROOT` is
 `$(git rev-parse --path-format=absolute --git-common-dir)/uier-monitor`.
 
@@ -19,8 +19,8 @@ and has no dependencies. The uier-monitor skill runs it as `ROOT/monitor.mjs`, w
    ```
 
 2. Only when this file isn't on disk, write the code below to `$ROOT/monitor.mjs` exactly as shown.
-3. Check it: `node "$ROOT/monitor.mjs" version` must print version 1.7.0 and sha256
-   `5e45c595a3f7b37b7e5a0f18b3220889ad844338739468b75db571115dc193f2`. If the hash differs, write the file again; never patch it by hand.
+3. Check it: `node "$ROOT/monitor.mjs" version` must print version 1.8.0 and sha256
+   `846e6479e6a16e82a4dab9ac26ca514792b5b8620322e596fe4dcf3d89249721`. If the hash differs, write the file again; never patch it by hand.
 
 Don't edit the code here. Its source is `.claude/skills/uier-monitor/scripts/monitor.mjs` in the uier
 repository, and `build-script-skill.mjs` next to it writes this file.
@@ -39,17 +39,21 @@ repository, and `build-script-skill.mjs` next to it writes this file.
 
 import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 
-const VERSION = '1.7.0';
+const VERSION = '1.8.0';
 const DEFAULT_ENDPOINT = 'https://uier.io/api/mcp';
 const KEYCHAIN_SERVICE = 'uier-mcp';
 const BOOLEAN_FLAGS = new Set(['replace', 'screenshots', 'help', 'persistent', 'take', 'detach', 'apply', 'allow-model-polling', 'worker']);
 const SLOT_STATES = new Set(['building', 'fixing', 'reviewing']);
+const MACHINE_MAX = 12;          // sessions working at once across every monitor on this machine
+const CLAIM_MS = 15 * 60_000;    // a slot claimed for a session that was never recorded
+const TURN_MS = 15 * 60_000;     // a monitor woken for a free slot that claims nothing loses its place
+const WATCHER_FRESH_MS = 5 * 60_000;
 const FAILED = new Set(['failure', 'timed_out', 'startup_failure', 'action_required', 'error']);
 const DAY = 86_400_000;
 const LEASE_RENEW_MS = 115_000;  // uier's lease lasts five minutes; renew about every two
@@ -89,6 +93,14 @@ Options may come before or after the command.
   detail SECTION ID...     Read selected items, groups or PRs, or a named top-level field.
   status                  Compact view of sessions, leases, queue, PRs, deploys, open questions,
                           wake delivery and free disk space.
+  slot GROUP...           Claim session slots for these groups before starting their sessions.
+                          Grants in order while this monitor's max and the machine's limit allow;
+                          a refusal for the machine queues this monitor, and the watcher wakes it
+                          with a capacity event on its turn.
+  slot release GROUP...   Give back claims whose sessions did not start.
+  slot leave              Leave the machine's queue: nothing is waiting to start.
+  capacity [--max N]      Sessions working on this machine against its limit (default ${MACHINE_MAX}),
+                          per monitor, and the queue. --max N sets the limit for every monitor.
   usage                   Per-monitor requests, bytes, time, measured database RU and idle wakes.
                           Optional --ru-price-per-million N --currency CODE estimates RU cost
                           only; missing server measurements remain unknown.
@@ -105,14 +117,15 @@ Options may come before or after the command.
 
 --project ID uses <git common dir>/uier-monitor/ID as the state directory.
 The watcher announces its state directory in ~/.uier-monitor/monitors (UIER_MONITOR_HOME overrides
-the folder) and keeps an activity history in events.jsonl. dashboard.mjs, next to this file, shows
+the folder) and keeps an activity history in events.jsonl. The machine's session limit is in
+~/.uier-monitor/settings.json (maxSessions), its claims and queue in slots.json. dashboard.mjs, next to this file, shows
 every monitor on the machine from those: node dashboard.mjs
 The token comes from UIER_MCP_TOKEN or the keychain (service "${KEYCHAIN_SERVICE}", account: the
 project id, its workspace id or "default"). UIER_MCP_URL overrides ${DEFAULT_ENDPOINT}.
 `;
 
 const { command, opts } = parseArgs(process.argv.slice(2));
-const commands = { help: () => print(HELP), version, check, watch, take, context: contextCommand, detail, status, usage, patch, packet, call, token, cleanup, stop };
+const commands = { help: () => print(HELP), version, check, watch, take, context: contextCommand, detail, status, usage, patch, packet, call, token, cleanup, stop, slot, capacity };
 
 // ---------------------------------------------------------------- arguments and files
 
@@ -204,6 +217,12 @@ function logger(dir) {
     return message => { try { appendFileSync(file, `${new Date().toISOString()} ${message}\n`); } catch { /* best effort */ } };
 }
 
+// Files every monitor on this machine shares: the dashboard's registry, reply cooldowns and the
+// machine's session limit, claims and queue.
+function monitorHome() {
+    return process.env.UIER_MONITOR_HOME || join(homedir(), '.uier-monitor');
+}
+
 // ---------------------------------------------------------------- dashboard feed
 // dashboard.mjs reads what these write. Both are best effort: nothing here may stop the monitor.
 
@@ -211,8 +230,7 @@ function logger(dir) {
 // dashboard finds every monitor on the machine, whichever repository it runs in.
 function register(dir, state) {
     try {
-        const home = process.env.UIER_MONITOR_HOME || join(homedir(), '.uier-monitor');
-        const file = join(home, 'monitors', `${createHash('sha256').update(dir).digest('hex').slice(0, 16)}.json`);
+        const file = join(monitorHome(), 'monitors', `${createHash('sha256').update(dir).digest('hex').slice(0, 16)}.json`);
         const entry = { stateDir: dir, project: pick(state.project, ['id', 'name']), repo: state.repo?.slug };
         const { registeredAt, ...before } = readJson(file, {});
         if (JSON.stringify(before) !== JSON.stringify(entry)) writeJson(file, { ...entry, registeredAt: new Date().toISOString() });
@@ -397,6 +415,9 @@ async function contextCommand(options) {
         // Sessions fill the disk with worktrees; say so before the next one starts.
         const free = diskFree(repoCwd(state));
         if (free !== null && free < 20) result.packet.diskLowGiB = free;
+        // Sessions this monitor may start now, within its own max and the machine's limit.
+        const capacity = capacitySummary(dir);
+        if (capacity) result.packet.capacity = capacity;
         result.recovery = events.length ? result.packet : saved?.recovery;
         if (!events.length && result.recovery && !(Date.parse(state.updatedAt) > Date.parse(result.recovery.now)))
             result.packet.recoverFrom = join(dir, 'context.json');
@@ -496,7 +517,7 @@ function connection(state, account, usageDir) {
     // the token, endpoint, reply or idempotency key to the cooldown file.
     const key = createHash('sha256').update(endpoint).update('\0').update(value).digest('hex');
     return { endpoint, token: value, id: 0, usageDir,
-        replyCooldownFile: join(process.env.UIER_MONITOR_HOME || join(homedir(), '.uier-monitor'), 'cooldowns', `${key}.json`) };
+        replyCooldownFile: join(monitorHome(), 'cooldowns', `${key}.json`) };
 }
 
 class UierError extends Error {
@@ -1000,6 +1021,8 @@ async function watch(options) {
             }
         }
         if (updates.length) await updateState(dir, updates).catch(error => log(`state update failed: ${error.message}`));
+        // A monitor the machine's limit held back wakes when a slot is free for it.
+        await capacityTurn(dir, found).catch(error => log(`capacity check failed: ${error.message}`));
         const now = Date.now();
         if (!found.some(item => !item.quiet)) {
             const wakeAt = Date.parse(settings.wakeAt ?? '');
@@ -1797,6 +1820,219 @@ function cleanup(options) {
     print({ applied: Boolean(options.apply), freeGiB: { before, after: options.apply ? diskFree(cwd) : before }, worktrees });
 }
 
+// ---------------------------------------------------------------- machine capacity
+// Every monitor on this machine shares one limit on sessions working at once (settings.json
+// `maxSessions`, default MACHINE_MAX), on top of each monitor's own `max`. A group in a slot state
+// counts where it is. A claim (`slot GROUP`) covers the moment between deciding to start a session
+// and the patch that records it: it counts while its group keeps the state it had when claimed, for
+// at most CLAIM_MS. A monitor the machine refused waits in a queue, oldest first. Its watcher wakes
+// it when a slot is free for it, and a woken monitor that claims nothing within TURN_MS loses its
+// place. Only monitors whose watcher checked in lately and that have room of their own hold a place,
+// so a stopped, crashed or full monitor never blocks the others.
+
+function canonical(dir) {
+    try { return realpathSync(dir); } catch { return resolve(dir); }
+}
+
+function monitorKey(dir) {
+    return createHash('sha256').update(dir).digest('hex').slice(0, 16);
+}
+
+function objectOr(value, fallback = {}) {
+    return value && typeof value === 'object' && !Array.isArray(value) ? value : fallback;
+}
+
+// Another monitor's files may be half written or gone; they never stop this one.
+function quietRead(file, fallback) {
+    try { return objectOr(readJson(file, fallback), fallback); } catch { return fallback; }
+}
+
+function machineMax() {
+    const value = Number(quietRead(join(monitorHome(), 'settings.json'), {}).maxSessions);
+    return Number.isInteger(value) && value > 0 ? value : MACHINE_MAX;
+}
+
+function readSlots() {
+    const saved = quietRead(join(monitorHome(), 'slots.json'), {});
+    return { claims: { ...objectOr(saved.claims) }, waiting: { ...objectOr(saved.waiting) } };
+}
+
+// Every announced monitor and this one: the groups that hold a slot and whether its watcher runs.
+// A monitor nobody touched for a day was left behind; its groups hold no slot.
+function machineMonitors(self, now) {
+    const dirs = new Set(self ? [self] : []);
+    const registry = join(monitorHome(), 'monitors');
+    let names = [];
+    try { names = readdirSync(registry).filter(name => name.endsWith('.json')); } catch { /* none announced yet */ }
+    for (const name of names) {
+        const dir = quietRead(join(registry, name), {}).stateDir;
+        if (typeof dir === 'string') dirs.add(canonical(dir));
+    }
+    const monitors = new Map();
+    for (const dir of dirs) {
+        let touched;
+        try { touched = statSync(join(dir, 'state.json')).mtimeMs; } catch { continue; }
+        const state = quietRead(join(dir, 'state.json'), null);
+        if (!state) continue;
+        const heartbeat = Date.parse(quietRead(join(dir, 'watch.json'), {}).heartbeatAt ?? '') || 0;
+        const groups = objectOr(state.groups);
+        const abandoned = dir !== self && now - Math.max(touched, heartbeat) > DAY;
+        monitors.set(monitorKey(dir), { dir, key: monitorKey(dir), groups, name: state.project?.name ?? state.project?.id ?? null,
+            working: abandoned ? 0 : Object.values(groups).filter(group => SLOT_STATES.has(group?.state)).length,
+            claims: 0, max: Number(state.max) || 6, stopped: Boolean(state.stopped || state.watch?.stopped),
+            watching: now - heartbeat < WATCHER_FRESH_MS });
+    }
+    return monitors;
+}
+
+function liveClaim(claim, monitors, now) {
+    const monitor = monitors.get(claim?.monitor);
+    if (!monitor || !(now - Number(claim.at) < CLAIM_MS)) return false;
+    const current = monitor.groups[claim.group]?.state ?? null;
+    return current === (claim.from ?? null) && !SLOT_STATES.has(current);
+}
+
+// The machine's sessions, live claims and queue. `slots` comes back without dead claims and lost
+// places, ready to be written back under the lock.
+function capacityView(self, now = Date.now()) {
+    const monitors = machineMonitors(self, now);
+    const slots = readSlots();
+    for (const [id, claim] of Object.entries(slots.claims)) {
+        if (liveClaim(claim, monitors, now)) monitors.get(claim.monitor).claims++;
+        else delete slots.claims[id];
+    }
+    for (const [key, place] of Object.entries(slots.waiting)) {
+        const monitor = monitors.get(key);
+        if (!monitor || monitor.stopped || !(Number(place?.since) > 0) || (place.notifiedAt && now - place.notifiedAt >= TURN_MS)) delete slots.waiting[key];
+    }
+    let used = 0;
+    for (const monitor of monitors.values()) used += monitor.working + monitor.claims;
+    const queue = Object.entries(slots.waiting).filter(([key]) => {
+        const monitor = monitors.get(key);
+        return monitor.watching && monitor.working + monitor.claims < monitor.max;
+    }).sort(([a, x], [b, y]) => x.since - y.since || a.localeCompare(b)).map(([key]) => key);
+    return { max: machineMax(), used, monitors, slots, queue };
+}
+
+// Monitors that go before this one: those ahead of it in the queue, or all of it when it isn't in it.
+function ahead(view, key) {
+    const index = view.queue.indexOf(key);
+    return index >= 0 ? index : view.queue.length;
+}
+
+function ownSlots(view, key) {
+    const monitor = view.monitors.get(key);
+    return { used: monitor ? monitor.working + monitor.claims : 0, max: monitor?.max ?? 6 };
+}
+
+// What the orchestrator sees in `context` and `status`: how many sessions it may start now.
+function capacitySummary(dir, now = Date.now()) {
+    try {
+        const self = canonical(dir);
+        const key = monitorKey(self);
+        const view = capacityView(self, now);
+        const here = ownSlots(view, key);
+        const before = ahead(view, key);
+        const place = view.slots.waiting[key];
+        return { free: Math.max(0, Math.min(here.max - here.used, view.max - view.used - before)), here, machine: { used: view.used, max: view.max },
+            ...(place ? { waitingSince: new Date(place.since).toISOString(), ahead: before } : {}) };
+    } catch { return null; }
+}
+
+async function slot(options) {
+    const dir = stateDir(options);
+    const [verb, ...rest] = options._;
+    const ids = ['release', 'leave'].includes(verb) ? rest : options._;
+    if (verb === 'leave' ? ids.length : !ids.length) fail('Pass group ids: slot GROUP..., slot release GROUP... or slot leave.');
+    const state = readJson(join(dir, 'state.json'), {});
+    const unknown = ids.filter(id => !Object.hasOwn(objectOr(state.groups), id));
+    if (verb !== 'release' && unknown.length) fail(`No such group: ${unknown.join(', ')}.`);
+    const self = canonical(dir);
+    const key = monitorKey(self);
+    const answer = await withLock(monitorHome(), 'slots', () => {
+        const now = Date.now();
+        const view = capacityView(self, now);
+        const { claims, waiting } = view.slots;
+        const result = {};
+        if (verb === 'leave') {
+            result.left = Boolean(waiting[key]);
+            delete waiting[key];
+        } else if (verb === 'release') {
+            result.released = ids.filter(id => claims[`${key}:${id}`]);
+            for (const id of ids) delete claims[`${key}:${id}`];
+        } else {
+            const here = ownSlots(view, key);
+            const before = ahead(view, key);
+            const groups = view.monitors.get(key)?.groups ?? {};
+            let used = view.used;
+            let reason = null;
+            let claimed = 0;
+            Object.assign(result, { granted: [], held: [], refused: [] });
+            for (const id of ids) {
+                const current = groups[id]?.state ?? null;
+                if (SLOT_STATES.has(current)) { result.held.push(id); continue; }
+                if (claims[`${key}:${id}`]) { result.granted.push(id); continue; }
+                if (!reason && here.used >= here.max) reason = 'monitor';
+                if (!reason && used + before >= view.max) reason = 'machine';
+                if (reason) { result.refused.push(id); continue; }
+                claims[`${key}:${id}`] = { monitor: key, dir: self, group: id, from: current, at: now };
+                used++;
+                here.used++;
+                claimed++;
+                result.granted.push(id);
+            }
+            // Refused by the machine: keep (or take) a place in the queue. A monitor that just got a
+            // slot goes to the back, so monitors take turns.
+            if (reason === 'machine') waiting[key] = { since: claimed ? now : waiting[key]?.since ?? now, dir: self,
+                ...(state.project?.name ? { project: String(state.project.name).slice(0, 120) } : {}) };
+            else delete waiting[key];
+            if (reason) result.reason = reason;
+        }
+        writeJson(join(monitorHome(), 'slots.json'), view.slots);
+        return result;
+    });
+    const summary = capacitySummary(dir);
+    print({ ...answer, ...(summary ? { here: summary.here, machine: summary.machine } : {}),
+        ...(answer.reason === 'machine' ? { next: 'Start only the granted groups. The watcher wakes you with a capacity event when a slot is free for this monitor.' } : {}),
+        ...(answer.reason === 'monitor' ? { next: 'Start only the granted groups. This monitor runs its max; a slot frees when one of its sessions reports.' } : {}) });
+}
+
+// Called on every watcher cycle: wakes this monitor once when the machine has a slot for it.
+async function capacityTurn(dir, found, now = Date.now()) {
+    const self = canonical(dir);
+    const key = monitorKey(self);
+    if (!readSlots().waiting[key]) return;
+    await withLock(monitorHome(), 'slots', () => {
+        const view = capacityView(self, now);
+        const place = view.slots.waiting[key];
+        if (place && !place.notifiedAt) {
+            const here = ownSlots(view, key);
+            const free = Math.min(here.max - here.used, view.max - view.used - ahead(view, key));
+            if (free > 0) {
+                place.notifiedAt = now;
+                found.push({ type: 'capacity', free });
+            }
+        }
+        writeJson(join(monitorHome(), 'slots.json'), view.slots);
+    });
+}
+
+async function capacity(options) {
+    const dir = stateDir(options, false);
+    const settings = join(monitorHome(), 'settings.json');
+    if (options.max !== undefined) {
+        const value = Number(options.max);
+        if (!Number.isInteger(value) || value < 1 || value > 100) fail('Pass --max as a whole number from 1 to 100.');
+        await withLock(monitorHome(), 'slots', () => writeJson(settings, { ...quietRead(settings, {}), maxSessions: value }));
+    }
+    const view = capacityView(dir ? canonical(dir) : null);
+    const names = key => view.monitors.get(key)?.name ?? key;
+    print({ max: view.max, used: view.used, free: Math.max(0, view.max - view.used),
+        settings, monitors: [...view.monitors.values()].map(monitor => ({ project: monitor.name, dir: monitor.dir, working: monitor.working,
+            claims: monitor.claims, max: monitor.max, ...(view.slots.waiting[monitor.key] ? { waitingSince: new Date(view.slots.waiting[monitor.key].since).toISOString() } : {}) })),
+        queue: view.queue.map(names) });
+}
+
 // ---------------------------------------------------------------- status
 
 function status(options) {
@@ -1809,6 +2045,7 @@ function status(options) {
     const watcher = pid ? readJson(join(dir, 'watch.pid'), {}) : {};
     const notification = readJson(join(dir, 'notification.json'), {});
     const free = diskFree(repoCwd(state));
+    const machine = capacitySummary(dir);
     const since = at => new Date(at).toISOString().slice(0, 16).replace('T', ' ');
     const items = state.items ?? {};
     const label = ids => (ids ?? []).map(id => `#${items[id]?.number ?? id}`).join(' ');
@@ -1816,7 +2053,7 @@ function status(options) {
     const lines = [
         `${state.project?.name ?? '?'} (${state.project?.id ?? '?'}) · ${state.repo?.slug ?? '?'} → ${state.repo?.base ?? '?'} · ${state.workflow?.mode ?? '?'}${state.workflow?.autoMerge ? ' + auto-merge' : ''} · ${state.harness?.kind ?? '?'}`,
         `watcher ${pid ? `running (pid ${pid}, ${watcher.persistent ? 'persistent' : 'one-shot'}, v${watcher.version ?? '?'})` : 'stopped'} · heartbeat ${seen.heartbeatAt ?? 'never'} · uier ${connection(state) ? 'token' : 'no token (fallback)'} · inbox ${inbox.length} · reconciled ${seen.reconciledAt ?? 'never'} · wakes ${state.watch?.wakes ?? 0}${state.watch?.wakeAt ? ` · timer ${state.watch.wakeAt}` : ''}`,
-        `sessions ${groups.filter(([, group]) => SLOT_STATES.has(group.state)).length}/${state.max ?? 6}${free === null ? '' : ` · disk ${free} GiB free${free < 15 ? ' (low: run cleanup --apply)' : ''}`}`
+        `sessions ${groups.filter(([, group]) => SLOT_STATES.has(group.state)).length}/${state.max ?? 6}${machine ? ` · machine ${machine.machine.used}/${machine.machine.max}${machine.waitingSince ? ` (waiting for a slot since ${since(machine.waitingSince)} UTC, ${machine.ahead} ahead)` : ''}` : ''}${free === null ? '' : ` · disk ${free} GiB free${free < 15 ? ' (low: run cleanup --apply)' : ''}`}`
     ];
     const measured = usageSnapshot(dir);
     if (measured.since) lines.push(`usage (up to 31 UTC days): ${measured.totals.requests} requests · ${measured.totals.responseBytes} response bytes · ${measured.databaseRu === null ? 'database RU unknown' : `${measured.databaseRu.toFixed(2)} database RU (${measured.totals.meteredRequests}/${measured.totals.requests} requests measured)`} · ${measured.totals.idleWakes} idle model wakes`);

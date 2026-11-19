@@ -37,6 +37,10 @@ const SLOT_STATES = new Set(['building', 'fixing', 'reviewing']);
 const FINISHED = new Set(['closed', 'cancelled', 'done', 'closed-out']);
 const MINUTE = 60_000;
 const DAY = 86_400_000;
+// The machine's session limit, as monitor.mjs keeps it: settings.json (maxSessions) and slots.json
+// (claims for sessions about to start, and the monitors waiting for a slot) in the monitor home.
+const MACHINE_MAX = 12;
+const CLAIM_MS = 15 * MINUTE;
 
 const HELP = `uier monitor dashboard ${VERSION}
 
@@ -342,6 +346,8 @@ export function snapshot(dir, now = Date.now()) {
     const groups = Object.entries(state.groups && typeof state.groups === 'object' ? state.groups : {}).filter(([, group]) => group && typeof group === 'object');
     const prs = state.prs && typeof state.prs === 'object' ? state.prs : {};
     const settings = state.watch && typeof state.watch === 'object' ? state.watch : {};
+    // Waiting for a slot under the machine's limit; a monitor woken for one that never claimed it lost its place.
+    const place = Object.values(machineSlots().waiting).find(entry => entry?.dir === dir && !(entry.notifiedAt && now - entry.notifiedAt >= 15 * MINUTE));
     const gitlab = state.repo?.provider === 'gitlab';
     const slugPattern = gitlab ? /^[\w.-]+(?:\/[\w.-]+)+$/ : /^[\w.-]+\/[\w.-]+$/;
     const slug = slugPattern.test(state.repo?.slug ?? '') && state.repo.slug.split('/').every(part => !['.', '..'].includes(part)) ? state.repo.slug : undefined;
@@ -439,6 +445,7 @@ export function snapshot(dir, now = Date.now()) {
     else {
         if (loud.length) waiting.push({ key: 'orchestrator', text: `The orchestrator, to handle ${plural(loud.length, 'event')}`, since: time(Math.min(...loud.map(event => Date.parse(event.foundAt ?? '') || now))) });
         if (used) waiting.push({ key: 'sessions', text: `${plural(used, 'session')} working` });
+        if (place && Number(place.since) > 0) waiting.push({ key: 'capacity', text: 'A free session slot on this machine', since: time(Number(place.since)) });
         if (count('pr')) waiting.push({ key: 'prs', text: `${plural(count('pr'), 'pull request')} to merge` });
         if (count('deploying')) waiting.push({ key: 'deploys', text: `${plural(count('deploying'), 'deploy')} to finish` });
         if (attention.length) waiting.push({ key: 'you', text: `You, on ${plural(attention.length, 'comment')}` });
@@ -503,13 +510,36 @@ export function snapshot(dir, now = Date.now()) {
 
 const ORDER = { running: 0, handling: 0, waiting: 1, stale: 2, down: 3, stopped: 4, inactive: 5 };
 
-/** Every monitor on this machine, most active first. */
+function machineSlots() {
+    const saved = json(join(monitorHome(), 'slots.json'), {});
+    const object = value => (value && typeof value === 'object' && !Array.isArray(value) ? value : {});
+    return { claims: object(object(saved).claims), waiting: object(object(saved).waiting) };
+}
+
+/**
+ * Sessions working on this machine against the limit every monitor shares: the groups in a slot
+ * state of every monitor that isn't inactive, and the slots claimed for sessions about to start.
+ */
+export function machineCapacity(monitors, now = Date.now()) {
+    const settings = json(join(monitorHome(), 'settings.json'), {});
+    const max = Number.isInteger(settings?.maxSessions) && settings.maxSessions > 0 ? settings.maxSessions : MACHINE_MAX;
+    // A claim counts until its group's state changes (the session was recorded) or it expires.
+    const claims = Object.values(machineSlots().claims).filter(claim => {
+        if (!claim || typeof claim.dir !== 'string' || !(now - Number(claim.at) < CLAIM_MS)) return false;
+        const current = json(join(claim.dir, 'state.json'), {})?.groups?.[claim.group]?.state ?? null;
+        return current === (claim.from ?? null) && !SLOT_STATES.has(current);
+    }).length;
+    const used = monitors.reduce((total, entry) => total + (entry.status === 'inactive' ? 0 : entry.slots.used), 0) + claims;
+    return { max, used, waiting: monitors.filter(entry => entry.waiting.some(item => item.key === 'capacity')).length };
+}
+
+/** Every monitor on this machine, most active first, and the machine's session capacity. */
 export function collect(options = {}) {
     const now = options.now ?? Date.now();
     const monitors = discover(options).map(dir => { try { return snapshot(dir, now); } catch { return null; } }).filter(Boolean)
         .sort((a, b) => (ORDER[a.status] - ORDER[b.status]) || String(b.updatedAt ?? '').localeCompare(String(a.updatedAt ?? '')));
     if (options.icons) for (const entry of monitors) entry.project.icon = projectIcon(entry.project.site);
-    return { app: APP, version: VERSION, build: BUILD, monitors };
+    return { app: APP, version: VERSION, build: BUILD, capacity: machineCapacity(monitors, now), monitors };
 }
 
 // ---------------------------------------------------------------- project icons
@@ -1760,7 +1790,10 @@ function render() {
     var count = function (stage) { return function (entry) { return entry.pipeline.filter(function (item) { return item.stage === stage; }).length; }; };
     var needs = sum(monitors, function (entry) { return entry.attention.length; });
     var attention = [].concat.apply([], monitors.map(function (entry) { return entry.attention; }));
-    var used = sum(busy, function (entry) { return entry.slots.used; }), slots = sum(busy, function (entry) { return entry.slots.max; });
+    // Sessions count against the machine's limit when it is lower than the monitors' own maximums.
+    var capacity = data.capacity || { used: sum(busy, function (entry) { return entry.slots.used; }), max: Infinity, waiting: 0 };
+    var own = sum(busy, function (entry) { return entry.slots.max; }), used = capacity.used, slots = Math.min(own, capacity.max);
+    var limited = capacity.max < own;
     var working = monitors.filter(active).length, waiting = monitors.filter(function (entry) { return entry.status === 'waiting'; }).length;
     var pill = function (key, dot, words) { return h('span', { class: 'badge', 'data-key': key }, dot ? h('i', { class: 'dot ' + dot }) : null, h('span', { class: 'num', 'data-flash': true, text: words })); };
     var summary = h('span', null, monitors.length ? [pill('monitors', null, plural(monitors.length, 'monitor')), pill('working', working ? 'work' : 'ring', working + ' working'),
@@ -1773,7 +1806,7 @@ function render() {
             return entry.health.map(function (item) { if (!item.machine || shared[item.text]) return null; shared[item.text] = true; return alert(item); });
         })));
         reconcile(document.getElementById('tiles'), h('div', null, monitors.length ? [
-            tile('Sessions working', used, 'of ' + slots + ' slots', slots ? meter(used, slots) : null),
+            tile('Sessions working', used, 'of ' + slots + (limited ? ' slots on this machine' : ' slots') + (capacity.waiting ? ' · ' + plural(capacity.waiting, 'monitor') + ' waiting' : ''), slots ? meter(used, slots) : null),
             tile('Queued', sum(busy, count('queued')), 'groups waiting for a slot', trend(addLevels(busy, 'queued'), 'Queued')),
             tile('Pull requests', sum(busy, count('pr')), 'open, waiting to merge', trend(addLevels(busy, 'pr'), 'Open pull requests')),
             tile('Needs you', needs, needWords(attention), needPips(attention)),

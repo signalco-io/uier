@@ -94,6 +94,16 @@ for its feed and for how long a group has been in its state. Never read it on a 
 - `watch.json.eventCheckedAt`, `lastActivityAt` and `eventIntervalSeconds`: event read cadence,
   separate from the every-minute process heartbeat.
 
+Files the monitors on one machine share, in `~/.uier-monitor` (`UIER_MONITOR_HOME` moves it). Only
+the helper writes them, under its lock; read them with `M capacity`:
+
+- `settings.json`: `{ "maxSessions": 12 }`, the limit on sessions working at once across every
+  monitor here (`M capacity --max N`). Each monitor's `max` still applies.
+- `slots.json`: `claims` (`"<monitor key>:<group>": { monitor, dir, group, from, at }`, a slot taken
+  for a session about to start; it counts while the group's state is still `from`, for 15 minutes at
+  most) and `waiting` (`"<monitor key>": { since, dir, project, notifiedAt }`, the queue for slots).
+- `monitors/*.json`: the registry the dashboard reads; `cooldowns/`: shared reply cooldowns.
+
 `usage.json` holds only numeric counters in at most 31 UTC day buckets, under its own lock.
 It records actual HTTP attempts (including retries), consumed body bytes, elapsed request time,
 measured database RU and coverage, delivery failures, wakes and idle model wakes. It contains no

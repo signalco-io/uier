@@ -1,12 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import * as fs from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { execFileSync, spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
@@ -138,7 +139,7 @@ function runtime() {
         print: value => output.push(structuredClone(value)), watcherPid: () => null, logger: () => () => {},
         connection: () => ({}), keepLeases: async () => {}, pollUier: async () => {},
         pollDeploys() {}, pollPullRequests() {}, wakeUrl: () => 'https://wake.example/secret',
-        diskFree: () => null, repoCwd: () => '/repo'
+        diskFree: () => null, repoCwd: () => '/repo', capacityTurn: async () => {}
     });
     files.set('/state/state.json', { project: { id: 'project' } });
     return { context, files, output, advance: ms => { now += ms; } };
@@ -1240,3 +1241,148 @@ for (const detached of [false, true]) test(`standalone persistent watcher delive
         assert.match(health, /persistent/);
         assert.match(health, /heartbeat 20/);
     });
+
+// ---------------------------------------------------------------- machine capacity
+
+// Monitors on one machine, sharing a temporary ~/.uier-monitor: each with a fresh watcher heartbeat
+// unless `watching` is false, announced the way the helper announces them.
+function machine() {
+    const home = realpathSync(mkdtempSync(join(tmpdir(), 'uier-monitor-machine-')));
+    const script = fileURLToPath(new URL('./monitor.mjs', import.meta.url));
+    const run = (dir, ...args) => JSON.parse(execFileSync(process.execPath, [script, ...args, '--state', dir],
+        { env: { ...process.env, UIER_MONITOR_HOME: home }, encoding: 'utf8' }));
+    const text = (dir, ...args) => execFileSync(process.execPath, [script, ...args, '--state', dir],
+        { env: { ...process.env, UIER_MONITOR_HOME: home }, encoding: 'utf8' });
+    const add = (name, groups, { max = 6, watching = true } = {}) => {
+        const dir = join(home, 'states', name);
+        fs.mkdirSync(dir, { recursive: true });
+        writeFileSync(join(dir, 'state.json'), JSON.stringify({ project: { id: name, name }, max,
+            groups: Object.fromEntries(Object.entries(groups).map(([id, state]) => [id, { state }])) }));
+        if (watching) writeFileSync(join(dir, 'watch.json'), JSON.stringify({ heartbeatAt: new Date().toISOString() }));
+        text(dir, 'patch', '{}');
+        return dir;
+    };
+    const slots = () => JSON.parse(readFileSync(join(home, 'slots.json'), 'utf8'));
+    // The watcher's step, run against the real files of this machine.
+    const context = vm.createContext({ process: { argv: [], pid: 42, env: { UIER_MONITOR_HOME: home }, on() {} }, Date, Set, Map,
+        createHash, join, resolve, dirname, homedir: () => home, sleep, ...fs });
+    vm.runInContext(source, context);
+    const turn = async (dir, now) => { const found = []; await context.capacityTurn(dir, found, now); return JSON.parse(JSON.stringify(found)); };
+    return { home, run, text, add, slots, turn };
+}
+
+test('one limit holds sessions across every monitor on the machine, with per-monitor max and claims', () => {
+    const m = machine();
+    try {
+        const a = m.add('A', { g1: 'building', g2: 'queued', g3: 'queued', g4: 'queued' }, { max: 3 });
+        const b = m.add('B', { g1: 'building', g2: 'queued', g3: 'pr' });
+        // Default 12, then set for every monitor.
+        assert.equal(m.run(a, 'capacity').max, 12);
+        assert.deepEqual(pickKeys(m.run(a, 'capacity', '--max', '4'), ['max', 'used', 'free']), { max: 4, used: 2, free: 2 });
+        assert.throws(() => m.text(a, 'capacity', '--max', '0'), /whole number/);
+
+        // The monitor's own max refuses first; the claim counts before any state patch records it.
+        const first = m.run(a, 'slot', 'g2', 'g3', 'g4');
+        assert.deepEqual([first.granted, first.refused, first.reason], [['g2', 'g3'], ['g4'], 'monitor']);
+        assert.deepEqual([first.here, first.machine], [{ used: 3, max: 3 }, { used: 4, max: 4 }]);
+        // Claiming again is idempotent; a group already holding a slot is reported as held.
+        assert.deepEqual(m.run(a, 'slot', 'g2', 'g1').granted, ['g2']);
+        assert.deepEqual(m.run(a, 'slot', 'g1').held, ['g1']);
+        assert.throws(() => m.text(a, 'slot', 'g9'), /No such group: g9/);
+
+        // The machine is full: B waits in the queue and starts nothing.
+        const refused = m.run(b, 'slot', 'g2');
+        assert.deepEqual([refused.granted, refused.refused, refused.reason], [[], ['g2'], 'machine']);
+        assert.match(refused.next, /capacity event/);
+        assert.ok(m.slots().waiting && Object.keys(m.slots().waiting).length === 1);
+
+        // Recording the sessions replaces the claims, so nothing counts twice.
+        m.text(a, 'patch', JSON.stringify({ groups: { g2: { state: 'building' }, g3: { state: 'building' } } }));
+        assert.deepEqual(pickKeys(m.run(a, 'capacity'), ['used']), { used: 4 });
+
+        // A session reports: its slot frees on the machine. A waits behind B, which goes first.
+        m.text(a, 'patch', JSON.stringify({ groups: { g2: { state: 'pr' } } }));
+        const behind = m.run(a, 'slot', 'g4');
+        assert.deepEqual([behind.granted, behind.reason], [[], 'machine']);
+        assert.deepEqual(Object.keys(m.slots().claims), [], 'claims whose group moved on are pruned on the next write');
+        const context = JSON.parse(m.text(b, 'context'));
+        assert.deepEqual(context.capacity, { free: 1, here: { used: 1, max: 6 }, machine: { used: 3, max: 4 },
+            waitingSince: context.capacity.waitingSince, ahead: 0 });
+        assert.match(m.text(b, 'status'), /sessions 1\/6 · machine 3\/4 \(waiting for a slot since .+ UTC, 0 ahead\)/);
+        // Groups that hold a slot as a review or follow-up count like fix sessions.
+        m.text(b, 'patch', JSON.stringify({ groups: { g3: { state: 'reviewing' } } }));
+        assert.equal(m.run(a, 'capacity').used, 4);
+        m.text(b, 'patch', JSON.stringify({ groups: { g3: { state: 'pr' } } }));
+
+        // A claim whose session didn't start is given back; one never recorded expires on its own.
+        const own = m.run(b, 'slot', 'g2');
+        assert.deepEqual(own.granted, ['g2']);
+        assert.deepEqual(m.run(b, 'slot', 'release', 'g2', 'g9').released, ['g2']);
+        assert.equal(m.run(a, 'capacity').used, 3);
+    } finally { rmSync(m.home, { recursive: true, force: true }); }
+});
+
+test('waiting monitors take turns: the watcher wakes the first in line once, and a silent one gives way', async () => {
+    const m = machine();
+    try {
+        const a = m.add('A', { g1: 'building', g2: 'queued', g3: 'queued' });
+        const b = m.add('B', { g1: 'building', g2: 'queued' });
+        const c = m.add('C', { g1: 'queued' }, { watching: false });
+        m.run(a, 'capacity', '--max', '2');
+        assert.equal(m.run(b, 'slot', 'g2').reason, 'machine');
+        assert.equal(m.run(a, 'slot', 'g2').reason, 'machine');
+        // Nothing is free yet, so nobody wakes.
+        assert.deepEqual(await m.turn(b), []);
+
+        m.text(a, 'patch', JSON.stringify({ groups: { g1: { state: 'pr' } } }));
+        // One slot: only B, first in line, wakes, and only once. A keeps its place.
+        assert.deepEqual(await m.turn(a), []);
+        assert.deepEqual(await m.turn(b), [{ type: 'capacity', free: 1 }]);
+        assert.deepEqual(await m.turn(b), []);
+        // C asks while others wait: they go first. Without a watcher C's own place blocks nobody.
+        assert.equal(m.run(c, 'slot', 'g1').reason, 'machine');
+        // B takes the slot and leaves the queue; A is next.
+        assert.deepEqual(m.run(b, 'slot', 'g2').granted, ['g2']);
+        m.text(b, 'patch', JSON.stringify({ groups: { g2: { state: 'building' } } }));
+        m.text(b, 'patch', JSON.stringify({ groups: { g1: { state: 'pr' } } }));
+        assert.deepEqual(await m.turn(a), [{ type: 'capacity', free: 1 }]);
+        // Woken but never claiming: after fifteen minutes A gives its place up and B's new request goes first.
+        assert.deepEqual(await m.turn(a, Date.now() + 16 * 60_000), []);
+        assert.equal(Object.keys(m.slots().waiting).length, 1, 'only C (without a watcher) keeps a place');
+
+        // A monitor that has nothing left to start leaves the queue.
+        assert.equal(m.run(c, 'slot', 'leave').left, true);
+        assert.deepEqual(m.slots().waiting, {});
+
+        // Granted some and refused the rest: back of the line, so monitors take turns.
+        m.text(b, 'patch', JSON.stringify({ groups: { g2: { state: 'pr' } } }));
+        m.run(a, 'capacity', '--max', '1');
+        assert.deepEqual(m.run(a, 'slot', 'g2', 'g3'), { granted: ['g2'], held: [], refused: ['g3'], reason: 'machine',
+            here: { used: 1, max: 6 }, machine: { used: 1, max: 1 },
+            next: 'Start only the granted groups. The watcher wakes you with a capacity event when a slot is free for this monitor.' });
+    } finally { rmSync(m.home, { recursive: true, force: true }); }
+});
+
+test('stopped and abandoned monitors neither hold slots nor block the queue', () => {
+    const m = machine();
+    try {
+        const a = m.add('A', { g1: 'queued' });
+        const stale = m.add('Stale', { g1: 'building', g2: 'building', g3: 'queued' });
+        m.run(a, 'capacity', '--max', '2');
+        assert.equal(m.run(stale, 'slot', 'g3').reason, 'machine');
+        // Stopping removes its place in the queue, although its running sessions still count.
+        m.text(stale, 'patch', JSON.stringify({ stopped: true }));
+        assert.equal(m.run(a, 'slot', 'g1').reason, 'machine');
+        assert.deepEqual(Object.keys(m.slots().waiting).length, 1, 'only A waits');
+        // Nobody touched it for a day: it was left behind and holds nothing.
+        const old = (Date.now() - 25 * 3_600_000) / 1000;
+        utimesSync(join(stale, 'state.json'), old, old);
+        writeFileSync(join(stale, 'watch.json'), JSON.stringify({ heartbeatAt: new Date(old * 1000).toISOString() }));
+        utimesSync(join(stale, 'state.json'), old, old);
+        assert.deepEqual(m.run(a, 'slot', 'g1').granted, ['g1']);
+    } finally { rmSync(m.home, { recursive: true, force: true }); }
+});
+
+function pickKeys(value, keys) {
+    return Object.fromEntries(keys.map(key => [key, value[key]]));
+}
