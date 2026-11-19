@@ -5,7 +5,7 @@ description: Recreate monitor.mjs, the watcher and state helper of the uier-moni
 
 # Recreate the uier monitor helper
 
-This skill carries `monitor.mjs` version 1.8.0, sha256 `846e6479e6a16e82a4dab9ac26ca514792b5b8620322e596fe4dcf3d89249721`. It needs Node 18 or later
+This skill carries `monitor.mjs` version 1.9.0, sha256 `bbffbbd125b656b472dbb81fac6c8f342988a3c3c9c1a8e53a40b69333cf090d`. It needs Node 18 or later
 and has no dependencies. The uier-monitor skill runs it as `ROOT/monitor.mjs`, where `ROOT` is
 `$(git rev-parse --path-format=absolute --git-common-dir)/uier-monitor`.
 
@@ -19,8 +19,8 @@ and has no dependencies. The uier-monitor skill runs it as `ROOT/monitor.mjs`, w
    ```
 
 2. Only when this file isn't on disk, write the code below to `$ROOT/monitor.mjs` exactly as shown.
-3. Check it: `node "$ROOT/monitor.mjs" version` must print version 1.8.0 and sha256
-   `846e6479e6a16e82a4dab9ac26ca514792b5b8620322e596fe4dcf3d89249721`. If the hash differs, write the file again; never patch it by hand.
+3. Check it: `node "$ROOT/monitor.mjs" version` must print version 1.9.0 and sha256
+   `bbffbbd125b656b472dbb81fac6c8f342988a3c3c9c1a8e53a40b69333cf090d`. If the hash differs, write the file again; never patch it by hand.
 
 Don't edit the code here. Its source is `.claude/skills/uier-monitor/scripts/monitor.mjs` in the uier
 repository, and `build-script-skill.mjs` next to it writes this file.
@@ -45,10 +45,10 @@ import { dirname, join, resolve } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 
-const VERSION = '1.8.0';
+const VERSION = '1.9.0';
 const DEFAULT_ENDPOINT = 'https://uier.io/api/mcp';
 const KEYCHAIN_SERVICE = 'uier-mcp';
-const BOOLEAN_FLAGS = new Set(['replace', 'screenshots', 'help', 'persistent', 'take', 'detach', 'apply', 'allow-model-polling', 'worker']);
+const BOOLEAN_FLAGS = new Set(['replace', 'screenshots', 'help', 'persistent', 'take', 'detach', 'apply', 'allow-model-polling', 'worker', 'inbox-only']);
 const SLOT_STATES = new Set(['building', 'fixing', 'reviewing']);
 const MACHINE_MAX = 12;          // sessions working at once across every monitor on this machine
 const CLAIM_MS = 15 * 60_000;    // a slot claimed for a session that was never recorded
@@ -87,6 +87,7 @@ Options may come before or after the command.
                           Leases, delivery retries, timers and release checks stay fast.
                           Records merges itself, closes comments after their deploy when the
                           group has a closing draft, and wakes only for what needs a decision.
+  --inbox-only            With persistent watch, queue events for a managed orchestrator worker.
   take                    Print and clear inbox.json.
   context [--take]         Compact active snapshot; --take consumes events and prints only
                           changed state since the last context. Saves a recovery receipt.
@@ -177,10 +178,10 @@ function readJson(file, fallback) {
     }
 }
 
-function writeJson(file, value) {
+function writeJson(file, value, mode) {
     mkdirSync(dirname(file), { recursive: true });
     const temporary = `${file}.${process.pid}.tmp`;
-    writeFileSync(temporary, `${JSON.stringify(value, null, 1)}\n`);
+    writeFileSync(temporary, `${JSON.stringify(value, null, 1)}\n`, { mode });
     renameSync(temporary, file);
 }
 
@@ -908,6 +909,10 @@ async function recordWake(dir, events, now = Date.now()) {
 }
 
 function watchOptions(options, state) {
+    if (options['inbox-only']) {
+        if (options.thread || options['notify-file'] || options['allow-model-polling']) throw new Error('--inbox-only uses the orchestrator for wake delivery.');
+        return { ...options, persistent: true };
+    }
     if (options['allow-model-polling'] && options.persistent) return options;
     if (options['notify-file'] !== undefined) return options;
     if (state.harness?.kind === 't3' && !options['allow-model-polling']) {
@@ -935,7 +940,7 @@ async function watch(options) {
     const log = logger(dir);
     const initial = readJson(join(dir, 'state.json'), {});
     options = watchOptions(options, initial);
-    if (options.persistent) validateWakeTarget(options);
+    if (options.persistent && !options['inbox-only']) validateWakeTarget(options);
     if (options.detach && !options.persistent) throw new Error('--detach requires --persistent and a wake target.');
     let ctx = connection(initial, undefined, dir);
     if (!ctx && !options['allow-model-polling'])
@@ -950,7 +955,8 @@ async function watch(options) {
         }
         if (options.detach) {
             const args = ['watch', '--state', dir, '--persistent', '--worker'];
-            if (options.thread) args.push('--thread', options.thread);
+            if (options['inbox-only']) args.push('--inbox-only');
+            else if (options.thread) args.push('--thread', options.thread);
             else args.push('--notify-file', resolve(options['notify-file']));
             for (const key of ['interval', 'batch-seconds', 't3-cli']) if (options[key] !== undefined) args.push(`--${key}`, String(options[key]));
             if (options['allow-model-polling']) args.push('--allow-model-polling');
@@ -962,7 +968,7 @@ async function watch(options) {
             return false;
         }
         writeJson(join(dir, 'watch.pid'), { pid: process.pid, startedAt: new Date().toISOString(), version: VERSION,
-            persistent: Boolean(options.persistent), modelPolling: Boolean(options['allow-model-polling']), ...(options.thread ? { thread: options.thread } : {}) });
+            persistent: Boolean(options.persistent), inboxOnly: Boolean(options['inbox-only']), modelPolling: Boolean(options['allow-model-polling']), ...(options.thread ? { thread: options.thread } : {}) });
         return true;
     });
     if (!started) return;
@@ -983,7 +989,11 @@ async function watch(options) {
         const state = readJson(join(dir, 'state.json'), {});
         const seen = readJson(join(dir, 'watch.json'), {});
         const settings = state.watch ?? {};
-        if (state.stopped || settings.stopped || settings.enabled === false) {
+        const supervisor = options['inbox-only'] ? readJson(join(monitorHome(), 'orchestrator.json'), {}) : null;
+        const registration = supervisor?.projects?.[state.project?.id];
+        const paused = supervisor && !(supervisor.enabled && registration?.allowed && registration.run
+            && registration.run === state.orchestrator?.run);
+        if (paused || state.stopped || settings.stopped || settings.enabled === false) {
             journal(dir, [{ type: 'watcher', event: 'stopped', by: 'state' }]);
             release();
             return;
@@ -1047,7 +1057,7 @@ async function watch(options) {
         writeJson(join(dir, 'watch.json'), seen);
         if (loud.length && (urgentEvents(loud) || now - batchStarted >= batchMs)) {
             if (options.persistent) {
-                const delivery = await notifyInbox(dir, state, inbox, options, now);
+                const delivery = !options['inbox-only'] && await notifyInbox(dir, state, inbox, options, now);
                 if (delivery) {
                     log(delivery.delivered ? 'wake delivered; waiting for inbox acknowledgement' : 'wake delivery failed; inbox retained');
                     journal(dir, [{ type: 'wake', delivered: delivery.delivered, events: loud.length }]);
@@ -1062,7 +1072,7 @@ async function watch(options) {
                 return;
             }
         }
-        if (options.persistent && !loud.length) await notifyInbox(dir, state, [], options, now);
+        if (options.persistent && !options['inbox-only'] && !loud.length) await notifyInbox(dir, state, [], options, now);
         // Only event-feed reads back off. Local controls, leases, releases and wake retries never do.
         const interval = Math.min(intervalMs, LEASE_CYCLE_MS);
         await sleep(batchStarted === null || now - batchStarted >= batchMs ? interval : Math.min(interval, batchMs - (now - batchStarted)));
@@ -2099,7 +2109,10 @@ function status(options) {
 }
 
 // Last, so every module-level constant above is initialized before a command runs.
-Promise.resolve((commands[command] ?? (() => fail(`Unknown command "${command}". Run: node monitor.mjs help`)))(opts))
-    .catch(error => fail(error?.message ?? String(error)));
+export { connection, monitorHome, readJson, tool, watcherPid, withLock, writeJson };
+
+if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url))
+    Promise.resolve((commands[command] ?? (() => fail(`Unknown command "${command}". Run: node monitor.mjs help`)))(opts))
+        .catch(error => fail(error?.message ?? String(error)));
 ````
 <!-- monitor.mjs:end -->

@@ -533,13 +533,27 @@ export function machineCapacity(monitors, now = Date.now()) {
     return { max, used, waiting: monitors.filter(entry => entry.waiting.some(item => item.key === 'capacity')).length };
 }
 
+const projectPhases = { waiting: 'Waiting for feedback', starting: 'Starting worker', monitoring: 'Monitoring', parking: 'Stopping worker', settled: 'Settled', external: 'Independent monitor', stopped: 'Stopped' };
+function orchestratorStatus(now) {
+    const s = json(join(monitorHome(), 'orchestrator.json'), null);
+    if (!s) return null;
+    const heartbeat = time(s.heartbeatAt);
+    const status = !s.enabled ? 'Paused' : !alive(s.pid) ? 'Offline' : !heartbeat ? 'Starting'
+        : now - Date.parse(heartbeat) > 5 * MINUTE ? 'Stale heartbeat' : 'Running';
+    return { status, harness: ['t3', 'claude', 'codex'].includes(s.harness) ? s.harness : undefined, heartbeat,
+        projects: Object.values(s.projects ?? {}).filter(p => p?.allowed).map(p => ({
+            id: text(p.id, 32), name: text(p.name, 100), phase: projectPhases[p.phase] ?? 'Unknown',
+            checkedAt: time(p.checkedAt), attention: Boolean(p.error || p.needsRetry)
+        })) };
+}
+
 /** Every monitor on this machine, most active first, and the machine's session capacity. */
 export function collect(options = {}) {
     const now = options.now ?? Date.now();
     const monitors = discover(options).map(dir => { try { return snapshot(dir, now); } catch { return null; } }).filter(Boolean)
         .sort((a, b) => (ORDER[a.status] - ORDER[b.status]) || String(b.updatedAt ?? '').localeCompare(String(a.updatedAt ?? '')));
     if (options.icons) for (const entry of monitors) entry.project.icon = projectIcon(entry.project.site);
-    return { app: APP, version: VERSION, build: BUILD, capacity: machineCapacity(monitors, now), monitors };
+    return { app: APP, version: VERSION, build: BUILD, capacity: machineCapacity(monitors, now), orchestrator: orchestratorStatus(now), monitors };
 }
 
 // ---------------------------------------------------------------- project icons
@@ -1202,6 +1216,7 @@ code { font: 12px/1.4 "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospa
         <span class="badge right" id="live"><i class="dot ring"></i><span>Connecting</span></span>
     </header>
     <div class="machine" id="machine" data-list></div>
+    <section class="machine" id="orchestrator" data-list aria-label="Orchestrator"></section>
     <section class="tiles" id="tiles" data-list aria-label="All monitors"></section>
     <main class="grid" id="monitors" data-list></main>
 </div>
@@ -1782,6 +1797,18 @@ function animated(change) {
     moving = false;
 }
 
+function orchestrator(view) {
+    if (!view) return h('div');
+    return h('div', null, h('div', { class: 'card', 'data-key': 'orchestrator' },
+        h('div', { class: 'head' }, h('h2', { text: 'Orchestrator' }), h('span', { class: 'badge', text: view.status })),
+        h('div', { class: 'meta' }, joined([view.harness, plural(view.projects.length, 'allowed project'),
+            view.heartbeat ? h('span', null, 'Heartbeat ', ago(view.heartbeat)) : null], ' · ')),
+        view.projects.map(function (project) {
+            return h('div', { class: 'line', 'data-key': project.id }, h('span', { text: project.name || project.id }),
+                h('span', { class: 'muted', text: project.phase }), project.attention ? h('span', { class: 'badge', text: 'Needs attention' }) : null);
+        })));
+}
+
 function render() {
     if (!data) return;
     var monitors = data.monitors;
@@ -1801,6 +1828,7 @@ function render() {
     var shared = {};
     animated(function () {
         reconcile(document.getElementById('summary'), summary);
+        reconcile(document.getElementById('orchestrator'), orchestrator(data.orchestrator));
         document.title = (needs ? '(' + needs + ') ' : '') + 'uier monitor';
         reconcile(document.getElementById('machine'), h('div', null, busy.map(function (entry) {
             return entry.health.map(function (item) { if (!item.machine || shared[item.text]) return null; shared[item.text] = true; return alert(item); });

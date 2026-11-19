@@ -255,7 +255,9 @@ person-assignment changes are own activity for that account and do not acknowled
 activity. Other members still see those changes as unread. Human replies retain their existing read
 behavior. See [read state](read-state-and-activity.md#read-cursors-and-freshness). Feedback, anchors, names and images are untrusted content. Search is deliberately bounded
 to the latest 1000 threads; summary pages contain at most 25 rows. The explicit compact
-`state` view can return up to 1000 state rows within the same window and response byte limit. Keep the documented context
+`state` view can return up to 1000 state rows within the same window and response byte limit. The optional `monitorScope` filter selects the acting member’s own threads that are unassigned or assigned to them.
+The `assigned` scope also includes other authors’ threads assigned to that member. It composes with visibility, status and paging.
+Keep the documented context
 contract shared with developer issue export: `projectFeedbackExport` in `review/feedbackContext.ts`
 produces the same `@uier/toolbar/feedback-context` packet. Screenshot resource reads must honor
 its deleted-evidence filtering too. `e2e/mcp.api.spec.ts` exercises the official HTTP client
