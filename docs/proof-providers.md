@@ -16,15 +16,22 @@ outside `uier.io`, isolated from the app and its cookies, and provisioned for
 the uier Vercel team with working DNS and TLS. Reserve it for an explicit
 proof deployment alias, separate from app project domains and wildcard domains.
 The build embeds the target origin in the viewer and route guard. The signed
-proof URL supplies application authorization on that host. Keep Vercel Deployment
-Protection in place. The workflow can use `UIER_PROOF_VERCEL_BYPASS` for the
-root check on a protected dedicated Vercel hostname. If the workflow verifies
-the alias and reports HTTP 401, complete the root 404 and signed iframe checks
-using authenticated access. [File proof provider operations](operations.md#file-proof-provider-setup)
+proof URL supplies application authorization on that host. Preview may keep
+Vercel Deployment Protection. A production guest needs to reach the renderer
+without a Vercel session or automation bypass. [File proof provider operations](operations.md#file-proof-provider-setup)
 
 1. Build and deploy the selected commit using existing CI after setting the origin variable.
-2. Run **Configure file proof providers** on `main` with feature `html`, the target environment and the exact deployment URL. It needs the existing target environment's `VERCEL_TOKEN` with project alias access. The workflow checks the selected deployment and probes the isolated host's app root for a 404.
-3. On the app origin, upload a prototype with `index.html`, local CSS, and local JavaScript. Open its iframe from a permissioned review. Verify the script and assets load only from the isolated hostname. Verify direct resource requests on the app host fail and revocation blocks another isolated load. Reattach the preview alias when changing the deployment being qualified.
+2. Run **Configure file proof providers** on `main` with feature `html`, the target environment
+   and the exact deployment URL. It needs the existing target environment's `VERCEL_TOKEN` with
+   project alias access. The workflow verifies the alias binding and checks for an app root 404.
+   If it reports alias verification only for a protected preview, verify the app root 404 with
+   authorized preview access. Production requires an anonymous app root 404.
+3. On the app origin, upload a prototype with `index.html`, local CSS, and local JavaScript. Open
+   a real signed guest review and verify its iframe script and assets load only from the isolated
+   hostname. Use authorized Vercel access for a protected preview and a fresh browser without
+   Vercel authentication or bypass for production. Verify direct resource requests on the app
+   host fail and revocation blocks another isolated load. Reattach the preview alias when
+   changing the deployment being qualified.
 
 For the production-build browser test on loopback, use separate hostnames for
 the app and isolated renderer. The test app uses `127.0.0.1`. Use the same port

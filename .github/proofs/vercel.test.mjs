@@ -10,8 +10,10 @@ const custom = 'https://artifacts.example.net';
 const build = 'https://uier-built-preview-signalco.vercel.app';
 const wanted = { id: 'dpl_Wanted', url: new URL(build).hostname, readyState: 'READY', ownerId: orgId, projectId, target: null };
 const old = { ...wanted, id: 'dpl_Old', url: 'uier-old-preview-signalco.vercel.app' };
+const sso = 'https://vercel.com/sso-api';
 const binding = (url, deployment = wanted) => ({ alias: new URL(url).hostname, deploymentId: deployment.id, projectId });
 const absent = () => Response.json({ error: { code: 'not_found' } }, { status: 404 });
+const ssoRedirect = () => new Response(null, { status: 302, headers: { Location: sso } });
 
 function fixture(t, { current, prior = old, next = wanted, domains = [], status = 404, settings = {}, resolvedHost = next.url, assignment, published } = {}) {
     const env = {
@@ -69,18 +71,54 @@ function fixture(t, { current, prior = old, next = wanted, domains = [], status 
     return { writes, probes };
 }
 
-test('assigns the dedicated preview hostname and repeats without a write, using bypass only after 401', async t => {
-    const { writes, probes } = fixture(t, {
-        settings: { UIER_PROOF_VERCEL_BYPASS: 'fixture-bypass' },
-        status: ({ bypass }) => new Response(null, { status: bypass ? 404 : 401 })
-    });
-    await configureHtml('preview');
+test('assigns the dedicated preview hostname and retries its protected root on the same host', async t => {
+    for (const [name, protection] of [['401', () => new Response(null, { status: 401 })], ['302 to Vercel SSO', ssoRedirect]]) {
+        await t.test(name, async t => {
+            const { writes, probes } = fixture(t, {
+                settings: { UIER_PROOF_VERCEL_BYPASS: 'fixture-bypass' },
+                status: ({ bypass }) => bypass ? new Response(null, { status: 404 }) : protection()
+            });
+            await configureHtml('preview');
+            await configureHtml('preview');
+            assert.deepEqual(writes, [new URL(preview).hostname]);
+            assert.deepEqual(probes, [
+                { host: preview, bypass: null }, { host: preview, bypass: 'fixture-bypass' },
+                { host: preview, bypass: null }, { host: preview, bypass: 'fixture-bypass' }
+            ]);
+        });
+    }
+});
+
+test('a dedicated preview SSO redirect without a bypass verifies only the alias', async t => {
+    const { writes, probes } = fixture(t, { status: ssoRedirect });
+    const warn = t.mock.method(console, 'warn');
+    const info = t.mock.method(console, 'info');
     await configureHtml('preview');
     assert.deepEqual(writes, [new URL(preview).hostname]);
-    assert.deepEqual(probes, [
-        { host: preview, bypass: null }, { host: preview, bypass: 'fixture-bypass' },
-        { host: preview, bypass: null }, { host: preview, bypass: 'fixture-bypass' }
-    ]);
+    assert.deepEqual(probes, [{ host: preview, bypass: null }]);
+    assert.match(warn.mock.calls[0].arguments[0], /alias binding verified.*app root 404.*signed guest review.*authenticated preview/);
+    assert.equal(info.mock.callCount(), 0);
+});
+
+test('fails when Vercel SSO still challenges the preview bypass', async t => {
+    const { writes, probes } = fixture(t, {
+        settings: { UIER_PROOF_VERCEL_BYPASS: 'fixture-bypass' },
+        status: ssoRedirect
+    });
+    await assert.rejects(configureHtml('preview'), /rejected the automation bypass/);
+    assert.deepEqual(writes, [new URL(preview).hostname]);
+    assert.deepEqual(probes, [{ host: preview, bypass: null }, { host: preview, bypass: 'fixture-bypass' }]);
+});
+
+test('requires alias readback before probing a protected preview', async t => {
+    const { writes, probes } = fixture(t, {
+        assignment: Response.json({ alias: new URL(preview).hostname }),
+        status: ssoRedirect,
+        settings: { UIER_PROOF_VERCEL_BYPASS: 'fixture-bypass' }
+    });
+    await assert.rejects(configureHtml('preview'), /alias readback did not confirm/);
+    assert.deepEqual(writes, [new URL(preview).hostname]);
+    assert.deepEqual(probes, []);
 });
 
 test('accepts an empty alias 404, then verifies the binding and repeats without writing', async t => {
@@ -103,9 +141,26 @@ test('an empty 404 still requires provider authorization to claim the hostname',
 test('allows the dedicated production hostname on production and a verified same-target move', async t => {
     const next = { ...wanted, target: 'production' };
     const prior = { ...old, target: 'production' };
-    const { writes } = fixture(t, { next, prior, current: binding(production, prior) });
+    const { writes, probes } = fixture(t, {
+        next, prior, current: binding(production, prior), settings: { UIER_PROOF_VERCEL_BYPASS: 'fixture-bypass' }
+    });
     await configureHtml('production');
     assert.deepEqual(writes, [new URL(production).hostname]);
+    assert.deepEqual(probes, [{ host: production, bypass: null }]);
+});
+
+test('rejects protected production even when a bypass could reach the app', async t => {
+    const next = { ...wanted, target: 'production' };
+    for (const [name, protection] of [['401', () => new Response(null, { status: 401 })], ['302 to Vercel SSO', ssoRedirect]]) {
+        await t.test(name, async t => {
+            const { probes } = fixture(t, {
+                next, current: binding(production, next), settings: { UIER_PROOF_VERCEL_BYPASS: 'fixture-bypass' },
+                status: ({ bypass }) => bypass ? new Response(null, { status: 404 }) : protection()
+            });
+            await assert.rejects(configureHtml('production'), /production proof hostname must be publicly accessible/);
+            assert.deepEqual(probes, [{ host: production, bypass: null }]);
+        });
+    }
 });
 
 test('refreshes the production proof alias only for the deployment serving uier.io', async t => {
@@ -134,7 +189,31 @@ test('accepts an isolated custom domain and never sends its host the bypass secr
     await configureHtml('preview');
     assert.deepEqual(writes, [new URL(custom).hostname]);
     assert.deepEqual(probes, [{ host: custom, bypass: null }]);
-    assert.match(warn.mock.calls[0].arguments[0], /Complete.*authenticated/);
+    assert.match(warn.mock.calls[0].arguments[0], /Complete.*authenticated preview/);
+});
+
+test('rejects unexpected redirects and Vercel edge errors without using the bypass', async t => {
+    for (const [label, status, headers, host = preview] of [
+        ['missing Location', 302, {}],
+        ['ordinary redirect', 302, { Location: 'https://vercel.com/login' }],
+        ['foreign origin', 302, { Location: 'https://vercel.com.example.net/sso-api' }],
+        ['relative destination', 302, { Location: '/sso-api' }],
+        ['modified SSO URL', 302, { Location: sso + '?redirect=https://example.net' }],
+        ['different redirect status', 307, { Location: sso }],
+        ['custom hostname', 302, { Location: sso }, custom],
+        ['edge error with SSO Location', 302, { Location: sso, 'x-vercel-error': 'DEPLOYMENT_NOT_FOUND' }],
+        ['edge error with 401', 401, { 'x-vercel-error': 'DEPLOYMENT_NOT_FOUND' }]
+    ]) {
+        await t.test(label, async t => {
+            const { probes } = fixture(t, {
+                current: binding(host),
+                settings: { UIER_PROOF_HTML_ORIGIN_PREVIEW: host, UIER_PROOF_VERCEL_BYPASS: 'fixture-bypass' },
+                status: () => new Response(null, { status, headers })
+            });
+            await assert.rejects(configureHtml('preview'), /reject its root/);
+            assert.deepEqual(probes, [{ host, bypass: null }]);
+        });
+    }
 });
 
 test('rejects an ordinary app root or a Vercel platform 404', async t => {
@@ -146,6 +225,14 @@ test('rejects an ordinary app root or a Vercel platform 404', async t => {
             const { writes } = fixture(t, { current: binding(custom, old), settings: { UIER_PROOF_HTML_ORIGIN_PREVIEW: custom }, status });
             await assert.rejects(configureHtml('preview'), /reject its root/);
             assert.deepEqual(writes, []);
+        });
+        await t.test(label + ' after preview bypass', async t => {
+            const { probes } = fixture(t, {
+                current: binding(preview), settings: { UIER_PROOF_VERCEL_BYPASS: 'fixture-bypass' },
+                status: ({ bypass }) => bypass ? status() : ssoRedirect()
+            });
+            await assert.rejects(configureHtml('preview'), /reject its root/);
+            assert.deepEqual(probes, [{ host: preview, bypass: null }, { host: preview, bypass: 'fixture-bypass' }]);
         });
     }
 });

@@ -88,28 +88,29 @@ async function rejectAppDomain(host, dedicated) {
     throw new Error('Could not inspect all Vercel project domains.');
 }
 
-async function probeRoot(url, dedicated) {
-    const probe = headers => fetch(url, { headers, redirect: 'manual', signal: AbortSignal.timeout(20_000) });
-    const bypass = dedicated && process.env.UIER_PROOF_VERCEL_BYPASS?.trim();
-    let status;
-    let edgeError;
-    try {
-        let response = await probe();
-        if (response.status === 401 && bypass) {
+async function probeRoot(url, { dedicated = false, allowBypass = false } = {}) {
+    const probe = async headers => {
+        try {
+            const response = await fetch(url, { headers, redirect: 'manual', signal: AbortSignal.timeout(20_000) });
             await response.body?.cancel();
-            response = await probe({ 'x-vercel-protection-bypass': bypass });
+            return response;
+        } catch {
+            throw new Error('Could not reach the isolated proof hostname. Check DNS and TLS.');
         }
-        status = response.status;
-        edgeError = response.headers.has('x-vercel-error');
-        await response.body?.cancel();
-    } catch {
-        throw new Error('Could not reach the isolated proof hostname. Check DNS and TLS.');
+    };
+    const protectedRoot = response => !response.headers.has('x-vercel-error')
+        && (response.status === 401 || (dedicated && response.status === 302
+            && response.headers.get('location') === 'https://vercel.com/sso-api'));
+
+    let response = await probe();
+    if (protectedRoot(response)) {
+        const bypass = allowBypass && dedicated && process.env.UIER_PROOF_VERCEL_BYPASS?.trim();
+        if (!bypass) return false;
+        response = await probe({ 'x-vercel-protection-bypass': bypass });
+        if (protectedRoot(response))
+            throw new Error('Vercel rejected the automation bypass for the isolated proof hostname.');
     }
-    if (status === 401) {
-        if (bypass) throw new Error('Vercel rejected the automation bypass for the isolated proof hostname.');
-        return false;
-    }
-    if (status !== 404 || edgeError)
+    if (response.status !== 404 || response.headers.has('x-vercel-error'))
         throw new Error('The isolated proof host must reach the selected app and reject its root with HTTP 404.');
     return true;
 }
@@ -136,7 +137,7 @@ export async function configureHtml(target, { requirePublished = false } = {}) {
     const existing = await alias(host);
     if (existing && existing.deploymentId !== wanted.id) {
         await deployment(existing.deploymentId, target);
-        if (!dedicated && !await probeRoot(url, false))
+        if (!dedicated && !await probeRoot(url))
             throw new Error('Verify the existing custom proof hostname before moving its protected alias.');
     }
     if (existing?.deploymentId !== wanted.id) {
@@ -145,10 +146,15 @@ export async function configureHtml(target, { requirePublished = false } = {}) {
             || (await alias(host))?.deploymentId !== wanted.id)
             throw new Error('Vercel alias readback did not confirm the intended binding. Check for a concurrent change.');
     }
-    if (await probeRoot(url, dedicated)) {
+    const reachedApp = await probeRoot(url, { dedicated, allowBypass: target === 'preview' });
+    if (target === 'production') {
+        if (!reachedApp)
+            throw new Error('Vercel Deployment Protection blocked the anonymous production root probe. The production proof hostname must be publicly accessible.');
+        console.info('Verified the proof alias binding and an anonymous app root 404. Complete production QA with a signed guest review without Vercel authentication.');
+    } else if (reachedApp) {
         console.info('Verified the proof alias binding and the isolated app root rejection.');
     } else {
-        console.warn('::warning::Proof alias binding verified. Vercel returned HTTP 401. Complete the isolated root and proof QA with authenticated access.');
+        console.warn('::warning::Proof alias binding verified. Vercel Deployment Protection blocked the root probe. Complete the app root 404 and signed guest review checks with authenticated preview access.');
     }
 }
 
