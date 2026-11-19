@@ -30,6 +30,17 @@ test('draft scopes, expiry, clear, corrupt data and blocked/quota-limited storag
         const attempt = a.attempt('new', 'same payload');
         expect(createDraftStore(pageScope).attempt('new', 'same payload')).toBe(attempt);
         expect(a.attempt('new', 'changed payload')).not.toBe(attempt);
+        const legacyScope = [...pageScope.slice(0, 3), '/legacy-proposal'];
+        const legacyProposal = { styles: { color: { original: '#123', proposed: '#fff' } } };
+        const legacyAttempt = { content: 'unchanged legacy payload', key: randomUUID() };
+        storage.setItem(`${draftStoragePrefix}${JSON.stringify(legacyScope)}:new`, JSON.stringify({
+            text: '', updatedAt: Date.now(), anchor: a.details('new')?.anchor,
+            proposal: legacyProposal, attempt: legacyAttempt, unsettled: ['']
+        }));
+        const restoredLegacy = createDraftStore(legacyScope);
+        expect(restoredLegacy.details('new')?.proposal).toEqual(legacyProposal);
+        expect(restoredLegacy.details('new')?.unsettled).toBeUndefined();
+        expect(restoredLegacy.attempt('new', legacyAttempt.content)).toBe(legacyAttempt.key);
         for (const scope of [[...pageScope.slice(0, 3), '/page?tab=b'], [pageScope[0]!, pageScope[1]!, 'reviewer-b', pageScope[3]!], [pageScope[0]!, 'other-project', ...pageScope.slice(2)]]) {
             expect(createDraftStore(scope).get('new')).toBeUndefined();
         }

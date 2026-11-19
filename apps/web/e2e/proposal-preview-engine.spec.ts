@@ -270,6 +270,12 @@ test('transitioning styles settle before capture or immediate replay and preserv
         });
         showProposalSession(position, proposed('#ff0000'), notify);
         const preview = computed();
+        // Also test restoration from a fully displayed preview, even if an older engine
+        // starts a transition on the way to it.
+        const colorTransitions = target.getAnimations().filter(animation =>
+            animation instanceof CSSTransition && animation.transitionProperty === 'color');
+        await Promise.all(colorTransitions.map(animation => animation.finished));
+        const beforeCapture = computed();
         target.click();
         const opacityTransition = () => target.getAnimations().find(animation =>
             animation instanceof CSSTransition && animation.transitionProperty === 'opacity');
@@ -288,13 +294,14 @@ test('transitioning styles settle before capture or immediate replay and preserv
         stopImmediate();
         target.click();
         return {
-            preview, originalAtCapture, originalNextFrame, replay, restored, immediateReplay, states,
+            preview, beforeCapture, originalAtCapture, originalNextFrame, replay, restored, immediateReplay, states,
             hostTransition: Boolean(hostTransition && opacityTransition() === hostTransition),
             transition: getComputedStyle(target).transitionProperty, clicks, margin: target.style.marginLeft,
         };
     }, point);
     expect(result).toEqual({
-        preview: 'rgb(255, 0, 0)', originalAtCapture: 'rgb(0, 0, 128)', originalNextFrame: 'rgb(0, 0, 128)',
+        preview: 'rgb(255, 0, 0)', beforeCapture: 'rgb(255, 0, 0)',
+        originalAtCapture: 'rgb(0, 0, 128)', originalNextFrame: 'rgb(0, 0, 128)',
         replay: 'rgb(0, 128, 0)', restored: 'rgb(0, 0, 128)', immediateReplay: 'rgb(255, 0, 0)',
         states: ['proposed', 'original', 'pending', 'proposed', 'original', 'proposed', 'original'],
         hostTransition: true, transition: 'color, opacity', clicks: 2, margin: '2px',

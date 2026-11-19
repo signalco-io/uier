@@ -13,6 +13,7 @@ type TextPatch = { node: Text; parent: Element | null; before: string; preview: 
 type Declaration = { value: string; priority: string };
 type StylePatch = { name: string; before: Declaration; preview: Declaration; owned: boolean };
 type Target = NonNullable<ReturnType<typeof resolvePreviewAnchor>> & { element: HTMLElement | SVGElement };
+type PreviewSelection = NonNullable<ReturnType<typeof resolvePreviewTextRange>>;
 
 const excluded = 'head,script,style,noscript,template,iframe,embed,object,form,input,textarea,select,option,datalist,output,button[form],'
     + '[contenteditable]:not([contenteditable="false" i]),[role~="textbox" i],[role~="searchbox" i],[role~="combobox" i],'
@@ -131,9 +132,7 @@ function pointTextParts(element: Element) {
     return parts;
 }
 
-type PreviewSelection = NonNullable<ReturnType<typeof resolvePreviewTextRange>>;
-
-function targetText(position: CommentAnchor, target: Target, selection?: PreviewSelection | null, quote?: string) {
+function targetText(position: CommentAnchor, target: Target, selection: PreviewSelection | undefined, quote?: string) {
     const range = selection?.range;
     const parts = position.type === 'point' ? pointTextParts(target.element) : range && selectedParts(range);
     if (!parts) return null;
