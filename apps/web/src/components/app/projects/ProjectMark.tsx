@@ -1,11 +1,13 @@
 'use client';
 
 import { useState } from 'react';
+import { projectIconSizes, type ProjectIconSize } from '@/src/lib/app/projectIconSizes';
 import { cn } from '@/src/lib/utils';
 
 /** The icon of one of a project's addresses, served by uier (`/api/projects/<id>/icon`, `getSiteIcon`) */
-export function projectIconUrl(projectId: string, siteUrl: string) {
-    return `/api/projects/${encodeURIComponent(projectId)}/icon?site=${encodeURIComponent(siteUrl)}`;
+export function projectIconUrl(projectId: string, siteUrl: string, size?: number) {
+    const source = `/api/projects/${encodeURIComponent(projectId)}/icon?site=${encodeURIComponent(siteUrl)}`;
+    return size === undefined ? source : `${source}&size=${size}`;
 }
 
 /**
@@ -13,8 +15,11 @@ export function projectIconUrl(projectId: string, siteUrl: string) {
  * the usual paths) and serves, so the browser never contacts the site; the first letter of the
  * project's name until it loads or when the site has none
  */
-export function ProjectMark({ name, projectId, url, className }: { name: string; projectId?: string; url?: string; className?: string }) {
-    const src = projectId && url ? projectIconUrl(projectId, url) : undefined;
+export function ProjectMark({ name, projectId, url, iconSize = projectIconSizes.inline, className }: {
+    name: string; projectId?: string; url?: string; iconSize?: ProjectIconSize; className?: string;
+}) {
+    const src = projectId && url ? projectIconUrl(projectId, url, iconSize) : undefined;
+    const srcSet = projectId && url ? `${src} 1x, ${projectIconUrl(projectId, url, iconSize * 2)} 2x` : undefined;
     // Which icon settled and how: a changed address starts again without an effect
     const [settled, setSettled] = useState<{ src: string; loaded: boolean }>();
     const current = src && settled?.src === src ? settled : undefined;
@@ -32,9 +37,10 @@ export function ProjectMark({ name, projectId, url, className }: { name: string;
                 loaded && 'dark:bg-foreground', className)}>
             {!loaded && (name.trim()[0] ?? '?')}
             {src && !failed && (
-                // eslint-disable-next-line @next/next/no-img-element -- a site's own icon in any format (ICO, SVG), not an optimizable asset
+                // eslint-disable-next-line @next/next/no-img-element -- the member-only route serves both image densities
                 <img
                     key={src}
+                    srcSet={srcSet}
                     src={src}
                     alt=""
                     // An image that settled before hydration fires no events

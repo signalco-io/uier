@@ -3,7 +3,7 @@
 import { selectedWorkflowStatus, useWorkflowStatus, type WorkflowStatus } from '../hooks/useWorkflowStatus';
 
 import { feedbackStage, feedbackStages, type FeedbackStage } from '../verification';
-import { useContext, useEffect, useRef, useState, type RefObject } from 'react';
+import { useContext, useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { Row } from '@signalco/ui-primitives/Row';
 import { Stack } from '@signalco/ui-primitives/Stack';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
@@ -22,7 +22,7 @@ import { useAnnounce } from './Announcer';
 import { CommentItem, destructiveTextClassName, floatingShadowClassName } from './@types/Comments';
 import { CopyIssueResult, CopyMenu, useCopyIssue } from './CopyIssue';
 import { assignedText, CommentAssignee, CommentAssigneeOptions } from './CommentAssignment';
-import { CommentThreadMenu } from './CommentThreadMenu';
+import { CommentThreadMenu, type FirstMessageActions } from './CommentThreadMenu';
 import { IconTooltip } from './IconTooltip';
 import { useThreadNotificationActions } from './ThreadNotifications';
 import { useShortcutsEnabled } from '../shortcuts';
@@ -209,6 +209,8 @@ export function sourceText(source: NonNullable<CommentItem['source']>, t: Messag
 
 /** The thread's quiet icon actions; the tooltip names them, so does the label for assistive technologies */
 export const threadActionClassName = 'size-7 text-muted-foreground hover:text-foreground';
+/** Copy and Thread options in the header's one line, the size of Add reaction: smaller, so the first message's author fits beside the status (uier #470) */
+export const compactThreadActionClassName = 'size-6 text-muted-foreground hover:text-foreground';
 
 /** A priority other than Normal, beside the status (Normal says nothing) */
 function PriorityBadge({ comment }: { comment: CommentItem }) {
@@ -224,15 +226,18 @@ function PriorityBadge({ comment }: { comment: CommentItem }) {
 
 /**
  * The top of a thread (popover and inbox), on one line: its status, public id (`#12`), unread dot (it
- * marks the thread read), a priority other than Normal and the assignee's avatar, then the actions:
- * Copy (the issue or the link) and Thread options with the triage and email controls each person may
- * use (assign, priority, Request verification, follow, mute, Mark as unread). The status is a menu
- * (Open, In progress, Ready to verify, Done) for those who may change it, else a badge. The people to
- * assign open under the line. `onMarkedUnread`: the reviewer asked for the thread to stay unread (no
- * automatic read while open).
+ * marks the thread read), a priority other than Normal and the first message's author and time (the first
+ * message is the thread, uier #470), then the first message's device marks and the actions: the assignee's avatar, Add reaction
+ * to the first message, Copy (the issue or the link) and Thread options with the first message's options
+ * and the triage and email controls each person may use (edit, reattach, assign, priority, Request
+ * verification, follow, mute, Mark as unread, delete). The status is a menu (Open, In progress, Ready to
+ * verify, Done) for those who may change it, else a badge. The people to assign open under the line.
+ * `onMarkedUnread`: the reviewer asked for the thread to stay unread (no automatic read while open).
  */
-export function CommentThreadHeader({ comment, onMarkedUnread, onRequestVerification, optionsRef }: {
+export function CommentThreadHeader({ comment, message, onMarkedUnread, onRequestVerification, optionsRef }: {
     comment: CommentItem;
+    /** The first message's part of the line: its author line, Add reaction and its options for Thread options */
+    message?: { author?: ReactNode; device?: ReactNode; reaction?: ReactNode; actions?: FirstMessageActions };
     onMarkedUnread?: () => void;
     /** Thread options' Request verification and the status menu's Ready to verify: the form opens in the thread */
     onRequestVerification?: (statusId?: string) => void;
@@ -368,8 +373,11 @@ export function CommentThreadHeader({ comment, onMarkedUnread, onRequestVerifica
     return (
         // S and A find the thread's status menu and its people here (`threadShortcuts.ts`)
         <Stack ref={headerRef} spacing={1} data-uier-thread-header="">
-            <Row spacing={1} justifyContent="space-between" className="flex-nowrap">
-                <Row spacing={1} className="min-w-0 flex-wrap gap-y-1">
+            {/* The actions keep to the first line when the author wraps under the status. Where even the status and the
+                actions don't fit side by side (a 320 px phone, 44 px touch targets) the actions wrap to a line of their own
+                instead of covering the status: the left part's flex basis is its narrowest width */}
+            <Row spacing={1} justifyContent="space-between" alignItems="start" className="flex-wrap gap-y-1">
+                <Row spacing={1} className="min-w-min grow basis-0 flex-wrap gap-y-1">
                     {canChangeStatus
                         ? <CommentStatusMenu verificationEnabled={comment.verificationEnabled === true} stage={stage} allowed={allowed} statuses={custom.workflow.data?.statuses} selectedId={selectedStatus?.id} canArchive={canResolve} archived={Boolean(comment.archivedAt)} onRestore={() => void handleArchive(false)} shortcut={shortcuts}
                             pending={archive.isPending || custom.mutation.isPending || resolve.isPending || progress.isPending || verificationMutation.isPending}
@@ -384,13 +392,19 @@ export function CommentThreadHeader({ comment, onMarkedUnread, onRequestVerifica
                     {unread && <UnreadDot disabled={read.isPending} onRead={() => read.mutate(comment)} />}
                     {comment.archivedAt && <span className="text-xs text-muted-foreground">{t.thread.archivedLabel}</span>}
                     <PriorityBadge comment={comment} />
-                    <CommentAssignee comment={comment} className={threadActionClassName} />
+                    {/* Wraps under the status as one piece when the line is too narrow for it */}
+                    {message?.author && <span className="flex min-w-0 max-w-full items-center gap-1" data-uier-thread-author="">{message.author}</span>}
                 </Row>
-                {/* A comment on its way has no link, issue or options yet */}
-                {!comment.pending && (
-                    <Row className="-mr-1.5 shrink-0">
-                        <CopyMenu state={issue} className={threadActionClassName} linkAvailable={comment.source?.available !== false} onCopyLink={handleCopyLink} />
-                        <CommentThreadMenu className={threadActionClassName} triggerRef={optionsRef} actions={{
+                {/* Always on the first line: the device marks and the actions (uier #470) */}
+                <Row className="-mr-1 ml-auto shrink-0">
+                    <CommentAssignee comment={comment} className={threadActionClassName} />
+                    {message?.device}
+                    {/* A comment on its way has no reactions, link, issue or options yet */}
+                    {!comment.pending && <>
+                        {message?.reaction}
+                        <CopyMenu state={issue} className={compactThreadActionClassName} iconSize={14} linkAvailable={comment.source?.available !== false} onCopyLink={handleCopyLink} />
+                        <CommentThreadMenu className={compactThreadActionClassName} triggerRef={optionsRef} actions={{
+                            message: message?.actions,
                             assign: comment.permissions?.assign ? { label: assignedText(comment, t), onAssign: () => setAssigning('menu') } : undefined,
                             priority: comment.permissions?.priority ? { value: comment.priority, pending: prioritize.isPending, onChange: handlePriority } : undefined,
                             verify: verification?.request && onRequestVerification
@@ -402,8 +416,8 @@ export function CommentThreadHeader({ comment, onMarkedUnread, onRequestVerifica
                             markUnread: canMarkUnread ? { pending: unreadMutation.isPending, onMarkUnread: handleMarkUnread } : undefined,
                             openInApp: appLink ? { href: appLink } : undefined
                         }} />
-                    </Row>
-                )}
+                    </>}
+                </Row>
             </Row>
             {assigning && comment.permissions?.assign && (
                 <CommentAssigneeOptions comment={comment} autoFocus={assigning === 'key'} onAssigned={() => { setAssigning(false); optionsRef?.current?.focus(); }} />

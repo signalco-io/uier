@@ -6,7 +6,7 @@ import { useEffect, useId, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { toast } from 'sonner';
-import { Building2Icon, InboxIcon, LayoutGridIcon, PlusIcon, type LucideIcon } from 'lucide-react';
+import { InboxIcon, LayoutGridIcon, PlusIcon, type LucideIcon } from 'lucide-react';
 import {
     Sidebar,
     SidebarContent,
@@ -25,6 +25,7 @@ import {
 } from '@/src/components/ui/sidebar';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/src/components/ui/tooltip';
 import { KnownPageLinks, KnownPages } from '@/src/knownPages';
+import { projectIconSizes } from '@/src/lib/app/projectIconSizes';
 import { orderProjects, type ProjectOrder } from '@/src/lib/app/projectOrder';
 import type { SidebarProject } from '@/src/lib/app/sidebarProjects';
 import { ClientMark } from '../clients/ClientMark';
@@ -92,7 +93,7 @@ function ProjectItem({ project, current, roving }: { project: SidebarProject; cu
                 {/* A 20 px tile with the mark's own 2 px padding inside its border (uier #87), so the favicon sits on the tile
                     as in the project header and the projects list. The negative margin keeps it in the 16 px icon slot:
                     names line up with the pages above, also collapsed and in the sheet */}
-                <ProjectMark name={project.name} projectId={project.id} url={project.url} className="-m-0.5 size-5 text-xs" />
+                <ProjectMark name={project.name} projectId={project.id} url={project.url} iconSize={projectIconSizes.sidebar} className="-m-0.5 size-5 text-xs" />
                 <span>{project.name}</span>
             </SidebarMenuButton>
             {count > 0 && <SidebarMenuBadge id={countId} className="text-muted-foreground">
@@ -105,10 +106,9 @@ function ProjectItem({ project, current, roving }: { project: SidebarProject; cu
 const statusLabels = { active: 'Active', done: 'Done' } as const;
 
 /**
- * The app's navigation: the workspace switcher, Projects, the active projects for quick switching (or, grouped by
- * status, every project),
- * then at the bottom the workspace area (users, teams, clients and settings in tabs), feedback on the
- * app and the signed-in person. Collapses to icons on desktop and opens as a sheet on small screens.
+ * The app's navigation: the workspace switcher (its menu opens the workspace area), My work, Projects, the active
+ * projects for quick switching (or, grouped by status, every project), then at the bottom feedback on the app and
+ * the signed-in person. Collapses to icons on desktop and opens as a sheet on small screens.
  */
 export function AppSidebar({ isAdmin, user, accounts, workspaces, currentWorkspaceId, projects, projectOrder, hasClients }: {
     isAdmin: boolean;
@@ -120,7 +120,7 @@ export function AppSidebar({ isAdmin, user, accounts, workspaces, currentWorkspa
     projects: SidebarProject[];
     /** How this browser lists them (a cookie, so the first render is already in order) */
     projectOrder: ProjectOrder;
-    /** Whether a project the person can see has a client (the workspace area shows its clients then) */
+    /** Whether a project the person can see has a client (the workspace menu opens its clients then) */
     hasClients: boolean;
 }) {
     const { t } = useAppI18n();
@@ -147,31 +147,28 @@ export function AppSidebar({ isAdmin, user, accounts, workspaces, currentWorkspa
     const activeProject = listed.find(project => currentProject(pathname, project));
     const inListedProject = Boolean(activeProject);
     const projectsCurrent = isCurrent(pathname, KnownPages.AppProjects) && !inListedProject;
-    // Admins manage the workspace's people and settings; everyone else sees the clients of their projects
-    const workspaceHref = isAdmin ? KnownPages.AppUsers : hasClients ? KnownPages.AppClients : undefined;
     // The navigation is one tab stop, like a list (the current page's link, or the one last focused): ↓ and ↑ move
     // between its links, Home and End to the first and the last. The group's buttons (order, Create project) keep theirs.
-    const links = [KnownPages.AppProjects, KnownPages.AppMyWork, ...(!active.length && isAdmin ? [KnownPages.AppNewProject] : []),
-        ...listed.map(projectHref), ...(workspaceHref ? [workspaceHref] : [])];
-    const currentLink = projectsCurrent ? KnownPages.AppProjects
-        : isCurrent(pathname, KnownPages.AppMyWork) ? KnownPages.AppMyWork
-            : workspaceHref && isCurrent(pathname, KnownPages.AppWorkspace) ? workspaceHref
-                : activeProject ? projectHref(activeProject) : undefined;
+    const links = [KnownPages.AppMyWork, KnownPages.AppProjects, ...(!active.length && isAdmin ? [KnownPages.AppNewProject] : []),
+        ...listed.map(projectHref)];
+    const currentLink = isCurrent(pathname, KnownPages.AppMyWork) ? KnownPages.AppMyWork
+        : projectsCurrent ? KnownPages.AppProjects
+            : activeProject ? projectHref(activeProject) : undefined;
     const roving = useRovingTabStop(links, { preferred: currentLink, orientation: 'vertical' });
 
     return (
         <Sidebar variant="inset" collapsible="icon">
             <SidebarHeader>
-                <WorkspaceSwitcher workspaces={workspaces} currentWorkspaceId={currentWorkspaceId} canManage={isAdmin} />
+                <WorkspaceSwitcher workspaces={workspaces} currentWorkspaceId={currentWorkspaceId} canManage={isAdmin} hasClients={hasClients} />
             </SidebarHeader>
             <SidebarContent>
                 <nav aria-label={t("App")} className="contents" {...roving.containerProps}>
-                    {/* The app's own pages: Projects and the person's own work */}
+                    {/* The app's own pages: the person's own work first (uier #472), then Projects */}
                     <SidebarGroup>
                         <SidebarGroupContent>
                             <SidebarMenu>
-                                <NavItem href={KnownPages.AppProjects} label={t("Projects")} icon={LayoutGridIcon} current={projectsCurrent} roving={roving.itemProps(KnownPages.AppProjects)} />
                                 <NavItem href={KnownPages.AppMyWork} label={t("My work")} icon={InboxIcon} current={isCurrent(pathname, KnownPages.AppMyWork)} roving={roving.itemProps(KnownPages.AppMyWork)} />
+                                <NavItem href={KnownPages.AppProjects} label={t("Projects")} icon={LayoutGridIcon} current={projectsCurrent} roving={roving.itemProps(KnownPages.AppProjects)} />
                             </SidebarMenu>
                         </SidebarGroupContent>
                     </SidebarGroup>
@@ -228,21 +225,10 @@ export function AppSidebar({ isAdmin, user, accounts, workspaces, currentWorkspa
                             )}
                         </SidebarGroupContent>
                     </SidebarGroup>
-                    {workspaceHref && (
-                        // At the bottom, right above feedback and the account: no padding below, so it sits as
-                        // close to Give feedback as the footer's rows sit to each other
-                        <SidebarGroup className="mt-auto pb-0">
-                            <SidebarGroupContent>
-                                <SidebarMenu>
-                                    <NavItem href={workspaceHref} label={t("Workspace")} icon={Building2Icon} current={isCurrent(pathname, KnownPages.AppWorkspace)} roving={roving.itemProps(workspaceHref)} />
-                                </SidebarMenu>
-                            </SidebarGroupContent>
-                        </SidebarGroup>
-                    )}
                 </nav>
             </SidebarContent>
-            {/* Workspace, Give feedback and the account are one column of rows: the same 4px apart as the
-                navigation's (the menu's gap-1), not the footer's default 8px plus the group's padding */}
+            {/* Give feedback and the account are one column of rows: the same 4px apart as the navigation's (the
+                menu's gap-1), not the footer's default 8px. The workspace area opens from the workspace menu (uier #471) */}
             <SidebarFooter className="gap-1 pt-1">
                 <FeedbackButton />
                 <AccountMenu accounts={accounts} name={user.name} avatarUrl={user.avatarUrl} />

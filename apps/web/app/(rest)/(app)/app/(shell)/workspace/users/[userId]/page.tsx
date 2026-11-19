@@ -1,4 +1,5 @@
 
+import { projectIconSizes } from '@/src/lib/app/projectIconSizes';
 import { getAppI18n } from '@/src/lib/i18n/server';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
@@ -64,7 +65,7 @@ async function PersonPageContent({ params }: PageProps<'/app/workspace/users/[us
                             {projects.map(({ project, sources }) => (
                                 <Item key={project.id} role="listitem" className="rounded-none">
                                     <ItemMedia>
-                                        <ProjectMark name={project.name} projectId={project.id} url={project.urls[0]} className="size-8 rounded-lg text-sm [&>img]:p-1.5" />
+                                        <ProjectMark name={project.name} projectId={project.id} url={project.urls[0]} iconSize={projectIconSizes.memberProjects} className="size-8 rounded-lg text-sm [&>img]:p-1.5" />
                                     </ItemMedia>
                                     <ItemContent className="min-w-0">
                                         <ItemTitle>

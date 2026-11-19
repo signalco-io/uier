@@ -3,14 +3,16 @@
 import { useMessages, type Messages } from '../i18n';
 import { agentDescription } from '../i18n/format';
 
-import { useRef, useState, useSyncExternalStore } from 'react';
+import { useRef, useState, useSyncExternalStore, type ReactNode, type RefObject } from 'react';
 import { Typography } from '@signalco/ui-primitives/Typography';
 import { Stack } from '@signalco/ui-primitives/Stack';
 import { Row } from '@signalco/ui-primitives/Row';
 import { Avatar } from '@signalco/ui-primitives/Avatar';
+import { cx } from '@signalco/ui-primitives/cx';
 import { CommentTime } from './CommentTime';
 import { useComments } from '../hooks/useComments';
 import { CommentThreadItemMenu } from './CommentThreadItemMenu';
+import type { FirstMessageActions } from './CommentThreadMenu';
 import { CommentsErrorMessage } from './CommentsErrorMessage';
 import { useAnnounce } from './Announcer';
 import { CommentKindLabel } from './CommentKindLabel';
@@ -99,7 +101,22 @@ function deleteConfirmText(comment: CommentItem, first: boolean | undefined, t: 
         : t.thread.deleteComment;
 }
 
-export function CommentThreadItem({ comment, threadItem, first }: { comment: CommentItem, threadItem: CommentItemThreadItem; first?: boolean; }) {
+/** The first message's part of the thread's header line: its author line, Add reaction and its options */
+export type ThreadHeaderMessage = { author?: ReactNode; device?: ReactNode; reaction?: ReactNode; actions?: FirstMessageActions };
+
+/**
+ * One message. A reply has its avatar column and its own header line with Add reaction and More options. The
+ * first message is the thread itself (uier #470): with `header`, its author, time, device marks, Add reaction and
+ * options go into the thread's header line (`CommentThreadHeader`, Thread options at `optionsRef`), and its
+ * text sits right under that line.
+ */
+export function CommentThreadItem({ comment, threadItem, first, header, optionsRef }: {
+    comment: CommentItem;
+    threadItem: CommentItemThreadItem;
+    first?: boolean;
+    header?: (message: ThreadHeaderMessage) => ReactNode;
+    optionsRef?: RefObject<HTMLButtonElement | null>;
+}) {
     const { delete: deleteComment, deleteReply, edit } = useComments();
     const t = useMessages();
     const announce = useAnnounce();
@@ -116,11 +133,13 @@ export function CommentThreadItem({ comment, threadItem, first }: { comment: Com
         return saved && typeof saved.originalText === 'string' ? { originalText: saved.originalText } : undefined;
     });
 
+    // The first message's author and actions are in the thread's header line
+    const merged = Boolean(first && header);
+
     // The author deleted it after others replied: a placeholder, without author or actions
     if (threadItem.deleted) {
-        return (
-            <Typography level="body1" className="pl-8 text-sm text-muted-foreground">{t.thread.commentDeleted}</Typography>
-        );
+        const placeholder = <Typography level="body1" className={cx('text-sm text-muted-foreground', !merged && 'pl-8')}>{t.thread.commentDeleted}</Typography>;
+        return merged ? <div className="flex flex-col gap-1">{header?.({})}{placeholder}</div> : placeholder;
     }
 
     const { text } = threadItem;
@@ -142,7 +161,7 @@ export function CommentThreadItem({ comment, threadItem, first }: { comment: Com
     const finishEdit = () => {
         drafts.delete(editDraftKey);
         setEditing(undefined);
-        requestAnimationFrame(() => menuRef.current?.focus());
+        requestAnimationFrame(() => (merged ? optionsRef : menuRef)?.current?.focus());
     };
 
     const handleDelete = async () => {
@@ -166,6 +185,76 @@ export function CommentThreadItem({ comment, threadItem, first }: { comment: Com
         }
     };
 
+    const startEdit = () => {
+        edit.reset();
+        const existing = drafts.details(editDraftKey);
+        const snapshot = existing && typeof existing.originalText === 'string' ? existing : undefined;
+        if (!snapshot) {
+            drafts.setDetails(editDraftKey, { originalText: text });
+            if (!existing) drafts.set(editDraftKey, text);
+        }
+        setEditing({ originalText: snapshot?.originalText ?? text });
+    };
+
+    const authorLine = <>
+        <Typography level="body2" semiBold noWrap className="min-w-0 text-foreground" title={authorName}>
+            {isMe ? t.thread.you : agent ? person : authorName}
+        </Typography>
+        {agent && <MessageAgent agent={agent} />}
+        {createdAt && (
+            <span className="shrink-0 whitespace-nowrap text-xs tabular-nums text-muted-foreground">
+                <CommentTime date={createdAt} />
+            </span>
+        )}
+        {first && !merged && <CommentDevice device={comment.device} reproduction={comment.reproduction} />}
+    </>;
+
+    const body = (
+        <Stack spacing={1} className="min-w-0">
+            {first && <CommentKindLabel kind={comment.kind} feedbackType={comment.feedbackType} />}
+            {Boolean(quote?.length) && (
+                <blockquote className="m-0 line-clamp-4 border-l-2 border-border pl-2.5 text-sm text-secondary-foreground">
+                    {quote}
+                </blockquote>
+            )}
+            {editing ? (
+                <CommentComposer label={first ? t.thread.editComment : t.thread.editReply} placeholder={t.thread.editPlaceholder} submitLabel={t.thread.saveChanges}
+                    commentId={comment.id} initialMentions={threadItem.mentions} draftKey={editDraftKey} initialText={editing.originalText} autoFocus pending={edit.isPending} error={edit.error}
+                    onCancel={finishEdit} onSubmit={async (text, mentions) => {
+                        await edit.mutateAsync({ commentId: comment.id, itemId: threadItem.id, text, mentions, expectedText: editing.originalText });
+                        finishEdit();
+                        announce(first ? t.thread.commentEdited : t.thread.replyEdited);
+                    }} />
+            ) : <MessageMarkdown text={text} mentions={mentions}
+                suffix={threadItem.editedAt && <span className="font-normal text-muted-foreground">{t.thread.edited}</span>} />}
+            {(first || threadItem.screenshot) && <CommentScreenshot comment={comment} itemId={first ? undefined : threadItem.id} />}
+            {(first ? comment.recording : threadItem.recording) && <CommentRecording commentId={comment.id} itemId={first ? undefined : threadItem.id} recording={(first ? comment.recording : threadItem.recording)!} />}
+            {!editing && <ReactionList comment={comment} item={threadItem} />}
+            <CommentsErrorMessage error={error} />
+        </Stack>
+    );
+
+    if (merged) {
+        // Its options join Thread options; while it is edited they wait, like a reply's menu
+        const actions: FirstMessageActions | undefined = editing || !(canDelete || canEdit) ? undefined : {
+            disabled: pending,
+            onEdit: canEdit ? startEdit : undefined,
+            onReattach: reattach.available ? reattach.request : undefined,
+            delete: canDelete ? { confirmText: deleteConfirmText(comment, first, t), onDelete: () => void handleDelete() } : undefined
+        };
+        return (
+            <div ref={rootRef} className="flex flex-col gap-1">
+                {header?.({
+                    author: authorLine,
+                    device: <CommentDevice device={comment.device} reproduction={comment.reproduction} />,
+                    reaction: !editing && <ReactionPicker comment={comment} item={threadItem} disabled={pending} />,
+                    actions
+                })}
+                {body}
+            </div>
+        );
+    }
+
     return (
         <div ref={rootRef} className="flex gap-2">
             <MessageAuthorAvatar name={authorName} person={isMe ? t.thread.authorYou(person) : person} agent={agent} />
@@ -173,63 +262,24 @@ export function CommentThreadItem({ comment, threadItem, first }: { comment: Com
             <div className="flex min-w-0 flex-1 flex-col">
                 <Row spacing={1} justifyContent="space-between" className="min-h-6">
                     <Row spacing={1} className="min-w-0">
-                        <Typography level="body2" semiBold noWrap className="text-foreground" title={authorName}>
-                            {isMe ? t.thread.you : agent ? person : authorName}
-                        </Typography>
-                        {agent && <MessageAgent agent={agent} />}
-                        {createdAt && (
-                            <span className="shrink-0 whitespace-nowrap text-xs tabular-nums text-muted-foreground">
-                                <CommentTime date={createdAt} />
-                            </span>
-                        )}
-                        {first && <CommentDevice device={comment.device} reproduction={comment.reproduction} />}
+                        {authorLine}
                     </Row>
                     <Row spacing={0.5} className="shrink-0">
-                    {!editing && <ReactionPicker comment={comment} item={threadItem} disabled={pending} />}
-                    {(canDelete || canEdit) && !editing && (
-                        <CommentThreadItemMenu
-                            triggerRef={menuRef}
-                            kind={first ? 'comment' : 'reply'}
-                            own={isMe}
-                            confirmText={deleteConfirmText(comment, first, t)}
-                            disabled={pending}
-                            onDelete={canDelete ? handleDelete : undefined}
-                            onReattach={first && reattach.available ? reattach.request : undefined}
-                            onEdit={canEdit ? () => {
-                                edit.reset();
-                                const existing = drafts.details(editDraftKey);
-                                const snapshot = existing && typeof existing.originalText === 'string' ? existing : undefined;
-                                if (!snapshot) {
-                                    drafts.setDetails(editDraftKey, { originalText: text });
-                                    if (!existing) drafts.set(editDraftKey, text);
-                                }
-                                setEditing({ originalText: snapshot?.originalText ?? text });
-                            } : undefined} />
-                    )}
+                        {!editing && <ReactionPicker comment={comment} item={threadItem} disabled={pending} />}
+                        {(canDelete || canEdit) && !editing && (
+                            <CommentThreadItemMenu
+                                triggerRef={menuRef}
+                                kind={first ? 'comment' : 'reply'}
+                                own={isMe}
+                                confirmText={deleteConfirmText(comment, first, t)}
+                                disabled={pending}
+                                onDelete={canDelete ? handleDelete : undefined}
+                                onReattach={first && reattach.available ? reattach.request : undefined}
+                                onEdit={canEdit ? startEdit : undefined} />
+                        )}
                     </Row>
                 </Row>
-                <Stack spacing={1} className="min-w-0">
-                    {first && <CommentKindLabel kind={comment.kind} feedbackType={comment.feedbackType} />}
-                    {Boolean(quote?.length) && (
-                        <blockquote className="m-0 line-clamp-4 border-l-2 border-border pl-2.5 text-sm text-secondary-foreground">
-                            {quote}
-                        </blockquote>
-                    )}
-                    {editing ? (
-                        <CommentComposer label={first ? t.thread.editComment : t.thread.editReply} placeholder={t.thread.editPlaceholder} submitLabel={t.thread.saveChanges}
-                            commentId={comment.id} initialMentions={threadItem.mentions} draftKey={editDraftKey} initialText={editing.originalText} autoFocus pending={edit.isPending} error={edit.error}
-                            onCancel={finishEdit} onSubmit={async (text, mentions) => {
-                                await edit.mutateAsync({ commentId: comment.id, itemId: threadItem.id, text, mentions, expectedText: editing.originalText });
-                                finishEdit();
-                                announce(first ? t.thread.commentEdited : t.thread.replyEdited);
-                            }} />
-                    ) : <MessageMarkdown text={text} mentions={mentions}
-                        suffix={threadItem.editedAt && <span className="font-normal text-muted-foreground">{t.thread.edited}</span>} />}
-                    {(first || threadItem.screenshot) && <CommentScreenshot comment={comment} itemId={first ? undefined : threadItem.id} />}
-                    {(first ? comment.recording : threadItem.recording) && <CommentRecording commentId={comment.id} itemId={first ? undefined : threadItem.id} recording={(first ? comment.recording : threadItem.recording)!} />}
-                    {!editing && <ReactionList comment={comment} item={threadItem} />}
-                    <CommentsErrorMessage error={error} />
-                </Stack>
+                {body}
             </div>
         </div>
     );

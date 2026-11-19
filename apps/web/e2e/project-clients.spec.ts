@@ -8,9 +8,11 @@ import { animationsFinished, newVisitor } from './support/toolbar';
 test('clients show in the sidebar and on their page, and new projects pick an existing one', async ({ page }, testInfo) => {
     await signIn(page, uniqueEmail('clients-page'));
     await createProject(page, { urls: ['plain.example.com'], name: 'Plain site' });
-    // The workspace area sits at the bottom of the navigation; its Clients tab is empty until a project has a client
+    // My work is the navigation's first page (uier #472); the workspace area opens from the workspace menu, not a
+    // link of its own (uier #471). Its Clients tab is empty until a project has a client
     let navigation = await appNavigation(page);
-    await expect(navigation.getByRole('link').last()).toHaveAccessibleName('Workspace');
+    await expect(navigation.getByRole('link').first()).toHaveAccessibleName('My work');
+    await expect(navigation.getByRole('link', { name: 'Workspace', exact: true })).toHaveCount(0);
     await closeAppNavigation(page);
     // The old address opens the Clients tab of the workspace area
     await page.goto('/app/clients');

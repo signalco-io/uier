@@ -170,7 +170,7 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
     Toolbar sign-out disables automatic sign-in on that site until an explicit authenticated review link;
     Exit review suppresses automatic opening in that tab. Pending one-use codes survive host redirects
     in session storage for at most ten minutes and are removed after exchange or definitive rejection.
-- **Workspace** (`/app/workspace`): the sidebar's Workspace opens one area with tabs for Users, Teams, Clients,
+- **Workspace** (`/app/workspace`): the workspace menu at the top of the sidebar opens one area with tabs for Users, Teams, Clients,
   Activity (who changed access, as sentences) and Settings (admins), or Clients alone for everyone else. The earlier addresses (`/app/users`, `/app/teams`,
   `/app/clients`, `/app/settings`) redirect to their tab.
 - **Clients** (`/app/workspace/clients`): the clients of the projects the member can see, each with its tile (an icon

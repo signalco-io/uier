@@ -49,6 +49,11 @@ async function expectCard(request: APIRequestContext, path: string) {
     expect([png.readUInt32BE(16), png.readUInt32BE(20)], path).toEqual([socialCardSize.width, socialCardSize.height]);
 }
 
+test('previously shared integration card URLs still serve their images', async ({ request }) => {
+    for (const provider of ['github', 'linear', 'notion', 'azure-devops', 'slack'])
+        await expectCard(request, `/integrations/${provider}/opengraph-image-6119ul?7e7302f05dc1bc19`);
+});
+
 test('public pages are previewed with a card of their own', async ({ request }) => {
     for (const path of publicPaths) {
         const page = await preview(request, path);

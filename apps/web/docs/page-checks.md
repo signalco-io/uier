@@ -7,6 +7,9 @@ saves a small summary of that page to the project
 ([the reporter](../../../packages/toolbar/docs/page-checks-site.md)). The view puts the project's pages
 together: which pages have the most to fix, and what only shows across pages.
 
+The app's project marks use density-specific raster favicon URLs so the SEO image-size check sees
+the downloaded dimensions for the mark on that screen ([app shell](app-shell.md)).
+
 ## What is stored
 
 One `page-check` document per page and environment in the `app` container, in the project's own partition

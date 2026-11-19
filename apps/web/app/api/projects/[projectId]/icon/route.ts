@@ -1,6 +1,8 @@
 import { findProject } from '@/src/lib/app/projects';
+import { parseProjectIconSize } from '@/src/lib/app/projectIconSizes';
 import { requestSessionUser } from '@/src/lib/app/sessionIdentity';
 import { getSiteIcon, MISSING_SITE_ICON_MAX_AGE, SITE_ICON_MAX_AGE } from '@/src/lib/app/siteIcons';
+import { siteIconVariant } from '@/src/lib/app/siteIconVariants';
 import { siteIconContentSecurityPolicy } from '@/src/lib/secureHeaders';
 import { memberActor } from '@/src/lib/review/actor';
 
@@ -18,19 +20,26 @@ export async function GET(request: Request, { params }: RouteContext<'/api/proje
     const user = await requestSessionUser(request);
     if (!user)
         return new Response(null, { status: 401, headers: noStore });
-    const site = new URL(request.url).searchParams.get('site');
+    const query = new URL(request.url).searchParams;
+    const site = query.get('site');
     const project = site ? await findProject(projectId) : null;
     if (!site || !project?.urls.includes(site) || !await memberActor(project, user.id))
         return new Response(null, { status: 404, headers: noStore });
-    const icon = await getSiteIcon(site);
-    if (!icon)
-        return new Response(null, { status: 404, headers: { 'Cache-Control': `private, max-age=${MISSING_SITE_ICON_MAX_AGE}` } });
+    const requestedSize = query.get('size');
+    const size = requestedSize === null ? undefined : parseProjectIconSize(requestedSize);
+    if (requestedSize !== null && size === undefined)
+        return new Response(null, { status: 400, headers: noStore });
+    const source = await getSiteIcon(site);
+    if (!source)
+        return new Response(null, { status: 404, headers: { 'Cache-Control': `private, max-age=${MISSING_SITE_ICON_MAX_AGE}`, Vary: 'Cookie' } });
+    const icon = size === undefined ? source : await siteIconVariant(source, size);
     return new Response(new Uint8Array(icon.data), {
         headers: {
-            // Detected from the bytes (`iconType`), never the site's own header
+            // Sniffed from the source bytes or set by the variant encoder.
             'Content-Type': icon.contentType,
             'Content-Length': String(icon.data.length),
             'Cache-Control': `private, max-age=${SITE_ICON_MAX_AGE}`,
+            Vary: 'Cookie',
             // A site's SVG never runs as a uier.io page: opened on its own it downloads (an `<img>` ignores
             // this), and the policy (also set by `proxy.ts`, whose page policy would replace it) stops its scripts and loads
             'Content-Security-Policy': siteIconContentSecurityPolicy,

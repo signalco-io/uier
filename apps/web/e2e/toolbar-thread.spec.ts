@@ -73,6 +73,50 @@ test('a new thread shows its comment and reply box; triage and email controls ar
     await expect(copy.getByRole('button', { name: /^Copy link/ })).toContainText('Opens this page at the thread');
 });
 
+test('on a phone the header\'s actions never cover the status, and Thread options scrolls on a short screen (uier #470)', async ({ browser, baseURL }, testInfo) => {
+    test.skip(Boolean(testInfo.project.use.hasTouch), 'Sets its own touch viewports');
+    const context = await browser.newContext({ baseURL, viewport: { width: 320, height: 640 }, hasTouch: true });
+    try {
+        const page = await context.newPage();
+        const thread = await memberThread(page);
+        await thread.getByRole('button', { name: 'Status: Open. Change status', exact: true }).tap();
+        await page.getByRole('dialog', { name: 'Status', exact: true }).getByRole('button', { name: 'In progress', exact: true }).tap();
+        const status = thread.getByRole('button', { name: 'Status: In progress. Change status', exact: true });
+        await expect(status).toBeVisible();
+        // Every control stays on screen, and every point of the status (its chevron too) is the status: the actions wrap instead of covering it
+        for (const name of ['Copy', 'Add reaction', 'Thread options'])
+            await expect(thread.getByRole('button', { name, exact: true })).toBeInViewport();
+        const hits = await status.evaluate(element => {
+            const box = element.getBoundingClientRect();
+            const root = element.getRootNode() as Document | ShadowRoot;
+            return [box.left + 2, box.left + box.width / 2, box.right - 2].map(x => element.contains(root.elementFromPoint(x, box.top + box.height / 2)));
+        });
+        expect(hits).toEqual([true, true, true]);
+        const box = (await status.boundingBox())!;
+        await status.tap({ position: { x: box.width - 4, y: box.height / 2 } });
+        const statusMenu = page.getByRole('dialog', { name: 'Status', exact: true });
+        await expect(statusMenu).toBeVisible();
+        await page.keyboard.press('Escape');
+        await expect(statusMenu).toBeHidden();
+
+        // A short landscape phone: the menu fits the window and scrolls, so Delete (last) is reachable by touch and keyboard
+        await page.setViewportSize({ width: 480, height: 320 });
+        await thread.getByRole('button', { name: 'Thread options', exact: true }).tap();
+        const options = page.getByRole('dialog', { name: 'Thread options', exact: true });
+        await expect(options).toBeVisible();
+        await animationsFinished(options);
+        const menu = (await options.boundingBox())!;
+        expect(menu.y).toBeGreaterThanOrEqual(0);
+        expect(menu.y + menu.height).toBeLessThanOrEqual(320);
+        const remove = options.getByRole('button', { name: 'Delete…', exact: true });
+        await page.keyboard.press('End');
+        await expect(remove).toBeFocused();
+        await expect(remove).toBeInViewport({ ratio: 1 });
+        await remove.tap();
+        await expect(options.getByRole('button', { name: 'Delete', exact: true })).toBeInViewport({ ratio: 1 });
+    } finally { await context.close(); }
+});
+
 test('the toolbar\'s icon buttons show their names on hover and keyboard focus', async ({ page }, testInfo) => {
     test.skip(Boolean(testInfo.project.use.hasTouch), 'A tap acts; there is no hover');
     const thread = await memberThread(page);

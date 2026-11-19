@@ -129,6 +129,10 @@ Focused verification after the shared production build:
 PLAYWRIGHT_FULL=1 pnpm -C apps/web exec playwright test e2e/installation-guides.spec.ts --project="Desktop Chrome" --project="Mobile Chrome" --retries=0
 ```
 
+The bug-report handoff links directly to the GitHub and Linear issue setup guides. The client-review
+triage step links to Slack setup for teams following shared feedback in a channel. Its service
+list links to the individual setup guides.
+
 ## Tests
 
 The MCP setup guide is distinct from the AI feature overview. Its client and plugin blocks come
