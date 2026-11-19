@@ -146,17 +146,18 @@ test('search covers replies, quotes, paths and numbers with local URL history an
     await expect(search).toHaveValue(`/${project}/pricing`);
     const chip = page.getByRole('button', { name: 'Priority: Urgent, clear filter', exact: true });
     await expect(chip).toBeVisible();
-    // The search sits directly left of Filter, Group by and the view toggle (uier #403), the filters in effect left of the
-    // search (on a phone the search and the buttons share the row, the filters in effect under them)
-    const searchBox = (await search.boundingBox())!;
+    // Filter, Search and List/Board share a row (uier #411). This project has no labels to group by.
+    // The active chip sits left of Filter on desktop, and below the row on a phone.
+    const searchBox = (await page.locator('[data-slot="input-group"]').filter({ has: search }).boundingBox())!;
     const chipBox = (await chip.boundingBox())!;
     const filterBox = (await page.getByRole('button', { name: /^Filter \d/ }).boundingBox())!;
     const viewBox = (await page.getByRole('group', { name: 'View', exact: true }).boundingBox())!;
-    expect(filterBox.x).toBeGreaterThan(searchBox.x + searchBox.width);
+    expect(filterBox.x + filterBox.width).toBeLessThan(searchBox.x);
     expect(Math.abs((searchBox.y + searchBox.height / 2) - (filterBox.y + filterBox.height / 2))).toBeLessThan(4);
-    expect(filterBox.x + filterBox.width).toBeLessThanOrEqual(viewBox.x);
+    expect(viewBox.x - (searchBox.x + searchBox.width)).toBeCloseTo(8, 0);
+    expect(Math.abs((searchBox.y + searchBox.height / 2) - (viewBox.y + viewBox.height / 2))).toBeLessThan(4);
     if (page.viewportSize()!.width >= 640) {
-        expect(chipBox.x + chipBox.width).toBeLessThanOrEqual(searchBox.x);
+        expect(chipBox.x + chipBox.width).toBeLessThanOrEqual(filterBox.x);
         expect(Math.abs((chipBox.y + chipBox.height / 2) - (filterBox.y + filterBox.height / 2))).toBeLessThan(4);
     } else expect(chipBox.y).toBeGreaterThan(filterBox.y + filterBox.height / 2);
     await page.getByRole('button', { name: 'Clear filters', exact: true }).click();

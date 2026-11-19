@@ -88,6 +88,9 @@
   truncated.
 
 
+`e2e/triage.spec.ts` checks the filter row in a project without labels: Filter, Search and List/Board
+share a row, with the active chip to the left of Filter on desktop and below the row on a phone.
+
 The board has no status tabs: its Filter popover starts with Status (uier #335, `boardStatusFilters` and `boardStatusFilter` in
 `commentLabels.ts`): All statuses, then Open, In progress, Ready to verify and Done, each with its status dot and count. It
 is the list's `?status=`, so a status chosen in one view stays in the other; Active and All show every column on the board.
