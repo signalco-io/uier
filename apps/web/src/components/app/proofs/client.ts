@@ -31,13 +31,15 @@ const exchangeRequests = new Map<string, Promise<unknown>>();
 /** The fragment is consumed before fetching anything with the previous session's scope. */
 export async function exchangeProofLink(projectId: string) {
     const url = new URL(window.location.href);
-    const token = new URLSearchParams(url.hash.slice(1)).get('share');
+    const fragment = new URLSearchParams(url.hash.slice(1));
+    const approval = fragment.get('approval');
+    const token = approval ?? fragment.get('share');
     if (!token) return;
-    const path = proofApiPath(projectId) + '/exchange';
+    const path = proofApiPath(projectId) + (approval ? '/approvals' : '/exchange');
     const key = JSON.stringify([path, token]);
     let request = exchangeRequests.get(key);
     if (!request) {
-        request = proofWrite<{ scope: ProofScope }>(path, 'POST', { token }).finally(() => exchangeRequests.delete(key));
+        request = proofWrite<{ scope: ProofScope } | { assetId: string; versionId: string }>(path, 'POST', { token }).finally(() => exchangeRequests.delete(key));
         exchangeRequests.set(key, request);
     }
     try {

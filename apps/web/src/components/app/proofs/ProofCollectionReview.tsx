@@ -7,12 +7,14 @@ import { Button } from '@/src/components/ui/button';
 import { useAppI18n } from '@/src/lib/i18n/client';
 import { proofApiPath, proofViewerPath, type ProofLibrary } from '@/src/lib/proofs/model';
 import { exchangeProofLink, proofFetch } from './client';
+import { ProofApprovalSummary, useProofApprovalSummaries } from './ProofApprovalSummary';
 
 export function ProofCollectionReview({ projectId, collectionId }: { projectId: string; collectionId: string }) {
     const { t } = useAppI18n();
     const [result, setResult] = useState<ProofLibrary>();
     const [error, setError] = useState(false);
     const [attempt, setAttempt] = useState(0);
+    const approvals = useProofApprovalSummaries(projectId, Boolean(result), collectionId, attempt);
     useEffect(() => {
         const controller = new AbortController();
         exchangeProofLink(projectId).then(() => proofFetch<ProofLibrary>(proofApiPath(projectId) + '?' + new URLSearchParams({ collection: collectionId }), { signal: controller.signal })).then(
@@ -30,9 +32,15 @@ export function ProofCollectionReview({ projectId, collectionId }: { projectId: 
             {collection ? <>
                 <h1 className="m-0 break-words text-2xl font-semibold">{collection.name}</h1>
                 {assets?.length ? <ul className="m-0 list-none divide-y rounded-xl border p-0">
-                    {assets.map(asset => <li key={asset.id}>
-                        <Link href={proofViewerPath(projectId, asset.id)} prefetch={false} className="block break-words px-4 py-3 font-medium hover:bg-muted">{asset.name}</Link>
-                    </li>)}
+                    {assets.map(asset => {
+                        const approval = approvals?.[asset.id];
+                        return <li key={asset.id} className="px-4 py-3">
+                            <Link href={proofViewerPath(projectId, asset.id)} prefetch={false} className="break-words font-medium underline-offset-4 hover:underline">
+                                {asset.name}
+                            </Link>
+                            {approval && approval.versionId === asset.currentVersionId && <ProofApprovalSummary summary={approval} />}
+                        </li>;
+                    })}
                 </ul> : <p className="text-muted-foreground">{t('This collection is empty.')}</p>}
             </> : (error || result) ? (
                 <div className="grid justify-items-start gap-3">

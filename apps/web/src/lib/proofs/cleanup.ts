@@ -2,6 +2,7 @@ import type { DbProject } from '../app/model';
 import { getAppStore, type AppStore } from '../app/store';
 import { ApiError } from '../comments/http';
 import { proofProject } from './access';
+import { deleteApprovalRecords, retireApprovalAuthority } from './approvals/storage';
 import { getProofBlobs, proofAssetPrefix, proofAttemptPrefix, proofVersionPrefix, type ProofBlobs } from './blobs';
 import { failProofVersion, processProofUpload, proofBlobGraceMs, proofCleanupAt } from './uploads';
 import { proofEpoch, proofStore, type DbProofAsset, type DbProofVersion, type ProofStore } from './store';
@@ -43,6 +44,7 @@ export async function cleanupTransferredProofs(projectId: string, store: AppStor
     const epoch = proofEpoch(guard);
     const prior = (candidate: string) => candidate !== epoch && (candidate === 'initial' || candidate < epoch);
     for (const share of await proofs.shares()) if (prior(share.epoch)) await store.delete(proofs.pk, share.id);
+    await retireApprovalAuthority(proofs, prior);
     const unfinished = await Promise.all(['pending', 'processing'].map(status =>
         store.query<DbProofVersion>({ type: 'proof-version', pk: proofs.pk, where: { status } })));
     for (const version of unfinished.flat()) if (prior(version.epoch)) {
@@ -73,6 +75,7 @@ async function deleteAssetRecords(proofs: ProofStore, asset: DbProofAsset, now: 
     if (grantLive || (versions.length && !await pruneBlobs(blobs(), proofAssetPrefix(projectIdOf(proofs.pk), asset.id), now))) return false;
     for (const version of versions) await proofs.store.delete(proofs.pk, version.id);
     for (const share of await proofs.shares({ assetId: asset.id })) await proofs.store.delete(proofs.pk, share.id);
+    await deleteApprovalRecords(proofs, asset.id);
     await proofs.store.delete(proofs.pk, asset.id);
     return true;
 }
@@ -86,6 +89,7 @@ export async function deleteProjectProofs(projectId: string, store: AppStore, no
     }
     for (const collection of await proofs.collections()) await store.delete(proofs.pk, collection.id);
     for (const share of await proofs.shares()) await store.delete(proofs.pk, share.id);
+    await deleteApprovalRecords(proofs);
     return complete;
 }
 

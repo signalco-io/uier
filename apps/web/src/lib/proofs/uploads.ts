@@ -6,6 +6,7 @@ import { sha256Hex, signToken, verifyToken } from '../app/tokens';
 import { ApiError, apiErrors } from '../comments/http';
 import { authorizeProof, proofProject, type ProofAuthorization } from './access';
 import { proofVersion } from './assets';
+import { deliverApprovalAfterResponse } from './approvals/mail';
 import { rollApprovalRound } from './approvals/storage';
 import { getProofBlobs, proofAttemptPrefix, proofStagedBlob, type ProofBlobs } from './blobs';
 import { proofPreviewOrigin } from './previewOrigin';
@@ -299,20 +300,20 @@ export async function processProofUpload(input: Processing): Promise<DbProofVers
         throw error;
     }
 
-    const savedVersion = await mutateProof(input.project, async (proofs, guard) => {
+    const { version: savedVersion, notifyReviewers } = await mutateProof<{ version: DbProofVersion; notifyReviewers?: boolean }>(input.project, async (proofs, guard) => {
         const project = await currentProject(input, proofs);
         const [asset, saved] = await Promise.all([proofs.asset(input.assetId), proofs.version(input.versionId)]);
         if (!asset || asset.doc.deleted || !saved) throw proofNotFound();
         assertUploadOwner(saved.doc, input.assetId, input.userId, project, guard);
         assertDelivery(saved.doc, asset.doc, guard);
         await assertAgentGrant(saved.doc);
-        if (saved.doc.status === 'published') return { value: saved.doc };
+        if (saved.doc.status === 'published') return { value: { version: saved.doc } };
         if (saved.doc.attempt?.id !== attemptId || saved.doc.attempt.until <= iso(Date.now())) throw proofConflict();
         if (asset.doc.currentVersionId !== saved.doc.expectedVersionId
             || !getProofSourceAdapter(version.contentType, guard.formats ?? ['image'])) {
             const doc = failProofVersion(saved.doc, asset.doc.currentVersionId !== saved.doc.expectedVersionId
                 ? staleVersion().message : unsupported().message);
-            return { value: doc, operations: [{ kind: 'replace', doc, etag: saved.etag }] };
+            return { value: { version: doc }, operations: [{ kind: 'replace', doc, etag: saved.etag }] };
         }
         const preceding = asset.doc.currentVersionId ? await proofs.version(asset.doc.currentVersionId) : null;
         if (asset.doc.currentVersionId && preceding?.doc.status !== 'published')
@@ -322,13 +323,15 @@ export async function processProofUpload(input: Processing): Promise<DbProofVers
         const doc: DbProofVersion = { ...rest, status: 'published', number: (preceding?.doc.number ?? 0) + 1,
             digest, manifest: result.manifest, resources: result.resources, artifacts: result.artifacts.map(({ id, contentType, bytes }) => ({ id, contentType, size: bytes.length })),
             publishedAt: now, publishedAttemptId: attemptId, nextAttemptAt: proofCleanupAt(saved.doc) };
-        return { value: doc, operations: [
+        const approvals = await rollApprovalRound(proofs, asset.doc, doc, proofEpoch(guard));
+        return { value: { version: doc, notifyReviewers: approvals.length > 0 }, operations: [
             { kind: 'replace', doc, etag: saved.etag },
             { kind: 'replace', doc: { ...asset.doc, updatedAt: now, currentVersionId: doc.id }, etag: asset.etag },
-            ...await rollApprovalRound(proofs, asset.doc, doc, proofEpoch(guard))
+            ...approvals
         ] };
     }, input.store);
     if (savedVersion.status === 'failed') throw failedVersion(savedVersion);
+    if (notifyReviewers) deliverApprovalAfterResponse(input.project.id, savedVersion.id);
     return savedVersion;
 }
 

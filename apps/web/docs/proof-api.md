@@ -86,8 +86,8 @@ scope. An asset share includes that asset's published history. A collection
 share follows current collection membership and includes published history
 for its member files. Guests see only published versions. With project
 comments disabled, members retain file reads and management and lose the
-comment capability. Whole-version approval requires a future separately
-verified approver workflow.
+comment capability. Whole-version decisions use the named approval authority
+described below.
 
 Preview and attachment URLs are same-origin API paths that reauthorize each
 request or byte range. Responses are private and uncacheable. No Blob read
@@ -120,3 +120,72 @@ runtime and its own identity.
 same handlers and workers with memory storage or configured disposable Cosmos
 and Azure Blob emulators. The local API fixtures cover scoped grants, format
 policy, racing publishers, retry, transfer and removal of private bytes.
+[Source tests](../e2e/proof-sources.api.spec.ts) exercise adapter publication,
+PDF privacy and evidence, provider access and replay, source rotation,
+prototype fencing and agent permissions. [Browser imports](../e2e/proof-imports.spec.ts)
+cover guest PDF page search and directory selection with an isolated host.
+
+
+## Version approvals and review record
+
+Open **Approvals** in the file viewer to see the selected version's decisions
+or start and manage its round. The file library and collection review summarize
+the current version, its deadline and outstanding reviewers. Historical versions
+remain available using the version selector or an immutable permalink.
+
+| Method | Path | Input and response |
+| --- | --- | --- |
+| GET | `/approvals?collection=<id>` | Current summaries keyed by the assets visible within the current scope. The collection filter is optional. |
+| GET | `/assets/:assetId/approvals?version=<id>` | `ApprovalReview`. Defaults to the current published version. |
+| GET | `/assets/:assetId/approvals?version=<id>&mode=options` | Management-only member, live share and assignment options for the selected file. |
+| POST | `/assets/:assetId/approvals` | `{versionId, requestId, reviewers, deadline}` starts the round. |
+| PATCH | `/assets/:assetId/approvals` | `{versionId, requestId, revision, state, deadline, reviewers?}` edits, pauses, resumes or closes the current round. |
+| POST | `/assets/:assetId/approvals?mode=decision` | `{versionId, requestId, revision, decisionRevision, decision, explanation?}` records or revises the caller's own decision. |
+| POST | `/assets/:assetId/approvals?mode=recover` | `{versionId, email}` queues an email if the guest's current grant is assigned to that mailbox. Always returns 204 for authorized guests. |
+| POST | `/approvals` | `{token}` exchanges the emailed one-time fragment for a verified review session and its assigned proof share. |
+| GET | `/assets/:assetId/approvals?version=<id>&mode=export` | JSON attachment with version and digest, reviewer decisions and history, and visible proof discussion. |
+
+Each reviewer is `{kind: 'member', userId, required}` or
+`{kind: 'external', name, email, shareId, required}`. The roster can contain
+up to 20 reviewers and requires at least one required reviewer. An optional
+reviewer can leave a decision without affecting the required sign-off result.
+All required reviewers must independently approve. A required change request
+sets the outcome to **Changes requested** and requires an explanation. Thread
+resolution and fix verification are independent of version approval.
+
+Set `deadline` to an ISO timestamp or null. An open overdue round continues
+to receive decisions. Pausing stops decisions and defers email. Closing keeps
+the recorded evidence and ends the round. A new published version carries
+forward the prior roster, starts with fresh decisions, and has no deadline
+until one is set. A paused round carries its pause to the new version. Changes
+check the round revision and decisions also check the caller's own decision
+revision, starting at zero. An authorized retry using the same request ID and
+input returns the live view without creating another event. Superseded versions
+keep their evidence and accept only authorized retries of recorded submissions.
+
+External approvals need a verified mailbox identity and the exact assigned,
+live asset or collection share. The ordinary view or comment link does not
+verify the reviewer. Invitations and recovery links are one-time and expire
+within seven days or when the assigned share expires. They stay in the URL
+fragment until exchanged. Project members use their authenticated account and
+current project access. A project transfer retires earlier approval authority
+and invitations, retains historical decisions, and permits new rounds on new
+versions. Asset and project deletion remove approval records.
+
+The existing notification worker delivers invitations and, for reviewers still
+awaiting a decision, reminders one day before the deadline and at the deadline.
+An approaching reminder is scheduled for deadlines more than a day away.
+Receipts and the existing email provider's operation identity make retries
+idempotent. Delivery rechecks current file and reviewer access, row revision,
+pause/close state, and email suppression. Member notification mutes also apply.
+
+Review records use the selected version's comment scope. Member exports apply
+the standard thread-visibility rules. Guest exports omit all private threads.
+Exports omit mailbox addresses, share credentials and server-only message
+metadata for both audiences. The original download URL is available only
+to readers with original-download authority. It reauthorizes on use.
+
+[`proof-approvals.api.spec.ts`](../e2e/proof-approvals.api.spec.ts) covers the
+authorization, persistence, mail worker and export boundaries.
+[`proof-approvals.spec.ts`](../e2e/proof-approvals.spec.ts) drives the browser
+flow on desktop and mobile.

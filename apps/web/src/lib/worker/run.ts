@@ -4,6 +4,7 @@ import { cosmosDataContainerApp, cosmosDataContainerComments } from '../db/clien
 import { getScreenshotBlobStore } from '../screenshots/blobStore';
 import { getRecordingBlobs } from '../recordings/blobStore';
 import { sweepRecordings } from '../recordings/service';
+import { runApprovalMail } from '../proofs/approvals/mail';
 import { sweepProofStorage } from '../proofs/cleanup';
 import { sweepCommentCleanup } from '../comments/cleanup';
 import { sweepProjectDeletions } from '../app/projectDeletion';
@@ -95,7 +96,9 @@ function phasesFor(options: WorkerOptions, baseUrl: string, now: () => number): 
             console.info(`[notifications] Checked ${result.checked} delivery ledgers; ${result.failed} attempts failed; ${result.blocked} require review.`);
             for (const ledger of result.review)
                 console.info(`::warning title=Notification delivery needs review::${ledger.id} is ${ledger.status} (${ledger.lastCode}). After fixing the cause, run this workflow with retry_delivery set to this id.`);
-            return result.failed;
+            const approvals = await runApprovalMail(baseUrl, { now: now(), deadline: Math.min(deadline - 60_000, now() + 60_000) });
+            if (approvals.failed) console.error(`[proof approvals] ${approvals.failed} mail attempts need attention.`);
+            return result.failed + approvals.failed;
         } });
     } else console.info('[notifications] Email delivery skipped for this integration-only run.');
     phases.push({ name: 'integrations', async run(deadline) {

@@ -3,12 +3,12 @@ import type { AppCatalog } from './types';
 
 // Catalogs are immutable, public resources. Request/account state is never stored here.
 const loaders = {
-    en: () => Promise.all([import('./catalogs/common/en'), import('./catalogs/access/en'), import('./catalogs/management/en'), import('./catalogs/comments/en'), import('./catalogs/proofs/en')]),
-    de: () => Promise.all([import('./catalogs/common/de'), import('./catalogs/access/de'), import('./catalogs/management/de'), import('./catalogs/comments/de'), import('./catalogs/proofs/de')]),
-    fr: () => Promise.all([import('./catalogs/common/fr'), import('./catalogs/access/fr'), import('./catalogs/management/fr'), import('./catalogs/comments/fr'), import('./catalogs/proofs/fr')]),
-    es: () => Promise.all([import('./catalogs/common/es'), import('./catalogs/access/es'), import('./catalogs/management/es'), import('./catalogs/comments/es'), import('./catalogs/proofs/es')]),
-    it: () => Promise.all([import('./catalogs/common/it'), import('./catalogs/access/it'), import('./catalogs/management/it'), import('./catalogs/comments/it'), import('./catalogs/proofs/it')]),
-    hr: () => Promise.all([import('./catalogs/common/hr'), import('./catalogs/access/hr'), import('./catalogs/management/hr'), import('./catalogs/comments/hr'), import('./catalogs/proofs/hr')])
+    en: () => Promise.all([import('./catalogs/common/en'), import('./catalogs/access/en'), import('./catalogs/management/en'), import('./catalogs/comments/en'), import('./catalogs/proofs/en'), import('./catalogs/approvals/en')]),
+    de: () => Promise.all([import('./catalogs/common/de'), import('./catalogs/access/de'), import('./catalogs/management/de'), import('./catalogs/comments/de'), import('./catalogs/proofs/de'), import('./catalogs/approvals/de')]),
+    fr: () => Promise.all([import('./catalogs/common/fr'), import('./catalogs/access/fr'), import('./catalogs/management/fr'), import('./catalogs/comments/fr'), import('./catalogs/proofs/fr'), import('./catalogs/approvals/fr')]),
+    es: () => Promise.all([import('./catalogs/common/es'), import('./catalogs/access/es'), import('./catalogs/management/es'), import('./catalogs/comments/es'), import('./catalogs/proofs/es'), import('./catalogs/approvals/es')]),
+    it: () => Promise.all([import('./catalogs/common/it'), import('./catalogs/access/it'), import('./catalogs/management/it'), import('./catalogs/comments/it'), import('./catalogs/proofs/it'), import('./catalogs/approvals/it')]),
+    hr: () => Promise.all([import('./catalogs/common/hr'), import('./catalogs/access/hr'), import('./catalogs/management/hr'), import('./catalogs/comments/hr'), import('./catalogs/proofs/hr'), import('./catalogs/approvals/hr')])
 };
 
 export async function loadAppCatalog(language: AppLanguage): Promise<AppCatalog> {

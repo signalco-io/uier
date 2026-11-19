@@ -16,6 +16,7 @@ import {
 import { proofErrorMessage, proofFetch, proofWrite, ProofRequestError } from './client';
 import { ProofSelect } from './ProofSelect';
 import { ProofShares } from './ProofShares';
+import { ProofApprovalSummary, useProofApprovalSummaries } from './ProofApprovalSummary';
 import { ProofPrototypeDirectory } from './ProofPrototypeDirectory';
 import { FigmaImport, ProofEmailAddress, ProofFormatSettings, type ProofUploadSettings } from './ProofSources';
 
@@ -51,6 +52,7 @@ export function FileLibrary(props: LibraryProps) {
     const [editor, setEditor] = useState<Editor>();
     const [attempt, setAttempt] = useState(0);
     const [busy, setBusy] = useState(false);
+    const approvals = useProofApprovalSummaries(projectId, Boolean(library), undefined, attempt);
     const refresh = useCallback(() => setAttempt(value => value + 1), []);
     useEffect(() => {
         const controller = new AbortController();
@@ -70,19 +72,23 @@ export function FileLibrary(props: LibraryProps) {
         return () => controller.abort();
     }, [api, attempt]);
 
-    const row = (asset: ProofAsset) => (
-        <li key={asset.id} className="flex items-center gap-3 p-3 sm:px-4">
-            <FileIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-            <div className="min-w-0 flex-1">
-                {asset.currentVersionId
-                    ? <Link href={proofViewerPath(projectId, asset.id)} prefetch={false} className="break-words font-medium text-foreground hover:underline">{asset.name}</Link>
-                    : <span className="break-words font-medium">{asset.name}</span>}
-                {!asset.currentVersionId && <p className="m-0 text-xs text-muted-foreground">{t('No published version')}</p>}
-            </div>
-            {library?.permissions.manage && <Button variant="outline" size="sm" onClick={() => setEditor({ kind: 'file', asset })}
-                aria-label={t('Manage {name}', { name: asset.name })}>{t('Manage')}</Button>}
-        </li>
-    );
+    const row = (asset: ProofAsset) => {
+        const approval = approvals?.[asset.id];
+        return (
+            <li key={asset.id} className="flex items-center gap-3 p-3 sm:px-4">
+                <FileIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                <div className="min-w-0 flex-1">
+                    {asset.currentVersionId
+                        ? <Link href={proofViewerPath(projectId, asset.id)} prefetch={false} className="break-words font-medium text-foreground hover:underline">{asset.name}</Link>
+                        : <span className="break-words font-medium">{asset.name}</span>}
+                    {approval?.versionId === asset.currentVersionId && approval && <ProofApprovalSummary summary={approval} />}
+                    {!asset.currentVersionId && <p className="m-0 text-xs text-muted-foreground">{t('No published version')}</p>}
+                </div>
+                {library?.permissions.manage && <Button variant="outline" size="sm" onClick={() => setEditor({ kind: 'file', asset })}
+                    aria-label={t('Manage {name}', { name: asset.name })}>{t('Manage')}</Button>}
+            </li>
+        );
+    };
 
     return (
         <section aria-labelledby="proof-files" className="flex flex-col gap-4">

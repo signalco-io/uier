@@ -127,13 +127,18 @@ export async function exchangeProofShare(request: Request, projectId: string, to
     const share = await proofs.shareForToken(sha256Hex(token));
     if (!liveProofShare(share, project, epoch)) throw proofNotFound();
     await requireScope(proofs, share.scope);
+    return { scope: share.scope, cookies: proofGuestSessionCookies(request, project, share, epoch).cookies };
+}
+
+/** The caller must first authorize the exact live share and its scope. */
+export function proofGuestSessionCookies(request: Request, project: DbProject, share: DbProofShare, epoch: string) {
     const savedIdentity = verifyToken<GuestIdentity>(guestIdentityPurpose, cookieValue(request, identityCookie()));
     const visitor = isRandomToken(savedIdentity?.visitor) ? savedIdentity.visitor : randomToken();
     const age = share.expiresAt ? Math.min(sessionLifetime, Math.floor((Date.parse(share.expiresAt) - Date.now()) / 1000)) : sessionLifetime;
     if (age < 1) throw proofNotFound();
     const session = signToken<ShareSession>(shareSessionPurpose, { pid: project.id, sid: share.id, epoch, visitor }, age);
     return {
-        scope: share.scope,
+        visitorId: sha256Hex(visitor),
         cookies: [cookie(identityCookie(), signToken<GuestIdentity>(guestIdentityPurpose, { visitor }, 365 * 24 * 60 * 60), 365 * 24 * 60 * 60),
             cookie(sessionCookie(project.id), session, age)]
     };

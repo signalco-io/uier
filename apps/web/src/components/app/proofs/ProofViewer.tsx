@@ -18,6 +18,7 @@ import { exchangeProofLink, proofFetch, ProofRequestError } from './client';
 import { mediaSurface, proofSize, type VideoPosition } from './ProofMedia';
 import { ProofSelect } from './ProofSelect';
 import { ProofThreads } from './ProofThreads';
+import { ProofApprovalPanel } from './ProofApprovalPanel';
 import { ProofViewport, type ProofFocus, type SynchronizedCenter } from './ProofViewport';
 import type { PdfDocument } from './PdfProof';
 
@@ -452,12 +453,16 @@ export function ProofViewer({ projectId, assetId, initialVersionId, initialThrea
                             <PdfTextChanges before={refIsEarlier ? referenceText.value : text.value} after={refIsEarlier ? text.value : referenceText.value} />}
                     </>}
                 </section>
-                <aside ref={threadPanel} tabIndex={-1} aria-label={t('Comments')}
-                    className="min-w-0 scroll-mt-3 rounded-xl border bg-background p-3 outline-none focus-visible:ring-2 focus-visible:ring-ring lg:max-h-[calc(100dvh-6rem)] lg:overflow-auto">
-                    <ProofThreads projectId={projectId} assetId={assetId} versionId={threadVersion.id} currentVersionId={display?.asset.currentVersionId ?? null}
-                        threadId={address.thread} draftAnchor={draftAnchor} onThreadSelect={selectThread} onJump={openLocation}
-                        onThreadsChange={setThreads} onEvidence={openEvidence} onRequestTarget={requestTarget} />
-                </aside>
+                <div className="grid min-w-0 content-start gap-3">
+                    <ProofApprovalPanel key={threadVersion.id} endpoint={endpoint} projectId={projectId} assetId={assetId}
+                        versionId={threadVersion.id} number={threadVersion.number} />
+                    <aside ref={threadPanel} tabIndex={-1} aria-label={t('Comments')}
+                        className="min-w-0 scroll-mt-3 rounded-xl border bg-background p-3 outline-none focus-visible:ring-2 focus-visible:ring-ring lg:max-h-[calc(100dvh-6rem)] lg:overflow-auto">
+                        <ProofThreads projectId={projectId} assetId={assetId} versionId={threadVersion.id} currentVersionId={display?.asset.currentVersionId ?? null}
+                            threadId={address.thread} draftAnchor={draftAnchor} onThreadSelect={selectThread} onJump={openLocation}
+                            onThreadsChange={setThreads} onEvidence={openEvidence} onRequestTarget={requestTarget} />
+                    </aside>
+                </div>
             </div>}
         </main>
     );
