@@ -4,6 +4,14 @@ export type ProofFormat = (typeof proofFormats)[number];
 
 export const MAX_PROOF_UPLOAD_BYTES = 20 * 1024 * 1024;
 export const PROOF_UPLOAD_CONTENT_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'] as const;
+export const proofUploadTypes: Record<ProofFormat, readonly string[]> = {
+    image: [...PROOF_UPLOAD_CONTENT_TYPES, 'image/svg+xml'],
+    pdf: ['application/pdf'],
+    figma: [],
+    video: ['video/mp4', 'video/quicktime', 'video/webm'],
+    email: ['message/rfc822'],
+    html: ['text/html', 'application/zip']
+};
 export type ProofVersionStatus = 'pending' | 'processing' | 'published' | 'failed';
 export type ProofScope = { kind: 'project' } | { kind: 'collection' | 'asset'; id: string };
 export type ProofShareScope = Exclude<ProofScope, { kind: 'project' }>;
@@ -25,11 +33,21 @@ export type ProofSurface = {
     width?: number;
     height?: number;
     artifactId?: string;
+    sourceUrl?: string;
+    textDigest?: string;
+    contentDigest?: string;
 };
+export type ProofFigmaFrame = { id: string; name: string; page: string };
+export type ProofFigmaChanges = { added: string[]; renamed: { id: string; from: string; to: string }[]; removed: string[] };
 export type ProofManifest = {
     format: ProofFormat;
     surfaces: ProofSurface[];
     durationMs?: number;
+    pdf?: { artifactId: string; textArtifactId: string; rendition: 'raster-ocr-v1' };
+    figma?: { url: string; selectedIds: string[]; changes: ProofFigmaChanges };
+    video?: { artifactId: string; frameRate?: number; posterArtifactId?: string };
+    email?: { subject?: string; preheader?: string; sender?: string; plainTextArtifactId: string; links: string[] };
+    html?: { entry: string; pages: Record<string, string> };
 };
 export type ProofVersion = {
     id: string;
