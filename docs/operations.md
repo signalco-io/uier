@@ -147,17 +147,20 @@ Normal PR previews build with their preview origin. Their deployment job leaves 
 aliases alone. Use the manual `html` dispatch to select the preview deployment for proof QA.
 
 The workflow reads back the alias and probes the isolated app root without following redirects.
-A 401 or, on the dedicated Vercel hostname, a 302 to `https://vercel.com/sso-api` indicates
-Deployment Protection. For the dedicated preview hostname, the workflow can retry that request
-on the same hostname with the environment's `UIER_PROOF_VERCEL_BYPASS` secret. If it reports
-alias verification only, verify the app root returns 404 with authorized preview access.
+A 401 indicates Deployment Protection. On the dedicated Vercel hostname, a 302 to
+`https://vercel.com/sso-api` also indicates protection when its `url` points to that exact root
+and it includes a `nonce`. For the dedicated preview hostname, the workflow can retry that
+request on the same hostname with the environment's `UIER_PROOF_VERCEL_BYPASS` secret.
+If it reports alias verification only, verify the app root returns 404 with authorized preview access.
 Then load a real signed prototype through the guest review iframe.
 [Vercel automation protection bypass](https://vercel.com/docs/deployment-protection/methods-to-bypass-deployment-protection/protection-bypass-automation)
 
-Production requires an anonymous app root 404 and a working signed guest review. Open the
-guest link in a fresh browser without a Vercel session or automation bypass and verify that the
-prototype and its assets load from the isolated hostname. In both environments, check that the
-ordinary app origin rejects those resources.
+Immediately after assigning a production alias, the workflow gives a Vercel edge
+`DEPLOYMENT_NOT_FOUND` response up to 30 seconds of retry delays while the binding propagates.
+It confirms the intended binding before each retry. Production requires an anonymous app root
+404 and a working signed guest review. Open the guest link in a fresh browser without a Vercel
+session or automation bypass and verify that the prototype and its assets load from the isolated
+hostname. In both environments, check that the ordinary app origin rejects those resources.
 
 If a custom hostname requires authentication, verify its current binding through Vercel before
 moving it. The workflow can read back a custom hostname already on the selected deployment.

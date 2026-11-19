@@ -1,3 +1,4 @@
+import timers from 'node:timers/promises';
 import project from '../vercel-project.json' with { type: 'json' };
 
 const { orgId, projectId } = project;
@@ -88,7 +89,15 @@ async function rejectAppDomain(host, dedicated) {
     throw new Error('Could not inspect all Vercel project domains.');
 }
 
-async function probeRoot(url, { dedicated = false, allowBypass = false } = {}) {
+function isVercelSsoRedirect(location, root) {
+    if (!location?.startsWith('https://vercel.com/sso-api?') || location.includes('#')) return false;
+    const { searchParams } = new URL(location);
+    const nonce = searchParams.get('nonce');
+    return searchParams.size === 2 && searchParams.get('url') === root.href
+        && nonce !== null && /^[a-zA-Z0-9_-]+$/.test(nonce);
+}
+
+async function probeRoot(url, { dedicated = false, allowBypass = false, verifyBinding } = {}) {
     const probe = async headers => {
         try {
             const response = await fetch(url, { headers, redirect: 'manual', signal: AbortSignal.timeout(20_000) });
@@ -100,9 +109,17 @@ async function probeRoot(url, { dedicated = false, allowBypass = false } = {}) {
     };
     const protectedRoot = response => !response.headers.has('x-vercel-error')
         && (response.status === 401 || (dedicated && response.status === 302
-            && response.headers.get('location') === 'https://vercel.com/sso-api'));
+            && isVercelSsoRedirect(response.headers.get('location'), url)));
 
     let response = await probe();
+    if (verifyBinding) {
+        for (const waitMs of [1000, 2000, 4000, 8000, 15000]) {
+            if (response.status !== 404 || response.headers.get('x-vercel-error') !== 'DEPLOYMENT_NOT_FOUND') break;
+            await timers.setTimeout(waitMs);
+            await verifyBinding();
+            response = await probe();
+        }
+    }
     if (protectedRoot(response)) {
         const bypass = allowBypass && dedicated && process.env.UIER_PROOF_VERCEL_BYPASS?.trim();
         if (!bypass) return false;
@@ -130,23 +147,30 @@ export async function configureHtml(target, { requirePublished = false } = {}) {
     const requested = origin(process.env.UIER_PROOF_DEPLOYMENT, 'UIER_PROOF_DEPLOYMENT');
     if (!vercelHost.test(requested.hostname)) throw new Error('Use the exact generated Vercel deployment URL.');
     const wanted = await deployment(requested.hostname, target);
-    if (requirePublished && (target !== 'production' || (await alias(new URL(appOrigin).hostname))?.deploymentId !== wanted.id))
+    const appHost = new URL(appOrigin).hostname;
+    if (requirePublished && (target !== 'production' || (await alias(appHost))?.deploymentId !== wanted.id))
         throw new Error('The release deployment does not match the current uier.io production binding.');
     await rejectAppDomain(host, dedicated);
 
     const existing = await alias(host);
-    if (existing && existing.deploymentId !== wanted.id) {
+    const needsAssignment = existing?.deploymentId !== wanted.id;
+    if (existing && needsAssignment) {
         await deployment(existing.deploymentId, target);
         if (!dedicated && !await probeRoot(url))
             throw new Error('Verify the existing custom proof hostname before moving its protected alias.');
     }
-    if (existing?.deploymentId !== wanted.id) {
+    if (needsAssignment) {
         const assigned = await api('/v2/deployments/' + wanted.id + '/aliases', { body: { alias: host } });
         if (assigned.alias !== host || (assigned.oldDeploymentId && assigned.oldDeploymentId !== existing?.deploymentId)
             || (await alias(host))?.deploymentId !== wanted.id)
             throw new Error('Vercel alias readback did not confirm the intended binding. Check for a concurrent change.');
     }
-    const reachedApp = await probeRoot(url, { dedicated, allowBypass: target === 'preview' });
+    const verifyBinding = target === 'production' && needsAssignment ? async () => {
+        if ((await alias(host))?.deploymentId !== wanted.id
+            || (requirePublished && (await alias(appHost))?.deploymentId !== wanted.id))
+            throw new Error('A Vercel alias changed while waiting for the isolated proof hostname.');
+    } : undefined;
+    const reachedApp = await probeRoot(url, { dedicated, allowBypass: target === 'preview', verifyBinding });
     if (target === 'production') {
         if (!reachedApp)
             throw new Error('Vercel Deployment Protection blocked the anonymous production root probe. The production proof hostname must be publicly accessible.');
