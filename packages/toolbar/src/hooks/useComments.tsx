@@ -45,6 +45,7 @@ export function commentUrl(commentId: string) {
 }
 
 export type CreateCommentInput = {
+    stagingPairingId?: string;
     idempotencyKey?: string;
     /** The temporary id the comment is shown with until the API saved it (`newLocalId()`) */
     localId?: string;
@@ -199,7 +200,7 @@ function uploadCommentRecording(recording: RecordingClip, revision: number) {
     }, revision);
 }
 
-async function createComment(path: string, policy: PageStatePolicy, { idempotencyKey, position, kind, text, mentions, quotedText, check, drawing, device, screenshot, recording }: CreateCommentInput) {
+async function createComment(path: string, policy: PageStatePolicy, { idempotencyKey, position, kind, text, mentions, quotedText, check, drawing, device, screenshot, recording, stagingPairingId }: CreateCommentInput) {
     const revision = currentReviewerRevision();
     const [image, deviceInfo, recordingId] = await Promise.all([
         screenshot, device && completeDeviceInfo(device), recording && uploadCommentRecording(recording, revision)
@@ -207,7 +208,7 @@ async function createComment(path: string, policy: PageStatePolicy, { idempotenc
     if (recording && revision !== currentReviewerRevision()) throw new CommentsApiError('sign_in_required', 'The review session changed.', 401);
     return required(await apiRequest<CommentItem>(commentsApiUrl, {
         method: 'POST',
-        body: { idempotencyKey, path, sourcePath: sourcePath(path, policy), position, kind, text, mentions, quotedText, check, drawing, device: deviceInfo, screenshot: image, recordingId, authorName: guestAuthorName(), queryKeys: queryKeys(path) }
+        body: { idempotencyKey, stagingPairingId, path, sourcePath: sourcePath(path, policy), position, kind, text, mentions, quotedText, check, drawing, device: deviceInfo, screenshot: image, recordingId, authorName: guestAuthorName(), queryKeys: queryKeys(path) }
     }));
 }
 

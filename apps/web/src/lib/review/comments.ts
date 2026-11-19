@@ -38,6 +38,7 @@ import { KnownPages } from '../../knownPages';
 import { isPrivateAppFeedback, isUierFeedbackProject, PUBLIC_PROJECT_PARTITION, USER_FEEDBACK_PROJECT_ID } from '../comments/publicProject';
 import { isValidId, type CreateCommentInput } from '../comments/validation';
 import type { DbProject } from '../app/model';
+import { stagingForReview, stagingReference } from '../proofs/staging';
 import { actorAuthorId, memberActor, refreshMutationActor, assertCanUseComments, assertWriter, type ProjectActor } from './actor';
 import { assertEligibleParticipant, assertParticipantEditor, validateMentions } from './participants';
 import { replaceSavedScreenshot } from '../comments/replaceScreenshot';
@@ -228,8 +229,8 @@ export type NewProjectComment = CreateCommentInput & {
     authorName?: string;
 } & (
     // Website writes carry an address from the project's configured origins.
-    | { origin: string; assetTarget?: never; private?: never }
-    | { origin?: never; assetTarget: NonNullable<DbComment['assetTarget']>; private?: boolean }
+    | { origin: string; assetTarget?: never; private?: never; stagingPairingId?: string }
+    | { origin?: never; stagingPairingId?: never; assetTarget: NonNullable<DbComment['assetTarget']>; private?: boolean }
 );
 
 export async function createProjectComment(request: Request, project: DbProject, actor: ProjectActor, input: NewProjectComment) {
@@ -240,15 +241,19 @@ export async function createProjectComment(request: Request, project: DbProject,
     if (input.assetTarget?.assetId !== actor.proofThread?.assetId) throw apiErrors.notFound();
     if (input.private && !canMakeCommentPrivate(actor)) throw apiErrors.forbidden();
     if (actor.proofThread) await refreshMutationActor(project, actor, true);
+    const checkStaging = async () => input.stagingPairingId
+        ? stagingReference((await stagingForReview(project, actor, input.stagingPairingId, input.origin, input.path)).pair) : undefined;
+    const stagingDesign = await checkStaging();
     const store = getCommentsStore();
     const partition = projectPartition(project.id);
     const attempt = submission(partition, authorId, input.idempotencyKey ?? input.recordingId, {
-        operation: 'create', path: input.path, position: input.position, kind: input.kind, text: input.text, mentions: input.mentions ?? [],
+        operation: 'create', ...(stagingDesign ? { stagingDesign } : {}), path: input.path, position: input.position, kind: input.kind, text: input.text, mentions: input.mentions ?? [],
         quotedText: input.quotedText, ...(input.assetTarget ? { assetTarget: input.assetTarget, private: input.private === true } : {}), authorName: actor.kind === 'guest' ? input.authorName : undefined, origin: input.origin,
         ...(input.drawing ? { drawing: input.drawing } : {}), ...(input.recordingId ? { recordingId: input.recordingId } : {})
     });
     const recovered = await recoverSubmission(store, attempt);
     if (recovered) {
+        await checkStaging();
         if (actor.proofThread) await refreshMutationActor(project, actor, true);
         return visibleOrThrow(recovered, actor);
     }
@@ -270,6 +275,7 @@ export async function createProjectComment(request: Request, project: DbProject,
         ...(input.private || isPrivateAppFeedback({ domain: partition, path: input.path }) || project.id === USER_FEEDBACK_PROJECT_ID ? { private: true } : {}),
         ...(input.origin ? { origin: input.origin } : {}),
         ...(input.assetTarget ? { assetTarget: input.assetTarget } : {}),
+        ...(stagingDesign ? { stagingDesign } : {}),
         path: input.path,
         ...(input.pageStateVersion === 1 ? { pageStateVersion: 1 as const } : {}),
         ...(input.sourcePath ? { sourcePath: input.sourcePath } : {}),
@@ -306,12 +312,14 @@ export async function createProjectComment(request: Request, project: DbProject,
     if (recording) comment.recording = recording.doc.metadata;
     const recorded = withSyncMark(project, null, withNotificationEvent(comment, authorId, 'comment', now, mentionRecipients(comment.thread.items[0]!.mentions), actor.kind === 'member' ? actor.agent : undefined, { itemId: comment.thread.items[0]!.id }));
     await refreshMutationActor(project, actor, true);
+    await checkStaging();
     if (input.private && !canMakeCommentPrivate(actor)) throw apiErrors.forbidden();
     if (attempt) {
         const saved = await commitNewSubmission(store, attempt, recorded, screenshot ? screenshotDocument(recorded, screenshot) : undefined, attachRecording(recording, recorded.id));
         queueMcpEventDelivery(project.id);
         queueAiTitles(project, [saved], 'new');
         if (actor.proofThread) await refreshMutationActor(project, actor, true);
+        await checkStaging();
         return visibleOrThrow(saved, actor);
     }
     await createWithScreenshot(store, recorded, screenshot);
@@ -448,6 +456,7 @@ export async function changeComment(project: DbProject, actor: ProjectActor, id:
         if (!allowed(comment))
             throw apiErrors.forbidden('You can\'t change this comment.');
         checkVerification(currentProject);
+        await guard?.authorize?.(comment, currentProject);
         authorizedProject = currentProject;
         return currentProject;
     };
@@ -460,6 +469,7 @@ export async function changeComment(project: DbProject, actor: ProjectActor, id:
             if (!allowed(comment)) throw apiErrors.forbidden();
             if (guard?.triage && !canTriageProject(currentProject, actor)) throw apiErrors.notFound();
             checkVerification(currentProject);
+            await guard?.authorize?.(comment, currentProject);
         }
         if (guard?.revision && commentRevision(comment) !== guard.revision) throw apiErrors.conflict();
         if (guard && guard.value(comment) !== guard.expected) throw apiErrors.conflict();
@@ -489,6 +499,7 @@ export type CommentChangeGuard = {
     requireComments?: boolean;
     /** Live mode authority also applies to receipt replays. */
     requireVerification?: boolean;
+    authorize?: (comment: DbComment, project: DbProject) => Promise<void>;
 };
 function guardFingerprint(guard?: CommentChangeGuard) {
     return guard ? { expected: guard.expected, revision: guard.revision } : {};

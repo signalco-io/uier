@@ -29,8 +29,13 @@ export function verificationDetails(comment: DbComment, project: DbProject, acto
         : id === comment.authorId && !comment.thread.items[0]?.deletedAt ? comment.thread.items[0]?.authorName || 'Guest' : 'Unavailable reviewer';
     const fixOrigin = v.fixUrl ? new URL(v.fixUrl).origin : undefined;
     const showLink = actor.kind === 'member' || Boolean(feedbackSource(project, comment.origin).available && (!fixOrigin || !project.urls.some(url => new URL(url).origin === fixOrigin) || fixOrigin === comment.origin));
+    const evidence = actor.kind === 'member' ? v.stagingEvidence : undefined;
+    const before = Boolean(evidence && evidence.beforeRevision !== undefined && comment.screenshot
+        && evidence.beforeRevision === (comment.screenshot.revision ?? null));
+    const after = evidence && comment.thread.items.slice(1).find(item => String(item.id) === evidence.afterItemId && !item.deletedAt && item.screenshot);
     return { id: v.id, revision: v.revision, outcome: v.outcome, requestedAt: v.requestedAt,
         requester: name(v.requester), reviewer: name(v.reviewer), summary: v.summary,
+        ...(evidence ? { stagingEvidence: { before, ...(after ? { afterItemId: evidence.afterItemId } : {}) } } : {}),
         ...(showLink && v.fixUrl ? { fixUrl: v.fixUrl } : {}),
         ...(v.decision ? { decision: { kind: v.decision.kind, actor: name(v.decision.actorId), at: v.decision.at, override: v.decision.override } } : {}) };
 }

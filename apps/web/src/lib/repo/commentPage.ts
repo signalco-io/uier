@@ -24,6 +24,7 @@ export type CommentPageOptions = {
     /** The threads the reader may see, in storage; callers still check each thread (`canSeeComment`) */
     visibility?: VisibilityFilter;
     proof?: ProofThreadFilter;
+    stagingPairingId?: string;
 };
 
 type Keyed = { id: string; createdAt?: string };

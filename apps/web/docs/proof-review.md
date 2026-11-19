@@ -81,3 +81,35 @@ conditional action and receipt replay.
 
 `proof-threads.api.spec.ts` covers memory-backed route handling and the Cosmos
 query contract. The browser suite covers the viewer mount separately.
+
+## Design to staging
+
+Pairings store the exact project, approval decisions, asset, version, surface,
+authorized page and CSS viewport. Members use `/api/proofs/[projectId]/staging`
+to list/create pairs for a surface, and `/staging/:pairingId` to revoke a pair they
+created or administer. Member-only link routes open the checked staging target
+(`/staging/:pairingId/open`), the immutable surface (`/staging/:pairingId/design`
+or `/staging/thread/:commentId`), or a paged list of visible linked threads
+(`/staging/:pairingId/threads`). The toolbar and extension can resolve only the
+paired viewport for their current authorized origin and page. They submit the
+pairing ID with the regular comment POST. The server writes the exact design
+reference into the normal website comment. Website guests can still see the
+comment under its ordinary visibility rules.
+
+The comparison embeds a small app-origin document. Its framing policy allows
+only the paired origin. First-party app or app review sign-in authorizes the
+image, independently of the staging toolbar's token. A browser that blocks
+third-party cookies can authorize the frame from a first-party tab. The frame
+keeps its verifier private and the server stores a 15-minute access receipt.
+Preview requests return private bytes with no shared caching or CORS. The frame
+rechecks current authority every 30 seconds and on return to the tab. A certified
+PDF serves the selected page's raster from its published rendition. The approved
+raster stays out of the toolbar's screenshots and recordings.
+
+Publishing a new version, pausing, or closing a round keeps its historical
+approved decisions. Replacing a required decision, revoking the pair, removing
+its authorized address, or retiring the asset/project invalidates new staging
+reads and writes. Project transfer retires its old pairing and preview grants.
+The ordinary website thread and historical screenshots still follow their
+existing permissions. Deleting a proof or a project cleans up its pairing
+records and preview grants.

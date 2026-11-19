@@ -10,6 +10,22 @@ const p = (count: number, one: string, other: string) => plural('fr', count, one
 const panelPlaces: Record<PanelDock, string> = { left: 'à gauche', right: 'à droite', 'left-top': 'en haut à gauche', 'right-top': 'en haut à droite', 'left-bottom': 'en bas à gauche', 'right-bottom': 'en bas à droite' };
 
 export const fr: Messages = {
+    staging: {
+        report: "Signaler un écart",
+        label: "Comparaison du design",
+        unavailable: "La revue de préproduction est indisponible.",
+        toggle: "Comparer le design approuvé",
+        viewport: (width: number, height: number) => `Affichage cible : ${width} × ${height} px`,
+        currentViewport: (width: number, height: number) => `Affichage actuel : ${width} × ${height} px`,
+        opacity: "Opacité du design",
+        preview: "Aperçu du design approuvé",
+        linkedComment: "Ce commentaire est associé au design approuvé.",
+        approvedDesign: "Design approuvé",
+        before: "Capture avant",
+        after: "Capture après",
+        noScreenshot: "Aucune capture sélectionnée",
+        replyImage: (number: number) => `Capture de la réponse ${number}`,
+    },
     consentPanel: {
         about: "À propos de cet onglet",
         groups: { cookie: "Cookies", local: "Stockage local", session: "Stockage de session", request: "Requêtes vers des traceurs connus" },

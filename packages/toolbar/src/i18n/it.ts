@@ -11,6 +11,22 @@ const p = (count: number, one: string, other: string) => plural('it', count, one
 const panelPlaces: Record<PanelDock, string> = { left: 'a sinistra', right: 'a destra', 'left-top': 'in alto a sinistra', 'right-top': 'in alto a destra', 'left-bottom': 'in basso a sinistra', 'right-bottom': 'in basso a destra' };
 
 export const it: Messages = {
+    staging: {
+        report: "Segnala una differenza",
+        label: "Confronto del design",
+        unavailable: "La revisione di staging non è disponibile.",
+        toggle: "Confronta il design approvato",
+        viewport: (width: number, height: number) => `Area di destinazione: ${width} × ${height} px`,
+        currentViewport: (width: number, height: number) => `Area attuale: ${width} × ${height} px`,
+        opacity: "Opacità del design",
+        preview: "Anteprima del design approvato",
+        linkedComment: "Questo commento è associato al design approvato.",
+        approvedDesign: "Design approvato",
+        before: "Screenshot prima",
+        after: "Screenshot dopo",
+        noScreenshot: "Nessuno screenshot selezionato",
+        replyImage: (number: number) => `Screenshot della risposta ${number}`,
+    },
     consentPanel: {
         about: "Informazioni su questa scheda",
         groups: { cookie: "Cookie", local: "Archiviazione locale", session: "Archiviazione di sessione", request: "Richieste a tracker noti" },

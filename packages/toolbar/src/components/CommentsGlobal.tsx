@@ -45,6 +45,7 @@ import { isAddCommentShortcut, isLetterKeyTarget, useShortcutsEnabled } from '..
 import { isSearchKey, isShortcutsHelpKey, sequenceTimeoutMs, shortcutLetter } from '../keyboard';
 import { actOnThread, shortcutThread } from '../threadShortcuts';
 import type { CommentsFilter, CommentsStatusFilter } from './sidebar/CommentsFilter';
+import { StagingComparison, useStagingPair } from './StagingComparison';
 import { CommentAnchor, CommentsGlobalProps, CommentSelection, CommentPoint, CommentDraft, CommentItem, commentTextMaxLength, isCommentArea } from './@types/Comments';
 
 /** Whether the node is in the toolbar's shadow root (or is its host) */
@@ -245,6 +246,7 @@ export function CommentsGlobal({
     const lastPageFocusRef = useRef<Element | null>(null);
 
     const { path, query: commentItems, reattach } = useComments(true);
+    const staging = useStagingPair(path);
     // A send the page never saw settle (it was reloaded or left meanwhile) comes back as a draft, as it may not have been
     // saved. Once the page's comments show it was (one of yours with its text), its draft goes: it is not listed as unsent.
     const loadedComments = commentItems.data;
@@ -327,6 +329,7 @@ export function CommentsGlobal({
         if (kind === 'drawing' && (!features.includes('draw') || !drawing)) return;
         // While the menu, popover or dialog it is in is open: its opener is saved with it (layerAnchor.ts)
         const position = withLayer(anchor, element);
+        const stagingPairingId = kind === 'comment' ? staging.pair?.id : undefined;
         // On uier's own pages the toolbar's popovers stayed open while pointing: those the comment is not on close
         closeToolbarLayers(element ?? resolveAnchorElement(position));
         closeHintForUse();
@@ -334,14 +337,14 @@ export function CommentsGlobal({
         // A comment or rewrite on the very same spot as an unsent one goes on with it (C on the same focused element,
         // the same text selected again); elsewhere it is a draft of its own, and the others wait as pins
         const same = kind === 'drawing' ? undefined : creatingComments.find(draft => draft.kind === kind && !draft.sentAs
-            && JSON.stringify(draft.position) === JSON.stringify(position) && drafts.get(draft.draftKey)?.trim());
+            && draft.stagingPairingId === stagingPairingId && JSON.stringify(draft.position) === JSON.stringify(position) && drafts.get(draft.draftKey)?.trim());
         if (same) {
-            setCreatingComment({ kind: same.kind, position: same.position, draftKey: same.draftKey, key: draftKeyRef.current });
+            setCreatingComment({ kind: same.kind, position: same.position, draftKey: same.draftKey, stagingPairingId, key: draftKeyRef.current });
             return;
         }
         // A drawing is new every time: text kept from an earlier one stays with it
         const draftKey = kind === 'drawing' ? newDrawingDraftKey : newDraftKey(kind);
-        drafts.setDetails(draftKey, { anchor: { kind, position } });
+        drafts.setDetails(draftKey, { anchor: { kind, position, stagingPairingId } });
         // A rewrite starts from the selected text (when it fits a comment's length)
         if (kind === 'rewrite' && position.type === 'text') {
             drafts.set(draftKey, position.text.length <= commentTextMaxLength ? position.text : '');
@@ -351,6 +354,7 @@ export function CommentsGlobal({
             draftKey,
             position,
             kind,
+            stagingPairingId,
             ...(drawing ? { drawing } : {}),
             device: getDeviceInfo(),
             screenshot: captureCommentScreenshot(position, rootElement, drawing)
@@ -963,6 +967,7 @@ export function CommentsGlobal({
     const candidatePlacement = reattaching?.candidate ? getCommentPlacement(reattaching.candidate) : undefined;
     return (
         <ReattachContext.Provider value={requestReattach}>
+            {!collapsed && <StagingComparison key={staging.pair?.id ?? path} {...staging} onReport={handleAddPointComment} />}
             {commentItems.isError && (
                 <CommentsLoadError error={commentItems.error} onRetry={() => commentItems.refetch()} />
             )}

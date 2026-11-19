@@ -38,6 +38,7 @@ export async function memberReviewTarget(userId: string, projectId: string, requ
         return null;
 
     let url = project.urls[0];
+    let pairingId: string | undefined;
     if (commentId) {
         if (!commentIdPattern.test(commentId)) return null;
         const comment = await getProjectComment(project, actor, commentId).catch(error => { if (error instanceof ApiError && error.status === 404) return null; throw error; });
@@ -47,6 +48,11 @@ export async function memberReviewTarget(userId: string, projectId: string, requ
         }
         if (!comment || !feedbackSource(project, comment.origin).available) return null;
         url = `${comment.origin}${commentSourcePath(comment)}`;
+        if (comment.stagingDesign) {
+            const { availableStaging, memberStagingPair, matchesStagingThread } = await import('../proofs/staging');
+            const active = await availableStaging(memberStagingPair(project.id, comment.stagingDesign.pairingId, userId));
+            if (active && matchesStagingThread(comment, active.pair)) pairingId = active.pair.pairingId;
+        }
     }
     if (requestedUrl && !commentId) {
         try {
@@ -61,6 +67,7 @@ export async function memberReviewTarget(userId: string, projectId: string, requ
         return requestedUrl ? null : KnownPageLinks.projectFiles(project.publicId);
 
     const target = new URL(reviewUrl(url, project.publicId));
+    if (pairingId) target.searchParams.set('uier-design', pairingId);
     target.searchParams.set(REVIEW_TOKEN_PARAM, await issueReviewCode(userId, project.id));
     if (commentId && commentIdPattern.test(commentId))
         target.searchParams.set(REVIEW_COMMENT_PARAM, commentId);

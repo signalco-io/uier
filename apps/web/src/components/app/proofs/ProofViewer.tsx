@@ -18,6 +18,7 @@ import { exchangeProofLink, proofFetch, ProofRequestError } from './client';
 import { mediaSurface, proofSize, type VideoPosition } from './ProofMedia';
 import { ProofSelect } from './ProofSelect';
 import { ProofThreads } from './ProofThreads';
+import { ProofStaging } from './ProofStaging';
 import { ProofApprovalPanel } from './ProofApprovalPanel';
 import { ProofViewport, type ProofFocus, type SynchronizedCenter } from './ProofViewport';
 import type { PdfDocument } from './PdfProof';
@@ -25,7 +26,7 @@ import type { PdfDocument } from './PdfProof';
 const PdfSearch = dynamic(() => import('./PdfProof').then(module => module.PdfSearch), { ssr: false });
 const PdfThumbnail = dynamic(() => import('./PdfProof').then(module => module.PdfThumbnail), { ssr: false });
 
-type ReviewUrlState = { version?: string; thread?: string };
+type ReviewUrlState = { version?: string; thread?: string; surface?: string };
 type Compare = { versionId: string; index?: number; evidence?: ProofThreadLocation };
 type Scene = { versionId: string; index: number };
 
@@ -92,11 +93,11 @@ function useProofVersion(projectId: string, assetId: string, version: string | u
     };
 }
 
-export function ProofViewer({ projectId, assetId, initialVersionId, initialThreadId }: {
-    projectId: string; assetId: string; initialVersionId?: string; initialThreadId?: string;
+export function ProofViewer({ projectId, assetId, initialVersionId, initialThreadId, initialSurfaceId }: {
+    projectId: string; assetId: string; initialVersionId?: string; initialThreadId?: string; initialSurfaceId?: string;
 }) {
     const { t, language } = useAppI18n();
-    const [address, setAddress] = useState<ReviewUrlState>({ version: initialVersionId, thread: initialThreadId });
+    const [address, setAddress] = useState<ReviewUrlState>({ version: initialVersionId, thread: initialThreadId, surface: initialSurfaceId });
     const [deepLink, setDeepLink] = useState<ReviewUrlState | undefined>(initialThreadId ? { version: initialVersionId, thread: initialThreadId } : undefined);
     const [retry, setRetry] = useState(0);
     const { endpoint, detail, previous, error } = useProofVersion(projectId, assetId, address.version, retry);
@@ -141,7 +142,7 @@ export function ProofViewer({ projectId, assetId, initialVersionId, initialThrea
     const format = version?.manifest?.format;
     const surfaces = version?.manifest?.surfaces ?? [];
     const currentFocus = focus?.versionId === versionId ? focus : undefined;
-    const index = scene && scene.versionId === versionId ? scene.index : 0;
+    const index = scene && scene.versionId === versionId ? scene.index : Math.max(0, surfaces.findIndex(surface => surface.id === address.surface));
     const activeSurface = version ? mediaSurface(version, index) : undefined;
     const sourceUrl = format === 'figma' && detail?.permissions.manage ? figmaSource(activeSurface?.sourceUrl) : undefined;
     const reference = detail?.versions.find(item => item.id === comparison?.versionId && item.id !== versionId && item.status === 'published');
@@ -168,7 +169,10 @@ export function ProofViewer({ projectId, assetId, initialVersionId, initialThrea
 
     const changeAddress = useCallback((next: ReviewUrlState, replace = false) => {
         const url = proofViewerPath(projectId, assetId, next.version);
-        const href = next.thread ? url + (next.version ? '&' : '?') + new URLSearchParams({ thread: next.thread }) : url;
+        const query = new URLSearchParams();
+        if (next.thread) query.set('thread', next.thread);
+        if (next.surface) query.set('surface', next.surface);
+        const href = query.size ? url + (next.version ? '&' : '?') + query : url;
         if (href !== location.pathname + location.search) {
             if (replace) history.replaceState(null, '', href);
             else history.pushState(null, '', href);
@@ -179,7 +183,7 @@ export function ProofViewer({ projectId, assetId, initialVersionId, initialThrea
     useEffect(() => {
         const pop = () => {
             const params = new URLSearchParams(window.location.search);
-            const next = { version: params.get('version') ?? undefined, thread: params.get('thread') ?? undefined };
+            const next = { version: params.get('version') ?? undefined, thread: params.get('thread') ?? undefined, surface: params.get('surface') ?? undefined };
             setAddress(next);
             setDeepLink(next.thread ? next : undefined);
             setFocus(undefined);
@@ -456,6 +460,9 @@ export function ProofViewer({ projectId, assetId, initialVersionId, initialThrea
                 <div className="grid min-w-0 content-start gap-3">
                     <ProofApprovalPanel key={threadVersion.id} endpoint={endpoint} projectId={projectId} assetId={assetId}
                         versionId={threadVersion.id} number={threadVersion.number} />
+                    {canManage && version && activeSurface && (format === 'image' || format === 'pdf' || format === 'figma') &&
+                        <ProofStaging key={`${version.id}/${activeSurface.id}`} projectId={projectId} assetId={assetId}
+                            versionId={version.id} surfaceId={activeSurface.id} initiallyExpanded={address.surface === activeSurface.id} />}
                     <aside ref={threadPanel} tabIndex={-1} aria-label={t('Comments')}
                         className="min-w-0 scroll-mt-3 rounded-xl border bg-background p-3 outline-none focus-visible:ring-2 focus-visible:ring-ring lg:max-h-[calc(100dvh-6rem)] lg:overflow-auto">
                         <ProofThreads projectId={projectId} assetId={assetId} versionId={threadVersion.id} currentVersionId={display?.asset.currentVersionId ?? null}

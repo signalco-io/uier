@@ -332,6 +332,7 @@ export function CommentBubble(props: CommentBubbleProps) {
         const posting = create.mutateAsync({
             localId,
             draftKey,
+            stagingPairingId: draft.stagingPairingId,
             position: draft.position,
             kind: rewriting ? 'rewrite' : undefined,
             text,
@@ -630,7 +631,7 @@ export function CommentBubble(props: CommentBubbleProps) {
                         text={selectedText}
                         state={rewrite}
                         onPick={(suggestion) => composerRef.current?.replaceText(suggestion)} />
-                ) : undefined}
+                ) : props.draft?.stagingPairingId ? <p className="m-0 text-sm text-muted-foreground">{t.staging.linkedComment}</p> : undefined}
                 onSubmit={handleSubmit}
                 discardable={drawingDraft}
                 onDiscard={() => { recording.discard(); if (creating) handleDiscard(); else attachment.remove(); }} />

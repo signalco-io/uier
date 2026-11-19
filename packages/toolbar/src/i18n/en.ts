@@ -11,6 +11,22 @@ const s = (count: number, one: string, other: string) => count === 1 ? one : oth
 const panelPlaces: Record<PanelDock, string> = { left: 'the left', right: 'the right', 'left-top': 'the top left', 'right-top': 'the top right', 'left-bottom': 'the bottom left', 'right-bottom': 'the bottom right' };
 
 export const en = {
+    staging: {
+        report: "Report discrepancy",
+        label: "Design comparison",
+        unavailable: "Staging review is unavailable.",
+        toggle: "Compare approved design",
+        viewport: (width: number, height: number) => `Target viewport: ${width} × ${height} px`,
+        currentViewport: (width: number, height: number) => `Current viewport: ${width} × ${height} px`,
+        opacity: "Design opacity",
+        preview: "Approved design preview",
+        linkedComment: "This comment links to the approved design.",
+        approvedDesign: "Approved design",
+        before: "Before screenshot",
+        after: "After screenshot",
+        noScreenshot: "No screenshot selected",
+        replyImage: (number: number) => `Reply screenshot ${number}`,
+    },
     consentPanel: {
         about: "About this tab",
         groups: { cookie: "Cookies", local: "Local storage", session: "Session storage", request: "Known tracker requests" },
