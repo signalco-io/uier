@@ -26,6 +26,11 @@ export const filterControls = 'ml-auto flex shrink-[4] items-center gap-2 max-sm
  * don't fit; on a phone their own line under the row, filling the width (uier #278). Shared with the loading header.
  */
 export const statusTabsBox = 'order-last -mx-1 -my-0.5 max-w-[calc(100%+0.5rem)] basis-[calc(100%+0.5rem)] overflow-x-auto px-1 py-0.5 sm:order-none sm:min-w-0 sm:basis-auto';
+/**
+ * A project's filter row (the search, Filter, List/Board and, in the list, the status tabs) ends in the app's divider,
+ * as wide as the row, in the list and the board (uier #495). Shared with the loading header.
+ */
+export const filtersDivider = 'border-b border-border pb-2';
 /** Filter and Group by: icon-only and without an outline (uier #404), named and with a tooltip; 44 px on a touch screen */
 export const filterIconButton = 'relative shrink-0 pointer-coarse:size-11';
 
