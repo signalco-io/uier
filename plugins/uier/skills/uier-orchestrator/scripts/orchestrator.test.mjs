@@ -80,6 +80,25 @@ test('every unfinished delivery keeps the project alive', () => {
     assert.equal(unfinished({ project: {}, items: { c: { stage: 'done' } }, groups: { g: { state: 'closed' } } }), false);
 });
 
+test('the T3 supervisor saves its pin receipt until the matching thread is unpinned', () => {
+    const env = { ...process.env, UIER_MONITOR_HOME: join(root, 'pin-home') };
+    const command = (...args) => JSON.parse(execFileSync(process.execPath, [helper, ...args], { env, encoding: 'utf8' }));
+    // Seed a legacy supervisor record without launching a detached process.
+    execFileSync(process.execPath, ['--input-type=module', '-e', `
+        import { writeRecord } from ${JSON.stringify(new URL('../../uier-monitor/scripts/store.mjs', import.meta.url).href)};
+        writeRecord(null, 'orchestrator', { enabled: true, harness: 't3', projects: {} });
+    `], { env });
+    assert.equal(command('status').t3Thread, undefined);
+    const { t3Thread } = command('record-pin', 'supervisor-thread');
+    assert.equal(t3Thread.id, 'supervisor-thread');
+    assert.equal(new Date(t3Thread.pinnedAt).toISOString(), t3Thread.pinnedAt);
+    assert.deepEqual(command('clear-pin', 'different-thread').t3Thread, t3Thread);
+    command('stop');
+    assert.deepEqual(command('status').t3Thread, t3Thread);
+    assert.equal(command('clear-pin', 'supervisor-thread').t3Thread, null);
+    assert.equal(command('status').t3Thread, undefined);
+});
+
 for (const [index, harness] of ['t3', 'codex', 'claude'].entries()) test(harness + ' reserves one session per burst, retires it, then opens a fresh session', async t => {
     const id = 'test0000000' + index;
     const repo = join(root, harness + ' checkout'), binary = join(root, harness);

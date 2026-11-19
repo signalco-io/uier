@@ -35,6 +35,18 @@ The detached process checks waiting projects every five minutes and active lifec
 
 `O remove PROJECT_ID` and `O stop` prevent further dispatches in scope. Managed watchers exit at their next local control check. If the person also asks to stop an active project monitor, use uier-monitor's stop path in its owning checkout, including disabling its watcher and outstanding watches. Use `O status` after a command; the local dashboard also shows its state.
 
+### T3 supervisor thread
+
+After a successful T3 start or resume, including when `O start` returns the existing process:
+
+1. Call `t3_thread_update` with `action: "rename"` and `title: "🧭 uier orchestrator"`. Omit `threadId` to rename this thread. Use the returned `threadId` for the pin receipt.
+2. If `O status` shows a different `t3Thread.id`, read that thread with `t3_thread_read`, then unpin it with `t3_thread_organize` (`action: "unpin"`, explicit saved ID). After success, run `O clear-pin THREAD_ID` with that saved ID. If T3 confirms the thread no longer exists, clear its receipt directly.
+3. On resume, call `t3_thread_organize` with `action: "unsettle"`. On both start and resume, call it with `action: "pin"`. Omit `threadId` for both calls. After the pin succeeds, run `O record-pin THREAD_ID` with the ID from the rename. This records `t3Thread.pinnedAt` in UTC. If recording fails, unpin the new thread and report the failure.
+
+After `O stop`, unpin the saved supervisor thread in T3. Use `t3_thread_organize` with `action: "unpin"` and the `t3Thread.id` from `O status`, or omit `threadId` when stopping from that thread. If stopping from another thread, read the saved thread first. Run `O clear-pin THREAD_ID` after a successful unpin or if T3 confirms the saved thread no longer exists. With no saved receipt, there is no thread to unpin. If the T3 tools are unavailable or unpin fails, report the pending cleanup and keep the receipt for a later T3 stop or resume.
+
+Apply these actions only to the supervisor thread. Status, dashboard, allowlist changes and ordinary wakes do not change thread state. If T3 reports that the active supervisor thread was settled, unsettle it, pin it again and refresh the receipt.
+
 ## Recovery
 
 Read the saved project phase, session ID and error. Correct missing grants, CLI permissions or checkout mappings in the original profile. For a failed native turn with a known session, use `O retry PROJECT_ID`. Check the original session before clearing an uncertain first launch. Only after verifying that no worker was created, use `O retry PROJECT_ID confirmed-no-worker`. When a worker exists, recover it in that session with its saved `managed=<run>` and project ID. A manual stop takes precedence over automated wakes. Never clear a stop or start a replacement to work around a missing receipt.
