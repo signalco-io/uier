@@ -1,0 +1,79 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: Configure file proof providers
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Vercel and GitHub environment
+        type: choice
+        options: [preview, production]
+        required: true
+      feature:
+        description: Dedicated provider to configure
+        type: choice
+        options: [html, mail]
+        required: true
+      deployment:
+        description: Exact generated Vercel deployment URL (HTML only)
+        type: string
+        required: false
+permissions: {}
+concurrency:
+  group: file-proof-providers
+  cancel-in-progress: false
+jobs:
+  configure:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.target }}
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    env:
+      PROOF_TARGET: ${{ inputs.target }}
+      UIER_PROOF_HTML_ORIGIN_PREVIEW: ${{ vars.UIER_PROOF_HTML_ORIGIN_PREVIEW }}
+      UIER_PROOF_HTML_ORIGIN_PRODUCTION: ${{ vars.UIER_PROOF_HTML_ORIGIN_PRODUCTION }}
+      UIER_PROOF_APP_ORIGIN: ${{ vars.UIER_PROOF_APP_ORIGIN }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version-file: .nvmrc
+      - name: Check provider setup with local fixtures
+        run: node --test .github/proofs/*.test.mjs
+      - name: Attach and probe the isolated proof hostname
+        if: inputs.feature == 'html'
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          UIER_PROOF_DEPLOYMENT: ${{ inputs.deployment }}
+          UIER_PROOF_VERCEL_BYPASS: ${{ secrets.UIER_PROOF_VERCEL_BYPASS }}
+        run: node .github/proofs/configure.mjs html
+      - name: Install and validate Wrangler before loading credentials
+        if: inputs.feature == 'mail'
+        env:
+          # renovate: datasource=npm depName=wrangler
+          WRANGLER_VERSION: '4.165.0'
+          WRANGLER_SEND_METRICS: 'false'
+        run: |
+          npm install --global --ignore-scripts --include=optional --no-audit --no-fund --prefix "$RUNNER_TEMP/proof-clis" "wrangler@$WRANGLER_VERSION"
+          "$RUNNER_TEMP/proof-clis/bin/wrangler" deploy .github/proofs/mail-worker.mjs --name uier-proof-mail-check --compatibility-date 2026-11-19 --autoconfig=false --dry-run --outdir "$RUNNER_TEMP/proof-mail-bundle"
+      - name: Configure the designated inbound mail alias
+        if: inputs.feature == 'mail'
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.UIER_PROOF_CLOUDFLARE_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.UIER_PROOF_CLOUDFLARE_ACCOUNT_ID }}
+          UIER_PROOF_EMAIL_ALIAS: ${{ vars.UIER_PROOF_EMAIL_ALIAS }}
+          UIER_PROOF_EMAIL_ZONE_ID: ${{ vars.UIER_PROOF_EMAIL_ZONE_ID }}
+          UIER_PROOF_EMAIL_SECRET: ${{ secrets.UIER_PROOF_EMAIL_SECRET }}
+          UIER_PROOF_VERCEL_BYPASS: ${{ secrets.UIER_PROOF_VERCEL_BYPASS }}
+          WRANGLER_SEND_METRICS: 'false'
+        run: |
+          work=$(mktemp -d "$RUNNER_TEMP/proof-mail.XXXXXX")
+          trap 'rm -rf "$work"' EXIT
+          node .github/proofs/configure.mjs mail "$work"
+          env -u VERCEL_TOKEN -u UIER_PROOF_EMAIL_SECRET -u UIER_PROOF_VERCEL_BYPASS \
+            "$RUNNER_TEMP/proof-clis/bin/wrangler" deploy --config "$work/wrangler.json" --autoconfig=false --secrets-file "$work/proof-secrets.json"
+          node .github/proofs/configure.mjs mail-rule

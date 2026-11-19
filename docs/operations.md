@@ -126,6 +126,48 @@ rule activation, authoritative DNS readback and an actual forwarded message are 
 MX records alone do not establish successful delivery. The transactional `notify.uier.io` records
 and sender identity are independent of inbound forwarding.
 
+### File proof provider setup
+
+Run **Configure file proof providers** from `main` and select the GitHub environment that
+matches the Vercel target. Restrict both GitHub environments to `main`. Each environment
+supplies its own `VERCEL_TOKEN` with access to the uier project and the selected operation.
+
+**HTML.** Set the repository variables `UIER_PROOF_HTML_ORIGIN_PREVIEW` and
+`UIER_PROOF_HTML_ORIGIN_PRODUCTION` to separate HTTPS origins. The dedicated Vercel hosts are
+`uier-proof-preview-signalco.vercel.app` and `uier-proof-production-signalco.vercel.app`.
+A custom host must be isolated from the app and its cookies, outside `uier.io`, and provisioned
+for the uier Vercel team with working DNS and TLS. Reserve it for explicit proof deployment
+aliases, separate from the app's project domains and wildcard domains. Build the proof-enabled
+app with the target origin, then dispatch `html` with its exact generated deployment URL.
+Keep control of the dedicated aliases with this workflow while a dispatch is running.
+
+The workflow reads back the alias and checks that the isolated origin serves a 404 for the app
+root. A protected dedicated Vercel hostname can use the environment's
+`UIER_PROOF_VERCEL_BYPASS` automation secret as a request header. If the run reports a 401
+with alias verification only, finish QA using authenticated access. Verify the root 404 and
+load a real signed prototype through the app's iframe. Use the isolated hostname for proof
+resources and check that the ordinary app origin rejects those resources. If a custom hostname
+requires authentication, verify its current binding through Vercel before moving it. The
+workflow can read back a custom hostname already on the selected deployment.
+[Vercel automation protection bypass](https://vercel.com/docs/deployment-protection/methods-to-bypass-deployment-protection/protection-bypass-automation)
+
+**Mail.** Set `UIER_PROOF_APP_ORIGIN` to the exact generated deployment origin for the selected
+target. Production can also use `https://uier.io` once it resolves to the intended production
+deployment. Set a distinct literal `UIER_PROOF_EMAIL_ALIAS` for each environment and enable
+plus addressing and Cloudflare MX for its domain. Supply `UIER_PROOF_EMAIL_ZONE_ID` and
+`UIER_PROOF_CLOUDFLARE_ACCOUNT_ID` as variables. The `UIER_PROOF_CLOUDFLARE_TOKEN` secret
+needs Worker Scripts Edit on that account, plus Zone Read, Zone Settings Read and Email Routing
+Rules Edit on the selected zone. Use an independent random `UIER_PROOF_EMAIL_SECRET` in
+each environment and set `UIER_PROOF_VERCEL_BYPASS` when the receiving app origin is protected.
+
+Dispatch `mail`. The workflow verifies the destination and routing configuration, writes the
+target runtime variables to Vercel, deploys the dedicated Worker, and creates the exact literal
+rule if needed. Redeploy the app to load the runtime variables. When using a generated
+deployment URL, update `UIER_PROOF_APP_ORIGIN` to the new URL and dispatch `mail` again.
+Send real email to a generated plus address and verify that it creates a proof version in
+the selected environment. The root contact, security and privacy aliases and disabled
+catch-all remain in place. [Cloudflare Email Routing addresses](https://developers.cloudflare.com/email-service/configuration/email-routing-addresses/)
+
 ### Email domain verification and cutover
 
 Before applying, query both authoritative Cloudflare servers for `notify.uier.io` TXT,
