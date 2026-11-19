@@ -385,7 +385,7 @@ export type BoardProject = { id: string; name?: string; url?: string; assignees:
  * it from the column's header. Each status column can be collapsed to a strip by the person reading the
  * board (`collapseScope`, remembered in this browser, uier #464); its cards are then out of the keys' lanes.
  */
-export function CommentBoard({ projectOf, columns: categoryColumns, workflow, verificationEnabled, sorts, onSort, archiveAll, collapseScope, allComments, userId, openComment, paging, detailRevision }: {
+export function CommentBoard({ projectOf, columns: categoryColumns, workflow, verificationEnabled, sorts, onSort, archiveAll, collapseScope, initialCollapsed, allComments, userId, openComment, paging, detailRevision }: {
     workflow?: StatusWorkflow;
     verificationEnabled?: boolean;
     /** Each thread's project (`BoardProject`) */
@@ -400,6 +400,7 @@ export function CommentBoard({ projectOf, columns: categoryColumns, workflow, ve
     /** Archive all in a column's header (a project's board, for the people who may triage) */
     archiveAll?: ArchiveAllScope;
     collapseScope?: string;
+    initialCollapsed?: string[];
     /** Every thread the board's sheet can open, archived ones too */
     allComments: ProjectCommentView[];
     userId: string;
@@ -422,7 +423,7 @@ export function CommentBoard({ projectOf, columns: categoryColumns, workflow, ve
     const { change, pending } = useStatusChanger(comment => projectOf(comment).id);
     const openedProject = opened && projectOf(opened);
     // Ignore collapsed IDs that are no longer on this board.
-    const { collapsed: collapsedIds, setCollapsed, enabled: collapsible } = useCollapsedColumns(collapseScope);
+    const { collapsed: collapsedIds, setCollapsed, enabled: collapsible } = useCollapsedColumns(collapseScope, initialCollapsed);
     const collapsed = (status: string) => collapsedIds.has(status);
     const [focusId, setFocusId] = useState<string>();
     const reducedMotion = useSyncExternalStore(subscribeReducedMotion, () => window.matchMedia(reducedMotionQuery).matches, () => false);

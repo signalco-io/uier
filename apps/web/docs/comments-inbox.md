@@ -214,8 +214,9 @@ either way, and the strip and the column morph into each other (`useColumnFold`,
 reduced motion). The grid's tracks follow (`--board-columns`), so the next column moves up beside the strip.
 - Per viewer, unlike the sorts: `comments/boardCollapse.ts` keeps the collapsed status ids in this
   browser (`localStorage` `uier:board-collapsed`, one list per board: the project's id, or `my-work`), and other tabs
-  follow. The server and the first paint show every column; a remembered choice applies once the board hydrates.
-  Blocked storage keeps it until the page is opened again. Label lanes on one project share the choice.
+  follow. Project folds are mirrored in a bounded cookie so the server paints the saved tracks before
+  hydration. A localStorage-only choice migrates when its board opens. My work reads its saved folds during hydration.
+  If both browser stores are blocked, the choice lasts until the page is opened again. Label lanes on one project share the choice.
 - A collapsed column's cards are not rendered: they are out of the keys' lanes (← → skip it, J and K pass it) and
   the tab stop. It is still a drop target: while a card is dragged the strip stretches to the longest column and
   takes the dashed, highlighted and refused looks like any column, and a dropped card waits there, counted. Move
@@ -352,10 +353,10 @@ the reserved row is hidden. Live arrivals and reading the last unread thread can
 in its left padding, out of the flow, so reading it leaves its title and path where they are.
 
 `e2e/project-cls.spec.ts` measures production HTML through delayed hydration at the reported desktop
-viewport (1674 × 1366) and on Mobile Chrome, with 20 API-created threads and 4× CPU slowdown. It
+viewport (1674 × 1366) and on Mobile Chrome, with 30 API-created threads and 4× CPU slowdown. It
 records every `layout-shift` source and before/after rectangle in `project-cls.json`, with the toolbar's
 largest-session-window calculation (recent input and toolbar-only entries excluded). It checks the
-painted view before releasing scripts, read-all, a background unread arrival, an empty search and
+painted view and saved column tracks before releasing scripts, read-all, a background unread arrival, an empty search and
 Give feedback's toolbar injection, plus unchanged board/header geometry, the count line left of the search on
 desktop (under it on a phone) and Filter staying put through read-all and the arrival. The full report and limits
 are in [the CLS investigation](project-comments-cls.md).

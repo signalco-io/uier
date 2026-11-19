@@ -22,6 +22,7 @@ import { WorkspaceMark } from '../workspace/WorkspaceMark';
 /** The shell's inset panel and the column a page sits in; shared with the loaded layout so the two cannot drift */
 export const shellInsetClassName = 'min-w-0 lg:h-[calc(100svh-1rem)] lg:overflow-hidden';
 export const shellTopBarClassName = 'sticky top-0 z-10 flex h-12 shrink-0 items-center gap-2 border-b bg-background px-3 lg:static';
+export const shellScrollClassName = 'flex-1 lg:overflow-y-auto lg:[scrollbar-gutter:stable]';
 export const shellColumnClassName = 'mx-auto flex w-full max-w-5xl flex-col px-4 py-6 [--page-gutter:1rem] [--page-wide:calc(100cqw-2rem)] md:px-8 md:pt-6 md:pb-10 md:[--page-gutter:2rem] md:[--page-wide:calc(100cqw-4rem)]';
 
 /** A bar on the sidebar: the sidebar's own grey is the default skeleton's, which would not show on it */
@@ -109,7 +110,7 @@ export function ShellFrame() {
                         <Separator orientation="vertical" className="mr-1 data-vertical:h-4 data-vertical:self-center" />
                         <Bar className="h-4 w-28" />
                     </header>
-                    <div className="flex-1 lg:overflow-y-auto">
+                    <div className={shellScrollClassName}>
                         <div className={shellColumnClassName}>
                             {/* Every page starts with its title where `PageHeader` puts it */}
                             <HeaderOutline />

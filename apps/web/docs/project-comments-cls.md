@@ -92,3 +92,22 @@ revealed on its own would push the comments' loading state down. The comments re
 outside the page's boundary; its hidden heading takes no room, so the loading state and the comments start where they
 did. `instant-nav.spec.ts` checks the header's width and the title's position across the reveal and that the loading
 board has no Group by, no column actions and the three columns every workflow has.
+
+## Saved folds and classic scrollbars
+
+[uier #484](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_AChySNnO_k2Dsr0PBUYxz)
+reported CLS 1.52 in Edge 157 at 1674 × 1366 and identified `div.mx-auto.flex` in the app shell.
+The expanded regression uses Chromium 159 with 20 Open and 10 Done threads, a saved In progress
+fold, and 4× CPU slowdown. It observes two separate desktop shifts:
+
+| Observed shift | Cause | Resolution |
+| --- | --- | --- |
+| Done and Archive move 272 px left after hydration. CLS 0.041779 on `6f8a253f` with overlay scrollbars. | The server paints In progress as a 320 px column. Hydration restores its saved 48 px width. | The authorized project page reads the saved tracks from a bounded browser cookie. The server and hydrated Board now agree on a 48 px strip and a 64 px offset to Done. A localStorage-only choice applies on its first hydration and migrates for later loads. |
+| A search with no matches moves the shell column 8 px right and the search field 16 px right. CLS 0.007250 with the fold fix in place and a 16 px classic scrollbar. | An overflowing board makes room for the scrollbar. Replacing it with the empty state removes the scrollbar and widens the panel. | The loading frame and desktop panel reserve the same classic scrollbar gutter, so the shell and search keep their horizontal positions. |
+
+The regression holds scripts for the first paint and checks the exact strip geometry before and after
+hydration. It then checks the shell and search positions when the board stops overflowing, alongside
+the existing read-all, live unread and toolbar scenarios. The local desktop run with both fixes and
+classic scrollbars measured CLS 0. Mobile Chromium measured 0.032128 from cards moving down
+inside Open after the live arrival. The board top, shell and search stayed in place. The original
+production value of 1.52 remains to be rechecked on the reporting project in Edge.

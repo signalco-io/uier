@@ -84,6 +84,7 @@ type ProjectCommentsProps = {
     labels?: ThreadLabel[];
     workflow?: StatusWorkflow;
     initialView?: CommentsView;
+    collapsedColumns?: string[];
     revision: string;
     paging: ProjectCommentPaging;
     openedComment?: ProjectCommentView;
@@ -113,7 +114,7 @@ export function ProjectComments(props: ProjectCommentsProps) {
         onSnapshot={snapshot => setFresh({ source: props, snapshot })} />;
 }
 
-function ProjectCommentsView({ labels = [], workflow = defaultStatusWorkflow, projectId, revision, access, isAdmin, comments: savedComments, query: serverQuery, userId, assignees, installHref, environments, authorFilter, boardSorts: savedSorts, boardGroupByLabel = false, boardGroupLabelIds, canSortBoard, initialView, paging: savedPaging, openedComment: savedOpenedComment, onSnapshot }: ProjectCommentsProps & { onSnapshot: (snapshot: Partial<ProjectCommentsProps>) => void }) {
+function ProjectCommentsView({ labels = [], workflow = defaultStatusWorkflow, projectId, revision, access, isAdmin, comments: savedComments, query: serverQuery, userId, assignees, installHref, environments, authorFilter, boardSorts: savedSorts, boardGroupByLabel = false, boardGroupLabelIds, canSortBoard, initialView, collapsedColumns, paging: savedPaging, openedComment: savedOpenedComment, onSnapshot }: ProjectCommentsProps & { onSnapshot: (snapshot: Partial<ProjectCommentsProps>) => void }) {
     const { t } = useAppI18n();
     // The presentation filters and the open thread change with the address at once, even while a
     // change waits for the server (`useUrlSearchParams`)
@@ -379,6 +380,7 @@ function ProjectCommentsView({ labels = [], workflow = defaultStatusWorkflow, pr
                 <LabelBoards grouped={groupIds !== false} labels={groupedLabels} renderBoard={group => <CommentBoard workflow={workflow} projectOf={() => ({ id: projectId, assignees })} columns={Object.fromEntries(Object.entries(columns).map(([status, cards]) => [status, cards.filter(comment => inLabelWindow(comment, group))])) as typeof columns} sorts={boardSorts} onSort={canSortBoard ? changeSort : undefined}
                     archiveAll={canSortBoard ? { projectId, group, params: Object.fromEntries(Object.entries(query).flatMap(([key, value]) => value === undefined ? [] : [[key, String(value)]])) } : undefined}
                     collapseScope={projectId}
+                    initialCollapsed={collapsedColumns}
                     allComments={scopeComments} userId={userId} openComment={openComment}
                     detailRevision={pager.data.revision} paging={Object.fromEntries(orderedStatuses(workflow).filter(status => status.category !== 'archive').map(status => [status.id, pageControl(group ? labelLaneKey(status.id, group) : status.id)]))} />} />
             ) : (
