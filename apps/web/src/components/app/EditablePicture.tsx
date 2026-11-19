@@ -6,7 +6,7 @@ import { useRef, useState, useTransition, type ClipboardEvent, type ComponentPro
 import { PencilIcon } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
 import { Spinner } from '@/src/components/ui/spinner';
-import { AVATAR_TYPE_ERROR, avatarInputTypes } from '@/src/lib/app/avatarLimits';
+import { AVATAR_TYPE_ERROR, avatarInputTypes, MAX_AVATAR_UPLOAD_BYTES } from '@/src/lib/app/avatarLimits';
 import { fitForUpload } from '@/src/lib/app/fitAvatarUpload';
 import { cn } from '@/src/lib/utils';
 
@@ -54,7 +54,7 @@ const carriesFiles = (data: DataTransfer | null) => !!data && Array.from(data.ty
  * is inside, so the page's clipboard is never read elsewhere, and text pastes pass through untouched.
  * A file that is not an image gets the server's own message before anything is sent.
  */
-export function usePictureUpload({ endpoint, fileLabel, failed, onSaved, onPendingChange, disabled }: {
+export function usePictureUpload({ endpoint, fileLabel, failed, onSaved, onPendingChange, disabled, resizeBeforeUpload = true }: {
     endpoint: string;
     /** The hidden file field's accessible name ("Profile picture file") */
     fileLabel: string;
@@ -64,6 +64,8 @@ export function usePictureUpload({ endpoint, fileLabel, failed, onSaved, onPendi
     onPendingChange?: (pending: boolean) => void;
     /** Drops and pastes are ignored (the picker's trigger is disabled) */
     disabled?: boolean;
+    /** A workspace logo is sent as selected so the server can validate its original size and format. */
+    resizeBeforeUpload?: boolean;
 }) {
     const { t } = useAppI18n();
     const input = useRef<HTMLInputElement>(null);
@@ -74,6 +76,10 @@ export function usePictureUpload({ endpoint, fileLabel, failed, onSaved, onPendi
 
     const send = (method: 'POST' | 'DELETE', file?: File) => {
         if (busy.current) return;
+        if (file && !resizeBeforeUpload && file.size > MAX_AVATAR_UPLOAD_BYTES) {
+            setError(t("Use an image up to {count} MB.", { count: MAX_AVATAR_UPLOAD_BYTES / 1024 ** 2 }));
+            return;
+        }
         busy.current = true;
         onPendingChange?.(true);
         startTransition(async () => {
@@ -82,7 +88,7 @@ export function usePictureUpload({ endpoint, fileLabel, failed, onSaved, onPendi
                 let body: FormData | undefined;
                 if (file) {
                     body = new FormData();
-                    body.set('file', await fitForUpload(file), file.name);
+                    body.set('file', resizeBeforeUpload ? await fitForUpload(file) : file, file.name);
                 }
                 const response = await fetch(endpoint, { method, body });
                 if (!response.ok) {

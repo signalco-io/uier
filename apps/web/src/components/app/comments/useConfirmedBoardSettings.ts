@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import type { BoardColumn, BoardSort } from '@/src/lib/app/boardSort';
 
-type Settings = Record<BoardColumn, BoardSort> & { archiveExpanded: boolean; groupIds: false | string[] };
+type Settings = Record<BoardColumn, BoardSort> & { groupIds: false | string[] };
 type Key = keyof Settings;
 
 /** Successful saves outlive their action transition until an authorized snapshot observes each field. */

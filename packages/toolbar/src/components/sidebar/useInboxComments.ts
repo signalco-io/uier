@@ -46,7 +46,7 @@ export function pageKeyPath(key: CommentsPageFilter) {
  */
 export function useInboxComments(filter: CommentsFilter) {
     const verificationEnabled = useProjectViewer().verificationEnabled === true;
-    if (!verificationEnabled && filter.status === 'ready') filter = { ...filter, status: 'unresolved' };
+    if (!verificationEnabled && filter.status === 'ready') filter = { ...filter, status: filter.archived ? 'all' : 'unresolved' };
     const { path, query: pageQuery } = useComments();
     const siteQuery = useSiteComments(true, Boolean(filter.unread));
     const siteMore = useMoreSiteComments(siteQuery, Boolean(filter.unread));
@@ -93,10 +93,15 @@ export function useInboxComments(filter: CommentsFilter) {
         state = siteQuery;
     }
 
+    const inScope = (comment: CommentItem) => Boolean(comment.archivedAt) === Boolean(filter.archived);
+    const matchesScope = (comment: CommentItem, status: CommentsStatusFilter) => inScope(comment) && matchesStatus(comment, status);
     const withStatus = (list: CommentItem[] | undefined, status: CommentsStatusFilter = filter.status) =>
-        list?.filter(comment => matchesStatus(comment, status));
+        list?.filter(comment => matchesScope(comment, status));
     const comments = withStatus(scoped);
 
+    const archive = scoped?.filter(comment => comment.archivedAt);
+    let archiveCount = archive?.length;
+    let archiveUnread = Boolean(archive?.some(comment => comment.activity?.unread));
     // Of the listed comments (the site's list has the newest ones only, see `siteCapped`)
     const counts: Record<CommentsStatusFilter, number> = {
         unresolved: withStatus(scoped, 'unresolved')?.length ?? 0,
@@ -104,8 +109,7 @@ export function useInboxComments(filter: CommentsFilter) {
         'in-progress': withStatus(scoped, 'in-progress')?.length ?? 0,
         ready: withStatus(scoped, 'ready')?.length ?? 0,
         resolved: withStatus(scoped, 'resolved')?.length ?? 0,
-        all: withStatus(scoped, 'all')?.length ?? 0,
-        archived: withStatus(scoped, 'archived')?.length ?? 0
+        all: withStatus(scoped, 'all')?.length ?? 0
     };
     // Known once the scope's lists have loaded (or from the site's summary, below): until then the tabs show no count
     let countsLoaded = scoped !== undefined;
@@ -115,7 +119,12 @@ export function useInboxComments(filter: CommentsFilter) {
         .map(status => [status, Boolean(withStatus(scoped, status)?.some(comment => comment.activity?.unread))])) as Record<CommentsStatusFilter, boolean>;
 
     // Site-wide totals come from the full authorized projection, never the capped text window.
-    if (scope === 'all' && activity && !filter.keywords?.trim() && !filter.unread && !filter.assignedToMe) {
+    const useSiteTotals = scope === 'all' && activity && !filter.keywords?.trim() && !filter.unread && !filter.assignedToMe;
+    if (useSiteTotals) {
+        archiveCount = activity.archived ?? archiveCount;
+        archiveUnread = activity.unreadArchived !== undefined ? activity.unreadArchived > 0 : archiveUnread;
+    }
+    if (useSiteTotals && !filter.archived) {
         countsLoaded = true;
         // `open` here is every status but Done: Active
         counts.unresolved = activity.open;
@@ -125,7 +134,6 @@ export function useInboxComments(filter: CommentsFilter) {
         if (activity.inProgress !== undefined) counts.open = Math.max(0, activity.open - activity.inProgress - counts.ready);
         counts.resolved = activity.done;
         counts.all = activity.total;
-        counts.archived = activity.archived ?? counts.archived;
         // The tabs' unread dots from the same summary, for the threads not loaded yet (uier #346)
         if (activity.unreadOpen !== undefined) {
             const open = activity.unreadOpen, inProgress = activity.unreadInProgress ?? 0, ready = activity.unreadReady ?? 0, done = activity.unreadDone ?? 0;
@@ -135,7 +143,6 @@ export function useInboxComments(filter: CommentsFilter) {
             unread.unresolved = open + inProgress + ready > 0;
             unread.resolved = done > 0;
             unread.all = open + inProgress + ready + done > 0;
-            unread.archived = (activity.unreadArchived ?? 0) > 0;
         }
     }
 
@@ -149,7 +156,7 @@ export function useInboxComments(filter: CommentsFilter) {
             environmentLabel: comment.source && comment.source.environment !== currentEnvironment ? comment.source.label : undefined,
             count: 0
         };
-        if (matchesSearch(comment, filter) && matchesStatus(comment, filter.status)) page.count++;
+        if (matchesSearch(comment, filter) && matchesScope(comment, filter.status)) page.count++;
         pages.set(key, page);
     }
     const currentCount = withStatus(currentSearched)?.length ?? 0;
@@ -174,6 +181,8 @@ export function useInboxComments(filter: CommentsFilter) {
         state,
         counts,
         countsLoaded,
+        archiveCount,
+        archiveUnread,
         unread,
         pages: [...pages.values()],
         currentPath: path,

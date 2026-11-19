@@ -17,7 +17,7 @@ export function ProjectNotice({ text, action, onExitReview, children }: ProjectN
     return <InkScope>
         <nav aria-label={t.toolbar.navLabel} className="fixed bottom-4 left-1/2 z-[51] w-max max-w-[calc(100vw-2rem)] -translate-x-1/2">
             <div role="group" aria-label={t.toolbar.groupLabel}
-                className="flex flex-wrap items-center justify-end gap-x-3 gap-y-2 rounded-full border bg-background p-2 pl-4 text-foreground shadow-[0_8px_24px_rgba(0,0,0,0.16)]">
+                className="flex flex-wrap items-center justify-end gap-x-3 gap-y-2 rounded-full border bg-background p-2 pl-4 text-foreground shadow-(--brand-shadow-review)">
                 <p className="m-0 min-w-0 flex-1 basis-48 text-sm">{text}</p>
                 {(action || onExitReview) && <div className="flex shrink-0 items-center gap-1">
                     {action && <Button variant="solid" size="sm" className="rounded-full"

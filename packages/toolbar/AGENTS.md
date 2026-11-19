@@ -120,11 +120,11 @@ they behave goes in that note, not here.
 | `components/ShowcaseHint.tsx` | first-run hint and About uier: on uier.io's landing page only (showcase without a project, `showAbout` in `CommentsGlobal`), not on its other pages, in the app, in reviews or in embeds |
 | `components/CommentIcon.tsx` | the outlined pin icon (Add comment), from `PIN_PATH` in `@uier/brand`; pins on the page are `<Pin />` from `@uier/brand` |
 | `components/CommentSelectionHighlight.tsx` | the tint over a commented text range (`--brand-selection`), clickable for saved comments |
-| `components/CommentSelectionPopover.tsx`, `RewriteIcon.tsx` | the toolbar for selected text: Add comment and Rewrite ([point mode](docs/point-mode.md#selected-text)) |
+| `components/CommentSelectionPopover.tsx`, `RewriteIcon.tsx` | the toolbar for selected text: Comment and Rewrite ([point mode](docs/point-mode.md#selected-text)) |
 | `components/RewriteSuggestions.tsx`, `hooks/useRewriteSuggestions.tsx` | AI suggestions in a rewrite's form ([popovers](docs/composer-popovers.md#a-rewrite)) |
 | `components/info/`, `hooks/useHoverPopover.ts` | the browser and device a comment was left from, and their details popover ([device details](docs/device-details.md)) |
 | `src/deviceDetails/` | the details popover's content and marks, shared with the app (`@uier/toolbar/device-details`) ([device details](docs/device-details.md)) |
-| `src/screenshot.ts`, `components/CommentScreenshot.tsx`, `components/ComposerAttachments.tsx` | capture, the screenshot toggle and saved thumbnails ([screenshots](docs/screenshots.md)) |
+| `src/screenshot.ts`, `components/CommentScreenshot.tsx`, `components/ComposerAttachments.tsx` | capture, the composer's screenshot thumbnail and saved thumbnails ([screenshots](docs/screenshots.md)) |
 | `components/CommentAttach.tsx`, `hooks/useAttachRecording.ts` | Attach to comment: a screenshot, image or recording added to a saved first message ([screenshots](docs/screenshots.md#saved-images), [recordings](docs/recordings.md#a-recording-for-a-saved-comment)) |
 | `components/ComposerAttachMenu.tsx` | Attach: one menu with Attach image, Record screen and Upload recording ([screenshots](docs/screenshots.md#the-form), [recordings](docs/recordings.md)) |
 | `src/screenshotPolicy.ts`, `src/suppliedScreenshot.ts`, `components/ScreenshotRedaction.tsx`, `hooks/useReplaceScreenshot.ts` | saved images: upload, paste and redaction ([screenshots](docs/screenshots.md#saved-images)) |
@@ -205,8 +205,8 @@ text. Drafts are local to each browser origin and expire after seven days.
   the message editor in every composer, [docs/message-editor.md](docs/message-editor.md)). Published files may be
   up to 1.5 MB (`apps/web/scripts/toolbar-assets.mjs`). A large feature-only
   dependency becomes its own pinned asset loaded on use, like axe-core (`dist/audit.js`, [docs/page-checks.md](docs/page-checks.md)).
-- Capture starts automatically for new feedback, and composers say so; turning off Attach screenshot sends that one comment as text only,
-  stops a capture still being taken (`cancelCommentScreenshot`; turning it off again takes a new one)
+- Capture starts automatically for new feedback, and composers show it as a thumbnail; Remove screenshot sends that one comment as text only and
+  stops a capture still being taken (`cancelCommentScreenshot`; Attach screenshot takes a new one)
   (`CommentDraft.omitScreenshot` carries the choice through a failed send, in memory only). An attached own image (`useAttachedImage`,
   checked by `suppliedScreenshot` with the saved-evidence limits) replaces the capture in the create request and stays in memory
   (`CommentDraft.image`), never in draft/idempotency storage. Sending waits while it is read (`CommentComposer`'s

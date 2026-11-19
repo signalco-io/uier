@@ -99,7 +99,13 @@ test('Done and Archive category APIs route to defaults; archive and restore reta
     await setProjectCommentWorkflowStatus(f.project, member, comment.id, 'custom_merging');
     const archived = await setProjectCommentArchived(f.project, member, comment.id, true, randomUUID());
     expect(archived).toMatchObject({ archiveStatusId: 'custom_rejected', workflowStatusId: 'custom_merging', inProgress: true });
-    expect(statusForComment(workflow(), archived).category).toBe('archive');
+    expect(statusForComment(workflow(), archived)).toMatchObject({ category: 'in-progress', id: 'custom_merging' });
+    expect(archived.history?.at(-1)?.action).toBe('archived');
+    expect(archived.notificationEvents?.at(-1)?.kind).toBe('archived');
+    const reclassified = await setProjectCommentWorkflowStatus(f.project, member, comment.id, 'archive');
+    expect(reclassified).toMatchObject({ archiveStatusId: 'archive', archivedAt: archived.archivedAt, workflowStatusId: 'custom_merging' });
+    expect(reclassified.history).toEqual(archived.history);
+    expect(reclassified.notificationEvents).toEqual(archived.notificationEvents);
     const restored = await setProjectCommentArchived(f.project, member, comment.id, false, randomUUID());
     expect(statusForComment(workflow(), restored).id).toBe('custom_merging');
     expect((await setProjectCommentStatus(f.project, member, comment.id, 'done')).workflowStatusId).toBe('custom_production');
@@ -114,6 +120,11 @@ test('Ready statuses require a real verification request; same-category moves re
     const ask = () => changeFixVerification(f.project, admin, comment.id, { action: 'request', reviewerId: 'author', statusId: 'custom_qa', expectedRevision: null, idempotencyKey: randomUUID() });
     const ready = await ask();
     expect(statusForComment(workflow(), ready).id).toBe('custom_qa');
+    const archived = await setProjectCommentArchived(f.project, member, comment.id, true);
+    expect(statusForComment(workflow(), archived).id).toBe('custom_qa');
+    expect(archived.verification).toEqual(ready.verification);
+    const restored = await setProjectCommentArchived(f.project, member, comment.id, false);
+    expect(restored.verification).toEqual(ready.verification);
     const other = await setProjectCommentWorkflowStatus(f.project, member, comment.id, 'ready');
     expect(other.verification).toEqual(ready.verification);
     await expect(setProjectCommentWorkflowStatus(f.project, member, comment.id, 'custom_merging')).rejects.toMatchObject({ code: 'invalid_request' });

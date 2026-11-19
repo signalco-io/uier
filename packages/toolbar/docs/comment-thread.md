@@ -53,6 +53,18 @@ native dialog, outside the scroll area, so touch and keyboard focus reach them. 
 menu before the sheet. `apps/web/e2e/change-proposal-handoff.spec.ts` follows the URL from the toolbar's
 Copy link as an invited reviewer and checks the sheet's copy, status and verification controls.
 
+**Changes** under the switch is a word diff of the saved original and the suggestion (`textChanges` in
+`@uier/toolbar/change-proposal`, `TextChanges.tsx`): removed words struck through on a red tint, added ones underlined
+on a green tint, each named "Removed:" or "Added:" for screen readers, so colour is never the only signal. Characters
+are grapheme clusters, so a joined emoji or a skin tone changes whole. `textChangeSummary` tells the other states
+apart: only spacing or line breaks changing reads "Only spacing changes. The words match the original text." (a page
+that keeps line breaks shows them), the same words with the same spacing read "No text changes. The suggestion matches
+the original text." Space around the whole text is not counted. A rewrite saved without a proposal (posted unchanged,
+or older) compares its message with `rewriteOriginalText`: its quote, or the full saved selection when the quote is
+missing or was cut to 1,000 characters (a selection holds 2,000). The app resolves it the same way; the pure helpers
+are in `rewriteProposal.ts` ([uier #482](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000001&comment=comment_2879wT8igXK7L0lPt5yoG)). `text-changes.api.spec.ts` covers the diff, the states and the original;
+`rewrite.spec.ts` both cases in the thread.
+
 If the saved target or its captured values no longer match the page, the difference remains available to copy
 and the toolbar leaves the page unchanged. The first message's existing **Reattach comment** flow is available
 to reviewers who can edit the anchor on the original page. Thread access and inbox visibility follow the same

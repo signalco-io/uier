@@ -17,9 +17,10 @@ export const commentsListMaxLength = 200;
 export const destructiveTextClassName = 'text-[hsl(var(--destructive))] dark:text-[color-mix(in_srgb,hsl(var(--destructive))_55%,white)]';
 
 /**
- * Floating elevation (packages/brand/BRAND.md, "Borders and elevation"): popovers, menus, the hint
+ * The review layer's floating elevation (packages/brand/BRAND.md, "Borders and elevation", the
+ * `--brand-shadow-review` token): the pill, the inbox, popovers, menus, the hint
  */
-export const floatingShadowClassName = 'shadow-[0_1px_2px_rgba(0,0,0,0.04),0_8px_24px_rgba(0,0,0,0.08)]';
+export const floatingShadowClassName = 'shadow-(--brand-shadow-review)';
 
 /**
  * The blue focus ring of an input (BRAND.md) for the UI kit's `Input`: its `className` and its

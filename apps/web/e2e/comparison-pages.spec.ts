@@ -1,6 +1,8 @@
 import { expect, test } from '@playwright/test';
 import { assertAccessibility } from './accessibility';
 
+const proofFormats = 'Images, searchable PDFs, selected Figma frames, MP4, ProRes MOV and WebM video, uploaded EML, and interactive HTML from ZIP uploads. Guest review of HTML ZIP uploads is in preview.';
+
 const pairs = [
     { slug: 'bugherd', name: 'BugHerd', advantage: 'Custom Kanban columns', checked: '2026-11-11', logo: '/compare/bugherd.png' },
     { slug: 'marker-io', name: 'Marker.io', advantage: 'Scheduled monitoring', checked: '2026-11-11', logo: '/compare/marker-io.svg' },
@@ -26,18 +28,32 @@ for (const pair of pairs) {
         const table = main.getByRole('table');
         await expect(table.getByRole('columnheader')).toHaveText(['Workflow or feature', 'uier', pair.name]);
         await expect(table.getByRole('row').filter({ hasText: pair.advantage })).toHaveCount(1);
-        const workflowCell = table.getByRole('row').filter({ has: page.getByRole('rowheader', { name: 'Organizing the work', exact: true }) }).getByRole('cell').first();
+        const uierCell = (name: string) => table.getByRole('row').filter({ has: page.getByRole('rowheader', { name, exact: true }) }).getByRole('cell').first();
+        const workflowCell = uierCell('Organizing the work');
         await expect(workflowCell).toContainText('Custom statuses and labels');
         await expect(workflowCell).toContainText('paged results');
         await expect(workflowCell).toContainText('at most 50');
+        await expect(workflowCell).toContainText('No task due dates.');
         await expect(main).not.toContainText('no custom statuses');
         await expect(main).not.toContainText('1,000 recent');
-        const recordingCell = table.getByRole('row').filter({ has: page.getByRole('rowheader', { name: 'Screen and audio recording', exact: true }) }).getByRole('cell').first();
-        await expect(recordingCell).toContainText('Available: Short screen recordings');
-        for (const gap of ['Session replay before a report', 'Console and network capture', 'File and design proofing', 'Surveys and request voting']) {
-            const uierCell = table.getByRole('row').filter({ has: page.getByRole('rowheader', { name: gap, exact: true }) }).getByRole('cell').first();
-            await expect(uierCell).toContainText('Not supported');
-        }
+        await expect(uierCell('Screen and audio recording')).toContainText('Available: Short screen recordings');
+        for (const gap of ['Session replay before a report', 'Console and network capture', 'Surveys and request voting'])
+            await expect(uierCell(gap)).toContainText('Not supported');
+        const proofing = uierCell('File and design proofing');
+        await expect(proofing).toContainText('Has limits: Six format families, enabled per project');
+        for (const scope of [
+            proofFormats,
+            'PDF previews are sanitized. Authorized reviewers can download the original separately.',
+            'Play and seek video in the browser. ProRes MOV is converted for playback.',
+            'HTML runs on an isolated host.',
+            'Email is upload-only. Inbound SMTP is unavailable.'
+        ])
+            await expect(proofing).toContainText(scope);
+        await expect(uierCell('Reviewing a finished fix')).toContainText('Has limits: Named reviewer per thread');
+        const approvals = uierCell('Approving a file version');
+        await expect(approvals).toContainText('Available: Named reviewers per version');
+        await expect(approvals).toContainText('Required reviewers each approve or request changes on the whole file version.');
+        await expect(approvals).toContainText('Set an optional deadline for the round. Each new version starts with fresh decisions. Fix verification is a separate check on one thread.');
         await expect(main.getByRole('region', { name: 'What changes if you switch' })).toContainText(`There is no built-in importer for ${pair.name}`);
         await expect(main.getByRole('region', { name: 'Sources and scope' }).getByRole('link').first()).toHaveAttribute('href', /^https:\/\/github.com\//);
         const vendorSources = main.getByRole('region', { name: 'Sources and scope' }).getByRole('heading', { name: pair.name, exact: true }).locator('..');
@@ -48,6 +64,7 @@ for (const pair of pairs) {
         await expect(main.getByRole('link', { name: 'Create a project' })).toHaveAttribute('href', '/app');
         await expect(main.getByRole('link', { name: 'Compare all seven tools' })).toHaveAttribute('href', '/compare/website-feedback-tools');
         await expect(main.getByRole('link', { name: 'MCP setup guide' })).toHaveAttribute('href', '/guides/mcp');
+        await expect(main.getByRole('link', { name: 'REST API reference' })).toHaveAttribute('href', '/developers/api');
         await main.getByRole('region', { name: 'Choose by the work you need to finish' }).screenshot({ path: testInfo.outputPath('workflow.png') });
     });
 }
@@ -71,6 +88,17 @@ test('the full matrix retains caveats and source links behind keyboard disclosur
     await expect(main).toContainText('Unknown is not a missing feature.');
     await expect(main).toContainText('uier supports short screen recordings with explicit permission.');
     await expect(main).toContainText('Built-in capture has no audio and ends on full-page navigation.');
+    const overview = main.getByRole('region', { name: 'Where the workflows differ' });
+    await expect(overview).toContainText(proofFormats);
+    await expect(overview).toContainText('Enable the formats you need per project. Email is EML upload only.');
+    await expect(overview).toContainText('Named reviewers approve a whole version. Fix verification checks one thread.');
+    const proofing = table.getByRole('row', { name: /^File and design proofing/ }).getByRole('cell').first();
+    await expect(proofing).toContainText('Six format families, enabled per project');
+    await expect(proofing.getByText(proofFormats, { exact: false })).toBeHidden();
+    await proofing.locator('summary').click();
+    await expect(proofing.getByText(proofFormats, { exact: false })).toBeVisible();
+    await expect(proofing.getByText('Inbound SMTP is unavailable.', { exact: false })).toBeVisible();
+    await expect(main.getByRole('link', { name: 'REST API reference' })).toHaveAttribute('href', '/developers/api');
 });
 
 test('CSS and text details show the documented workflow and sources for each tool', async ({ page }) => {
@@ -104,7 +132,12 @@ test('the hub links every comparison and is linked from the public site', async 
     await page.goto('/compare');
     const main = page.getByRole('main');
     await expect(main).not.toContainText('Written by uier.');
-    await expect(main.getByRole('region', { name: 'Start with the job' })).toContainText('Preview proposed text and style changes on the page');
+    const workflows = main.getByRole('region', { name: 'Start with the job' });
+    await expect(workflows).toContainText('Preview proposed text and style changes on the page');
+    await expect(workflows).toContainText(proofFormats);
+    await expect(workflows).toContainText('Enable formats per project and request approval on a specific version.');
+    await expect(main.getByRole('link', { name: 'REST API reference' })).toHaveAttribute('href', '/developers/api');
+    await expect(main.getByRole('link', { name: 'approval rounds', exact: true })).toHaveAttribute('href', /\/proof-api\.md#version-approvals-and-review-record$/);
     const preview = main.getByRole('link', { name: 'on-page previews' });
     await expect(preview).toHaveAttribute('href', '/features/pinned-comments#preview-a-change');
     await preview.click();
@@ -123,6 +156,16 @@ test('the hub links every comparison and is linked from the public site', async 
     await expect(page.getByRole('contentinfo').getByRole('link', { name: 'Compare website feedback tools' })).toHaveAttribute('href', '/compare');
 });
 
+test('the Pastel tradeoffs cover Figma revisions and separate approval decisions', async ({ page }) => {
+    await page.goto('/compare/pastel');
+    const tradeoffs = page.getByRole('region', { name: 'What changes if you switch' });
+    await expect(tradeoffs).toContainText('Resync a Figma frame under the same review link, even after a rename. Existing threads keep their original version and location.');
+    await expect(tradeoffs).toContainText('Named reviewers decide on the whole version in a separate approval round.');
+    await expect(tradeoffs).toContainText('An agent can send HTML prototypes to Pastel through its CLI or MCP, then reuse the canvas link for revisions.');
+    await expect(tradeoffs).toContainText('Search text in sanitized PDF previews. Interactive HTML ZIP uploads run on an isolated host. Guest review of HTML ZIP uploads is in preview. Email review accepts EML uploads.');
+    await expect(tradeoffs).toContainText('Share an EML upload with a client');
+});
+
 test('new comparisons retain distinct examples, current billing caveats and shared MCP limits', async ({ page }) => {
     await page.goto('/compare/userback');
     let main = page.getByRole('main');
@@ -137,6 +180,7 @@ test('new comparisons retain distinct examples, current billing caveats and shar
     await expect(layout).toContainText('separate PDF menu');
     await expect(layout).toContainText('choose Suggest a change');
     await expect(layout).toContainText('side padding');
+    await expect(layout).toContainText('Once PDF review is enabled, upload the menu and collect feedback in the file viewer.');
     await expect(main.getByRole('region', { name: 'What changes if you switch' })).toContainText('single element');
     await expect(main.getByRole('region', { name: 'Setup, integrations and cost' })).toContainText('Cards and the detailed table differ');
     const checks = main.getByRole('table').getByRole('row').filter({ has: page.getByRole('rowheader', { name: 'Accessibility and SEO checks', exact: true }) }).getByRole('cell').last();

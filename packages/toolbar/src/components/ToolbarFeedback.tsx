@@ -17,7 +17,7 @@ import { CommentComposer } from './CommentComposer';
 import { defaultFeedbackTypes, type FeedbackTypeId } from '../feedbackTypes';
 import { useProjectViewer } from '../project/ProjectGate';
 import { CommentKindIcon } from './CommentKindLabel';
-import { ComposerAttachmentsHeader, ComposerScreenshotToggle, useAttachedImage } from './ComposerAttachments';
+import { ComposerAttachmentsHeader, ComposerScreenshot, useAttachedImage } from './ComposerAttachments';
 import { ComposerModal, ExpandComposerButton } from './ComposerModal';
 import { useAnnounce } from './Announcer';
 import { getDeviceInfo } from './info/getDeviceInfo';
@@ -80,14 +80,12 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
         }
     };
 
-    // Omitted while it is taken: its work stops. Attached after all: a new one is taken.
+    // Removed: the capture is dropped (one still being taken stops). Attached again: always a new one, of the page as
+    // it is now, never the one removed (uier #476).
     const handleOmittedChange = (omitted: boolean) => {
         setOmitScreenshot(omitted);
-        if (omitted && cancelCommentScreenshot(screenshot)) {
-            setScreenshot(undefined);
-        } else if (!omitted && !screenshot) {
-            setScreenshot(captureCommentScreenshot({ type: 'page' }, rootElement));
-        }
+        cancelCommentScreenshot(screenshot);
+        setScreenshot(omitted ? undefined : captureCommentScreenshot({ type: 'page' }, rootElement));
     };
 
     const openOnRequest = useEffectEvent(() => {
@@ -195,7 +193,7 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
                 recording={{ ...recording, start: () => { setExpanded(false); return recording.start(); } }}
                 image={{ attachment }}
                 attachments={(
-                    <ComposerScreenshotToggle
+                    <ComposerScreenshot
                         page
                         screenshot={screenshot}
                         omitted={omitScreenshot}

@@ -182,7 +182,7 @@ export function CommentToolbar({
                 data-uier-capture-exclude=""
                 className={cx('pointer-events-none fixed w-max max-w-[calc(100vw-2rem)]', canReviewToolbar() ? 'z-[54]' : 'z-[51]')}>
                 {creatingPointComment && (
-                    <p className="m-0 rounded-full border bg-background px-3 py-1.5 text-center text-sm text-foreground shadow-[0_8px_24px_rgba(0,0,0,0.16)]">
+                    <p className="m-0 rounded-full border bg-background px-3 py-1.5 text-center text-sm text-foreground shadow-(--brand-shadow-review)">
                         {isCoarsePointer() && !canReviewToolbar()
                             ? t.toolbar.pointTouchCancel
                             : isCoarsePointer() ? t.toolbar.pointTouch : t.toolbar.pointMouse}
@@ -201,7 +201,7 @@ export function CommentToolbar({
                     <Button
                         size="sm"
                         variant="outlined"
-                        className="rounded-full bg-background text-foreground shadow-[0_8px_24px_rgba(0,0,0,0.16)]"
+                        className="rounded-full bg-background text-foreground shadow-(--brand-shadow-review)"
                         startDecorator={<Edit size={16} aria-hidden="true" />}
                         onClick={onResumeDraft}>
                         {t.toolbar.resumeDraft}
@@ -218,7 +218,7 @@ export function CommentToolbar({
                 <div
                     role="group"
                     aria-label={t.toolbar.groupLabel}
-                    className={cx('flex max-w-full items-center rounded-full border bg-background p-1 text-foreground shadow-[0_8px_24px_rgba(0,0,0,0.16)]', !collapsed && 'overflow-x-auto')}>
+                    className={cx('flex max-w-full items-center rounded-full border bg-background p-1 text-foreground shadow-(--brand-shadow-review)', !collapsed && 'overflow-x-auto')}>
                     {!collapsed && (
                         <IconTooltip label={t.toolbar.moveTip}>
                             {/* A quiet grip: muted and thinner than the 1.75 stroke (inline, since `svg.lucide` sets it in CSS) until hovered, focused or dragged */}

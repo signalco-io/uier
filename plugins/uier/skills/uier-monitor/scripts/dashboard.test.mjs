@@ -1,4 +1,5 @@
-import { after, test } from 'node:test';
+import * as store from './store.mjs';
+import { after, beforeEach, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawn } from 'node:child_process';
 import { once } from 'node:events';
@@ -12,20 +13,28 @@ import { fileURLToPath } from 'node:url';
 // The registry of this test run, never the person's own ~/.uier-monitor.
 const home = mkdtempSync(join(tmpdir(), 'uier-monitor-home-'));
 process.env.UIER_MONITOR_HOME = home;
-const { PAGE, agentOf, collect, createDashboardServer, discover, findSiteIcon, iconLinks, iconRequest, iconType, isPublicAddress, levels, modelName, projectIcon, publicLookup, reviewOf, sessionLink, snapshot } = await import('./dashboard.mjs');
+const { PAGE, agentOf, collect, createDashboardServer, discover, findSiteIcon, iconLinks, iconRequest, iconType, isPublicAddress, levels, missingFrom, modelName, projectIcon, publicLookup, reviewOf, savedReview, sessionLink, snapshot } = await import('./dashboard.mjs');
 const monitor = fileURLToPath(new URL('./monitor.mjs', import.meta.url));
 const temporary = [home];
 after(() => { for (const dir of temporary) rmSync(dir, { recursive: true, force: true }); });
 
+beforeEach(() => {
+    process.env.UIER_MONITOR_HOME = mkdtempSync(join(home, 'case-'));
+});
 function stateDir(state, files = {}) {
     const dir = realpathSync(mkdtempSync(join(tmpdir(), 'uier-monitor-state-')));
     temporary.push(dir);
-    writeFileSync(join(dir, 'state.json'), JSON.stringify(state));
-    for (const [name, value] of Object.entries(files)) writeFileSync(join(dir, name), typeof value === 'string' ? value : JSON.stringify(value));
+    store.writeState(dir, state);
+    for (const [name, value] of Object.entries(files)) {
+        if (name === 'events.jsonl') store.addActivity(dir, value.trim().split('\n').map(JSON.parse));
+        else if (name === 'inbox.json') store.appendInbox(dir,value);
+        else if (name.endsWith('.json')) store.writeRecord(dir,name.slice(0,-5),value);
+        else writeFileSync(join(dir,name), typeof value === 'string' ? value : JSON.stringify(value));
+    }
     return dir;
 }
 const run = (dir, ...args) => execFileSync(process.execPath, [monitor, ...args, '--state', dir], { encoding: 'utf8', env: { ...process.env } });
-const events = dir => readFileSync(join(dir, 'events.jsonl'), 'utf8').trim().split('\n').map(line => JSON.parse(line));
+const events = store.activity;
 const now = Date.parse('2026-11-12T12:00:00Z');
 const outside = { cwd: tmpdir() };
 
@@ -33,19 +42,18 @@ test('the helper announces its monitor and journals state changes, and the dashb
     const dir = stateDir({ project: { id: 'p1', name: 'Fixture' }, repo: { slug: 'acme/site' },
         items: { c1: { number: 7, decision: 'accepted', stage: 'open' } }, groups: { g7: { items: ['c1'], state: 'queued' } } });
     run(dir, 'patch', JSON.stringify({ groups: { g7: { state: 'building', pr: 12 } }, items: { c1: { stage: 'in-progress' } } }));
-    const announced = readdirSync(join(home, 'monitors')).map(name => JSON.parse(readFileSync(join(home, 'monitors', name), 'utf8')));
-    assert.deepEqual(announced.map(({ registeredAt, ...entry }) => entry), [{ stateDir: dir, project: { id: 'p1', name: 'Fixture' }, repo: 'acme/site' }]);
+    const [announced] = store.registrations();
+    assert.deepEqual([announced.stateDir, announced.id, announced.name, announced.repo], [dir,'p1','Fixture','acme/site']);
     assert.deepEqual(events(dir).map(({ at, ...event }) => event), [
         { type: 'group', group: 'g7', from: 'queued', to: 'building', numbers: [7], pr: 12 },
         { type: 'item', number: 7, field: 'stage', from: 'open', to: 'in-progress' }
     ]);
     // A patch that changes no state or stage adds nothing, and announcing again rewrites nothing.
-    const before = readFileSync(join(home, 'monitors', readdirSync(join(home, 'monitors'))[0]), 'utf8');
     run(dir, 'patch', JSON.stringify({ watch: { wakes: 1 } }));
     assert.equal(events(dir).length, 2);
-    assert.equal(readFileSync(join(home, 'monitors', readdirSync(join(home, 'monitors'))[0]), 'utf8'), before);
+    assert.equal(store.registrations().length, 1);
 
-    writeFileSync(join(dir, 'inbox.json'), JSON.stringify([{ type: 'new', number: 8, at: '2026-11-12T10:00:00Z', foundAt: '2026-11-12T10:00:05Z' }]));
+    store.appendInbox(dir, [{ type: 'new', number: 8, at: '2026-11-12T10:00:00Z', foundAt: '2026-11-12T10:00:05Z' }]);
     run(dir, 'context', '--take');
     assert.deepEqual(events(dir).at(-1).type, 'taken');
     assert.equal(events(dir).at(-1).events, 1);
@@ -56,7 +64,6 @@ test('the helper announces its monitor and journals state changes, and the dashb
     assert.deepEqual(shown.pipeline.map(entry => [entry.id, entry.stage, entry.pr, entry.prUrl]), [['g7', 'building', 12, 'https://github.com/acme/site/pull/12']]);
     assert.ok(shown.pipeline[0].since, 'the journal says since when the group has been building');
     assert.equal(shown.activity[0].type, 'taken');
-    rmSync(join(home, 'monitors'), { recursive: true, force: true });
 });
 
 test('a snapshot carries a fixed set of fields: no secrets, no unknown fields, no unsafe links', () => {
@@ -119,7 +126,7 @@ test('usage is numeric, bounded to 31 UTC days and distinguishes unknown databas
     assert.equal(shown.usage.meteredRequests, 2);
     assert.ok(shown.health.some(item => /idle model wakes/.test(item.text)));
     assert.ok(!JSON.stringify(shown).includes('never-send'));
-    writeFileSync(join(dir, 'usage.json'), JSON.stringify({ days: { [today]: { requests: 4 } } }));
+    store.writeRecord(dir, 'usage', { days: { [today]: { requests: 4 } } });
     assert.equal(snapshot(dir, now).usage.databaseRu, null);
 });
 
@@ -263,9 +270,101 @@ test('--review adds the uier toolbar and exactly the sources it needs; without i
     }
 });
 
+test('a start with --review takes over a running dashboard without it, on the same port', async () => {
+    assert.equal(missingFrom({ pid: 1 }, {}), null);
+    assert.equal(missingFrom({ pid: 1 }, { review: reviewOf('proj_abc123'), dev: true }), '--review proj_abc123 --dev');
+    assert.equal(missingFrom({ review: reviewOf('proj_abc123'), dev: true }, { review: reviewOf('proj_abc123'), dev: true }), null);
+    assert.equal(missingFrom({ review: reviewOf('proj_abc123') }, { review: reviewOf('proj_other1') }), '--review proj_other1');
+
+    const script = fileURLToPath(new URL('./dashboard.mjs', import.meta.url));
+    const probe = createServer().listen(0, '127.0.0.1');
+    await once(probe, 'listening');
+    const port = String(probe.address().port);
+    await new Promise(resolve => probe.close(resolve));
+    const dir = stateDir({ project: { id: 'p1', name: 'Reviewed fixture' } });
+    const start = (...args) => {
+        const child = spawn(process.execPath, [script, 'serve', '--port', port, '--no-icons', '--state', dir, ...args], { cwd: tmpdir(), env: { ...process.env }, stdio: ['ignore', 'pipe', 'pipe'] });
+        child.output = '';
+        child.stdout.on('data', chunk => { child.output += chunk; });
+        child.stderr.on('data', chunk => { child.output += chunk; });
+        return child;
+    };
+    const until = async (check, what) => {
+        for (let tries = 0; tries < 100; tries++) { const value = await check(); if (value) return value; await sleep(50); }
+        throw new Error(`Timed out waiting for ${what}.`);
+    };
+    const record = () => { try { return JSON.parse(readFileSync(join(store.monitorHome(), 'dashboard.json'), 'utf8')); } catch { return null; } };
+    const children = [];
+    try {
+        const plain = start();
+        children.push(plain);
+        await until(() => record()?.pid === plain.pid, 'the plain dashboard');
+        assert.ok(!(await (await fetch(`http://127.0.0.1:${port}/?review=true`)).text()).includes('toolbar.js'), 'without --review a review link has no toolbar');
+
+        const again = start();
+        await once(again, 'exit');
+        assert.match(again.output, /already running/, 'a start that asks for nothing more reuses it');
+
+        const reviewed = start('--review', 'proj_abc123');
+        children.push(reviewed);
+        await once(plain, 'exit');
+        await until(() => record()?.pid === reviewed.pid, 'the reviewed dashboard');
+        assert.match(reviewed.output, /started without --review proj_abc123; restarting it on the same port/);
+        assert.deepEqual(record().review, { project: 'proj_abc123', origin: 'https://uier.io' });
+        assert.equal(record().url, `http://127.0.0.1:${port}`);
+        assert.ok((await (await fetch(`http://127.0.0.1:${port}/?review=true`)).text()).includes('data-uier-project="proj_abc123"'));
+
+        const plainAgain = start();
+        await once(plainAgain, 'exit');
+        assert.match(plainAgain.output, /already running/, 'a start without --review keeps the reviewed one');
+    } finally {
+        for (const child of children) if (child.exitCode === null && child.signalCode === null) { const exited = once(child, 'exit'); child.kill('SIGTERM'); await exited; }
+    }
+});
+
+test('review <id> saves the default --review for every later start, and review off forgets it', async () => {
+    const script = fileURLToPath(new URL('./dashboard.mjs', import.meta.url));
+    const cli = (...args) => execFileSync(process.execPath, [script, ...args], { encoding: 'utf8', cwd: tmpdir(), env: { ...process.env }, stdio: 'pipe' });
+    const settings = join(store.monitorHome(), 'dashboard-settings.json');
+    assert.match(cli('review'), /No default review project/);
+    assert.equal(savedReview(), null);
+    assert.throws(() => cli('review', 'a"b'), /project id/);
+    assert.ok(!existsSync(settings), 'an invalid id saves nothing');
+    try {
+        assert.match(cli('review', 'proj_saved1'), /Saved: .*proj_saved1/);
+        assert.deepEqual(JSON.parse(readFileSync(settings, 'utf8')), { review: 'proj_saved1' });
+        assert.deepEqual(savedReview(), { project: 'proj_saved1', origin: 'https://uier.io' });
+        assert.match(cli('review'), /load the toolbar for project proj_saved1/);
+
+        const child = spawn(process.execPath, [script, '--port', '0', '--no-icons', '--state', stateDir({ project: { id: 'p1' } })], { cwd: tmpdir(), env: { ...process.env }, stdio: ['ignore', 'pipe', 'pipe'] });
+        let output = '';
+        child.stdout.on('data', chunk => { output += chunk; });
+        try {
+            for (let tries = 0; tries < 100 && !/Review: /.test(output); tries++) await sleep(50);
+            const url = /(http:\/\/127\.0\.0\.1:\d+)/.exec(output)?.[1];
+            assert.ok(url, `the dashboard starts: ${output}`);
+            assert.match(output, /Open http:\/\/127\.0\.0\.1:\d+\/\?review=true to leave feedback/);
+            assert.ok((await (await fetch(`${url}/`)).text()).includes('data-uier-project="proj_saved1"'), 'a start without --review uses the saved project');
+            assert.deepEqual(JSON.parse(readFileSync(join(store.monitorHome(), 'dashboard.json'), 'utf8')).review, { project: 'proj_saved1', origin: 'https://uier.io' });
+        } finally {
+            const exited = once(child, 'exit');
+            child.kill('SIGTERM');
+            await exited;
+        }
+
+        writeFileSync(settings, JSON.stringify({ review: '<script>' }));
+        assert.equal(savedReview(), null, 'a broken setting loads no toolbar');
+    } finally {
+        assert.match(cli('review', 'off'), /only when started with --review/);
+    }
+    assert.deepEqual(JSON.parse(readFileSync(settings, 'utf8')), {});
+    assert.equal(savedReview(), null);
+});
+
 test('--dev swaps in an edited file on the same port, tells open pages to reload, and survives a broken edit', async () => {
     const dir = realpathSync(mkdtempSync(join(tmpdir(), 'uier-monitor-dev-')));
     temporary.push(dir);
+    writeFileSync(join(dir, 'store.mjs'), readFileSync(new URL('./store.mjs', import.meta.url)));
     const script = join(dir, 'dashboard.mjs');
     const source = readFileSync(fileURLToPath(new URL('./dashboard.mjs', import.meta.url)), 'utf8');
     writeFileSync(script, source);
@@ -327,9 +426,39 @@ test('the page is one self-contained script without template syntax, in the bran
     }
 });
 
+test('the machine total counts every monitor\'s sessions and claims against the shared limit, and shows who waits', () => {
+    const fresh = new Date().toISOString();
+    const a = stateDir({ project: { id: 'pa', name: 'A' }, updatedAt: fresh, max: 6,
+        groups: { g1: { state: 'building' }, g2: { state: 'reviewing' }, g3: { state: 'queued' }, g4: { state: 'queued' } } }, { 'watch.json': { heartbeatAt: fresh } });
+    const b = stateDir({ project: { id: 'pb', name: 'B' }, updatedAt: fresh, groups: { g1: { state: 'fixing' }, g2: { state: 'queued' } } }, { 'watch.json': { heartbeatAt: fresh } });
+    const left = stateDir({ project: { id: 'pc', name: 'Left behind' }, updatedAt: '2026-10-01T00:00:00Z', groups: { g1: { state: 'building' } } });
+    const states = [a, b, left];
+    assert.deepEqual(collect({ ...outside, states }).capacity, { max: 12, used: 3, waiting: 0 }, 'default 12; an inactive monitor holds nothing');
+
+    store.writeRecord(null, 'settings', { maxSessions: 4 });
+    store.writeSlots({
+        claims: {
+            live: { monitor: 'ka', dir: a, group: 'g3', from: 'queued', at: Date.now() },
+            recorded: { monitor: 'ka', dir: a, group: 'g1', from: 'queued', at: Date.now() },
+            expired: { monitor: 'ka', dir: a, group: 'g4', from: 'queued', at: Date.now() - 16 * 60_000 }
+        },
+        waiting: { kb: { dir: b, since: Date.now() - 5 * 60_000, project: 'B' } }
+    });
+    try {
+        const shown = collect({ ...outside, states });
+        assert.deepEqual(shown.capacity, { max: 4, used: 4, waiting: 1 }, 'only the claim still waiting for its session counts');
+        const byName = Object.fromEntries(shown.monitors.map(entry => [entry.project.name, entry]));
+        assert.deepEqual(byName.B.waiting.map(item => item.key), ['sessions', 'capacity']);
+        assert.equal(byName.B.waiting[1].text, 'A free session slot on this machine');
+        assert.ok(!byName.A.waiting.some(item => item.key === 'capacity'));
+    } finally {
+        store.writeRecord(null, 'settings', {});
+        store.writeSlots({ claims: {}, waiting: {} });
+    }
+});
+
 test('the command line prints a snapshot as JSON and explains itself', () => {
     const dir = stateDir({ project: { id: 'p1', name: 'Printed fixture' } });
-    mkdirSync(join(home, 'monitors'), { recursive: true });
     const script = fileURLToPath(new URL('./dashboard.mjs', import.meta.url));
     const printed = JSON.parse(execFileSync(process.execPath, [script, '--json', '--state', dir], { encoding: 'utf8', cwd: tmpdir(), env: { ...process.env } }));
     assert.deepEqual(printed.monitors.map(entry => entry.project.name), ['Printed fixture']);

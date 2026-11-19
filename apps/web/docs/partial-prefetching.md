@@ -74,6 +74,11 @@ release, authentication, document redirects/404s, mutations and navigation conti
 log alone is not evidence of production prefetching. No mutable cache was added, so no new cache
 invalidation lifecycle is required. Follow-up URL-specific enhancements belong in a separate PR.
 
+Projects → My work waits for the sidebar link's own shell prefetch before taking the lock. The
+locked click still checks that the private content waits for release. Projects status-tab tests check
+both directions under the lock. A separate case exercises Back, Forward and reload for both selections
+so Next's refresh on lock release cannot race the browser history checks.
+
 Final adoption checks passed: all 24 shared locked production cases on desktop/mobile/tablet;
 42 focused integration, navigation, Status, HTTP and tablet checks plus two localized denied-document
 cases; `pnpm typecheck`, both ordinary and dedicated production builds; and the short `pnpm test`

@@ -33,7 +33,7 @@ export type ProofAnchor =
 export type ProofThreadLocation = { versionId: string; anchor: ProofAnchor };
 export type ProofVerificationEvidence = { assetId: string; before: ProofThreadLocation; after: ProofThreadLocation };
 export type ProofThreadTarget = { assetId: string; source: ProofThreadLocation; relocations?: ProofThreadLocation[]; suggestion?: { replacement: string } };
-export type ProofThread = Pick<ReviewCommentDto, 'id' | 'number' | 'thread' | 'resolved' | 'inProgress' | 'archivedAt' | 'private' | 'assignees' | 'activity'> & {
+export type ProofThread = Pick<ReviewCommentDto, 'id' | 'number' | 'thread' | 'resolved' | 'inProgress' | 'archivedAt' | 'archiveStatusId' | 'private' | 'assignees' | 'activity'> & {
     target: ProofThreadTarget;
     location: ProofThreadLocation;
     href: string;

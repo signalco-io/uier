@@ -16,6 +16,7 @@ import { PUBLIC_WORKSPACE_ID } from '@/src/lib/comments/publicProjectPolicy';
 import { workspaceAiTitles } from '@/src/lib/titles/settings';
 import { WorkspaceAiTitlesForm } from './WorkspaceAiTitlesForm';
 import { WorkspaceNameForm } from './WorkspaceNameForm';
+import { WorkspaceLogoSection } from './WorkspaceLogoSection';
 import { WorkspaceDomainsSection } from './WorkspaceDomainsSection';
 import { workspaceRewriteInstructions } from '@/src/lib/rewrite/settings';
 import { WorkspaceRewriteInstructionsForm } from './WorkspaceRewriteInstructionsForm';
@@ -38,6 +39,7 @@ async function WorkspaceSettingsPageContent({ searchParams }: PageProps<'/app/wo
         <div className="flex max-w-3xl flex-col">
             <div className="flex flex-col gap-6">
                 <WorkspaceNameForm name={context.workspace.name} />
+                <WorkspaceLogoSection key={context.workspace.id} workspaceId={context.workspace.id} logoVersion={context.workspace.logoVersion} />
                 <WorkspaceToolbarLanguageForm language={workspaceToolbarLanguage(context.workspace)} />
                 <WorkspaceAiTitlesForm enabled={workspaceAiTitles(context.workspace)} />
                 <WorkspaceRewriteInstructionsForm instructions={workspaceRewriteInstructions(context.workspace)} />

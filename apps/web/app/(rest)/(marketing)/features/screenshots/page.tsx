@@ -6,8 +6,8 @@ import { FaqPanel, type Question } from '../../../../../src/components/marketing
 import { ScreenshotsCover } from '../../../../../src/components/marketing/covers/ScreenshotsCover';
 import { KnownPages } from '../../../../../src/knownPages';
 
-// What comes with a comment besides its text, as it ships: the automatic screenshot, the Attach
-// screenshot toggle and Attach image (packages/toolbar/docs/screenshots.md, docs/review-workflow.md
+// What comes with a comment besides its text, as it ships: the automatic screenshot, its thumbnail
+// in the text box with Remove screenshot, and Attach image (packages/toolbar/docs/screenshots.md, docs/review-workflow.md
 // "Screenshots"), screen recordings (recordings.md, "Screen recordings"), the device details and who sees
 // them (device-details.md, docs/api.md), and replacing and redacting saved images. Change this page with
 // them. Capture is an attempt, never a guarantee, and redaction cannot recall copies already made.
@@ -24,7 +24,7 @@ const steps = [
     },
     {
         title: 'Choose what is sent',
-        text: 'Attach screenshot in the text box says whether the screenshot will be sent. Turn it off when the spot shows something private, or attach an image of your own instead.'
+        text: 'The screenshot shows as a small thumbnail in the text box. Select it to check what will be sent, remove it when the spot shows something private, or attach an image of your own instead.'
     },
     {
         title: 'Post',
@@ -72,7 +72,7 @@ const questions: Question[] = [
     },
     {
         question: 'Can I see the screenshot before I post?',
-        answer: <>No. There is no preview in the comment form: what the screenshot takes is the part of the page you pointed at, as you see it. Turn Attach screenshot off if it shows something private, or redact the saved screenshot afterwards.</>
+        answer: <>Yes. The screenshot shows as a small thumbnail in the comment form; select it for a larger preview. Remove it if it shows something private, or redact the saved screenshot afterwards.</>
     },
     {
         question: 'Does Record screen record sound?',

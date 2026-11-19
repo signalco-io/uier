@@ -337,10 +337,12 @@ test('the connector serves the plugin skills with their files to clients that re
         expect(client.getServerCapabilities()).toMatchObject({ extensions: { 'io.modelcontextprotocol/skills': { directoryRead: true }, 'io.modelcontextprotocol/events': {} },
             resources: { listChanged: false } });
         const listed = await client.request({ method: 'skills/list' as never } as never, loose) as { skills: { uri: string; frontmatter: { name: string; description: string }; resources: { uri: string; digest: string; size: number }[] }[] };
-        expect(listed.skills.map(skill => skill.frontmatter.name).sort()).toEqual(['uier-monitor', 'uier-monitor-script']);
+        expect(listed.skills.map(skill => skill.frontmatter.name).sort()).toEqual(['uier-monitor', 'uier-monitor-script', 'uier-orchestrator']);
+        const orchestrator = listed.skills.find(skill => skill.frontmatter.name === 'uier-orchestrator')!;
+        expect(orchestrator.resources.map(resource => resource.uri)).toContain('skill://uier-orchestrator/scripts/orchestrator.mjs');
         const monitor = listed.skills.find(skill => skill.frontmatter.name === 'uier-monitor')!;
         expect(monitor.uri).toBe('skill://uier-monitor/SKILL.md');
-        expect(monitor.resources.map(resource => resource.uri)).toEqual(expect.arrayContaining(['skill://uier-monitor/SKILL.md', 'skill://uier-monitor/scripts/monitor.mjs']));
+        expect(monitor.resources.map(resource => resource.uri)).toEqual(expect.arrayContaining(['skill://uier-monitor/SKILL.md', 'skill://uier-monitor/scripts/monitor.mjs', 'skill://uier-monitor/scripts/store.mjs']));
         // The same files the plugin installs: the content matches the published digest.
         const script = monitor.resources.find(resource => resource.uri.endsWith('/monitor.mjs'))!;
         const read = await client.readResource({ uri: script.uri });
@@ -462,6 +464,8 @@ test('listing returns shared routing and combines every filter without exposing 
         expect(await ids({ assignee: context.user.id })).toEqual([assigned.id]);
         expect(await ids({ assignee: 'unassigned' })).toEqual(all.items.filter((item: { assignee: unknown }) => !item.assignee).map((item: { id: string }) => item.id).sort());
         expect(await ids({ authorKind: 'guest' })).toEqual([text.id, assigned.id].sort());
+        expect(await ids({ monitorScope: 'mine', view: 'state' })).toEqual([point.id, ownPrivate.id].sort());
+        expect(await ids({ monitorScope: 'assigned', view: 'state' })).toEqual([point.id, ownPrivate.id, assigned.id].sort());
         expect((await ids({ authorKind: 'member' }))).toContain(point.id);
         expect((await ids({ authorKind: 'member' }))).not.toContain(redacted.id);
         expect(await ids({ unread: false })).toEqual([point.id, text.id, ownPrivate.id, redacted.id].sort());
@@ -1094,17 +1098,20 @@ test('MCP archive has an explicit list scope, preserves export status and requir
     const client = await connect(token), reader = await connect(readToken);
     const args = { projectId: f.project.id, commentId: f.comment.id, archived: true, idempotencyKey: idempotencyKey() };
     const started = data(await reader.callTool({ name: 'list_feedback_events', arguments: { projectId: f.project.id, cursor: null } }));
-    const list = async (archive?: string) => data(await client.callTool({ name: 'list_feedback', arguments: { projectId: f.project.id, ...(archive ? { archive } : {}) } })).items;
+    const list = async (archive?: string, view?: string) => data(await client.callTool({ name: 'list_feedback', arguments: { projectId: f.project.id, archive, view } })).items;
     try {
         expect(data(await reader.callTool({ name: 'set_feedback_archived', arguments: args })).error).toBe('forbidden');
         expect(data(await client.callTool({ name: 'set_feedback_archived', arguments: args }))).toMatchObject({ archivedAt: expect.any(String), resolved: false, stage: 'open' });
-        const changes = data(await reader.callTool({ name: 'list_feedback_events', arguments: { projectId: f.project.id, cursor: started.cursor, events: ['feedback.archive_changed'] } }));
+        const changes = data(await reader.callTool({ name: 'list_feedback_events', arguments: { projectId: f.project.id, cursor: started.cursor, events: ['feedback.archive_changed', 'feedback.status_changed'] } }));
         expect(changes.items).toMatchObject([{ name: 'feedback.archive_changed', data: { commentId: f.comment.id, archived: true } }]);
         expect(await list()).toEqual([]);
-        expect(await list('only')).toMatchObject([{ id: f.comment.id, archivedAt: expect.any(String), stage: 'open' }]);
+        expect(await list('only')).toMatchObject([{ id: f.comment.id, archivedAt: expect.any(String), stage: 'open', archiveStatusId: 'archive',
+            workflowStatus: { id: 'open', category: 'open' } }]);
+        expect(await list('only', 'state')).toMatchObject([{ id: f.comment.id, archivedAt: expect.any(String), stage: 'open' }]);
         expect(await list('all')).toHaveLength(1);
         const exported = data(await client.callTool({ name: 'get_feedback', arguments: { projectId: f.project.id, commentId: f.comment.id } }));
         expect(exported.context).toMatchObject({ schemaVersion: 1, archivedAt: expect.any(String), status: 'open', stage: 'open' });
+        expect(exported).toMatchObject({ workflowStatus: { id: 'open', category: 'open' }, archiveStatusId: 'archive' });
         await client.callTool({ name: 'set_feedback_archived', arguments: { ...args, archived: false, idempotencyKey: idempotencyKey() } });
         // Replaying a saved archive action must not undo the later restore.
         await client.callTool({ name: 'set_feedback_archived', arguments: args });

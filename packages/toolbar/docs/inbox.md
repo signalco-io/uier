@@ -10,6 +10,9 @@ From the top:
 
 - The title row. The title is the panel menu (`PanelTitle`, [keyboard](keyboard.md#composites)). The search icon
   (`InboxSearch`) opens the search field in a popover under it, and stays filled while a search applies. Close.
+  - For members, Open in app (an external-link icon with its tooltip, `inboxAppLink.ts`) opens the project's comments in
+    the uier app in a new tab, filtered as the inbox is: its environment, pages (a section as `/blog/*`), Archive toggle,
+    status tab, unread, Assigned to me and search. Archive uses `archive=only` alongside the selected `status`.
 - `LocationPicker`, at full width. It is split like the app's location filter, in the UI kit's `Popper`:
   - on the left, a project's environments, this page (the default, named by its path, with its full address in a
     tooltip), all pages and the sections (`section:/blog`, `@uier/toolbar/page-sections`, shared with the app);
@@ -21,11 +24,14 @@ From the top:
   whenever something is unread: it reads the listed unread threads, or the site's unread list when none is listed
   and no search or Assigned to me applies. The filters sit closer
   together than the title and the tabs.
+- The Archive toggle shows archived threads and an unread indicator when any are unread. Its status
+  tabs still filter by workflow status, and the thread shows both its retained status and Archived.
+  Thread options contains Archive comment, Restore comment and any named archive destinations.
 - The app's status tabs, counted for the chosen pages: Active (the default, everything not done), Done and All.
   The Active statuses menu beside Active chooses Open, In progress or Ready to verify, and the Active tab then
   names the choice ([comment filters](../../../apps/web/docs/comment-filters.md)).
   - A count shows once it is known (`countsLoaded` in `useInboxComments`): the scope's lists have loaded, or the
-    site's summary gives it (all pages without a search, unread or Assigned to me). Until then the tabs and their
+    site's summary gives it (ordinary statuses for all pages without a search, unread or Assigned to me). Archive status counts use the loaded archive window. Until then the tabs and their
     menus' items show none, never a 0 for comments still on their way; `TabCount` keeps a digit's width meanwhile.
 
 ## Drafts

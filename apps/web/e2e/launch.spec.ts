@@ -80,7 +80,7 @@ test('owner checks installation, shares a review, replies and resolves; the name
         await expect(draft.getByRole('img')).toHaveCount(0);
         // A first-time guest is told an image will be attached, and may omit it (#323)
         await expect(draft.getByRole('status').filter({ hasText: 'A screenshot of this part of the page will be attached.' })).toBeVisible();
-        await expect(draft.getByRole('button', { name: 'Attach screenshot' })).toHaveAttribute('aria-pressed', 'true');
+        await expect(draft.getByRole('button', { name: 'Remove screenshot' })).toBeVisible();
         const saved = await post(guest.page, () => draft.getByRole('button', { name: 'Post comment' }).click(), publicId);
         expect(saved.screenshot?.width).toBeGreaterThan(0);
         await expectSavedImage(guest.page);
@@ -174,7 +174,7 @@ test.describe('dark theme and reduced motion', () => {
         for (const rewrite of [false, true]) {
             // Selection is browser DOM Range emulation; physical touch selection handles are manual evidence.
             await selectText(page, 'Every plan includes the toolbar.');
-            await selectionToolbar(page).getByRole('button', { name: rewrite ? 'Rewrite' : 'Add comment', exact: true }).click();
+            await selectionToolbar(page).getByRole('button', { name: rewrite ? 'Rewrite' : 'Comment', exact: true }).click();
             const draft = page.getByRole('dialog', { name: rewrite ? 'New rewrite suggestion' : 'New comment', exact: true });
             await draft.getByRole('textbox', { name: rewrite ? 'Suggested text' : 'Comment', exact: true })
                 .fill(rewrite ? 'The toolbar is included in every plan.' : 'Clarify what is included.');

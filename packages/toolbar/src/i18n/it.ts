@@ -467,7 +467,8 @@ export const it: Messages = {
         pageScreenshot: 'Verrà allegato uno screenshot della pagina visibile.',
         regionScreenshot: 'Verrà allegato uno screenshot di questa parte della pagina.',
         attachScreenshot: 'Non verrà allegato nessuno screenshot. Seleziona per allegarne uno.',
-        textOnly: (status: string) => `${status} Seleziona per omettere lo screenshot.`,
+        removeScreenshot: 'Rimuovi screenshot',
+        previewScreenshot: 'Anteprima dello screenshot',
         screenshotToggle: 'Allega screenshot',
         attachedToReply: 'Allegata alla tua risposta.',
         sentInstead: 'Inviata al posto dello screenshot.',
@@ -618,6 +619,11 @@ export const it: Messages = {
         proposed: 'Proposta',
         preparing: 'Preparazione dell’anteprima…',
         values: 'Valori esatti',
+        changes: 'Modifiche',
+        noTextChanges: 'Nessuna modifica al testo. Il suggerimento corrisponde al testo originale.',
+        onlySpacingChanges: 'Cambiano solo gli spazi. Le parole corrispondono al testo originale.',
+        removedText: 'Rimosso:',
+        addedText: 'Aggiunto:',
         stale: 'La pagina non corrisponde più all’originale salvato. I valori salvati sono disponibili qui sotto.',
         unavailable: 'L’anteprima di questo elemento non è disponibile qui.',
         invalid: 'Inserisci un valore CSS supportato in ogni campo modificato.',
@@ -643,6 +649,7 @@ export const it: Messages = {
     },
     selection: {
         label: 'Testo selezionato',
+        comment: 'Commenta',
         rewrite: 'Riscrivi'
     },
     canvas: {
@@ -711,6 +718,7 @@ export const it: Messages = {
         assignedToMe: 'Assegnati a me',
         reviewBrief: 'Indicazioni per la revisione',
         close: 'Chiudi il pannello laterale',
+        openInApp: 'Apri nell’app',
         filters: {
             archived: "Archivio",
             unresolved: 'Attivi',

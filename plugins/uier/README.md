@@ -1,11 +1,12 @@
 # uier
 
 Bring website feedback into your coding agent. This plugin connects to
-[uier's MCP server](https://uier.io/api/mcp) and includes two skills:
+[uier's MCP server](https://uier.io/api/mcp) and includes three skills.
 
 - **uier-monitor** watches a project, triages comments and coordinates fixes through pull requests,
   deployment and replies. Invoking it authorizes the workflow described in the skill for comments
   in scope. Read that scope before starting it.
+- **uier-orchestrator** starts a project monitor when an allowlisted project has work, then retires its thread after resolution. See [on-demand project monitors](https://github.com/signalco-io/uier/blob/main/docs/uier-monitor.md#on-demand-project-monitors).
 - **uier-monitor-script** restores the monitor helper when a client did not install its scripts.
 
 Installing the plugin starts no monitor and changes no feedback. The MCP tools can also be used

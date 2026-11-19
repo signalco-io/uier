@@ -6,7 +6,7 @@ import { feedbackStages } from '@uier/toolbar/verification';
  */
 export const boardSorts = ['priority', 'newest', 'oldest', 'updated', 'completed', 'archived'] as const;
 export type BoardSort = typeof boardSorts[number];
-/** The board's sortable columns: one per status, then Archive, the last */
+/** Sort settings for the board's status columns and the Archive list */
 export const boardColumns = [...feedbackStages, 'archive'] as const;
 export type BoardColumn = typeof boardColumns[number];
 /** A choice per column; a column without one uses its default (`defaultBoardSort`) */
@@ -16,7 +16,7 @@ const activeSorts: readonly BoardSort[] = ['priority', 'newest', 'oldest', 'upda
 const doneSorts: readonly BoardSort[] = ['completed', ...activeSorts];
 const archiveSorts: readonly BoardSort[] = ['archived', ...activeSorts];
 
-/** The column's choices, its default first: Done also offers Recently completed, Archive Recently archived */
+/** Sort choices, with the default first. Done offers Recently completed and Archive offers Recently archived. */
 export function boardSortOptions(status: BoardColumn): readonly BoardSort[] {
     return status === 'done' ? doneSorts : status === 'archive' ? archiveSorts : activeSorts;
 }

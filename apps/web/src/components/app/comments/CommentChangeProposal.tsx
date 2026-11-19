@@ -1,12 +1,14 @@
 'use client';
 
 import { useId, useState } from 'react';
-import { CopyIcon } from 'lucide-react';
+import { ChevronDownIcon, CopyIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { changeStyleProperties, proposalCss, type ChangeProposal } from '@uier/toolbar/change-proposal';
 import { Button } from '@/src/components/ui/button';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/src/components/ui/collapsible';
 import { Textarea } from '@/src/components/ui/textarea';
 import { useAppI18n } from '@/src/lib/i18n/client';
+import { TextChanges } from './TextChanges';
 
 export function CommentChangeProposal({ proposal }: { proposal: ChangeProposal }) {
     const { t } = useAppI18n();
@@ -27,12 +29,23 @@ export function CommentChangeProposal({ proposal }: { proposal: ChangeProposal }
 
     return <section aria-labelledby={heading} className="flex min-w-0 flex-col gap-3 rounded-xl border p-3 text-sm">
         <h3 id={heading} className="m-0 text-sm font-semibold">{t('Change proposal')}</h3>
-        {proposal.text ? <dl className="m-0 grid gap-1">
-            <dt className="text-xs font-medium text-muted-foreground">{t('Original text')}</dt>
-            <dd className={textClass}>{proposal.text.original || t('Empty text')}</dd>
-            <dt className="mt-1 text-xs font-medium text-muted-foreground">{t('Proposed text')}</dt>
-            <dd className={textClass}>{proposal.text.proposed || t('Empty text')}</dd>
-        </dl> : null}
+        {/* What changed, word by word; the literal original and proposed text are one click away */}
+        {proposal.text ? <div className="flex min-w-0 flex-col gap-1">
+            <TextChanges original={proposal.text.original} proposed={proposal.text.proposed} />
+            <Collapsible className="min-w-0">
+                <CollapsibleTrigger render={<Button variant="ghost" size="sm" className="group -ml-2 text-muted-foreground pointer-coarse:min-h-11" />}>
+                    {t('Exact text')}<ChevronDownIcon aria-hidden="true" data-icon="inline-end" className="transition-transform group-data-panel-open:rotate-180" />
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                    <dl className="m-0 grid gap-1 pt-1">
+                        <dt className="text-xs font-medium text-muted-foreground">{t('Original text')}</dt>
+                        <dd className={textClass}>{proposal.text.original || t('Empty text')}</dd>
+                        <dt className="mt-1 text-xs font-medium text-muted-foreground">{t('Proposed text')}</dt>
+                        <dd className={textClass}>{proposal.text.proposed || t('Empty text')}</dd>
+                    </dl>
+                </CollapsibleContent>
+            </Collapsible>
+        </div> : null}
         {css ? <table className="w-full table-fixed border-collapse text-left text-xs">
             <thead className="text-muted-foreground">
                 <tr>

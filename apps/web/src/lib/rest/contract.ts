@@ -7,12 +7,12 @@ export const apiRoot = '/api/v1';
 export const apiPageLimit = 100;
 export const apiRequestLimit = 120;
 export const replyBody = z.strictObject({ text: z.string().min(1).max(MAX_TEXT_LENGTH) });
-export const statusBody = z.strictObject({ statusId: workflowStatusIdSchema });
+export const statusBody = z.union([z.strictObject({ statusId: workflowStatusIdSchema }), z.strictObject({ archived: z.boolean() })]);
 const project = z.object({ id: z.string(), name: z.string() });
 const status = z.object({ id: z.string(), label: z.string(), category: z.enum(statusCategories), description: z.string() });
 const summary = z.object({
     id: z.string(), path: z.string(), statusId: z.string(), createdAt: z.string().nullable(),
-    excerpt: z.string().nullable()
+    excerpt: z.string().nullable(), archivedAt: z.string().nullable(), archiveStatusId: z.string().optional()
 });
 const message = z.object({
     id: z.string(), createdAt: z.string().nullable(), author: z.string().nullable(),

@@ -392,7 +392,7 @@ test('strict style CSP supports point mode, text highlights, inline threads, inb
     await expect(openThread(guest.page).getByRole('button', { name: 'Screenshot of the commented part of the page' })).toBeVisible();
     await guest.page.keyboard.press('Escape');
     await selectText(guest.page, 'Every plan includes the toolbar.');
-    await selectionToolbar(guest.page).getByRole('button', { name: 'Add comment' }).click();
+    await selectionToolbar(guest.page).getByRole('button', { name: 'Comment', exact: true }).click();
     await guest.page.getByRole('textbox', { name: 'Comment', exact: true }).fill('Text under the same policy.');
     await guest.page.getByRole('button', { name: 'Post comment', exact: true }).click();
     await expect(guest.page.locator('[data-uier-highlight]')).not.toHaveCount(0);

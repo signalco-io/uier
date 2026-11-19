@@ -228,11 +228,8 @@ test('the board widens on a wide window, the filters and project headers and the
     }
     expect(boxes[0]!.width).toBeGreaterThan(300);
     expect(boxes[0]!.width).toBeLessThanOrEqual(320);
-    // Archive comes last, a 3rem strip while collapsed; the headers end with it
-    const archive = column('Archived');
-    const strip = (await archive.boundingBox())!;
-    expect(strip.width).toBe(48);
-    expect(strip.x).toBeCloseTo(boxes.at(-1)!.x + boxes.at(-1)!.width + 16, 0);
+    await expect(page.getByRole('button', { name: /^Archive(?:\s*\d+)?$/ })).toBeVisible();
+    await expect(column('Archived')).toHaveCount(0);
     await headerSpans(column('Open'));
 
     // The list: the comments are where the board had them; the filters and project headers and the count line span
@@ -269,8 +266,8 @@ test('the board widens on a wide window, the filters and project headers and the
     await expect.poll(async () => (await placement(grid)).width).toBeGreaterThan(2000);
     const widest = await columns();
     for (const box of widest) expect(box.width).toBe(320);
-    const first = widest[0]!, last = await placement(archive);
-    expect(first.room - first.left - last.right).toBe(4 * 320 + 4 * 16 + 48);
+    const first = widest[0]!, last = widest.at(-1)!;
+    expect(first.room - first.left - last.right).toBe(4 * 320 + 3 * 16);
     expect(first.left).toBeCloseTo(32, 0);
     expect(last.right).toBeGreaterThan(32);
     await headerSpans(column('Open'));
@@ -318,20 +315,10 @@ test('the board widens on a wide window, the filters and project headers and the
     expect(Math.abs((laptopLine.y + laptopLine.height / 2) - (laptopFilter.y + laptopFilter.height / 2))).toBeLessThan(4);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(1280);
     await grid.evaluate(element => { element.scrollLeft = element.scrollWidth; });
-    await expect(archive).toBeInViewport({ ratio: 1 });
-    expect((await placement(archive)).right).toBeCloseTo(laptopComments!.right, 0);
+    await expect(column('Done')).toBeInViewport({ ratio: 1 });
+    expect((await placement(column('Done'))).right).toBeCloseTo(laptopComments!.right, 0);
     expect(await headers()).toEqual(laptopHeader);
 
-    // Expanded, Archive is a column like the others, and the headers end with it again
-    await page.setViewportSize({ width: 2560, height: 1440 });
-    await archive.getByRole('button', { name: 'Archive 0', exact: true }).click();
-    await expect(archive.getByText('Nothing archived.', { exact: true })).toBeVisible();
-    await expect.poll(async () => (await placement(archive)).width).toBe(320);
-    const expanded = await placement(column('Open'));
-    expect(expanded.room - expanded.left - (await placement(archive)).right).toBe(5 * 320 + 4 * 16);
-    await headerSpans(column('Open'));
-    await archive.getByRole('button', { name: 'Collapse Archive', exact: true }).click();
-    await expect(archive.getByRole('button', { name: 'Archive 0', exact: true })).toBeVisible();
 });
 
 test('the board filters by status from Filter, and Select shown results takes only that status (uier #335)', async ({ page, request }) => {
@@ -540,8 +527,7 @@ test('board cards drag with the mouse between the columns they can move to', asy
     await expect(column('Ready to verify')).toHaveAttribute('data-drop', 'target');
     await expect(column('Ready to verify')).toContainText('Drop here.');
     await expect(column('Done')).toHaveAttribute('data-drop', 'over');
-    // Archive takes no drop: it is dimmed
-    await expect(column('Archived')).toHaveAttribute('data-drop', 'refused');
+    await expect(column('Archived')).toHaveCount(0);
     await expect(placeholder(column('Done'))).toHaveCount(1);
     expect(Math.round((await placeholder(column('Done')).boundingBox())!.height)).toBe(Math.round(height));
     await expect(dragPreview(page)).toContainText('Second board thread');
@@ -586,7 +572,7 @@ test('board cards drag with the mouse between the columns they can move to', asy
 
 test('In progress is a column between Open and Ready to verify; cards move in and out of it', async ({ page, request }, testInfo) => {
     const { comments, column, card } = await board(page, request);
-    await expect(page.getByRole('region', { name: /comments$/ })).toHaveText([/^Open/, /^In progress/, /^Ready to verify/, /^Done/, /^Archive/]);
+    await expect(page.getByRole('region', { name: /comments$/ })).toHaveText([/^Open/, /^In progress/, /^Ready to verify/, /^Done/]);
     await expect(column('In progress')).toContainText('Nothing in progress.');
 
     // Move from the keyboard
@@ -941,11 +927,14 @@ test('a dropped card shows in its new column at once and goes back when saving f
     await expect(page.getByText('Could not save the change. Try again.', { exact: true })).toBeVisible();
 });
 
-for (const preference of ['sort', 'Archive'] as const) {
+for (const preference of ['sort', 'Archive sort'] as const) {
     test(`saved board ${preference} survives a delayed and failed data refresh`, async ({ page, request }) => {
         const { project, column } = await board(page, request, { label: 'Bug' });
         const open = column('Open');
-        const archive = page.locator('[data-board-archive]');
+        if (preference === 'Archive sort') {
+            await page.getByRole('button', { name: /^Archive(?:\s*\d+)?$/ }).click();
+            await expect(page.getByText('Nothing archived', { exact: true })).toBeVisible();
+        }
         let release!: () => void;
         const held = new Promise<void>(resolve => { release = resolve; });
         await page.route(`**/api/projects/${project}/comments/pages`, async route => {
@@ -959,7 +948,8 @@ for (const preference of ['sort', 'Archive'] as const) {
                 await open.getByRole('button', { name: 'Sort Open: Priority', exact: true }).click();
                 await page.getByRole('menuitemradio', { name: 'Oldest first', exact: true }).click();
             } else {
-                await archive.getByRole('button', { name: 'Archive 0', exact: true }).click();
+                await page.getByRole('button', { name: 'Sort Archive: Recently archived', exact: true }).click();
+                await page.getByRole('menuitemradio', { name: 'Oldest first', exact: true }).click();
             }
             expect((await saved).status()).toBe(200);
             // The action has ended, but no page response can yet update the saved preference.
@@ -968,7 +958,7 @@ for (const preference of ['sort', 'Archive'] as const) {
                 if (preference === 'sort') {
                     await expect(open.getByRole('button', { name: 'Sort Open: Oldest first', exact: true })).toBeVisible();
                     await expect(open.getByRole('listitem').first()).toContainText('First board thread');
-                } else await expect(archive).toHaveAttribute('data-board-archive', 'expanded');
+                } else await expect(page.getByRole('button', { name: 'Sort Archive: Oldest first', exact: true })).toBeVisible();
             };
             await staysSaved();
             release();

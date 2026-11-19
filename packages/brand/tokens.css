@@ -55,6 +55,9 @@
         --brand-warning: 26 90% 37%;         /* #B45309, also the High priority flag */
         --brand-in-progress: 200 98% 39%;    /* #0284C5 sky, the In progress status dot (4.1:1 on paper) */
         --brand-ready: 262 83% 58%;          /* #7C3BED violet, the Ready to verify status and Merged pull request dots (5.7:1 on paper) */
+        /* The review layer's floating shadow (pill, inbox, popovers, menus): stronger than the site's floating
+         * level, so the toolbar stands apart from any page it lands on. A full box-shadow, not a colour. */
+        --brand-shadow-review: 0 2px 6px rgb(0 0 0 / 0.12), 0 12px 32px rgb(0 0 0 / 0.24);
 
         /*
          * Drawings on the reviewed page (the toolbar's canvas mode): the brand's own colours, the same in light

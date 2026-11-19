@@ -141,7 +141,7 @@ test('guest tools can be hidden while members keep them and guests still leave f
         expect(info).toMatchObject({ canComment: true, project: { toolbarFeatures: [] }, viewer: { kind: 'guest' } });
         await hasTools(guest.page, mobile, false, false, false);
         await selectText(guest.page, await guest.page.getByRole('heading', { level: 1 }).innerText());
-        await expect(selectionToolbar(guest.page).getByRole('button', { name: 'Add comment', exact: true })).toBeVisible();
+        await expect(selectionToolbar(guest.page).getByRole('button', { name: 'Comment', exact: true })).toBeVisible();
         await expect(selectionToolbar(guest.page).getByRole('button', { name: 'Rewrite', exact: true })).toHaveCount(0);
         await toolbar(guest.page).getByRole('button', { name: 'Send feedback', exact: true }).click();
         const form = guest.page.getByRole('dialog', { name: 'Send feedback', exact: true });
@@ -191,7 +191,7 @@ test('custom project tools apply to mobile options, selection actions and rememb
     expect(Object.keys(summary.checks).some(key => key.startsWith('seo:'))).toBe(false);
     await expect(page.getByRole('complementary', { name: 'SEO', exact: true })).toHaveCount(0);
     await selectText(page, await page.getByRole('heading', { level: 1 }).innerText());
-    await expect(selectionToolbar(page).getByRole('button', { name: 'Add comment', exact: true })).toBeVisible();
+    await expect(selectionToolbar(page).getByRole('button', { name: 'Comment', exact: true })).toBeVisible();
     await expect(selectionToolbar(page).getByRole('button', { name: 'Rewrite', exact: true })).toHaveCount(0);
     await openChecks(page, mobile, /^Accessibility/);
     await expect(page.getByRole('complementary', { name: 'Accessibility', exact: true })).toBeVisible();

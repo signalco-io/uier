@@ -3,6 +3,7 @@
 import { useAppI18n } from '@/src/lib/i18n/client';
 
 import { commentKindIcon, commentKindLabel, type FeedbackTypeSnapshot } from '@uier/toolbar/feedback-types';
+import { markdownPlainText } from '@uier/toolbar/markdown';
 import { localizedKindLabel } from './kindLabel';
 import { FeedbackTypeIcon } from '../FeedbackTypeIcon';
 
@@ -60,6 +61,7 @@ import { ThreadTitle } from './ThreadTitle';
 import { ThreadPullRequests } from './ThreadPullRequests';
 import { ThreadIntegrationLinks } from './ThreadIntegrationLinks';
 import { CommentChangeProposal } from './CommentChangeProposal';
+import { TextChanges } from './TextChanges';
 import type { MessageMentionRange, ProjectCommentMessage, ProjectCommentView } from '../../../lib/app/projectComments';
 import { MessageMarkdown } from './MessageMarkdown';
 import { MessageAvatar } from './MessageAvatar';
@@ -731,7 +733,10 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                                     ? <MessageEditor drafts={drafts} draftKey="edit" label={t("Edit comment")} text={comment.text} error={editError} pending={pending}
                                         onCancel={closeEdit} onSave={text => saveEdit(text)} />
                                     : <MessageText text={comment.displayText} mentions={comment.displayMentions} edited={comment.edited} />}
-                            {!comment.deleted && comment.proposal ? <CommentChangeProposal key={comment.id} proposal={comment.proposal} /> : null}
+                            {/* A rewrite saved without a proposal (its suggestion is the original text, or it is older) compares with the text it replaces */}
+                            {!comment.deleted && comment.proposal ? <CommentChangeProposal key={comment.id} proposal={comment.proposal} />
+                                : !comment.deleted && comment.rewriteOriginal && comment.text.trim()
+                                    ? <TextChanges original={comment.rewriteOriginal} proposed={markdownPlainText(comment.displayText, comment.displayMentions)} /> : null}
                             {comment.screenshot && <MessageImage image={comment.screenshot} />}
                             {!comment.deleted && comment.recording && <MessageRecording recording={comment.recording} projectId={projectId} commentId={comment.id} />}
                             {firstTarget && !editing && <ReactionList target={firstTarget} canReact={Boolean(permissions.react)} />}

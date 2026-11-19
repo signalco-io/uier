@@ -213,7 +213,7 @@ export function DockablePanel({ id, label, children, className, onKeyDown }: Pro
                 </div>
             )}
             <aside id={`uier-panel-${id}`} aria-label={label} data-uier-panel={id} data-side={dockSide(dock)} data-dock={dock} onKeyDown={onKeyDown}
-                className={cx('fixed z-50 flex flex-col rounded-2xl border bg-background text-foreground shadow-[0_8px_24px_rgba(0,0,0,0.16)]', className)}
+                className={cx('fixed z-50 flex flex-col rounded-2xl border bg-background text-foreground shadow-(--brand-shadow-review)', className)}
                 style={box}>
                 <PanelHandleContext value={handle}>
                     <div className="min-h-0 flex-1">{children}</div>

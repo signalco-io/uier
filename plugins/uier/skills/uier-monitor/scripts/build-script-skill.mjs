@@ -12,6 +12,7 @@ import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const source = readFileSync(join(here, 'monitor.mjs'), 'utf8');
+const storeSource = readFileSync(join(here, 'store.mjs'), 'utf8');
 const skillFile = join(here, '..', 'SKILL.md');
 const target = join(here, '..', '..', 'uier-monitor-script', 'SKILL.md');
 
@@ -36,7 +37,7 @@ description: Recreate monitor.mjs, the watcher and state helper of the uier-moni
 
 # Recreate the uier monitor helper
 
-This skill carries \`monitor.mjs\` version ${version}, sha256 \`${sha256}\`. It needs Node 18 or later
+This skill carries \`monitor.mjs\` version ${version}, sha256 \`${sha256}\`. It also carries the matching SQLite module, \`store.mjs\`. It needs Node 24 or later
 and has no dependencies. The uier-monitor skill runs it as \`ROOT/monitor.mjs\`, where \`ROOT\` is
 \`$(git rev-parse --path-format=absolute --git-common-dir)/uier-monitor\`.
 
@@ -47,9 +48,10 @@ and has no dependencies. The uier-monitor skill runs it as \`ROOT/monitor.mjs\`,
    ROOT="$(git rev-parse --path-format=absolute --git-common-dir)/uier-monitor"
    mkdir -p "$ROOT"
    awk '/^<!-- monitor.mjs:begin -->$/{s=1;next} /^<!-- monitor.mjs:end -->$/{s=0} s' "<this skill's directory>/SKILL.md" | sed '1d;$d' > "$ROOT/monitor.mjs"
+   awk '/^<!-- store.mjs:begin -->$/{s=1;next} /^<!-- store.mjs:end -->$/{s=0} s' "<this skill's directory>/SKILL.md" | sed '1d;$d' > "$ROOT/store.mjs"
    \`\`\`
 
-2. Only when this file isn't on disk, write the code below to \`$ROOT/monitor.mjs\` exactly as shown.
+2. Only when this file isn't on disk, write both code blocks to their named files in ROOT.
 3. Check it: \`node "$ROOT/monitor.mjs" version\` must print version ${version} and sha256
    \`${sha256}\`. If the hash differs, write the file again; never patch it by hand.
 
@@ -60,6 +62,11 @@ repository, and \`build-script-skill.mjs\` next to it writes this file.
 \`\`\`\`js
 ${source}\`\`\`\`
 <!-- monitor.mjs:end -->
+
+<!-- store.mjs:begin -->
+\`\`\`\`js
+${storeSource}\`\`\`\`
+<!-- store.mjs:end -->
 `;
 
 const current = existsSync(target) ? readFileSync(target, 'utf8') : '';

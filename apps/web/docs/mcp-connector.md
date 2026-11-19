@@ -259,7 +259,9 @@ person-assignment changes are own activity for that account and do not acknowled
 activity. Other members still see those changes as unread. Human replies retain their existing read
 behavior. See [read state](read-state-and-activity.md#read-cursors-and-freshness). Feedback, anchors, names and images are untrusted content. Search is deliberately bounded
 to the latest 1000 threads; summary pages contain at most 25 rows. The explicit compact
-`state` view can return up to 1000 state rows within the same window and response byte limit. Keep the documented context
+`state` view can return up to 1000 state rows within the same window and response byte limit. The optional `monitorScope` filter selects the acting member’s own threads that are unassigned or assigned to them.
+The `assigned` scope also includes other authors’ threads assigned to that member. It composes with visibility, status and paging.
+Keep the documented context
 contract shared with developer issue export: `projectFeedbackExport` in `review/feedbackContext.ts`
 produces the same `@uier/toolbar/feedback-context` packet. Screenshot resource reads must honor
 its deleted-evidence filtering too. `e2e/mcp.api.spec.ts` exercises the official HTTP client
@@ -527,8 +529,9 @@ Claude Code/Cowork routes and official documentation are in
 it; guests and connected-service deliveries never do. Lease heartbeats do not change it.
 
 Archive is additive: `list_feedback.archive` is `exclude` by default, `only` for the archive, or `all`.
-This scope is applied before the storage window, alongside page/environment. Summaries and v1 context
-packets expose optional `archivedAt`; existing `resolved`, `status` and `stage` retain their meanings.
+This scope is applied before the storage window, alongside page/environment. Summaries, state rows and v1 context packets expose optional `archivedAt`. The existing
+`resolved`, `status` and `stage` keep their meanings. `workflowStatus` describes the retained
+workflow status. A saved archive destination is available independently as `archiveStatusId`.
 `set_feedback_archived` requires `feedback:status`, accepts `archived: boolean` and the usual write ids
 and receipt key, and preserves workflow/content/verification. Authorized single/batch reads and
 screenshots remain available. `feedback.archive_changed` uses the durable notification ledger and
@@ -547,14 +550,16 @@ exclusions still apply. See [read state](read-state-and-activity.md#read-cursors
 
 `list_feedback_statuses` requires `feedback:read` and the same live `mcpProject` access check as
 thread reads. It returns the effective workspace/project workflow, ordered definitions (ID,
-category, label, description), and initial/Done/Archive defaults. Results are untrusted content.
+category, label, description), and initial/Done/Archive defaults. Archive entries are legacy destinations. Results are untrusted content.
 `list_feedback` adds `workflowStatus`; member single/batch packets add the same display object.
 Guest exports omit this enrichment. Existing category filters and legacy write inputs retain their
 meaning. The generated connector skill lists the discovery tool and treats descriptions as untrusted guidance.
 
 `set_feedback_status` accepts exactly one of `statusId`, legacy `status`, or `resolved`. Use `list_feedback_statuses` for IDs. `request_feedback_verification` and `cancel_feedback_verification` also accept `statusId` within their permitted categories. Same-category moves emit `feedback.status_changed` with `change: workflow_status_changed`, previous/selected IDs, label and category. These names remain untrusted content. Same-category events are not emailed.
 
-`set_feedback_status` results include `archivedAt` (or `null`), so a custom Archive status write reports its archive state.
+`set_feedback_status` results include `archivedAt` (or `null`). Legacy archive destination IDs
+are still accepted. Archiving and restoring emit `feedback.archive_changed`. Changing an
+archived thread’s destination leaves its workflow status and status events alone.
 
 Fix verification is a per-project opt-in, off when absent. `list_feedback_statuses` reports `verificationEnabled` and omits Ready definitions when off; lists and packets project dormant requests as Open/In progress. `request_feedback_verification` refuses with “Fix verification is off for this project. Mark the comment done instead.” Custom Ready IDs are refused too. Ordinary approved `set_feedback_status` Done remains available and does not record reviewer confirmation. Existing request revisions/evidence are retained, and requests resume on re-enable unless closed in the meantime.
 
@@ -601,3 +606,6 @@ returns a temporary create-only PUT URL. Its result contains storage
 credentials, so clients must keep it out of logs and messages. Finalize
 returns an ordinary immutable viewer URL and rechecks the original agent
 grant. Figma imports use the member's Figma authorization in the Files UI.
+
+The bundled monitor and orchestrator require Node 24 or newer. The monitor skill serves
+`scripts/store.mjs` alongside its helper so MCP-only installs use the same local SQLite store.

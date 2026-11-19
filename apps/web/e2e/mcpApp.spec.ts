@@ -228,17 +228,19 @@ test('thread card has its own border and one status line while up to date', asyn
     await expect(checked).toBeVisible();
 });
 
-test('thread card shows archive neutrally and stops updates on host teardown', async ({ page }) => {
+test('thread card keeps the workflow status in archive and stops updates on host teardown', async ({ page }) => {
     await page.clock.install();
     const frame = await mount(page);
     const result = fixture('done');
-    // Without a workflow status, the card names it like the default workflow does.
+    // A saved packet from an older host may describe Archive as a workflow status.
     await setResult(page, { ...result, structuredContent: { ...result.structuredContent,
-        context: { ...result.structuredContent.context, archivedAt: '2026-01-01T00:00:00Z' } } });
+        context: { ...result.structuredContent.context, archivedAt: '2026-01-01T00:00:00Z' },
+        workflowStatus: { id: 'archive', category: 'archive', label: 'Archive', description: '' } } });
     await frame.getByRole('button', { name: 'Refresh', exact: true }).click();
-    await expect(statusBadge(frame)).toHaveText('Status: Archive');
-    await expect(frame.locator('[data-status-dot]')).toHaveAttribute('data-status-dot', 'archive');
-    await expect(frame.locator('[data-status-dot]')).toHaveClass(/bg-muted-foreground/);
+    await expect(statusBadge(frame)).toHaveText('Status: Done');
+    await expect(frame.getByText('Archived', { exact: true })).toBeVisible();
+    await expect(frame.locator('[data-status-dot]')).toHaveAttribute('data-status-dot', 'done');
+    await expect(frame.locator('[data-status-dot]')).toHaveClass(/brand-success/);
     await teardown(page);
     await expect(frame.getByText('Updates stopped. Ask for this thread again to see its current status.')).toBeVisible();
     // The last result stays readable, and Refresh can't pretend to work.

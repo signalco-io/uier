@@ -121,12 +121,12 @@ and appropriately invalidated caching. The full evaluator remains the semantic o
 See the [Cosmos-first plan](../../../docs/design/filtering/azure-primitives-plan.md) and
 [UI component plan](../../../docs/design/filtering/components-plan.md).
 
-Custom status IDs refine a category and do not change query v1's `status` field or archive
+Custom workflow status IDs refine a category and leave query v1's `status` field and archive
 collection semantics. Query filters and facets continue to use the five semantic categories;
 custom names/descriptions are discoverable through MCP `list_feedback_statuses`. The first
 custom-status slice does not add a query field or reinterpret saved definitions.
 
-Custom status writes do not change category filters or paging. The review comment DTO includes `workflowStatusId` and `archiveStatusId`; removed IDs fall back to the effective category default in the toolbar menu.
+Custom status writes do not change category filters or paging. The review comment DTO includes the independent `workflowStatusId` and legacy archive destination `archiveStatusId`. Removed workflow IDs fall back to the effective workflow category default.
 
 Project status predicates and their native Cosmos/memory pushdown use the current `verificationEnabled` setting. With verification off, pending requests are Open/In progress, Ready is absent from status capabilities/options, and counters/facets use the same projection. This leaves the durable request intact and keeps its thread queryable.
 
@@ -144,7 +144,7 @@ resolving each source project's own override. No workspace data is cached across
 ### Project Board/List adapter
 
 `POST /api/projects/:projectId/comments/pages` accepts normalized legacy app filter params plus an
-optional effective status ID (`lane`), signed cursor, archive expansion choice and open thread ID. Refreshes instead accept a strict `depths` map keyed by visible effective status ID (or `list`), one to eight pages per lane; depths cannot be combined with a lane/cursor.
+optional effective status ID (`lane`), signed cursor and open thread ID. The `params.archive=only` list window composes with `params.status`; legacy `params.status=archived` selects the archive with All statuses. Refreshes instead accept a strict `depths` map keyed by visible effective status ID (or `list`), one to eight pages per lane; depths cannot be combined with a lane/cursor.
 It returns a bounded set of app row summaries, per-column page metadata, exact category/column totals,
 per-status unread totals, page options and a scope revision. A single authorized source scan serves all initial columns or all requested refresh depths. Verification-disabled projects normalize Ready filters to Active and count old pending verifications in their ordinary category.
 Routing-only scans set `includeText: false`, omitting message bodies, quoted text, diagnostic device

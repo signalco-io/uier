@@ -52,12 +52,12 @@ export const openapi = {
     paths: {
         '/projects': { get: operation('listProjects', 'List projects', 'Requires feedback:read. Returns the selected projects you can still access.') },
         '/projects/{projectId}/statuses': { get: operation('listStatuses', 'List workflow statuses', 'Requires feedback:read. Use these IDs when updating feedback.', [projectId]) },
-        [feedback]: { get: operation('listFeedback', 'List feedback', 'Requires feedback:read. Returns visible threads, newest first, including archived threads. Pass next as before until next is null. Reading leaves the thread’s read state alone.', [
+        [feedback]: { get: operation('listFeedback', 'List feedback', 'Requires feedback:read. Returns visible threads, newest first, including archived threads. Each thread has its workflow status ID and a separate archive timestamp. Pass next as before until next is null. Reading leaves the thread’s read state alone.', [
             projectId, parameter('limit', 'query', 'Number of threads per page.', { type: 'integer', minimum: 1, maximum: apiPageLimit, default: 25 }),
             parameter('before', 'query', 'Continuation token from the previous response.')
         ]) },
         [thread]: { get: operation('getFeedback', 'Read a feedback thread', 'Requires feedback:read. Deleted messages have null text and author.', [projectId, feedbackId]),
-            patch: operation('updateStatus', 'Update feedback status', 'Requires feedback:status. Existing workflow and verification rules apply. Returns the thread.', [projectId, feedbackId, key], statusBody) },
+            patch: operation('updateStatus', 'Update feedback status or archive state', 'Requires feedback:status. Send statusId to choose a workflow status or archived to archive or restore. Archive changes retain the workflow status. Returns the thread.', [projectId, feedbackId, key], statusBody) },
         [thread + '/replies']: { post: operation('reply', 'Reply to feedback', 'Requires feedback:reply. Posts a plain text or Markdown reply attributed to the named integration. Returns the thread.', [projectId, feedbackId, key], replyBody) }
     }
 };

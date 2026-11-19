@@ -41,7 +41,7 @@ export type { ProjectCommentPageInput } from './projectCommentPaging';
 type Pivot = Pick<ProjectCommentView, 'id' | 'number' | 'createdAt' | 'updatedAt' | 'completedAt' | 'archivedAt'> & { priority?: ProjectCommentView['priority']; labelIds?: string[] };
 type Cursor = { key: string; after: Pivot; expires: number };
 const stages = feedbackStages;
-const filters: StatusFilter[] = ['active', ...stages, 'all', 'archived'];
+const filters: StatusFilter[] = ['active', ...stages, 'all'];
 
 function signCursor(cursor: Cursor) {
     const body = Buffer.from(JSON.stringify(cursor)).toString('base64url');
@@ -81,7 +81,7 @@ function summary(view: ProjectCommentView): ProjectCommentView {
         .map(link => ({ url: link.url, canRemove: view.pullRequests?.find(saved => saved.url === link.url)?.canRemove ?? false }));
     return { ...view, pullRequests, workflow: undefined, availableLabels: undefined, summary: true, text: view.text.slice(0, 500), displayText: view.displayText.slice(0, 500),
         displayMentions: view.displayMentions?.filter(mention => mention.end <= 500), replies: [], history: undefined,
-        screenshot: undefined, anchor: { type: 'page', label: '' }, reproduction: { text: '' }, quotedText: undefined, proposal: undefined, reactions: undefined,
+        screenshot: undefined, anchor: { type: 'page', label: '' }, reproduction: { text: '' }, quotedText: undefined, proposal: undefined, rewriteOriginal: undefined, reactions: undefined,
         verification: view.verification ? { ...view.verification, fixUrl: undefined } : undefined,
         outline: outline(view) };
 }
@@ -114,38 +114,40 @@ export async function loadProjectCommentPages(context: AppContext, project: DbPr
             context: [threadTitle(comment, titles)?.text ?? ''], messages: comment.thread.items.map(item => ({ ...item, deleted: Boolean(item.deletedAt) })) }, query.q ?? '');
     };
     const matching = scope.filter(matches), sorts = boardSortsOf(project.boardSorts);
-    const archiveExpanded = input.archiveExpanded ?? Boolean(project.boardArchiveExpanded);
-    const workflow = effectiveStatusWorkflow(context.workspace, project), definitions = orderedStatuses(workflow);
+    const workflow = effectiveStatusWorkflow(context.workspace, project), definitions = orderedStatuses(workflow).filter(status => status.category !== 'archive');
     const stage = (comment: CommentQueryCandidate) => feedbackStage({ ...comment, verificationEnabled: workflow.verificationEnabled === true });
-    const key = projectCommentPageKey(query, sorts, archiveExpanded, workflow, `${project.id}:${context.user.id}`, selectedGroupLabels(project, labels));
-    const board = query.view === 'board' && query.status !== 'archived';
+    const archived = query.archive === 'only';
+    const board = query.view === 'board' && !archived;
+    const inArchive = (comment: CommentQueryCandidate) => Boolean(comment.archivedAt) === archived;
+    const inScope = matching.filter(inArchive);
     const boardStatus = board ? boardStatusFilter(query.status) : undefined;
     const lanes: Partial<Record<CommentLane, CommentPage>> = {};
     const selected = new Set<string>();
     const groupLabels = selectedGroupLabels(project, labels);
+    const key = projectCommentPageKey(query, sorts, workflow, `${project.id}:${context.user.id}`, groupLabels);
     const groups = groupLabels ? [...groupLabels, 'unlabeled'] : [''];
     const laneDefinitions = definitions.flatMap(status => groups.map(label => ({ status, label, id: label ? labelLaneKey(status.id, label) : status.id })));
     const rowsByLane = new Map(laneDefinitions.map(lane => [lane.id, [] as CommentQueryCandidate[]]));
-    for (const comment of matching) {
+    if (board) for (const comment of inScope) {
         const status = statusForComment(workflow, comment).id;
         const assigned = groupLabels ? labelsForComment(labels, comment).map(label => label.id).filter(id => groupLabels.includes(id)) : [''];
         for (const label of assigned.length ? assigned : ['unlabeled'])
             rowsByLane.get(label ? labelLaneKey(status, label) : status)?.push(comment);
     }
     if (board) for (const { status, id } of laneDefinitions) lanes[id] = { ids: [], total: boardStatus && status.category !== boardStatus ? 0 : rowsByLane.get(id)!.length, nextCursor: null };
-    const available = laneDefinitions.filter(({ status }) => (!boardStatus || status.category === boardStatus) && (status.category !== 'archive' || archiveExpanded));
+    const available = laneDefinitions.filter(({ status }) => !boardStatus || status.category === boardStatus);
     const choices: CommentLane[] = input.lane ? [input.lane] : board ? available.map(lane => lane.id) : ['list'];
     if (input.lane && (board ? !available.some(lane => lane.id === input.lane) : input.lane !== 'list')) throw apiErrors.invalidRequest('This column does not belong to the current view.');
     if (input.depths && Object.keys(input.depths).some(lane => !choices.includes(lane))) throw apiErrors.invalidRequest('This column does not belong to the current view.');
     for (const lane of choices) {
         const definition = board ? laneDefinitions.find(value => value.id === lane)!.status : undefined;
-        const sort = definition ? sorts[definition.category] : undefined;
+        const sort = definition ? sorts[definition.category] : archived ? sorts.archive : undefined;
         const groupIndex = (row: Pivot) => {
             const index = groupLabels ? groupLabels.findIndex(id => row.labelIds?.includes(id)) : -1;
             return index < 0 ? (groupLabels ? groupLabels.length : 0) : index;
         };
         const compare = (a: Pivot, b: Pivot) => (!board && groupLabels ? groupIndex(a) - groupIndex(b) : 0) || (sort ? boardSortOrders[sort](a, b) : compareCommentOrder(a, b)) || compareCommentOrder(a, b) || a.id.localeCompare(b.id);
-        const rows = (board ? rowsByLane.get(lane)! : matching.filter(comment => statusMatches(query.status, stage(comment), comment.archivedAt))).sort(compare);
+        const rows = (board ? rowsByLane.get(lane)! : inScope.filter(comment => statusMatches(query.status, stage(comment)))).sort(compare);
         const binding = keyedHash('project-comment-page-binding', JSON.stringify([key, lane, viewerId, project.id, context.isAdmin, project.access, project.urls, query.unread ? input.openId : undefined]));
         const cursor = input.cursor ? readCursor(input.cursor, binding) : undefined;
         const remaining = cursor ? rows.filter(row => compare(row, cursor.after) > 0) : rows;
@@ -159,16 +161,18 @@ export async function loadProjectCommentPages(context: AppContext, project: DbPr
             nextCursor: remaining.length > size && after ? signCursor({ key: binding, after, expires: cursor?.expires ?? Date.now() + 15 * 60_000 }) : null };
         for (const row of page) selected.add(row.id);
     }
-    const statusCounts = Object.fromEntries(filters.map(filter => [filter, matching.filter(comment => statusMatches(filter, stage(comment), comment.archivedAt)).length])) as Record<StatusFilter, number>;
-    const statusUnread = Object.fromEntries(filters.map(filter => [filter, matching.filter(comment => statusMatches(filter, stage(comment), comment.archivedAt) && readActivity(comment, viewerId, reads.get(comment.id)).unread).length])) as Record<StatusFilter, number>;
+    const statusCounts = Object.fromEntries(filters.map(filter => [filter, inScope.filter(comment => statusMatches(filter, stage(comment))).length])) as Record<StatusFilter, number>;
+    const statusUnread = Object.fromEntries(filters.map(filter => [filter, inScope.filter(comment => statusMatches(filter, stage(comment)) && readActivity(comment, viewerId, reads.get(comment.id)).unread).length])) as Record<StatusFilter, number>;
     const paths = new Map<string, number>();
-    for (const comment of scope.filter(comment => board || Boolean(comment.archivedAt) === (query.status === 'archived'))) {
+    for (const comment of scope.filter(inArchive)) {
         const path = commentPath(comment); paths.set(path, (paths.get(path) ?? 0) + 1);
     }
-    const paging: ProjectCommentPaging = { key, lanes, statusCounts, statusUnread, scopeTotal: scope.length, matchedTotal: matching.length,
+    const archiveRows = archived ? inScope : matching.filter(comment => comment.archivedAt);
+    const paging: ProjectCommentPaging = { key, lanes, statusCounts, statusUnread, archiveCount: archiveRows.length,
+        archiveUnread: archiveRows.filter(comment => readActivity(comment, viewerId, reads.get(comment.id)).unread).length, scopeTotal: scope.length, matchedTotal: matching.length,
         pages: [...paths].map(([path, count]) => ({ path, count })),
         historySources: [...new Set(scope.map(comment => feedbackSource(project, comment.origin).environment).filter(id => id === 'removed' || id === 'unknown'))],
-        unreadCount: matching.filter(comment => (board ? (!boardStatus || stage(comment) === boardStatus && !comment.archivedAt) && (!comment.archivedAt || archiveExpanded) : statusMatches(query.status, stage(comment), comment.archivedAt)) && readActivity(comment, viewerId, reads.get(comment.id)).unread).length };
+        unreadCount: inScope.filter(comment => (board ? !boardStatus || stage(comment) === boardStatus : statusMatches(query.status, stage(comment))) && readActivity(comment, viewerId, reads.get(comment.id)).unread).length };
     const [views, openedComment] = await Promise.all([
         input.revisionOnly ? [] : loadProjectComments(context, project, undefined, undefined, undefined, Promise.resolve(members), 'all', t, [...selected], { reads, subscriptions }),
         !input.revisionOnly && input.openId && !selected.has(input.openId) && scope.some(comment => comment.id === input.openId) ? loadProjectComment(context, project, input.openId).catch(error => {

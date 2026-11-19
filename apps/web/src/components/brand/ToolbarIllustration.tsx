@@ -44,7 +44,7 @@ export function ToolbarIllustration({ size = 'md', unread = 2, initials = 'LE', 
         <div
             role="img"
             aria-label={`The review toolbar: move, add comment, send feedback, inbox with ${unread} unread, page checks, profile, options and collapse`}
-            className="dark inline-flex w-max items-center rounded-full border bg-background p-1 text-foreground shadow-[0_8px_24px_rgba(0,0,0,0.16)]">
+            className="dark inline-flex w-max items-center rounded-full border bg-background p-1 text-foreground shadow-(--brand-shadow-review)">
             <span className={cx(button, 'text-muted-foreground')}><Drag size={icon} style={{ strokeWidth: 1.25 }} /></span>
             <span className={button}><AddCommentIcon size={small ? 20 : 24} /></span>
             <span className={button}><Megaphone size={icon} /></span>

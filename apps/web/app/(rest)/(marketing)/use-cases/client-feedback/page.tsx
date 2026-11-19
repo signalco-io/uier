@@ -69,7 +69,7 @@ export default function ClientFeedbackPage() {
 
         <PageSection id="evidence" title="Send the context the review needs" lead="Leave out sensitive information before posting.">
             <NumberedList items={[
-                <>New feedback attempts a screenshot. Turn <strong className="font-medium">Attach screenshot</strong> off if that part of the page is private; the comment form has no screenshot preview.</>,
+                <>New feedback attempts a screenshot and shows it as a thumbnail you can preview. Select <strong className="font-medium">Remove screenshot</strong> if that part of the page is private.</>,
                 <>A reply can carry an image or a short recording when the question needs more context. Review a recorded clip before sending it.</>,
                 <>Redact screenshot covers details in an already saved image. It cannot recall copies someone has downloaded.</>
             ]} />

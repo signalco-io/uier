@@ -11,6 +11,7 @@ export type CommentsQuery = {
     view: CommentsView;
     /** Active (not done, the default), Open, In progress, Ready to verify, Done or All in the list (the board shows every status side by side) */
     status: StatusFilter;
+    archive?: 'only';
     people: PeopleFilter;
     /** A page (relative URL), a section (`/blog/*`) or every page */
     page?: string;
@@ -25,6 +26,8 @@ export function parseCommentsQuery(params: Record<string, string | string[] | un
     const people = value('people');
     const status = value('status');
     const page = value('page');
+    // Older toolbar and app links used Archive as the status filter.
+    const archive = value('archive') === 'only' || status === 'archived' ? 'only' : undefined;
     return {
         q: value('q')?.slice(0, MAX_FEEDBACK_SEARCH) || undefined,
         priority: priorities.includes(value('priority') as CommentPriority) ? commentPriority(value('priority')) : undefined,
@@ -33,7 +36,8 @@ export function parseCommentsQuery(params: Record<string, string | string[] | un
         author: value('author'),
         unread: value('unread') === 'true',
         view: value('view') === 'board' ? 'board' : 'list',
-        status: status === 'open' || status === 'in-progress' || status === 'ready' || status === 'done' || status === 'all' || status === 'archived' ? status : 'active',
+        status: status === 'open' || status === 'in-progress' || status === 'ready' || status === 'done' || status === 'all' ? status : status === 'active' || !archive ? 'active' : 'all',
+        archive,
         people: people === 'assigned' || people === 'unassigned' || people === 'mine' ? people : 'all',
         page: page?.startsWith('/') ? page : undefined
     };

@@ -306,7 +306,7 @@ export async function createProjectComment(request: Request, project: DbProject,
         resolved: initial.category === 'done',
         ...(initial.category === 'done' ? { completedAt: now } : {}),
         ...(initial.category === 'in-progress' ? { inProgress: true } : {}),
-        ...(initial.category === 'archive' ? { archivedAt: now, archiveStatusId: initial.id } : { workflowStatusId: initial.id }),
+        workflowStatusId: initial.id,
         authorId,
         activity: { sequence: 1, byActor: { [authorId]: 1 } },
         createdAt: now,
@@ -789,15 +789,15 @@ export async function setProjectCommentWorkflowStatus(project: DbProject, actor:
         const workflow = await loadStatusWorkflow(currentProject);
         const target = workflow.statuses.find(status => status.id === statusId);
         if (!target) throw apiErrors.invalidRequest('This status is no longer available. Reload the page.');
-        const from = feedbackStage(comment);
-        const previousStatus = statusForComment(workflow, comment);
-        const detail = { statusResolved: target.category === 'archive' ? Boolean(comment.resolved) : target.category === 'done', previousStatusId: previousStatus.id, statusId: target.id, statusLabel: target.label, statusCategory: target.category };
         const actorId = actorAuthorId(actor)!;
         if (target.category === 'archive') {
             if (comment.archivedAt && comment.archiveStatusId === target.id) return comment;
             const updated = { ...withThreadActivity(comment, actorId), archivedAt: comment.archivedAt ?? nowIso(), archiveStatusId: target.id };
-            return withNotificationEvent(updated, actorId, comment.archivedAt ? 'workflow-status' : 'archived', nowIso(), undefined, actor.kind === 'member' ? actor.agent : undefined, detail);
+            return comment.archivedAt ? updated : withNotificationEvent(updated, actorId, 'archived', updated.archivedAt, undefined, actor.kind === 'member' ? actor.agent : undefined);
         }
+        const from = feedbackStage(comment);
+        const previousStatus = statusForComment(workflow, comment);
+        const detail = { statusResolved: target.category === 'done', previousStatusId: previousStatus.id, statusId: target.id, statusLabel: target.label, statusCategory: target.category };
         if (target.category === 'ready' && currentProject.verificationEnabled !== true) throw apiErrors.invalidRequest('Fix verification is off for this project. Mark the comment done instead.');
         if (target.category === 'ready' && from !== 'ready') throw apiErrors.invalidRequest('Request verification and choose a reviewer first.');
         if (currentProject.verificationEnabled === true && from === 'ready' && target.category !== 'ready' && target.category !== 'done')
