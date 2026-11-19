@@ -232,7 +232,20 @@ node plugins/uier/skills/uier-monitor/scripts/dashboard.mjs --dev --review 4qkVL
 
 `--review` loads the toolbar for the **uier monitor dashboard** project (`uier00000003`, in the uier
 workspace, staff only). The project's addresses are `http://127.0.0.1:4780` and
-`http://localhost:4780`, so the toolbar only works on the default port. The comments are in the app
+`http://localhost:4780`, so the toolbar only works on the default port. The page includes the toolbar
+only when the dashboard starts with a review project: `?review=true` alone changes nothing on a
+dashboard without one. A dashboard already running without `--review` (or `--dev`) is restarted with
+it on the same port, and the command prints the review link to open.
+
+To have every dashboard on your machine load the toolbar, including the one the monitor skill
+starts, save the project once:
+
+```bash
+node plugins/uier/skills/uier-monitor/scripts/dashboard.mjs review 4qkVLP8gA_7ly406tHc-Q
+```
+
+It goes to `~/.uier-monitor/dashboard-settings.json` and applies to every start without `--review`.
+`review` on its own prints it, and `review off` forgets it. The comments are in the app
 under the uier workspace, and `/uier-monitor uier monitor dashboard` resolves them like any other
 project's once your uier connection includes the project. Anyone else passes their own project's id; the page loads nothing from uier without the
 flag.
@@ -252,7 +265,7 @@ at 2 MB, keeping one earlier file.
 
 **What it never does.** It doesn't change a monitor, uier or the repository, and it has no write
 endpoint. It binds to `127.0.0.1` and refuses requests under another host name, so a web page you
-visit can't read it. Its server fetches only the projects' site icons (not with `--no-icons`), and the page loads nothing from the internet unless you pass `--review`. The browser receives a fixed set of fields,
+visit can't read it. Its server fetches only the projects' site icons (not with `--no-icons`), and the page loads nothing from the internet unless you pass `--review` or saved a default review project. The browser receives a fixed set of fields,
 never the state files themselves or a token, and the page renders feedback text as text. Binding
 another address with `--host` makes the page readable by everyone who can reach that address.
 

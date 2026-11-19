@@ -42,6 +42,7 @@ const HELP = `uier monitor dashboard ${VERSION}
 
 Usage: node dashboard.mjs [serve] [options]
        node dashboard.mjs stop
+       node dashboard.mjs review [ID|off]
 
   --port N        Port to serve on (default ${DEFAULT_PORT}; the next free one is used when it is taken).
   --host HOST     Address to bind (default 127.0.0.1, this machine only).
@@ -53,15 +54,21 @@ Usage: node dashboard.mjs [serve] [options]
                   dashboard otherwise fetches from the project's site (its page and favicon).
   --review ID     Load the uier review toolbar on the page for the uier project with this id, so
                   people can leave feedback on the dashboard itself. The project's addresses must
-                  include the dashboard's (http://127.0.0.1:${DEFAULT_PORT}). Off unless you pass it.
+                  include the dashboard's (http://127.0.0.1:${DEFAULT_PORT}). Off unless you pass it or
+                  saved a default. A dashboard already running without it is restarted with it, on
+                  the same port.
   --dev           For work on the dashboard itself: when this file changes, the new code takes over
                   on the same port and open pages reload, keeping their open cards and scroll position.
+
+  review ID       Save ID as the default --review: every start without --review on this machine
+                  loads the toolbar for that project, also the one the uier-monitor skill starts.
+  review off      Forget the default. review on its own prints it.
 
 Monitors are found in ~/.uier-monitor/monitors (UIER_MONITOR_HOME overrides the folder), where the
 watcher announces itself, and in <git common dir>/uier-monitor of the checkout you run this in.
 The dashboard is read-only: it never changes a monitor, uier or the repository. It loads nothing
 from the internet, except each project's site icon (not with --no-icons) and the uier toolbar when
-you start it with --review.
+you start it with --review or saved a default with review ID.
 `;
 
 // ---------------------------------------------------------------- reading files
@@ -698,6 +705,40 @@ export function reviewOf(project, base = process.env.UIER_REVIEW_URL || 'https:/
     return { project, origin: url.origin };
 }
 
+const settingsFile = () => join(monitorHome(), 'dashboard-settings.json');
+
+/** The dashboard's saved settings on this machine (`review <id>`), or {}. */
+function readSettings() {
+    try { const value = JSON.parse(readFileSync(settingsFile(), 'utf8')); return value && typeof value === 'object' && !Array.isArray(value) ? value : {}; }
+    catch { return {}; }
+}
+
+/** The `--review` of a start without one: the project saved with `review <id>`, or null. */
+export function savedReview() {
+    const { review } = readSettings();
+    if (review === undefined || review === null) return null;
+    try { return reviewOf(review); }
+    catch (error) { console.error(`Ignoring the saved review project in ${settingsFile()}: ${error.message}`); return null; }
+}
+
+/** `review [id|off]`: save, forget or print the default review project. */
+function saveReview(value) {
+    const settings = readSettings();
+    if (value === undefined) {
+        console.log(settings.review ? `Dashboards started without --review load the toolbar for project ${settings.review}. Turn it off with: node dashboard.mjs review off`
+            : 'No default review project. Save one with: node dashboard.mjs review <project id>');
+        return;
+    }
+    if (value === 'off') delete settings.review;
+    else settings.review = reviewOf(value).project;
+    mkdirSync(monitorHome(), { recursive: true });
+    const temporary = `${settingsFile()}.${process.pid}.tmp`;
+    writeFileSync(temporary, `${JSON.stringify(settings)}\n`);
+    renameSync(temporary, settingsFile());
+    console.log(value === 'off' ? 'Dashboards load the review toolbar only when started with --review.'
+        : `Saved: dashboards started without --review load the toolbar for project ${value}. Start it, or restart a running one with it: node dashboard.mjs --detach --open`);
+}
+
 /** The page's Content-Security-Policy: nothing from elsewhere, or exactly what the uier toolbar needs. */
 function contentSecurityPolicy(nonce, review) {
     const uier = review ? ` ${review.origin}` : '';
@@ -822,6 +863,7 @@ function parseArgs(argv) {
         else if (arg === '--no-icons') options.icons = false;
         else if (arg === '--help' || arg === '-h' || arg === 'help') options.command = 'help';
         else if (arg === 'stop' || arg === 'serve') options.command = arg;
+        else if (arg === 'review') { options.command = 'review'; if (argv[index + 1] !== undefined && !argv[index + 1].startsWith('-')) options.saved = argv[++index]; }
         else throw new Error(`Unknown option "${arg}". Run: node dashboard.mjs help`);
     }
     if (options.port !== undefined && !(Number.isInteger(options.port) && options.port >= 0 && options.port < 65536)) throw new Error('--port needs a port number.');
@@ -843,16 +885,45 @@ function openBrowser(url) {
     try { spawn(command, args, { detached: true, stdio: 'ignore' }).on('error', () => {}).unref(); } catch { /* no browser to open */ }
 }
 
+/** The address to open: a review link when the page loads the uier toolbar, so the review starts. */
+const pageUrl = (url, review) => review ? `${url}/?review=true` : url;
+
+/**
+ * What this start asks for that the running dashboard (its record) wasn't started with, as the
+ * options to name, or null. A record without them is from a start without `--review` and `--dev`.
+ */
+export function missingFrom(record, options) {
+    const missing = [];
+    const review = record?.review;
+    if (options.review && (review?.project !== options.review.project || review?.origin !== options.review.origin)) missing.push(`--review ${options.review.project}`);
+    if (options.dev && !record?.dev) missing.push('--dev');
+    return missing.length ? missing.join(' ') : null;
+}
+
+async function stopDashboard(pid) {
+    try { process.kill(pid, 'SIGTERM'); } catch { /* already gone */ }
+    for (let wait = 0; wait < 50 && alive(pid); wait++) await sleep(100);
+    if (alive(pid)) throw new Error(`The running dashboard (pid ${pid}) did not stop. Stop it with: node dashboard.mjs stop`);
+}
+
 async function serve(options) {
     const host = options.host ?? '127.0.0.1';
     const shown = host.includes(':') ? `[${host}]` : host;
     const first = options.port ?? DEFAULT_PORT;
     const record = readRecord();
+    const running = record?.url && alive(record.pid) && await ping(record.url) ? record : null;
     // One dashboard shows every monitor, so a second one would only take another port.
-    if (options.port === undefined && record?.url && alive(record.pid) && await ping(record.url)) {
-        console.log(`The dashboard is already running: ${record.url}`);
-        if (options.open) openBrowser(record.url);
-        return;
+    if (running && (options.port === undefined || new URL(running.url).port === String(options.port))) {
+        const missing = missingFrom(running, options);
+        if (!missing) {
+            console.log(`The dashboard is already running: ${running.url}`);
+            if (options.open) openBrowser(pageUrl(running.url, options.review));
+            return;
+        }
+        // Reusing it would drop what was asked for (the toolbar only works on the project's address),
+        // so this start takes its place on the same port.
+        console.log(`The dashboard at ${running.url} was started without ${missing}; restarting it on the same port.`);
+        await stopDashboard(running.pid);
     }
     if (options.detach) {
         const args = [fileURLToPath(import.meta.url), 'serve', '--host', host, ...(options.port === undefined ? [] : ['--port', String(options.port)]),
@@ -864,7 +935,8 @@ async function serve(options) {
             const started = readRecord();
             if (started?.pid === child.pid) {
                 console.log(`uier monitor dashboard: ${started.url} (pid ${child.pid}). Stop it with: node dashboard.mjs stop`);
-                if (options.open) openBrowser(started.url);
+                if (options.review) console.log(`Review: open ${pageUrl(started.url, options.review)} to leave feedback.`);
+                if (options.open) openBrowser(pageUrl(started.url, options.review));
                 return;
             }
         }
@@ -882,7 +954,9 @@ async function serve(options) {
     const url = `http://${shown}:${server.address().port}`;
     mkdirSync(monitorHome(), { recursive: true });
     const temporary = `${recordFile()}.${process.pid}.tmp`;
-    writeFileSync(temporary, `${JSON.stringify({ pid: process.pid, url, startedAt: new Date().toISOString() })}\n`);
+    // What it was started with, so a later start that asks for more can tell (`missingFrom`).
+    const entry = { pid: process.pid, url, startedAt: new Date().toISOString(), ...(options.review ? { review: options.review } : {}), ...(options.dev ? { dev: true } : {}) };
+    writeFileSync(temporary, `${JSON.stringify(entry)}\n`);
     renameSync(temporary, recordFile());
     const release = () => { if (readRecord()?.pid === process.pid) rmSync(recordFile(), { force: true }); };
     for (const signal of ['SIGTERM', 'SIGINT', 'SIGHUP']) process.on(signal, () => { release(); process.exit(0); });
@@ -891,8 +965,8 @@ async function serve(options) {
     console.log(`uier monitor dashboard: ${url} (${plural(total, 'monitor')}). Read-only; press Ctrl+C to stop.`);
     if (!['127.0.0.1', 'localhost', '::1'].includes(host)) console.log(`Bound to ${host}: everyone who can reach this address can read the page.`);
     if (options.dev) console.log('Watching dashboard.mjs: an edit swaps in the new code and reloads open pages.');
-    if (options.review) console.log(`Review: the page loads the uier toolbar from ${options.review.origin} for project ${options.review.project}. Open ${url}/?review=true to leave feedback.`);
-    if (options.open) openBrowser(options.review ? `${url}/?review=true` : url);
+    if (options.review) console.log(`Review: the page loads the uier toolbar from ${options.review.origin} for project ${options.review.project}. Open ${pageUrl(url, options.review)} to leave feedback.`);
+    if (options.open) openBrowser(pageUrl(url, options.review));
 }
 
 function stop() {
@@ -906,8 +980,12 @@ async function main(argv) {
     const options = parseArgs(argv);
     if (options.command === 'help') console.log(HELP);
     else if (options.command === 'stop') stop();
+    else if (options.command === 'review') saveReview(options.saved);
     else if (options.json) console.log(JSON.stringify(collect(options), null, 1));
-    else await serve(options);
+    else {
+        if (options.review === undefined) options.review = savedReview();
+        await serve(options);
+    }
 }
 
 // ---------------------------------------------------------------- the page
