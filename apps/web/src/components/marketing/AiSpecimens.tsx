@@ -2,6 +2,7 @@ import { AI, Send } from '@signalco/ui-icons';
 import { cx } from '@signalco/ui-primitives/cx';
 import { GitPullRequestIcon } from 'lucide-react';
 import { AssigneeAvatar, floating, Message, Specimen, ThreadHeader } from './LandingSpecimens';
+import { specimenLoop, type SpecimenLoop } from './specimenMotion';
 
 // Static pictures for the AI parts of uier: a coding agent working on a thread through the MCP
 // connector (attached to the thread as the assignee's agent, its pull request linked), and rewrite suggestions in the toolbar. Like the landing's specimens they are hidden
@@ -9,16 +10,24 @@ import { AssigneeAvatar, floating, Message, Specimen, ThreadHeader } from './Lan
 // names are the connector's (src/lib/mcp/server.ts); the rewrite labels are the toolbar's
 // (CommentBubble, RewriteSuggestions). The coding agent is generic, not any one product, and its
 // approval question is the agent's own: uier does not show it.
+//
+// On the landing page the agent's tile plays as a loop (`animated`): the session's steps come in one at a
+// time, and the thread shows what each one did (the agent on the assignee, then the pull request).
+
+/** When each of the session's steps comes in, in seconds into the loop */
+const stepAt = (index: number) => 2.6 + index * 1.2;
 
 /** The thread the agent works on: In progress, its assignee with the agent stacked on their avatar, the linked pull request */
-function AgentThread() {
+function AgentThread({ loop }: { loop: SpecimenLoop }) {
     return (
         <div className={cx('flex w-full max-w-[240px] flex-col rounded-xl border bg-popover text-popover-foreground', floating)}>
-            <ThreadHeader stage="in-progress" number={12} assignees={<AssigneeAvatar initials="LE" agent />} />
+            {/* After set_feedback_agent */}
+            <ThreadHeader stage="in-progress" number={12} assignees={<span className="inline-flex" {...loop.enter(stepAt(1) + 0.4)}><AssigneeAvatar initials="LE" agent /></span>} />
             <div className="px-3.5 py-3">
                 <Message initials="MI" name="Mia" time="1 hr ago">The booking button is hidden behind the menu on my phone.</Message>
             </div>
-            <div className="flex items-center gap-2 border-t px-3.5 py-2.5 text-[11px] text-muted-foreground">
+            {/* After link_feedback_pull_request */}
+            <div className="flex items-center gap-2 border-t px-3.5 py-2.5 text-[11px] text-muted-foreground" {...loop.enter(stepAt(3) + 0.4)}>
                 <GitPullRequestIcon size={12} strokeWidth={1.75} className="shrink-0" />
                 <span className="min-w-0 flex-1 truncate font-mono">#318 Fix booking button</span>
                 <span className="inline-flex h-5 shrink-0 items-center gap-1 rounded-full border px-1.5 text-foreground">
@@ -31,7 +40,7 @@ function AgentThread() {
 }
 
 /** A coding agent's session: the request, the connector's tools it called, and the approval it waits for */
-function AgentSession() {
+function AgentSession({ loop }: { loop: SpecimenLoop }) {
     const steps: [string, string][] = [
         ['get_feedback', '#12 with its screenshot'],
         ['set_feedback_agent', 'working on #12'],
@@ -49,14 +58,14 @@ function AgentSession() {
             </div>
             <div className="flex flex-col gap-1 px-3.5 py-3 font-mono text-[11px] leading-4">
                 <span className="truncate">&gt; Fix uier #12</span>
-                {steps.map(([step, detail]) => (
-                    <span key={step} className="truncate">
+                {steps.map(([step, detail], index) => (
+                    <span key={step} className="truncate" {...loop.enter(stepAt(index))}>
                         <span className="text-foreground">{step}</span>
                         <span className="text-muted-foreground"> {detail}</span>
                     </span>
                 ))}
             </div>
-            <div className="flex items-center justify-between gap-2 border-t px-3.5 py-2.5">
+            <div className="flex items-center justify-between gap-2 border-t px-3.5 py-2.5" {...loop.enter(stepAt(4) + 0.2)}>
                 <span className="text-xs">Reply and ask Mia to verify?</span>
                 <span className="flex shrink-0 gap-1">
                     <span className="inline-flex h-6 items-center rounded-md bg-primary px-2 text-xs font-medium text-primary-foreground">Yes</span>
@@ -68,22 +77,23 @@ function AgentSession() {
 }
 
 /** The thread beside the agent working on it */
-function AgentScene() {
+function AgentScene({ loop }: { loop: SpecimenLoop }) {
     return (
         <div className="flex w-full max-w-[600px] items-center justify-between gap-8">
             <div className="hidden w-full sm:flex">
-                <AgentThread />
+                <AgentThread loop={loop} />
             </div>
-            <AgentSession />
+            <AgentSession loop={loop} />
         </div>
     );
 }
 
-/** The landing's feature tile */
-export function AgentSpecimen() {
+/** The landing's feature tile; `animated` plays the session as a loop */
+export function AgentSpecimen({ animated }: { animated?: boolean }) {
+    const loop = specimenLoop(animated ? 12.5 : undefined);
     return (
-        <Specimen className="items-center">
-            <AgentScene />
+        <Specimen className="items-center" loop={loop}>
+            <AgentScene loop={loop} />
         </Specimen>
     );
 }

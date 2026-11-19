@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Locator } from '@playwright/test';
 import { brand } from '@uier/brand';
 import { assertAccessibility } from './accessibility';
 
@@ -68,6 +68,119 @@ test('each feature tile on the landing page opens its page', async ({ page }) =>
     await expect(tile).not.toHaveCSS('box-shadow', 'none');
     await tile.click({ position: { x: 40, y: 40 } });
     await expect(page).toHaveURL(/\/features\/inbox$/);
+});
+
+/** The play states of a tile's loop: every part runs or rests together */
+const loopStates = (loop: Locator) => loop.evaluate(element => [...new Set(element.getAnimations({ subtree: true }).map(animation => animation.playState))]);
+
+test('the feature tiles play their loops only in view, and one button pauses them', async ({ page, isMobile }) => {
+    await page.goto('/');
+    const features = page.getByRole('region', { name: 'What it does' });
+    await expect(features.locator('[data-feature-examples]')).toHaveAttribute('data-feature-examples', 'playing');
+    // A touch target is never below 44 px (BRAND.md, "Space")
+    const size = await features.getByRole('button', { name: 'Pause examples', exact: true }).boundingBox();
+    expect(size?.height).toBe(isMobile ? 44 : 36);
+    const loops = features.locator('[data-motion-loop]');
+    await expect(loops).toHaveCount(tiles.length);
+    // Pictures: out of the accessibility tree and inert, the tile's text says what each shows
+    for (const loop of await loops.all()) {
+        await expect(loop).toHaveAttribute('aria-hidden', 'true');
+        await expect(loop).toHaveAttribute('inert', '');
+    }
+
+    // Still until it is in view, and again once it is out of it
+    const first = loops.first();
+    const last = loops.last();
+    expect(await loopStates(last)).toEqual(['paused']);
+    await first.scrollIntoViewIfNeeded();
+    await expect.poll(() => loopStates(first)).toEqual(['running']);
+    expect(await loopStates(last)).toEqual(['paused']);
+
+    // One button stops every tile (WCAG 2.2.2), and a paused tile stays paused when it comes into view
+    await features.getByRole('button', { name: 'Pause examples', exact: true }).click();
+    await expect.poll(() => loopStates(first)).toEqual(['paused']);
+    await last.scrollIntoViewIfNeeded();
+    await expect(last).toBeInViewport({ ratio: 0.9 });
+    expect(await loopStates(last)).toEqual(['paused']);
+    // Without scrolling back up to the button: the last tile stays in view
+    await features.getByRole('button', { name: 'Play examples', exact: true }).dispatchEvent('click');
+    await expect.poll(() => loopStates(last)).toEqual(['running']);
+    await expect.poll(() => loopStates(first)).toEqual(['paused']);
+});
+
+test('with reduced motion the feature tiles stay still pictures', async ({ page }) => {
+    // A phone's width: the button is on its own line there, so taking it away would move the tiles
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/');
+    const features = page.getByRole('region', { name: 'What it does' });
+    const examples = features.locator('[data-feature-examples]');
+    await expect(examples).toHaveAttribute('data-feature-examples', 'still');
+    // A note is in the button's place, in the same box
+    const button = features.getByRole('button', { name: /examples$/ });
+    const note = features.getByText('Examples stay still with reduced motion.', { exact: true });
+    await expect(button).toHaveCount(0);
+    await expect(note).toBeVisible();
+    const first = features.locator('[data-motion-loop]').first();
+    await first.scrollIntoViewIfNeeded();
+    expect(await loopStates(first)).toEqual([]);
+    /** Where the tiles start on the page, and the box the button and the note share */
+    const geometry = () => features.evaluate(element => {
+        const grid = element.querySelector('[data-feature-examples]')!.getBoundingClientRect();
+        const control = element.querySelector('[data-feature-examples-control]')!.getBoundingClientRect();
+        return { grid: grid.top + scrollY, control: [control.left, control.top + scrollY, control.width, control.height], fits: document.documentElement.scrollWidth <= innerWidth };
+    });
+    const still = await geometry();
+    expect(still.fits).toBe(true);
+
+    // Read live: turned off the loops play, and nothing has moved
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await expect.poll(() => loopStates(first)).toEqual(['running']);
+    await expect(button).toBeVisible();
+    await expect(note).toBeHidden();
+    expect(await geometry()).toEqual(still);
+
+    // Turned on mid-loop with the focus on the button: the loops stop on the still picture, the tiles
+    // stay where they are and the focus goes to the note instead of falling to the page
+    await button.focus();
+    await expect(button).toBeFocused();
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await expect.poll(() => loopStates(first)).toEqual([]);
+    await expect(examples).toHaveAttribute('data-feature-examples', 'still');
+    await expect(button).toHaveCount(0);
+    await expect(note).toBeFocused();
+    expect(await geometry()).toEqual(still);
+
+    // And back: the focus returns to the button
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await expect(button).toBeFocused();
+    expect(await geometry()).toEqual(still);
+});
+
+test('a tile loop moves nothing around it on a phone', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/');
+    const features = page.getByRole('region', { name: 'What it does' });
+    // The board's loop drags a card to the next column: the widest move of the eight
+    const tile = features.getByRole('link', { name: 'More on statuses and the board', exact: true }).locator('xpath=ancestor::div[contains(@class, "group")][1]');
+    const loop = tile.locator('[data-motion-loop]');
+    await loop.scrollIntoViewIfNeeded();
+    await expect.poll(() => loopStates(loop)).toEqual(['running']);
+    const geometry = () => tile.evaluate(element => {
+        const picture = element.querySelector('[data-motion-loop]')!.getBoundingClientRect();
+        const title = element.querySelector('h3')!.getBoundingClientRect();
+        return { height: picture.height, width: picture.width, title: title.top - picture.top, fits: document.documentElement.scrollWidth <= innerWidth };
+    });
+    const start = await geometry();
+    expect(start.fits).toBe(true);
+    // Through the loop: the card lifted, dropped in the next column, and back
+    for (const seconds of [3.5, 5, 8.2, 12]) {
+        await loop.evaluate((element, time) => {
+            for (const animation of element.getAnimations({ subtree: true }))
+                animation.currentTime = time * 1000 + Number(animation.effect?.getTiming().delay ?? 0);
+        }, seconds);
+        expect(await geometry(), `${seconds} s`).toEqual(start);
+    }
 });
 
 for (const feature of pages) {

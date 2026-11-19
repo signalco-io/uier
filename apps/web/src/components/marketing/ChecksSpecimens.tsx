@@ -1,8 +1,9 @@
 import type { ReactNode } from 'react';
-import { Check, Info, MyLocation, PanelRightClose, Reset, Warning } from '@signalco/ui-icons';
+import { Check, Info, LoaderSpinner, MyLocation, PanelRightClose, Reset, Warning } from '@signalco/ui-icons';
 import { cx } from '@signalco/ui-primitives/cx';
 import { AddCommentIcon } from '../brand/ToolbarIllustration';
 import { Specimen } from './LandingSpecimens';
+import { LoopPointer, specimenLoop, Swap, type SpecimenLoop } from './specimenMotion';
 
 // Static pictures of the toolbar's Accessibility and SEO panels (packages/toolbar components/checks:
 // ChecksPanel, ChecksParts, AccessibilityPanel, SeoPanel), for the landing's feature tile and
@@ -36,14 +37,14 @@ const impacts = [
     { name: 'Minor', icon: ({ className }: { className?: string }) => <Info size={16} className={className} />, tone: 'text-muted-foreground' }
 ] as const;
 
-/** A docked checks panel: ink, the title with Check again and Close, then its content */
-export function ChecksPanelFrame({ title, children, className }: { title: string; children: ReactNode; className?: string }) {
+/** A docked checks panel: ink, the title with Check again and Close, then its content; `checkAgain` is what a loop adds to Check again */
+export function ChecksPanelFrame({ title, children, className, checkAgain }: { title: string; children: ReactNode; className?: string; checkAgain?: ReactNode }) {
     return (
         <div className={cx('dark flex w-full flex-col gap-3 rounded-2xl border bg-background p-3 text-left text-foreground', className)}>
             <div className="flex items-center justify-between gap-2 pl-1">
                 <span className="text-sm font-semibold">{title}</span>
                 <span className="flex items-center gap-0.5 text-muted-foreground">
-                    <span className="inline-flex size-7 items-center justify-center"><Reset size={16} /></span>
+                    <span className="relative inline-flex size-7 items-center justify-center">{checkAgain}<Reset size={16} className="relative" /></span>
                     <span className="inline-flex size-7 items-center justify-center"><PanelRightClose size={16} /></span>
                 </span>
             </div>
@@ -52,12 +53,12 @@ export function ChecksPanelFrame({ title, children, className }: { title: string
     );
 }
 
-/** The summary: a tile for each kind of result with its count */
-export function SummaryTiles({ tiles }: { tiles: { label: string; count: number; icon: (props: { className?: string }) => ReactNode; tone: string }[] }) {
+/** The summary: a tile for each kind of result with its count; `track` is each tile's part in a loop */
+export function SummaryTiles({ tiles, track }: { tiles: { label: string; count: number; icon: (props: { className?: string }) => ReactNode; tone: string }[]; track?: (index: number) => object }) {
     return (
         <div className={cx('grid gap-2', tiles.length > 2 ? 'grid-cols-4' : 'grid-cols-2')}>
-            {tiles.map(({ label, count, icon: Icon, tone }) => (
-                <div key={label} className={cx('flex min-w-0 flex-col rounded-xl border bg-card py-2', tiles.length > 2 ? 'px-2' : 'px-2.5')}>
+            {tiles.map(({ label, count, icon: Icon, tone }, index) => (
+                <div key={label} className={cx('flex min-w-0 flex-col rounded-xl border bg-card py-2', tiles.length > 2 ? 'px-2' : 'px-2.5')} {...track?.(index)}>
                     <span className="flex items-center gap-1.5 text-lg font-semibold tabular-nums">
                         <Icon className={count ? tone : 'text-muted-foreground'} />
                         {count}
@@ -70,9 +71,9 @@ export function SummaryTiles({ tiles }: { tiles: { label: string; count: number;
 }
 
 /** A section: its heading and count over one bordered card of rows */
-export function ChecksSection({ title, count, note, children }: { title: string; count?: number; note?: string; children: ReactNode }) {
+export function ChecksSection({ title, count, note, children, track }: { title: string; count?: number; note?: string; children: ReactNode; track?: object }) {
     return (
-        <div className="flex min-w-0 flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5" {...track}>
             <div className="flex items-baseline justify-between gap-3 px-1">
                 <span className="text-sm font-semibold">{title}{count !== undefined && <span className="font-normal tabular-nums text-muted-foreground"> {count}</span>}</span>
                 {note && <span className="truncate text-xs text-muted-foreground">{note}</span>}
@@ -99,17 +100,36 @@ export function IssueRow({ element, posted, highlighted }: { element: string; po
 /**
  * The Accessibility panel with a report: three issues, the contrast rule open with its elements.
  * `highlighted` presses the price's Highlight, `posted` shows the comment the price became.
+ * With a `loop` (the landing's tile) Check again is pressed: the panel says it is checking the page, as
+ * the toolbar's does (AccessibilityPanel's `checkingPage`), then the report comes back a part at a time.
  */
-export function AccessibilityPanelSpecimen({ className, highlighted, posted }: { className?: string; highlighted?: boolean; posted?: number }) {
+export function AccessibilityPanelSpecimen({ className, highlighted, posted, loop = specimenLoop() }: { className?: string; highlighted?: boolean; posted?: number; loop?: SpecimenLoop }) {
     const counts = [0, 2, 1, 0];
+    const pressed = 2.6;
+    const checked = 5.2;
+    const back = (at: number) => loop.enter(at, { from: pressed });
     return (
-        <ChecksPanelFrame title="Accessibility" className={className}>
+        <ChecksPanelFrame title="Accessibility" className={className} checkAgain={loop.on && (
+            <>
+                <span className="absolute inset-0 rounded-md bg-accent" {...loop.during(pressed - 0.2, pressed + 0.5)} />
+                <LoopPointer className="left-1/2 top-1/2" track={loop.pointer([[1.5, '-30px', '24px'], [2.3, '0px', '0px'], [3.1, '0px', '0px'], [3.5, '0px', '0px']])} />
+            </>
+        )}>
             <div className="flex flex-col gap-2">
-                <span className="px-1 text-sm">3 issues found.</span>
-                <SummaryTiles tiles={impacts.map((impact, index) => ({ label: impact.name, icon: impact.icon, tone: impact.tone, count: counts[index] ?? 0 }))} />
-                <span className="px-1 text-xs text-muted-foreground">Checked at 14:32 with axe-core.</span>
+                <span className="px-1 text-sm">
+                    <Swap loop={loop} from={pressed} to={checked} was={(
+                        <span className="flex items-center gap-2">
+                            <span className="inline-flex" {...loop.frames([{ at: pressed, rotate: '0deg' }, { at: checked + 0.4, rotate: '1080deg' }])}><LoaderSpinner size={16} /></span>
+                            Checking this page…
+                        </span>
+                    )}>
+                        3 issues found.
+                    </Swap>
+                </span>
+                <SummaryTiles tiles={impacts.map((impact, index) => ({ label: impact.name, icon: impact.icon, tone: impact.tone, count: counts[index] ?? 0 }))} track={index => back(checked + 0.6 + index * 0.3)} />
+                <span className="px-1 text-xs text-muted-foreground" {...back(checked + 1.9)}>Checked at 14:32 with axe-core.</span>
             </div>
-            <ChecksSection title="Serious" count={2}>
+            <ChecksSection title="Serious" count={2} track={back(checked + 2.3)}>
                 <div className="flex flex-col gap-1.5 px-3 py-2">
                     <div className="flex items-start gap-2">
                         <Warning size={16} className="mt-0.5 shrink-0 text-[hsl(var(--brand-warning))]" />
@@ -165,11 +185,12 @@ export function SeoPanelSpecimen({ className }: { className?: string }) {
     );
 }
 
-/** The landing's feature tile: the Accessibility panel, docked */
-export function ChecksSpecimen() {
+/** The landing's feature tile: the Accessibility panel, docked; `animated` plays Check again as a loop */
+export function ChecksSpecimen({ animated }: { animated?: boolean }) {
+    const loop = specimenLoop(animated ? 12 : undefined);
     return (
-        <Specimen className="items-start pt-6">
-            <AccessibilityPanelSpecimen className="max-w-[340px]" />
+        <Specimen className="items-start pt-6" loop={loop}>
+            <AccessibilityPanelSpecimen className="max-w-[340px]" loop={loop} />
         </Specimen>
     );
 }
