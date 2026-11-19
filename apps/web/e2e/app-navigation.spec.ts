@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { appNavigation, createProject, hydrated, signIn, uniqueEmail } from './support/app';
+import { appNavigation, workspaceMenu, createProject, hydrated, signIn, uniqueEmail } from './support/app';
 import { toolbar } from './support/toolbar';
 
 test('app navigation preserves the document and feedback toolbar', async ({ page, isMobile }) => {
@@ -66,7 +66,7 @@ test('app navigation preserves the document and feedback toolbar', async ({ page
     await (await appNavigation(page)).getByRole('link', { name: 'Projects', exact: true }).click();
     await expect(page).toHaveURL(/\/app\/projects$/);
     await preserved();
-    await (await appNavigation(page)).getByRole('link', { name: 'Workspace', exact: true }).click();
+    await (await workspaceMenu(page)).getByRole('menuitem', { name: 'Workspace settings' }).click();
     for (const section of ['Teams', 'Clients', 'Usage', 'Activity', 'Settings', 'Users']) {
         const link = page.getByRole('navigation', { name: 'Workspace', exact: true }).getByRole('link', { name: section, exact: true });
         await link.click();

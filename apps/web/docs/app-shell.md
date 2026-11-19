@@ -15,9 +15,9 @@ the separately bundled review toolbar owns its own query cache.
   list and account pages. This rule is outside the WCAG tags used by the general accessibility scan.
 - **Layout.** `(shell)/layout.tsx` is the sidebar (`AppSidebar`: workspace switcher (its menu lists the
   person's workspaces to switch between, the current one checked, also when it is the only one (uier #257), creates one (`createWorkspaceAction`, a dialog for the name) and, for admins, opens Workspace
-  settings), Projects (the projects index; the person's own work goes beside it), active projects (every project when grouped by status) with a
-  Create project icon link and a Sort and Group menu (`ProjectOrderMenu`) in their header, then at the bottom Workspace (admins; for everyone else only when a
-  visible project has a client), Give feedback and the account menu: rows like the navigation's, 4px apart like them (uier #165: the Workspace group has no bottom padding and the footer `gap-1 pt-1`), the person's avatar centred in their 16px icon column so
+  settings; for everyone else, when a visible project has a client, Workspace opens the area's Clients tab. This menu is the
+  way to the workspace area: the sidebar has no Workspace link (uier #471)), Projects (the projects index; the person's own work goes beside it), active projects (every project when grouped by status) with a
+  Create project icon link and a Sort and Group menu (`ProjectOrderMenu`) in their header, then at the bottom Give feedback and the account menu: rows like the navigation's, 4px apart like them (uier #165: the footer `gap-1 pt-1`), the person's avatar centred in their 16px icon column so
   its name starts with the labels above; the email is in the account menu, with Keyboard shortcuts). The navigation's
   links are one tab stop (the current page's): ↓ and ↑, Home and End move between them; `LinkTabs` move with ← and →
   ([keyboard](keyboard.md)). The layout also holds `AppShortcuts`, the inset panel with the breadcrumbs

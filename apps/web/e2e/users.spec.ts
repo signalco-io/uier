@@ -2,7 +2,7 @@ import { seedEmailBounce } from './support/emailReports';
 import { expect, test } from '@playwright/test';
 import type { Browser, Page, TestInfo } from '@playwright/test';
 import { expectNoAxeViolations } from './accessibility';
-import { projectPublicId, appNavigation, createProject, hydrated, signIn, uniqueEmail, openComment } from './support/app';
+import { projectPublicId, appNavigation, workspaceMenu, createProject, hydrated, signIn, uniqueEmail, openComment } from './support/app';
 import { startReviewedSite } from './support/reviewedSite';
 import { animationsFinished, commentBubble, newVisitor, toolbar } from './support/toolbar';
 
@@ -144,8 +144,11 @@ test('a commenter invited to one project reviews only that project', async ({ pa
     await commenter.page.goto('/app/projects');
     await expect(commenter.page.getByRole('link', { name: 'Create project' })).toHaveCount(0);
     // Their workspace area has the clients of their projects only: no users, teams or settings
-    const commenterWorkspace = (await appNavigation(commenter.page)).getByRole('link', { name: 'Workspace', exact: true });
-    await expect(commenterWorkspace).toHaveAttribute('href', '/app/workspace/clients');
+    // The workspace menu opens it (there is no sidebar link, uier #471); it has no settings for them
+    const commenterMenu = await workspaceMenu(commenter.page);
+    await expect(commenterMenu.getByRole('menuitem', { name: 'Workspace', exact: true })).toHaveAttribute('href', '/app/workspace/clients');
+    await expect(commenterMenu.getByRole('menuitem', { name: 'Workspace settings' })).toHaveCount(0);
+    await commenter.page.keyboard.press('Escape');
     await commenter.page.goto('/app/workspace');
     await expect(commenter.page).toHaveURL(/\/app\/workspace\/clients$/);
     await expect(commenter.page.getByRole('navigation', { name: 'Workspace' }).getByRole('link')).toHaveText(['Clients', 'Usage']);
@@ -219,7 +222,8 @@ test('an invited admin gets every project, the users and the settings', async ({
     const personProjects = person.page.getByRole('list', { name: 'Active projects' });
     await expect(personProjects.getByRole('link', { name: 'Alpha' })).toBeVisible();
     await expect(personProjects.getByRole('link', { name: 'Beta' })).toBeVisible();
-    await expect((await appNavigation(person.page)).getByRole('link', { name: 'Workspace', exact: true })).toHaveAttribute('href', '/app/workspace/users');
+    await expect((await workspaceMenu(person.page)).getByRole('menuitem', { name: 'Workspace settings' })).toHaveAttribute('href', '/app/workspace/settings');
+    await person.page.keyboard.press('Escape');
     await person.page.goto(`/app/projects/${beta}/settings/review`);
     await expect(person.page.getByRole('region', { name: 'Review', exact: true }).getByRole('radiogroup', { name: 'Who can comment' })).toBeVisible();
     expect((await person.page.request.get(`/app/review/${alpha}`, { maxRedirects: 0 })).status()).toBe(307);
@@ -372,9 +376,11 @@ test('public staff cannot open Users, invite, create projects or edit public set
     await page.getByRole('menuitem', { name: /uier.*Admin/ }).click();
     await expect(page.getByRole('list', { name: 'Active projects' }).getByRole('link', { name: 'uier.io public feedback', exact: true })).toBeVisible();
     await page.goto('/app/projects/uier00000001');
-    let nav = await appNavigation(page);
-    await expect(nav.getByRole('link', { name: 'Workspace', exact: true })).toHaveCount(0);
-    await expect(nav.getByRole('link', { name: 'Create project', exact: true })).toHaveCount(0);
+    const menu = await workspaceMenu(page);
+    await expect(menu.getByRole('menuitem', { name: 'Workspace settings' })).toHaveCount(0);
+    await expect(menu.getByRole('menuitem', { name: 'Workspace', exact: true })).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await expect((await appNavigation(page)).getByRole('link', { name: 'Create project', exact: true })).toHaveCount(0);
     await page.goto('/app/users');
     await expect(page).toHaveURL(/\/app\/projects$/);
     await page.goto('/app/projects/new');
@@ -405,6 +411,6 @@ test('public staff cannot open Users, invite, create projects or edit public set
     await expect(page.getByRole('list', { name: 'Active projects' })).toContainText('Personal project renamed');
     await page.goto(`/app/projects/${ownProject}/settings`);
     await expect(page.getByRole('region', { name: 'General', exact: true })).toBeVisible();
-    nav = await appNavigation(page);
-    await expect(nav.getByRole('link', { name: 'Workspace', exact: true })).toBeVisible();
+    await expect((await workspaceMenu(page)).getByRole('menuitem', { name: 'Workspace settings' })).toBeVisible();
+    await page.keyboard.press('Escape');
 });
