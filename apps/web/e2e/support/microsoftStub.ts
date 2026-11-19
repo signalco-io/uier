@@ -91,6 +91,7 @@ export async function startMicrosoftStub(port = 0, { clientId = 'microsoft-test-
 <p><label>Email <input name="email" type="email"></label></p>
 <p><label>Name <input name="name"></label></p>
 <p><label><input name="photo" type="checkbox" value="true"> Has a photo</label></p>
+<p><label><input name="fresh" type="checkbox" value="true"${params.get('prompt') === 'login' ? ' checked' : ''}> Signed in here just now</label></p>
 <button name="decision" value="allow">Allow</button> <button name="decision" value="deny">Cancel</button>
 </form></main></body></html>`);
             }
@@ -107,7 +108,7 @@ export async function startMicrosoftStub(port = 0, { clientId = 'microsoft-test-
                     codes.set(code, { challenge: flow.challenge, nonce: flow.nonce, redirectUri: flow.redirectUri, identity: {
                         sub: params.get('sub') || undefined, email: params.get('email') || undefined,
                         name: params.get('name') || undefined, photo: params.get('photo') === 'true'
-                    } });
+                    }, ...(params.get('fresh') === 'true' ? { claims: { auth_time: Math.floor(Date.now() / 1000) } } : {}) });
                     redirect.searchParams.set('code', code);
                     redirect.searchParams.set('scope', 'openid email profile');
                 } else redirect.searchParams.set('error', 'access_denied');

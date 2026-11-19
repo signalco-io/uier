@@ -21,10 +21,12 @@ const LAST_SIGN_IN_COOKIE_NAME = cookieName(cookieNames.lastSignIn);
 /**
  * Signs the user in on this browser and remembers how (server actions and route handlers only).
  * `provenEmail`: the account email when this sign-in proved its inbox now (`emailProof.ts`); returns that proof.
+ * `authenticatedAt`: on a Google or Microsoft sign-in, when the provider says the person authenticated, or
+ * `null` when it does not say (`sessionToken`).
  */
-export async function startSession(userId: string, method: SignInMethod, provenEmail?: string) {
+export async function startSession(userId: string, method: SignInMethod, provenEmail?: string, authenticatedAt?: number | null) {
     const jar = await cookies();
-    const { token, proof } = sessionToken(userId, provenEmail);
+    const { token, proof } = sessionToken(userId, provenEmail, authenticatedAt);
     await addBrowserSession(jar, token);
     jar.set(LAST_SIGN_IN_COOKIE_NAME, method, appCookieOptions(cookieNames.lastSignIn.lifetime));
     return proof;

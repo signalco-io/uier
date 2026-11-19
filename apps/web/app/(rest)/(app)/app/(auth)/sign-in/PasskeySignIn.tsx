@@ -10,7 +10,7 @@ import { Spinner } from '@/src/components/ui/spinner';
 import { FormMessage } from '@/src/components/app/FormMessage';
 import { forgetPasskey, passkeyPromptError } from '@/src/components/app/passkeyCeremony';
 import { passkeySignInAction, passkeySignInOptionsAction } from './passkeyActions';
-import { LAST_USED_ID, LastUsedBadge } from './LastUsedBadge';
+import { LAST_USED_ID, SignInOption } from './LastUsedBadge';
 
 const subscribe = () => () => undefined;
 
@@ -91,11 +91,13 @@ export function PasskeySignIn({ next, autofill, lastUsed }: { next?: string; aut
         return null;
     return (
         <>
-            <Button type="button" variant="outline" size="lg" className="relative w-full" disabled={pending} onClick={() => void signInWithButton()}
-                aria-label={t("Sign in with a passkey")} aria-describedby={lastUsed ? LAST_USED_ID : undefined}>
-                {pending ? <Spinner data-icon="inline-start" /> : <KeyRoundIcon data-icon="inline-start" />}
-                {t("Passkey")}{' '}{lastUsed && <LastUsedBadge />}
-            </Button>
+            <SignInOption lastUsed={lastUsed}>
+                <Button type="button" variant="outline" size="lg" className="w-full" disabled={pending} onClick={() => void signInWithButton()}
+                    aria-label={t("Sign in with a passkey")} aria-describedby={lastUsed ? LAST_USED_ID : undefined}>
+                    {pending ? <Spinner data-icon="inline-start" /> : <KeyRoundIcon data-icon="inline-start" />}
+                    {t("Passkey")}
+                </Button>
+            </SignInOption>
             <FormMessage state={error ? { ok: false, error } : null} />
         </>
     );

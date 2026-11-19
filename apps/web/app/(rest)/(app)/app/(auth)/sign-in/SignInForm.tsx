@@ -17,7 +17,7 @@ import { KnownPages } from '@/src/knownPages';
 import { confirmSignInCodeAction, requestSignInAction, type SignInLinkSent } from './actions';
 import type { SignInMethod } from '@/src/lib/app/session';
 import { PasskeySignIn } from './PasskeySignIn';
-import { LAST_USED_ID, LastUsedBadge } from './LastUsedBadge';
+import { LAST_USED_ID, SignInOption } from './LastUsedBadge';
 
 /** The sign-in page, keeping `next`; `email` opens the email form straight away (`?with=email`) */
 function signInHref(next: string | undefined, email: boolean, addingAccount = false) {
@@ -108,10 +108,12 @@ function SignInCodeStep({ sent, next, addingAccount }: { sent: SignInLinkSent; n
  * this browser signed in with last; `problems` (a provider's failed sign-in) go above the options. Once
  * the email is sent, the card becomes the code step, with its own header.
  */
-export function SignInForm({ next, alternatives, problems, withEmail = false, lastUsed, addingAccount = false, again = false }: {
+export function SignInForm({ next, alternatives, problems, withEmail = false, lastUsed, addingAccount = false, again = false, providersNeedProof = false }: {
     next?: string; alternatives?: ReactNode; problems?: ReactNode; withEmail?: boolean; lastUsed?: SignInMethod; addingAccount?: boolean;
     /** A fresh sign-in of the same account, for a step that needs a recent one: the card says so, not "Add account" */
     again?: boolean;
+    /** With `again`, where Google or Microsoft is offered: the card says which sign-ins count */
+    providersNeedProof?: boolean;
 }) {
     const { t } = useAppI18n();
     const id = useId();
@@ -125,7 +127,7 @@ export function SignInForm({ next, alternatives, problems, withEmail = false, la
     }
 
     return (
-        <AuthCard title={again ? t("Sign in again") : addingAccount ? t("Add account") : t("Sign in")} description={again ? t("Sign in to the same account to continue.") : addingAccount ? t("Sign in to another account. Your other accounts stay signed in.") : <>{t("Choose how to sign in.")}<br />{t("New here? Signing in creates your account.")}</>}>
+        <AuthCard title={again ? t("Sign in again") : addingAccount ? t("Add account") : t("Sign in")} description={again ? <>{t("Sign in to the same account to continue.")}{providersNeedProof && <><br />{t("A passkey or an email code always works. Google and Microsoft work only when they confirm you just signed in there.")}</>}</> : addingAccount ? t("Sign in to another account. Your other accounts stay signed in.") : <>{t("Choose how to sign in.")}<br />{t("New here? Signing in creates your account.")}</>}>
             {problems}
             <div className="flex flex-col gap-3">
                 <PasskeySignIn next={next} autofill={emailOpen} lastUsed={lastUsed === 'passkey'} />
@@ -160,12 +162,14 @@ export function SignInForm({ next, alternatives, problems, withEmail = false, la
                         </form>
                     </>
                 ) : (
-                    // A link, so it opens the form before hydration too (a full navigation to ?with=email)
-                    <a href={signInHref(next, true, addingAccount)} onClick={(event) => { event.preventDefault(); setEmailOpen(true); }}
-                        aria-label={t("Sign in with email")} aria-describedby={lastUsed === 'email' ? LAST_USED_ID : undefined} data-slot="button" className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'relative w-full')}>
-                        <MailIcon data-icon="inline-start" />
-                        {t("Email")}{' '}{lastUsed === 'email' && <LastUsedBadge />}
-                    </a>
+                    <SignInOption lastUsed={lastUsed === 'email'}>
+                        {/* A link, so it opens the form before hydration too (a full navigation to ?with=email) */}
+                        <a href={signInHref(next, true, addingAccount)} onClick={(event) => { event.preventDefault(); setEmailOpen(true); }}
+                            aria-label={t("Sign in with email")} aria-describedby={lastUsed === 'email' ? LAST_USED_ID : undefined} data-slot="button" className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'w-full')}>
+                            <MailIcon data-icon="inline-start" />
+                            {t("Email")}
+                        </a>
+                    </SignInOption>
                 )}
             </div>
         </AuthCard>

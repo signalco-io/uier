@@ -6,7 +6,7 @@ import { buttonVariants } from '@/src/components/ui/button';
 import { MicrosoftLogo } from '@/src/components/app/SignInProviderLogos';
 import { KnownPages } from '@/src/knownPages';
 import { isMicrosoftSignInConfigured } from '@/src/lib/app/microsoft/config';
-import { LAST_USED_ID, LastUsedBadge } from './LastUsedBadge';
+import { LAST_USED_ID, SignInOption } from './LastUsedBadge';
 
 const problems: Record<string, string> = {
     cancelled: 'Microsoft sign-in was cancelled.',
@@ -15,6 +15,7 @@ const problems: Record<string, string> = {
     too_fast: 'Too many sign-in attempts. Try again later.',
     taken: 'That Microsoft account is linked to another uier account.',
     other_account: 'Your uier account is linked to a different Microsoft account. Use that one, or sign in with your email.',
+    not_recent: 'Microsoft did not confirm a new sign-in. Use a passkey or an email code.',
     unavailable: 'Microsoft sign-in is not available here. Sign in with your email.'
 };
 
@@ -34,11 +35,13 @@ export async function MicrosoftSignInButton({ next, lastUsed, addingAccount = fa
     if (addingAccount) params.set('add', '1');
     if (again) params.set('again', '1');
     return (
-        // Full navigation: this route starts a sign-in and must never be prefetched.
-        <a href={`${KnownPages.AppSignInMicrosoft}${params.size ? `?${params}` : ''}`}
-            aria-label={t("Sign in with Microsoft")} aria-describedby={lastUsed ? LAST_USED_ID : undefined} data-slot="button" className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'relative w-full')}>
-            <MicrosoftLogo data-icon="inline-start" />
-            {t("Microsoft")}{' '}{lastUsed && <LastUsedBadge />}
-        </a>
+        <SignInOption lastUsed={lastUsed}>
+            {/* Full navigation: this route starts a sign-in and must never be prefetched. */}
+            <a href={`${KnownPages.AppSignInMicrosoft}${params.size ? `?${params}` : ''}`}
+                aria-label={t("Sign in with Microsoft")} aria-describedby={lastUsed ? LAST_USED_ID : undefined} data-slot="button" className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'w-full')}>
+                <MicrosoftLogo data-icon="inline-start" />
+                {t("Microsoft")}
+            </a>
+        </SignInOption>
     );
 }

@@ -63,3 +63,7 @@ the comment box shows the automatic screenshot as a thumbnail that can be previe
 (turning off Attach screenshot in browser extension 0.1.9 and earlier) omits only the automatic
 screenshot; an image or recording the person attaches is still sent. This wording needs the same owner
 review before merge.
+
+The privacy and cookie policies were updated on 19 November 2026 for sign-in freshness: Google and
+Microsoft may tell uier when the person last signed in there, that time stays in the session cookie,
+and steps that need a recent sign-in use it. The existing owner review applies before merge.

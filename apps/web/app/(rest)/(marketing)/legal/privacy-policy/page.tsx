@@ -251,8 +251,8 @@ export default function PrivacyPolicyPage() {
             </p>
             <p>
                 If you choose Sign in with Google, you sign in at Google, which tells us your Google account id, your
-                email address and whether Google verified it, your Google Workspace domain if you have one, your name and
-                your profile picture. We store the account id, that address (shown on your Account page) and when you
+                email address and whether Google verified it, your Google Workspace domain if you have one, your name,
+                your profile picture and, where Google provides it, when you last signed in to Google. We store the account id, that address (shown on your Account page) and when you
                 linked the account. An account created for a Gmail or Google Workspace address takes your Google name
                 as its display name. When you first sign in with Google or link it, and your account has no picture
                 yet, we copy your Google profile picture once as your picture; later sign-ins never change it. We do
@@ -261,13 +261,16 @@ export default function PrivacyPolicyPage() {
                 <code>__Host-uier_google_sign_in</code> cookie ties them to your browser. For any other address, we keep
                 the Google account id, address and that copy of your picture for up to 15 minutes while you confirm the address with an email
                 code; the Google account is linked only in the browser that asked. We count Google sign-in attempts per
-                IP address. Linking Google from your Account page needs a sign-in from the last 10 minutes. You can
+                IP address. Linking Google from your Account page needs a sign-in from the last 10 minutes. The time
+                you last signed in to Google stays in your session cookie only: adding a passkey, linking a
+                sign-in method and deleting your account need a recent sign-in, and a Google sign-in counts
+                when Google confirms it was recent. Otherwise we ask for a passkey or an email code. You can
                 unlink Google there at any time; email sign-in stays available.
             </p>
             <p>
                 If you choose Sign in with Microsoft, you sign in at Microsoft with a work, school or personal
-                account. Microsoft tells us your account and tenant ids, a suggested email or username and profile
-                details. We store a hash of your sign-in identity, its suggested address for display and when you
+                account. Microsoft tells us your account and tenant ids, a suggested email or username, profile
+                details and, where Microsoft provides it, when you last signed in there. We store a hash of your sign-in identity, its suggested address for display and when you
                 linked it. When you first sign in with Microsoft or link it, and your account has no picture yet, we
                 use that sign-in&rsquo;s access token once to copy your Microsoft profile photo, if you have one, as
                 your picture. We store no Microsoft tokens or other profile details. Your first sign-in confirms an
@@ -275,8 +278,9 @@ export default function PrivacyPolicyPage() {
                 We keep sign-in hashes for up to 10 minutes and an identity waiting for email confirmation, with
                 that copy of your photo, for up to 15 minutes. The HttpOnly <code>__Host-uier_microsoft_sign_in</code> cookie binds these to your
                 browser. Only the browser that requested the email can link the identity. We count starts per IP
-                address. Linking from Account needs a sign-in from the last 10 minutes. You can unlink Microsoft
-                there at any time; email sign-in stays available.
+                address. Linking from Account needs a sign-in from the last 10 minutes. The time you last signed in
+                at Microsoft stays in your session cookie only and is used the same way as Google&rsquo;s above.
+                You can unlink Microsoft there at any time; email sign-in stays available.
             </p>
             <p>
                 You can also sign in with a passkey that you add on your Account page. A passkey is a key pair: its

@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
+import { expectNoAxeViolations } from './accessibility';
 import { signIn, uniqueEmail } from './support/app';
 
 test('Microsoft sign-in confirms a chosen inbox once, signs in again and unlinks', async ({ page }) => {
@@ -35,6 +36,33 @@ test('Microsoft sign-in confirms a chosen inbox once, signs in again and unlinks
     await page.getByRole('button', { name: 'Allow' }).click();
     await page.waitForURL(url => url.pathname === '/app/account/sign-in');
     await expect(page.getByRole('main')).toContainText(email);
+
+    // Microsoft continued its own session and did not say the person was asked: this sign-in is not a recent one
+    const passkeys = page.getByRole('region', { name: 'Passkeys' });
+    await expect(passkeys).toContainText('To add a passkey, sign in again.');
+    await expect(passkeys.getByRole('button', { name: 'Add a passkey' })).toHaveCount(0);
+    await passkeys.getByRole('button', { name: 'Sign in again' }).click();
+    await expect(page).toHaveURL(/\/app\/sign-in\?add=1&again=1&next=%2Fapp%2Faccount%2Fsign-in$/);
+    await expect(page.getByRole('main')).toContainText('A passkey or an email code always works. Google and Microsoft work only when they confirm you just signed in there.');
+    // Sign in again asks Microsoft for the credentials. A token that does not show them changes nothing
+    await page.getByRole('link', { name: 'Sign in with Microsoft' }).click();
+    await expect(page.getByLabel('Signed in here just now')).toBeChecked();
+    await page.getByLabel('Signed in here just now').uncheck();
+    await page.getByLabel('Subject').fill(subject);
+    await page.getByRole('button', { name: 'Allow' }).click();
+    await expect(page).toHaveURL(/\/app\/sign-in\?add=1&again=1&next=%2Fapp%2Faccount%2Fsign-in&microsoft=not_recent$/);
+    await expect(page.getByRole('main').getByRole('alert')).toHaveText('Microsoft did not confirm a new sign-in. Use a passkey or an email code.');
+    // The option used last says so beside its button: the button keeps its own name, and the whole card passes
+    await expect(page.getByRole('link', { name: 'Sign in with Microsoft' })).toHaveText('Microsoft');
+    await expect(page.getByRole('link', { name: 'Sign in with Microsoft' })).toHaveAccessibleDescription('Last used');
+    await expectNoAxeViolations(page, { include: ['main'] });
+    // One that does is a recent sign-in. A click on "Last used" is a click on its button
+    const badge = (await page.getByRole('main').getByText('Last used', { exact: true }).boundingBox())!;
+    await page.mouse.click(badge.x + badge.width / 2, badge.y + badge.height / 2);
+    await page.getByLabel('Subject').fill(subject);
+    await page.getByRole('button', { name: 'Allow' }).click();
+    await page.waitForURL(url => url.pathname === '/app/account/sign-in');
+    await expect(passkeys.getByRole('button', { name: 'Add a passkey' })).toBeVisible();
     await section.getByRole('button', { name: 'Unlink Microsoft account' }).click();
     await expect(section.getByRole('status')).toHaveText('Microsoft account unlinked. Sign in with your email from now on.');
     await expect(section).toContainText('No Microsoft account is linked.');

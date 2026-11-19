@@ -56,8 +56,11 @@
   to `?with=email` that opens the email form in place (before hydration it navigates there); "Ask for a new
   email" uses the same URL. `app.spec.ts` checks the order and `e2e/support/app.ts` `openEmailSignIn` opens it.
   `startSession(userId, method)` also sets `__Host-uier_last_sign_in` (the method's name only, one year,
-  kept after sign-out); the page reads it with `getLastSignInMethod` and that option's button (`relative`)
-  gets `LastUsedBadge` at its right edge and `aria-describedby` pointing at it. An email proof that linked Google or Microsoft
+  kept after sign-out); the page reads it with `getLastSignInMethod` and that option (`SignInOption`) gets
+  the "Last used" badge over its button's right edge, with the button's `aria-describedby` pointing at it. The
+  badge sits beside the button, not inside it: a button named "Sign in with Google" for its visible "Google"
+  has to hold all the text it shows in that name (WCAG 2.5.3), whatever the language. Clicks on the badge
+  reach the button. An email proof that linked Google or Microsoft
   counts as that provider; invitations count as email. `passkeys.spec.ts` covers it.
 - `startSession(userId, method, provenEmail)` records whether the sign-in proved the account email now
   (`emailProof.ts`): the session token gets `ev`, a keyed hash of the address (never the address), and the call
@@ -144,7 +147,22 @@ A step that needs a sign-in from the last 10 minutes (adding a passkey, linking 
 [deleting the account](account.md#deleting-an-account)) or a fresh email proof (email domains) sends an
 older session to `KnownPageLinks.signInAgain(next)`: `/app/sign-in?add=1&again=1&next=…`, with
 `with=email` where only an email code will do. The other accounts stay signed in, as with Add account,
-and the card reads “Sign in again” with “Sign in to the same account to continue.” A passkey and an
-email code are a new authentication by themselves. Microsoft is asked for the credentials again
-(`prompt=login`). Google cannot be asked: it continues with the session the browser has there
-([Google sign-in](../../../docs/google-sign-in.md)).
+and the card reads “Sign in again” with “Sign in to the same account to continue.”
+
+What counts as recent is when the person authenticated, not when the session started
+(`sessionSignedInAt`). A passkey or an email code is the authentication, so that is the session’s `iat`.
+Google and Microsoft continue the session a browser has with them, so their sign-in alone shows
+nothing: the session carries the provider’s `auth_time` as `aat`, or 0 when the provider gave none, and
+that decides. Without a time from the provider, a Google or Microsoft sign-in is never recent, and the
+steps above ask for a passkey or an email code. The rule sits in the session token, so it holds for
+every one of those steps and cannot be skipped by editing an address.
+
+Where Google or Microsoft is offered, the card adds “A passkey or an email code always works. Google
+and Microsoft work only when they confirm you just signed in there.” Microsoft is asked for the
+credentials again (`prompt=login`); Google cannot be asked. An attempt the provider does not show to
+be new starts no session, makes no account or link, and comes back to the card with
+`google=not_recent` or `microsoft=not_recent`: “Google did not confirm a new sign-in. Use a passkey or
+an email code.” A provider says when someone authenticated only once that is switched on for uier’s
+client: [Google’s session age claims](../../../docs/google-sign-in.md#session-age-claims) and
+[Microsoft’s `auth_time` claim](../../../docs/microsoft-sign-in.md#the-auth_time-claim). Until then
+their sign-ins work as before for everything else.

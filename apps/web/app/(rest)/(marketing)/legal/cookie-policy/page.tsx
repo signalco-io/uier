@@ -73,7 +73,7 @@ const items = [
         name: '__Host-uier_session',
         type: 'Cookie (first party, HttpOnly)',
         when: 'You sign in to the app',
-        purpose: 'Keeps you signed in and identifies your feedback on uier.io by your account name, taking precedence over a guest identity. Holds a signed token with your account id, when you signed in and, after a sign-in that confirmed your email address, a keyed hash of that address (never the address itself), so joining or adding an email domain can check it; signing out in the app removes it.',
+        purpose: 'Keeps you signed in and identifies your feedback on uier.io by your account name, taking precedence over a guest identity. Holds a signed token with your account id, when you signed in, after a Google or Microsoft sign-in when you last signed in there (if they say), and, after a sign-in that confirmed your email address, a keyed hash of that address (never the address itself), so joining or adding an email domain can check it; signing out in the app removes it.',
         duration: '30 days'
     },
     {

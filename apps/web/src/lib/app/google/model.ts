@@ -15,6 +15,8 @@ export type DbGoogleSignIn = AppDoc & {
     next?: string;
     /** Set when a signed-in person links Google from Account: the callback links to this user only */
     linkUserId?: string;
+    /** Sign in again, for a step that needs a recent sign-in: only a sign-in Google shows to be new counts */
+    reauth?: boolean;
     createdAt: string;
     ttl: number;
 };

@@ -6,6 +6,7 @@ import { getAppStore } from '../store';
 import { isRandomToken, randomToken, sha256Hex } from '../tokens';
 import { safeNextPath } from '../signIn';
 import { requireRecentSignIn } from '../passkeys';
+import { providerAuthTime } from '../providerAuthTime';
 import { emailSchema, findOrCreateUserWithStatus, findUserByEmail, nameSchema, updateUserName } from '../users';
 import { fetchProviderPicture, importProviderAvatar, pendingPicture } from '../avatars';
 import { googleConfig, googleRedirectUri, isGoogleSignInConfigured } from './config';
@@ -17,6 +18,8 @@ import { googleSignInPk, type DbGoogleSignIn } from './model';
 
 export const GOOGLE_SIGN_IN_TTL_SECONDS = 10 * 60;
 export const GOOGLE_SCOPES = 'openid email profile';
+/** The OpenID Connect `claims` request: when the person last authenticated with Google */
+export const GOOGLE_CLAIMS = JSON.stringify({ id_token: { auth_time: { essential: true } } });
 const GOOGLE_STARTS_PER_IP = 30;
 const HOUR = 60 * 60;
 /** Allowed difference between Google's clock and ours for `iat` */
@@ -57,7 +60,7 @@ function sameHash(expected: string, actual: string) {
  * Starts the authorization code flow with PKCE and a nonce. Returns Google's address and the
  * browser binding (the route sets it as a cookie). `link` links Google to a recently signed-in user.
  */
-export async function beginGoogleSignIn(input: { next?: string; link?: { userId: string; signedInAt: number }; baseUrl: string; ipBucket?: string }) {
+export async function beginGoogleSignIn(input: { next?: string; link?: { userId: string; signedInAt: number }; baseUrl: string; ipBucket?: string; reauth?: boolean }) {
     if (!isGoogleSignInConfigured())
         throw new GoogleSignInError('not_configured');
     if (input.link && !signedInRecently(input.link.signedInAt))
@@ -72,19 +75,25 @@ export async function beginGoogleSignIn(input: { next?: string; link?: { userId:
     const nonce = randomToken();
     await getAppStore().create<DbGoogleSignIn>({
         type: 'google-sign-in', id, pk: googleSignInPk(id), stateHash: sha256Hex(state), nonceHash: sha256Hex(nonce),
-        next: safeNextPath(input.next), linkUserId: input.link?.userId, createdAt: new Date().toISOString(), ttl: GOOGLE_SIGN_IN_TTL_SECONDS
+        next: safeNextPath(input.next), linkUserId: input.link?.userId, ...(input.reauth && !input.link ? { reauth: true } : {}),
+        createdAt: new Date().toISOString(), ttl: GOOGLE_SIGN_IN_TTL_SECONDS
     });
     const url = new URL(config.authorizeUrl);
     url.search = new URLSearchParams({
         client_id: config.clientId, redirect_uri: googleRedirectUri(input.baseUrl), response_type: 'code', scope: GOOGLE_SCOPES,
         state, nonce, code_challenge: createHash('sha256').update(pkceVerifier(id, state)).digest('base64url'),
-        code_challenge_method: 'S256', prompt: 'select_account'
+        // Google cannot be asked to authenticate the person again. It can say when it last did (`auth_time`,
+        // with "Session age claims" on in the Google Auth Platform), which decides whether this sign-in is recent.
+        code_challenge_method: 'S256', prompt: 'select_account', claims: GOOGLE_CLAIMS
     }).toString();
     return { url: url.href, binding: googleBindingToken('flow', id, GOOGLE_SIGN_IN_TTL_SECONDS) };
 }
 
-/** `picture`: Google's profile picture address (`googlePictureUrl`), when the token has one */
-export type GoogleClaims = { sub: string; email?: string; emailVerified: boolean; hd?: string; name?: string; picture?: string };
+/**
+ * `picture`: Google's profile picture address (`googlePictureUrl`), when the token has one. `authTime`: when
+ * the person last authenticated with Google (Unix seconds), when the token says.
+ */
+export type GoogleClaims = { sub: string; email?: string; emailVerified: boolean; hd?: string; name?: string; picture?: string; authTime?: number };
 
 function object(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -108,7 +117,7 @@ export function googleIdTokenClaims(token: unknown, expected: { clientId: string
     if (!object(claims))
         return null;
 
-    const { iss, aud, azp, exp, iat, nonce, sub, email, email_verified: emailVerified, hd, name, picture } = claims;
+    const { iss, aud, azp, exp, iat, nonce, sub, email, email_verified: emailVerified, hd, name, picture, auth_time: authTime } = claims;
     const audiences = typeof aud === 'string' ? [aud] : Array.isArray(aud) ? aud : [];
     const seconds = now / 1000;
     if (typeof iss !== 'string' || !expected.issuers.includes(iss)
@@ -126,7 +135,8 @@ export function googleIdTokenClaims(token: unknown, expected: { clientId: string
         emailVerified: emailVerified === true || emailVerified === 'true',
         hd: typeof hd === 'string' ? hd.toLowerCase() : undefined,
         name: typeof name === 'string' ? name : undefined,
-        picture: googlePictureUrl(picture)
+        picture: googlePictureUrl(picture),
+        authTime: providerAuthTime(authTime, seconds + CLOCK_SKEW_SECONDS)
     };
 }
 
@@ -155,13 +165,17 @@ export function googleIsAuthoritative(email: string, hd: string | undefined) {
     return domain === 'gmail.com' || (hd !== undefined && domain === hd);
 }
 
-export type GoogleProblem = 'cancelled' | 'unverified' | 'failed' | 'expired' | 'taken' | 'other_account' | 'sign_in_again';
+export type GoogleProblem = 'cancelled' | 'unverified' | 'failed' | 'expired' | 'taken' | 'other_account' | 'sign_in_again' | 'not_recent';
 export type GoogleSignInOutcome =
-    /** `provenEmail`: the account email when Google proved it in this sign-in (`emailProof.ts`) */
-    | { kind: 'signed_in'; userId: string; next?: string; provenEmail?: string }
+    /**
+     * `provenEmail`: the account email when Google proved it in this sign-in (`emailProof.ts`).
+     * `authenticatedAt`: when Google says the person authenticated, or `null` when it does not say.
+     */
+    | { kind: 'signed_in'; userId: string; next?: string; provenEmail?: string; authenticatedAt: number | null }
     | { kind: 'confirm_email'; binding: string }
     | { kind: 'linked' }
-    | { kind: 'problem'; problem: GoogleProblem; next?: string; linking: boolean };
+    /** `reauth`: the attempt was Sign in again, and goes back to that card */
+    | { kind: 'problem'; problem: GoogleProblem; next?: string; linking: boolean; reauth?: boolean };
 
 /**
  * The callback. The browser binding, state and nonce must match one live request, which is used
@@ -185,7 +199,7 @@ export async function finishGoogleSignIn(input: {
     const createdAt = Date.parse(flow.createdAt);
     const linking = flow.linkUserId !== undefined;
     const next = safeNextPath(flow.next);
-    const problem = (value: GoogleProblem) => ({ kind: 'problem', problem: value, next, linking }) as const;
+    const problem = (value: GoogleProblem) => ({ kind: 'problem', problem: value, next, linking, ...(flow.reauth ? { reauth: true } : {}) }) as const;
     if (!Number.isFinite(createdAt) || createdAt > Date.now() || createdAt + GOOGLE_SIGN_IN_TTL_SECONDS * 1000 <= Date.now())
         return problem('expired');
     if (input.error !== null && input.error !== undefined)
@@ -209,6 +223,11 @@ export async function finishGoogleSignIn(input: {
     }
     if (!claims)
         return problem('failed');
+    const authenticatedAt = claims.authTime ?? null;
+    // Sign in again asked for a new sign-in. One that Google does not show to be new changes nothing:
+    // no session, account or link, and the card says what does count.
+    if (flow.reauth && !signedInRecently(authenticatedAt ?? 0))
+        return problem('not_recent');
     const parsedEmail = emailSchema.safeParse(claims.email);
     const email = claims.emailVerified && parsedEmail.success ? parsedEmail.data : undefined;
     const picture = claims.picture;
@@ -228,7 +247,7 @@ export async function finishGoogleSignIn(input: {
         if (email)
             await refreshGoogleAccountEmail(linked.id, claims.sub, email);
         const provenEmail = email === linked.email && googleIsAuthoritative(email, claims.hd) ? email : undefined;
-        return { kind: 'signed_in', userId: linked.id, next, provenEmail };
+        return { kind: 'signed_in', userId: linked.id, next, provenEmail, authenticatedAt };
     }
     // 2. Only an address Google verified can find or create an account.
     if (!email)
@@ -243,7 +262,7 @@ export async function finishGoogleSignIn(input: {
             await updateUserName(user.id, name.data);
         const result = await linkGoogleAccount(user.id, { sub: claims.sub, email });
         if (result === 'linked') await importPicture(user.id);
-        return result === 'linked' ? { kind: 'signed_in', userId: user.id, next, provenEmail: user.email } : problem(result);
+        return result === 'linked' ? { kind: 'signed_in', userId: user.id, next, provenEmail: user.email, authenticatedAt } : problem(result);
     }
     // 4. Any other address proves its inbox once with an email code, with or without an account:
     // Google's verification of it can be stale (a former employee, a re-registered domain), and an

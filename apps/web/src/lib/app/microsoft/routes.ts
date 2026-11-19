@@ -34,7 +34,8 @@ function accountUrl(baseUrl: string, outcome?: string) {
 
 /**
  * `GET /app/sign-in/microsoft[?next=]` signs in; `?intent=link` links Microsoft to the signed-in account;
- * `?add=1&again=1` signs the same account in again and has Microsoft ask for the credentials.
+ * `?add=1&again=1` signs the same account in again: Microsoft asks for the credentials, and the sign-in
+ * counts only when its token shows it to be new.
  * Cross-site and prefetch requests start nothing, like an integration's connect route.
  */
 export async function startMicrosoftSignInRoute(request: Request) {
@@ -86,7 +87,7 @@ export async function finishMicrosoftSignInRoute(request: Request) {
         case 'signed_in': {
             try {
                 // Microsoft's addresses are never trusted (docs/microsoft-sign-in.md): this sign-in proves no email
-                const proof = await startSession(outcome.userId, 'microsoft');
+                const proof = await startSession(outcome.userId, 'microsoft', undefined, outcome.authenticatedAt);
                 return redirect(new URL(await signInDestination(outcome.userId, outcome.next ?? KnownPages.App, proof), baseUrl).href);
             } catch (error) {
                 if (error instanceof AccountLimitError) return redirect(new URL(`${KnownPages.AppSignIn}?add=1&accounts=full`, baseUrl).href);
@@ -99,6 +100,7 @@ export async function finishMicrosoftSignInRoute(request: Request) {
         case 'linked':
             return redirect(accountUrl(baseUrl, 'linked'));
         case 'problem':
-            return redirect(outcome.linking ? accountUrl(baseUrl, outcome.problem) : signInUrl(baseUrl, outcome.problem, outcome.next, Boolean(await getSessionUser())));
+            return redirect(outcome.linking ? accountUrl(baseUrl, outcome.problem)
+                : signInUrl(baseUrl, outcome.problem, outcome.next, Boolean(await getSessionUser()), outcome.reauth));
     }
 }

@@ -6,6 +6,7 @@ import { getAppStore } from '../store';
 import { isRandomToken, randomToken, sha256Hex } from '../tokens';
 import { safeNextPath } from '../signIn';
 import { requireRecentSignIn } from '../passkeys';
+import { providerAuthTime } from '../providerAuthTime';
 import { emailSchema } from '../users';
 import { createRemoteJWKSet, decodeJwt, jwtVerify } from 'jose';
 import { microsoftConfig, microsoftRedirectUri, isMicrosoftSignInConfigured, isMicrosoftTenantId } from './config';
@@ -72,20 +73,23 @@ export async function beginMicrosoftSignIn(input: { next?: string; link?: { user
     const nonce = randomToken();
     await getAppStore().create<DbMicrosoftSignIn>({
         type: 'microsoft-sign-in', id, pk: microsoftSignInPk(id), stateHash: sha256Hex(state), nonceHash: sha256Hex(nonce),
-        next: safeNextPath(input.next), linkUserId: input.link?.userId, createdAt: new Date().toISOString(), ttl: MICROSOFT_SIGN_IN_TTL_SECONDS
+        next: safeNextPath(input.next), linkUserId: input.link?.userId, ...(input.reauth && !input.link ? { reauth: true } : {}),
+        createdAt: new Date().toISOString(), ttl: MICROSOFT_SIGN_IN_TTL_SECONDS
     });
     const url = new URL(config.authorizeUrl);
     url.search = new URLSearchParams({
         client_id: config.clientId, redirect_uri: microsoftRedirectUri(input.baseUrl), response_type: 'code', scope: MICROSOFT_SCOPES,
         state, nonce, code_challenge: createHash('sha256').update(pkceVerifier(id, state)).digest('base64url'),
         // A fresh sign-in for a step that needs a recent one: Microsoft asks for the credentials again
-        // instead of continuing with the session the browser has there.
+        // instead of continuing with the session the browser has there. The address can be edited, so the
+        // callback counts the sign-in as new only when the token's `auth_time` says so.
         code_challenge_method: 'S256', prompt: input.reauth ? 'login' : 'select_account'
     }).toString();
     return { url: url.href, binding: microsoftBindingToken('flow', id, MICROSOFT_SIGN_IN_TTL_SECONDS) };
 }
 
-export type MicrosoftClaims = { subject: string; email?: string };
+/** `authTime`: when the person last authenticated with Microsoft (Unix seconds), when the token says (an optional claim of the app registration) */
+export type MicrosoftClaims = { subject: string; email?: string; authTime?: number };
 const keySets = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
 
 /**
@@ -127,7 +131,8 @@ export async function microsoftIdTokenClaims(token: unknown, expected: { clientI
             || typeof nonce !== 'string' || !sameHash(expected.nonceHash, sha256Hex(nonce))) return null;
         const email = emailSchema.safeParse(claims.email);
         const username = emailSchema.safeParse(claims.preferred_username);
-        return { subject: sha256Hex(`${issuer}\n${sub}`), email: email.success ? email.data : username.success ? username.data : undefined };
+        return { subject: sha256Hex(`${issuer}\n${sub}`), email: email.success ? email.data : username.success ? username.data : undefined,
+            authTime: providerAuthTime(claims.auth_time, now / 1000 + CLOCK_SKEW_SECONDS) };
     } catch { return null; }
 }
 
@@ -162,12 +167,14 @@ function microsoftPhoto(accessToken: string | undefined) {
     return accessToken ? fetchProviderPicture(microsoftConfig().photoUrl, { Authorization: `Bearer ${accessToken}` }) : Promise.resolve(null);
 }
 
-export type MicrosoftProblem = 'cancelled' | 'failed' | 'expired' | 'taken' | 'other_account' | 'sign_in_again';
+export type MicrosoftProblem = 'cancelled' | 'failed' | 'expired' | 'taken' | 'other_account' | 'sign_in_again' | 'not_recent';
 export type MicrosoftSignInOutcome =
-    | { kind: 'signed_in'; userId: string; next?: string }
+    /** `authenticatedAt`: when Microsoft says the person authenticated, or `null` when it does not say */
+    | { kind: 'signed_in'; userId: string; next?: string; authenticatedAt: number | null }
     | { kind: 'confirm_email'; binding: string }
     | { kind: 'linked' }
-    | { kind: 'problem'; problem: MicrosoftProblem; next?: string; linking: boolean };
+    /** `reauth`: the attempt was Sign in again, and goes back to that card */
+    | { kind: 'problem'; problem: MicrosoftProblem; next?: string; linking: boolean; reauth?: boolean };
 
 /**
  * The callback. The browser binding, state and nonce must match one live request, which is used
@@ -192,7 +199,7 @@ export async function finishMicrosoftSignIn(input: {
     const createdAt = Date.parse(flow.createdAt);
     const linking = flow.linkUserId !== undefined;
     const next = safeNextPath(flow.next);
-    const problem = (value: MicrosoftProblem) => ({ kind: 'problem', problem: value, next, linking }) as const;
+    const problem = (value: MicrosoftProblem) => ({ kind: 'problem', problem: value, next, linking, ...(flow.reauth ? { reauth: true } : {}) }) as const;
     if (!Number.isFinite(createdAt) || createdAt > Date.now() || createdAt + MICROSOFT_SIGN_IN_TTL_SECONDS * 1000 <= Date.now())
         return problem('expired');
     if (input.error !== null && input.error !== undefined)
@@ -219,6 +226,11 @@ export async function finishMicrosoftSignIn(input: {
     }
     if (!claims)
         return problem('failed');
+    const authenticatedAt = claims.authTime ?? null;
+    // Sign in again asked for a new sign-in. One that Microsoft does not show to be new changes nothing:
+    // no session, account or link, and the card says what does count.
+    if (flow.reauth && !signedInRecently(authenticatedAt ?? 0))
+        return problem('not_recent');
     if (linking) {
         const result = await linkMicrosoftAccount(flow.linkUserId!, { subject: claims.subject, email: claims.email ?? '' });
         // Connecting Microsoft brings its photo to an account without a picture
@@ -229,7 +241,7 @@ export async function finishMicrosoftSignIn(input: {
     const linked = await findUserByMicrosoftSubject(claims.subject);
     if (linked) {
         if (claims.email) await refreshMicrosoftAccountEmail(linked.id, claims.subject, claims.email);
-        return { kind: 'signed_in', userId: linked.id, next };
+        return { kind: 'signed_in', userId: linked.id, next, authenticatedAt };
     }
     // First sign-in always proves a user-chosen inbox, even for outlook.com addresses.
     // The account is chosen later, so the photo is read now and waits with the link
