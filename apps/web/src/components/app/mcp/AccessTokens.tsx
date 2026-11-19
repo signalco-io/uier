@@ -16,8 +16,10 @@ import { RelativeTime } from '../comments/DateTime';
 import { CopyBlock } from '../CopyBlock';
 import { FormMessage } from '../FormMessage';
 import { Section } from '../PageHeader';
-import { createMcpCredentialAction, revokeMcpCredentialAction } from '@/src/lib/mcp/actions';
+import { createMcpCredentialAction, createRestTokenAction, revokeMcpCredentialAction, revokeRestTokenAction } from '@/src/lib/mcp/actions';
 import { ConnectionAvatar, ConnectionItem, ConnectionReach, ScopeBadges } from './ConnectionSummary';
+import { restScopes } from '@/src/lib/mcp/scopes';
+import { KnownPages } from '@/src/knownPages';
 import { scopeOptions } from './scopes';
 
 export type AccessToken = {
@@ -31,24 +33,24 @@ export type AccessToken = {
  * Hand-made and connection-created credentials: one workspace, chosen projects, up to 30 days.
  * Secrets from this form are shown once. Collapsed by default under Coding agents.
  */
-export function AccessTokens({ projects, credentials }: { projects: { id: string; name: string }[]; credentials: AccessToken[] }) {
+export function AccessTokens({ projects, credentials, rest = false }: { rest?: boolean; projects: { id: string; name: string }[]; credentials: AccessToken[] }) {
     const { t } = useAppI18n();
-    const [open, setOpen] = useState(false);
+    const [open, setOpen] = useState(rest);
     // Kept here, so a token that was just created stays on screen when the card is closed and opened again
-    const form = useCreateTokenForm();
+    const form = useCreateTokenForm(rest);
     return (
         <Collapsible open={open} onOpenChange={setOpen}>
-            <Section id="access-tokens" title={t("Access tokens")}
-                description={<>{t("For environments without a browser, such as SSH sessions, containers and CI. A token works with the Codex and Cursor setups above. You have")}{' '}{credentials.length === 0 ? t("no tokens") : credentials.length === 1 ? t("one token") : t("{value1} tokens", { value1: credentials.length })}.</>}>
+            <Section id="access-tokens" title={rest ? t("API tokens") : t("Access tokens")}
+                description={rest ? <>{t("Connect a custom integration with a project-scoped bearer token.")}{' '}<a className="underline" href={KnownPages.DeveloperApi}>{t("API reference")}</a></> : <>{t("For environments without a browser, such as SSH sessions, containers and CI. A token works with the Codex and Cursor setups above. You have")}{' '}{credentials.length === 0 ? t("no tokens") : credentials.length === 1 ? t("one token") : t("{value1} tokens", { value1: credentials.length })}.</>}>
                 <div className="flex flex-col gap-6">
                     <CollapsibleTrigger render={<Button variant="outline" className="group self-start" />}>
                         {open ? t("Hide access tokens") : t("Show access tokens")}
                         <ChevronDownIcon data-icon="inline-end" className="transition-transform group-aria-expanded:rotate-180" />
                     </CollapsibleTrigger>
                     {open && <CollapsibleContent className="flex flex-col gap-6">
-                        <CreateToken projects={projects} form={form} />
+                        <CreateToken projects={projects} form={form} rest={rest} />
                         {credentials.length > 0 && <ItemGroup aria-label={t("Your access tokens")} className="gap-3">
-                            {credentials.map(credential => <AccessTokenRow key={credential.id} credential={credential} projects={projects} />)}
+                            {credentials.map(credential => <AccessTokenRow key={credential.id} credential={credential} projects={projects} rest={rest} />)}
                         </ItemGroup>}
                     </CollapsibleContent>}
                 </div>
@@ -57,8 +59,8 @@ export function AccessTokens({ projects, credentials }: { projects: { id: string
     );
 }
 
-function useCreateTokenForm() {
-    const [state, action, pending] = useActionState(createMcpCredentialAction, null);
+function useCreateTokenForm(rest: boolean) {
+    const [state, action, pending] = useActionState(rest ? createRestTokenAction : createMcpCredentialAction, null);
     const [name, setName] = useState('');
     const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
     const [selectedScopes, setSelectedScopes] = useState<string[]>(['feedback:read']);
@@ -66,7 +68,7 @@ function useCreateTokenForm() {
     return { state, action, pending, name, setName, selectedProjects, setSelectedProjects, selectedScopes, setSelectedScopes, hiddenToken, setHiddenToken };
 }
 
-function CreateToken({ projects, form }: { projects: { id: string; name: string }[]; form: ReturnType<typeof useCreateTokenForm> }) {
+function CreateToken({ projects, form, rest }: { rest: boolean; projects: { id: string; name: string }[]; form: ReturnType<typeof useCreateTokenForm> }) {
     const { t } = useAppI18n();
     const { state, action, pending, name, setName, selectedProjects, setSelectedProjects, selectedScopes, setSelectedScopes, hiddenToken, setHiddenToken } = form;
     const token = state?.ok ? state.data.token : undefined;
@@ -81,7 +83,7 @@ function CreateToken({ projects, form }: { projects: { id: string; name: string 
                     <Field>
                         <FieldLabel htmlFor="token-label">{t("Token label")}</FieldLabel>
                         <Input id="token-label" name="name" value={name} onChange={event => setName(event.target.value)} required maxLength={60}
-                            placeholder={t("My coding tool")} autoComplete="off" />
+                            placeholder={rest ? t("My integration") : t("My coding tool")} autoComplete="off" />
                     </Field>
                     <FieldSet className="gap-3">
                         <FieldLegend variant="label">{t("Projects in this workspace")}</FieldLegend>
@@ -90,12 +92,12 @@ function CreateToken({ projects, form }: { projects: { id: string; name: string 
                                 onCheckedChange={checked => setSelectedProjects(previous => checked === true ? [...previous, project.id] : previous.filter(id => id !== project.id))} />
                             <FieldLabel htmlFor={`token-project-${project.id}`} className="font-normal break-words">{project.name}</FieldLabel>
                         </Field>)}
-                        {!projects.length && <FieldDescription>{t("Create a project before connecting a coding tool.")}</FieldDescription>}
+                        {!projects.length && <FieldDescription>{rest ? t("Create a project first.") : t("Create a project before connecting a coding tool.")}</FieldDescription>}
                     </FieldSet>
                     <FieldSet className="gap-3">
                         <FieldLegend variant="label">{t("Allowed operations")}</FieldLegend>
-                        {scopeOptions.map(({ scope, label, description }) => <Field key={scope} orientation="horizontal">
-                            <Checkbox id={`token-scope-${scope}`} checked={selectedScopes.includes(scope)} aria-describedby={`token-scope-${scope}-description`}
+                        {scopeOptions.filter(({ scope }) => !rest || restScopes.some(allowed => allowed === scope)).map(({ scope, label, description }) => <Field key={scope} orientation="horizontal">
+                            <Checkbox id={`token-scope-${scope}`} disabled={rest && scope === 'feedback:read'} checked={selectedScopes.includes(scope)} aria-describedby={`token-scope-${scope}-description`}
                                 onCheckedChange={checked => setSelectedScopes(previous => checked === true ? [...previous, scope] : previous.filter(value => value !== scope))} />
                             <FieldContent>
                                 <FieldLabel htmlFor={`token-scope-${scope}`}>{t(label)}</FieldLabel>
@@ -107,13 +109,13 @@ function CreateToken({ projects, form }: { projects: { id: string; name: string 
                 {selectedProjects.map(id => <input key={id} type="hidden" name="projectIds" value={id} />)}
                 {selectedScopes.map(scope => <input key={scope} type="hidden" name="scopes" value={scope} />)}
                 <FormMessage state={state} />
-                <Button type="submit" disabled={pending || !projects.length} className="self-start">
+                <Button type="submit" disabled={pending || !projects.length || (rest && !selectedProjects.length)} className="self-start">
                     {pending && <Spinner data-icon="inline-start" />}
                     {pending ? t("Creating…") : t("Create token")}
                 </Button>
             </form>
             {token && token !== hiddenToken && <div className="flex flex-col gap-3 rounded-lg border p-4" role="status">
-                <p className="m-0 text-sm">{t("Copy this token now. It will not be shown again after you leave this page. Keep it in your client’s environment as")}{' '}<code>{"UIER_MCP_TOKEN"}</code>{t(", outside source control.")}</p>
+                <p className="m-0 text-sm">{t("Copy this token now. It will not be shown again after you leave this page. Keep it in your client’s environment as")}{' '}<code>{rest ? "UIER_API_TOKEN" : "UIER_MCP_TOKEN"}</code>{t(", outside source control.")}</p>
                 <CopyBlock value={token} label={t("Copy access token")} />
                 <Button variant="outline" onClick={() => setHiddenToken(token)} className="self-start">{t("Hide token")}</Button>
             </div>}
@@ -121,7 +123,7 @@ function CreateToken({ projects, form }: { projects: { id: string; name: string 
     );
 }
 
-function AccessTokenRow({ credential, projects }: { credential: AccessToken; projects: { id: string; name: string }[] }) {
+function AccessTokenRow({ credential, projects, rest }: { rest: boolean; credential: AccessToken; projects: { id: string; name: string }[] }) {
     const { t } = useAppI18n();
     return (
         <ConnectionItem avatar={<ConnectionAvatar hints={[credential.name]} />} title={credential.name}
@@ -129,7 +131,7 @@ function AccessTokenRow({ credential, projects }: { credential: AccessToken; pro
                 {credential.createdBy && <span>{t("Created by")}{' '}{credential.createdBy.name}</span>}
                 {credential.actingAccount && <span>{t("Acts as")}{' '}<span className="break-all">{credential.actingAccount}</span></span>}
             </>}
-            actions={<form action={revokeMcpCredentialAction.bind(null, credential.id)}><RevokeToken name={credential.name} /></form>}>
+            actions={<form action={(rest ? revokeRestTokenAction : revokeMcpCredentialAction).bind(null, credential.id)}><RevokeToken name={credential.name} /></form>}>
             <ConnectionReach>
                 <span className="sr-only">{t("Projects:")}{' '}</span>
                 {(credential.projectNames ?? credential.projectIds.map(id => projects.find(project => project.id === id)?.name ?? id)).join(', ')}

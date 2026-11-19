@@ -33,7 +33,7 @@ test('app navigation preserves the document and feedback toolbar', async ({ page
         await expect(toolbar(page)).toBeVisible();
         expect(documents).toEqual([]);
     };
-    for (const section of ['General', 'Sign-in', 'Notifications', 'Usage', 'Coding agents']) {
+    for (const section of ['General', 'Sign-in', 'Notifications', 'Usage', 'Coding agents', 'API tokens']) {
         const link = page.getByRole('navigation', { name: 'Account', exact: true }).getByRole('link', { name: section, exact: true });
         await hydrated(link);
         await link.click();

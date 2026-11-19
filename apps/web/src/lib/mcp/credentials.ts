@@ -7,7 +7,7 @@ import { randomToken, sha256Hex } from '../app/tokens';
 import { getUser } from '../app/users';
 import { memberActor } from '../review/actor';
 import { ApiError, apiErrors } from '../comments/http';
-import { mcpScopes, type McpScope } from './scopes';
+import { mcpScopes, restScopes, type McpScope } from './scopes';
 import { accessCovers, grantedWorkspaceOf, isGrantActive, type AgentAccess, type McpGrant } from './oauth/grants';
 import { authenticateAccessToken, isAccessTokenFormat } from './oauth/tokens';
 import { mcpOauthEnabled } from './oauth/config';
@@ -21,7 +21,7 @@ export const credentialSchema = z.object({
 }).refine(value => value.scopes.includes('feedback:read'), 'Read access is required.');
 
 export type McpCredential = AppDoc & {
-    type: 'mcp-credential'; userId: string; workspaceId: string; name: string;
+    type: 'mcp-credential'; audience?: 'rest'; userId: string; workspaceId: string; name: string;
     /** A derived token may act under another explicitly authorized account; userId still owns it. */
     actingUserId?: string;
     projectIds: string[]; scopes: McpScope[]; createdAt: string; expiresAt: string; ttl: number;
@@ -62,7 +62,7 @@ export async function persistMcpCredential(doc: McpCredential, receipt?: McpCred
             if (!grant || grant.type !== 'mcp-grant' || !isGrantActive(grant))
                 throw apiErrors.forbidden('The creating connection is no longer active.');
         }
-        if ((await listMcpCredentials(doc.userId)).length >= 20) {
+        if ((await listMcpCredentials(doc.userId, doc.audience)).length >= 20) {
             // A concurrent retry may have taken the last slot since the receipt read above.
             const concurrent = await previousReceipt();
             if (concurrent) return concurrent;
@@ -78,19 +78,21 @@ export async function persistMcpCredential(doc: McpCredential, receipt?: McpCred
     throw apiErrors.conflict();
 }
 
-export async function listMcpCredentials(userId: string) {
+export async function listMcpCredentials(userId: string, audience?: 'rest') {
     return (await getAppStore().query<McpCredential>({ type: 'mcp-credential', pk: credentialPk(userId) }))
-        .filter(entry => Date.parse(entry.expiresAt) > Date.now()).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+        .filter(entry => entry.audience === audience && Date.parse(entry.expiresAt) > Date.now()).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
-export async function createMcpCredential(context: AppContext, value: unknown) {
+export async function createMcpCredential(context: AppContext, value: unknown, audience?: 'rest') {
     const input = credentialSchema.parse(value);
+    if (audience === 'rest' && input.scopes.some(scope => !restScopes.some(allowed => allowed === scope)))
+        throw apiErrors.invalidRequest('Choose a supported REST API permission.');
     for (const projectId of input.projectIds)
         if (!await getVisibleProject(context, projectId)) throw apiErrors.forbidden('Choose projects you can access.');
     // Only the hash is persisted. The user id selects a partition; it grants no authority.
-    const token = `uier_mcp.${context.user.id}.${randomToken()}`;
+    const token = `${audience === 'rest' ? 'uier_api' : 'uier_mcp'}.${context.user.id}.${randomToken()}`;
     const doc: McpCredential = {
-        type: 'mcp-credential', id: sha256Hex(token), pk: credentialPk(context.user.id),
+        type: 'mcp-credential', ...(audience ? { audience } : {}), id: sha256Hex(token), pk: credentialPk(context.user.id),
         userId: context.user.id, workspaceId: context.workspace.id, name: input.name,
         projectIds: [...new Set(input.projectIds)], scopes: [...new Set(input.scopes)],
         createdAt: new Date().toISOString(), expiresAt: new Date(Date.now() + input.days * 86400_000).toISOString(), ttl: input.days * 86400
@@ -100,9 +102,9 @@ export async function createMcpCredential(context: AppContext, value: unknown) {
 }
 
 /** Only access-token credentials: OAuth records share the partition, and codes and rotated tokens detect replays. */
-export async function revokeMcpCredential(userId: string, id: string) {
+export async function revokeMcpCredential(userId: string, id: string, audience?: 'rest') {
     const stored = await getAppStore().get<McpCredential>(credentialPk(userId), id);
-    if (stored?.doc.type === 'mcp-credential' && stored.doc.userId === userId)
+    if (stored?.doc.type === 'mcp-credential' && stored.doc.userId === userId && stored.doc.audience === audience)
         await getAppStore().delete(credentialPk(userId), id);
 }
 
@@ -203,15 +205,14 @@ export class McpAuthenticationError extends ApiError {
     }
 }
 
-function bearerToken(request: Request) {
-    const header = request.headers.get('authorization');
+function bearerToken(header: string | null) {
     if (!header) return null;
-    return /^Bearer ([A-Za-z0-9._~+/-]{1,512}=*)$/.exec(header)?.[1] ?? '';
+    return /^Bearer +([A-Za-z0-9._~+/-]{1,512}=*)$/i.exec(header)?.[1] ?? '';
 }
 
 /** `issuer` defaults to the request origin; the MCP route passes the configured app origin. */
 export async function authenticateMcp(request: Request, issuer = new URL(request.url).origin): Promise<McpIdentity> {
-    const token = bearerToken(request);
+    const token = bearerToken(request.headers.get('authorization'));
     if (token === null) throw new McpAuthenticationError(false);
     if (isAccessTokenFormat(token)) {
         // Off also stops access tokens that were already issued.
@@ -222,11 +223,23 @@ export async function authenticateMcp(request: Request, issuer = new URL(request
     }
     const match = /^(uier_mcp\.([A-Za-z0-9_-]{1,128})\.[A-Za-z0-9_-]{32,128})$/.exec(token);
     const credential = match ? (await getAppStore().get<McpCredential>(credentialPk(match[2]!), sha256Hex(match[1]!)))?.doc : null;
-    const user = credential && credential.type === 'mcp-credential' && Date.parse(credential.expiresAt) > Date.now() ? await getUser(credential.userId) : null;
+    const user = credential && credential.type === 'mcp-credential' && !credential.audience && Date.parse(credential.expiresAt) > Date.now() ? await getUser(credential.userId) : null;
     if (!credential || !user) throw new McpAuthenticationError(true);
     const identity = await credentialIdentity(user, credential);
     if (!identity) throw new McpAuthenticationError(true);
     return identity;
+}
+
+/** Read the one-workspace REST grant. Old credentials and OAuth tokens authorize MCP only. */
+export async function authenticateRestToken(authorization: string | null) {
+    const match = /^uier_api\.([A-Za-z0-9_-]{1,128})\.[A-Za-z0-9_-]{32,128}$/.exec(bearerToken(authorization) ?? '');
+    const invalid = () => apiErrors.signInRequired('Supply a current REST API token from Account.');
+    if (!match?.[1]) throw invalid();
+    const credential = (await getAppStore().get<McpCredential>(credentialPk(match[1]), sha256Hex(match[0])))?.doc;
+    if (!credential || credential.type !== 'mcp-credential' || credential.audience !== 'rest'
+        || credential.userId !== match[1] || !(Date.parse(credential.expiresAt) > Date.now()) || !await getUser(credential.userId))
+        throw invalid();
+    return credential;
 }
 
 /**
@@ -242,7 +255,7 @@ export async function currentMcpConnection(userId: string, connectionId: string,
         const user = await getUser(userId);
         return user ? await grantIdentity(user, doc, doc.scopes) : null;
     }
-    if (doc.type !== 'mcp-credential' || Date.parse(doc.expiresAt) <= Date.now()) return null;
+    if (doc.type !== 'mcp-credential' || doc.audience || Date.parse(doc.expiresAt) <= Date.now()) return null;
     const user = await getUser(userId);
     return user ? await credentialIdentity(user, doc) : null;
 }

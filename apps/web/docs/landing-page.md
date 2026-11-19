@@ -107,7 +107,8 @@ title so the root template cannot add the brand twice. The visible h1/tagline an
 title/card remain `Say it on the page.`; the canonical and shared description stay consistent.
 The integration tile/FAQ point to each service's dated qualification and explicitly retain pending
 Azure DevOps delivery and optional reply-import verification instead of implying every adapter is
-equally accepted. Preserve that distinction when #300's evidence changes.
+equally accepted. The integrations FAQ links to the MCP setup guide for coding tools and the REST API reference for custom integrations.
+Preserve the provider qualification details when #300's evidence changes.
 
 `e2e/landing.spec.ts` asserts the title, the `h1`, the "Get started" links, the sections, the
 pricing copy, the FAQ keyboard behaviour and the footer line through the brand constants; update

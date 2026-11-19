@@ -71,6 +71,8 @@ Product contracts, API references and runbooks stay in the repository's [`docs/`
 
 ## Integrations, MCP and services
 
+- [Public REST API](rest-api.md) covers the versioned HTTP routes, project tokens and Scalar reference.
+
 - [Integration foundation](integrations.md): outbox, delivery, status and reply sync, provider notes.
 - [Authenticated MCP connector](mcp-connector.md): authentication, OAuth, protocol revisions and transport, tools, events and client setup.
 - [Review notifications](notifications.md): events, digests, the scheduled worker and email reports.

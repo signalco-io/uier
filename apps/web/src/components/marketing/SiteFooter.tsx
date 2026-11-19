@@ -40,6 +40,7 @@ export async function SiteFooter() {
                         { label: 'Client feedback', href: KnownPages.ClientFeedback },
                         { label: 'Bug reporting', href: KnownPages.BugReporting },
                         { label: 'Manual acceptance testing', href: KnownPages.UserAcceptanceTesting },
+                        { label: 'REST API reference', href: KnownPages.DeveloperApi },
                         { label: 'MCP setup', href: KnownPages.McpGuide },
                         { label: 'Website review checklist', href: KnownPages.ReviewChecklist },
                         { label: 'Bug-report template', href: KnownPages.BugReportTemplate },

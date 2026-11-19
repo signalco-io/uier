@@ -1,11 +1,12 @@
 import { expect, test } from '@playwright/test';
 import { brand } from '@uier/brand';
+import { mcpGuide } from '../src/lib/guides/mcp';
 import { integrationCatalog, isIntegrationCatalogKey } from '../src/lib/integrations/catalog';
 import { assertAccessibility } from './accessibility';
 import { toolbar } from './support/toolbar';
 import { integrationPublication, replySyncQualification } from '../src/lib/integrations/publication';
 
-test('the integrations index leads to the five setup guides', async ({ page }) => {
+test('the integrations index links to project services and MCP setup', async ({ page }) => {
     await page.goto('/integrations');
     await expect(page).toHaveTitle(`Integrations · ${brand.name}`);
     for (const provider of ['Notion', 'GitHub', 'Linear', 'Azure DevOps', 'Slack']) {
@@ -13,12 +14,19 @@ test('the integrations index leads to the five setup guides', async ({ page }) =
             .toHaveAttribute('href', `/integrations/${provider.toLowerCase().replace(' ', '-')}`);
     }
     const services = page.getByRole('region', { name: 'Choose a service' });
+    const mcp = services.getByRole('listitem').filter({ has: page.getByRole('heading', { name: 'Model Context Protocol (MCP)' }) });
+    await expect(mcp).toContainText('Claude Code, Codex or Cursor');
+    const setup = mcp.getByRole('link', { name: 'Set up MCP' });
+    await expect(setup).toHaveAttribute('href', mcpGuide.path);
+    await expect(page.getByRole('link', { name: 'Explore the REST API' })).toHaveAttribute('href', '/developers/api');
     await expect(services.locator('[data-integration-logo]')).toHaveCount(5);
     await expect(services.getByRole('list', { name: 'Optional for GitHub' }).getByRole('listitem')).toHaveText(['Two-way status sync', 'Reply sync']);
     await expect(services.getByRole('list', { name: 'Optional for Slack' }).getByRole('listitem')).toHaveText(['Reply and status summaries', 'Screenshots and recordings', 'Reply sync']);
     await expect(page.getByRole('contentinfo').getByRole('link', { name: 'Integrations', exact: true })).toHaveAttribute('href', '/integrations');
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await assertAccessibility(page, '/integrations');
+    await setup.click();
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(mcpGuide.title);
 });
 
 test.describe('integration guides without JavaScript', () => {

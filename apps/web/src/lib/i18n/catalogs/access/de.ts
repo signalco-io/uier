@@ -1,6 +1,11 @@
 import type en from './en';
 
 const messages: Record<keyof typeof en, string> = {
+    "API tokens": "API-Token",
+    "Connect a custom integration with a project-scoped bearer token.": "Verbinden Sie eine eigene Integration mit einem auf Projekte beschränkten Bearer-Token.",
+    "API reference": "API-Referenz",
+    "My integration": "Meine Integration",
+    "Create a project first.": "Erstellen Sie zuerst ein Projekt.",
     "Priority: {priority}": "Priorität: {priority}",
     "Environment: {environment}": "Umgebung: {environment}",
     "Recording": "Aufnahme",

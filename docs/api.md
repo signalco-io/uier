@@ -3,6 +3,43 @@
 Routes, identity, storage and limits for the review and public comments APIs, plus how the
 website builds and serves the toolbar. See [MCP](mcp.md) for coding tool access.
 
+## Public REST API for custom integrations
+
+The [Scalar reference](https://uier.io/developers/api) includes an interactive client and the
+[downloadable OpenAPI document](https://uier.io/api/v1/openapi.json). Use the versioned base URL
+`https://uier.io/api/v1` from a backend or CI job.
+
+1. Open **Account → API tokens**, enter the integration name and select projects in the active workspace.
+2. Keep the default read permission, or add reply or status access. Copy the token when it appears
+   and store it in your integration’s secret store. Account-issued tokens expire after 30 days.
+3. Set `UIER_API_TOKEN` to the secret, then use the returned project ID for subsequent calls.
+
+```sh
+curl --fail-with-body https://uier.io/api/v1/projects \
+  -H "Authorization: Bearer $UIER_API_TOKEN"
+```
+
+| Method | Path under `/api/v1` | Permission |
+| --- | --- | --- |
+| GET | `/projects` | `feedback:read` |
+| GET | `/projects/{projectId}/statuses` | `feedback:read` |
+| GET | `/projects/{projectId}/feedback` | `feedback:read` |
+| GET | `/projects/{projectId}/feedback/{feedbackId}` | `feedback:read` |
+| POST | `/projects/{projectId}/feedback/{feedbackId}/replies` | `feedback:reply` |
+| PATCH | `/projects/{projectId}/feedback/{feedbackId}` | `feedback:status` |
+
+Feedback pages default to 25 threads and accept up to 100. Use the returned `next` value as
+the URL-encoded `before` parameter until `next` is null. The detail response includes the
+discussion text. Each request checks the owner's current project access and thread visibility.
+Inaccessible resources return 404. Token revocation takes effect on subsequent calls.
+
+For writes, send `Content-Type: application/json` and a fresh `Idempotency-Key` (a UUID works).
+A reply takes `{"text":"Fixed in the latest build."}`. A status update takes `{"statusId":"…"}`
+using an ID from the project's statuses endpoint. Retry the same input with the same token, project
+and key. For 30 days the server can recognize the write and return the current thread. Reusing a key
+with different input returns 409. Each token allows 120 requests per minute. Replies also count
+toward the project's reply limits. On 429, wait for the `Retry-After` interval in seconds.
+
 ## Realtime comment changes
 
 The embedded toolbar and the app's project comment list/board use Vercel Functions WebSockets
