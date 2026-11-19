@@ -63,3 +63,25 @@ a lazy, whitespace-free page index is shared by every comment, with one record p
 missing and ambiguous results persist until the DOM version changes; geometry and visibility are remeasured on
 layout frames (the versions are `hooks/useLayoutVersion.ts`). No pin for a missing, ambiguous or hidden anchor
 (the saved opener of a closed layer is the one fallback, above), and it never throws.
+
+## Anchors for change previews
+
+`proposalPreview.ts` reads and replays point text against the element's whole visible label. An old
+label that survives as a substring of a longer label is stale. Text selections require the complete
+saved selection at valid offsets in uniquely matched elements. Replay checks the exact captured DOM
+text and computed values of every proposed property before it applies any change. Page and area
+anchors, toolbar UI, forms and editable content are ineligible.
+
+Text previews update existing text nodes. A replacement may span adjacent text nodes. When the
+changed words would need to be reassigned across markup boundaries, the proposal is unavailable.
+The internal `trackPreviewTextRange` helper gives the pin and selection highlight the edited range,
+including a caret-sized position for a deletion, until the preview stops.
+
+Only one preview can be active. The engine applies allowlisted literal CSS values as inline
+declarations and restores their original values and priorities. An authored inline shorthand must
+expose each affected declaration through the CSSOM so it can be restored independently. The engine
+observes the edited nodes and restores the parts it still owns. New text written by the page and
+unrelated inline edits survive cleanup. A replacement node stays under the page's control. The
+toolbar calls the returned cleanup when its preview UI goes away.
+[`proposal-preview-engine.spec.ts`](../../../apps/web/e2e/proposal-preview-engine.spec.ts) covers the
+browser-side contract.
