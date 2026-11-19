@@ -12,7 +12,7 @@ const script = fileURLToPath(import.meta.url);
 const bundled = resolve(dirname(script), '../../uier-monitor/scripts/monitor.mjs');
 const helper = existsSync(join(dirname(script), 'monitor.mjs')) ? join(dirname(script), 'monitor.mjs') : bundled;
 const { connection, tool, watcherPid, withLock } = await import(pathToFileURL(helper));
-const { monitorHome, readState, readInbox, readRecord, registrations, transaction, writeRecord, writeState } =
+const { appendInbox, monitorHome, readState, readInbox, readRecord, registrations, transaction, writeRecord, writeState } =
     await import(pathToFileURL(join(dirname(helper), 'store.mjs')));
 const home = monitorHome();
 const minute = 60_000;
@@ -57,13 +57,24 @@ async function update(p, fields) {
 function registryConflict(dir, id) {
     return registrations().some(entry => entry.id === id && entry.stateDir !== dir);
 }
+// A project can enroll several accounts of one person. The first is the primary; registrations
+// saved before multi-account support hold only `account`.
+const accountsOf = p => p.accounts?.length ? p.accounts : [p.account];
+const sameAccounts = (a, b) => new Set(a).size === new Set(b).size && a.every(id => b.includes(id));
+// A saved monitor's `me` and `also` must cover exactly the enrolled accounts, so a handoff
+// neither drops one of the person's accounts nor adds one the enrollment never named.
+function accountsMatch(s, p) {
+    if (!s?.me?.id) return !s?.me?.also?.length;
+    return sameAccounts([s.me.id, ...(s.me.also ?? []).map(account => account?.id)], accountsOf(p));
+}
+const accountsDiffer = 'Saved monitor accounts differ from the enrolled accounts. Reconcile its scope before handoff.';
 
-export async function eligible(project, fetchPage) {
+export async function eligible(project, fetchPage, account = project.account) {
     let cursor = 0;
     const rows = new Map();
     for (;;) {
         const result = await fetchPage({ projectId: project.id, view: 'state', status: 'open', monitorScope: project.scope, limit: 1000, cursor });
-        requireValue(result.actingAs?.userId === project.account, 'Discovery token acts as a different account.');
+        requireValue(result.actingAs?.userId === account, 'Discovery token for ' + account + ' acts as a different account.');
         requireValue(Array.isArray(result.items), 'Incomplete feedback page.');
         for (const row of result.items) {
             requireValue(typeof row.id === 'string' &&
@@ -80,9 +91,25 @@ export async function eligible(project, fetchPage) {
 function revision(row) {
     return row.updatedAt ?? JSON.stringify([row.stage, row.replyCount, row.assignee?.id]);
 }
+// uier never combines accounts' permissions, and private threads are visible to their author's
+// account. Read each enrolled account with its own token and merge the rows. A missing or
+// mismatched token fails the whole read, so an unread account can never look empty.
+export async function eligibleForAccounts(project, readerFor) {
+    const rows = new Map();
+    for (const account of accountsOf(project)) {
+        const fetchPage = requireValue(readerFor(account), 'Missing discovery token for ' + account + '.');
+        for (const row of await eligible(project, fetchPage, account)) rows.set(row.id, row);
+    }
+    return [...rows.values()];
+}
+// Keychain account PROJECT_ID:ACCOUNT_ID holds an account's own token; without one, the lookup
+// falls back to the project's watcher token, which covers only the account it acts as.
+export const tokenKey = (projectId, account) => projectId + ':' + account;
 async function feedback(p) {
-    const ctx = requireValue(connection({ project: { id: p.id } }, p.id, p.dir), 'Missing discovery token.');
-    return eligible(p, args => tool(ctx, 'list_feedback', args));
+    return eligibleForAccounts(p, account => {
+        const ctx = connection({ project: { id: p.id } }, tokenKey(p.id, account), p.dir);
+        return ctx && (args => tool(ctx, 'list_feedback', args));
+    });
 }
 export function unfinished(s) {
     return !s?.project || Boolean(s.orchestrator?.recheck?.length || s.watch?.wakeAt || s.deploys?.pending?.length ||
@@ -118,8 +145,7 @@ async function enter(id, run, suppliedThread) {
         p.thread = thread;
         return transaction(() => {
             const s = local(p);
-            requireValue((!s?.me?.id || s.me.id === p.account) && !s?.me?.also?.length,
-                'Saved monitor uses different accounts. Reconcile its scope before handoff.');
+            requireValue(accountsMatch(s, p), accountsDiffer);
             if (s?.orchestrator?.run === run) requireValue(!stopped(s), 'Project monitor stopped.');
             else requireValue(available(p, s), 'Project monitor already owned or stopped.');
             const next = s ?? {};
@@ -131,7 +157,7 @@ async function enter(id, run, suppliedThread) {
             writeState(p.dir, next);
             Object.assign(p, { phase: 'monitoring', takeover: false, error: null });
             writeRecord(null, 'orchestrator', state);
-            return { first: !next.project, scope: p.scope, account: p.account, harness: p.harness, recheck: next.orchestrator.recheck ?? [] };
+            return { first: !next.project, scope: p.scope, account: p.account, accounts: accountsOf(p), harness: p.harness, recheck: next.orchestrator.recheck ?? [] };
         });
     });
 }
@@ -145,10 +171,18 @@ async function park(p) {
         if (!matches(state, p)) return false;
         return transaction(() => {
             const s = local(p);
-            requireValue((!s?.me?.id || s.me.id === p.account) && !s?.me?.also?.length,
-                'Saved monitor uses different accounts. Reconcile its scope before handoff.');
-            if (s?.orchestrator?.run !== p.run || stopped(s) || unfinished(s) || inbox(p).length ||
-                rows.some(row => s.items?.[row.id]?.decision !== 'skipped')) return false;
+            requireValue(accountsMatch(s, p), accountsDiffer);
+            if (s?.orchestrator?.run !== p.run || stopped(s) || unfinished(s) || inbox(p).length) return false;
+            // The worker's watcher reads with one token, which may not see another enrolled account's
+            // private threads. Hand it every in-scope comment it has not recorded instead of waiting.
+            // The event matches the watcher's own, so the inbox keeps one copy until it is taken.
+            const untracked = rows.filter(row => !s.items?.[row.id]);
+            if (untracked.length) {
+                appendInbox(p.dir, untracked.map(row => ({ type: 'untracked', commentId: row.id, number: row.number, stage: row.stage,
+                    priority: row.priority, private: row.private, assignee: row.assignee?.id ?? null, foundAt: now() })));
+                return false;
+            }
+            if (rows.some(row => s.items[row.id].decision !== 'skipped')) return false;
             s.stopped = true;
             s.watch = { ...s.watch, stopped: true, stoppedBy: 'orchestrator:' + p.run };
             writeState(p.dir, s);
@@ -346,16 +380,17 @@ async function main([command, ...args]) {
     if (command === 'serve') { await serve(args[0]); return; }
     if (command === 'enter') return enter(args[0], args[1], args[2]);
     if (command === 'allow') {
-        const [id, account, repo, scope = 'mine', name = id, handoff] = args;
-        requireValue(/^[a-z0-9]{12}$/.test(id) && /^u_[\w-]+$/.test(account) && isAbsolute(repo) && ['mine', 'assigned'].includes(scope), 'Expected: allow PROJECT_ID ACCOUNT_ID ABSOLUTE_CHECKOUT [mine|assigned] [NAME] [takeover-stopped]');
+        const [id, list = '', repo, scope = 'mine', name = id, handoff] = args;
+        const accounts = [...new Set(list.split(','))];
+        requireValue(/^[a-z0-9]{12}$/.test(id) && accounts.length <= 10 && accounts.every(account => /^u_[\w-]+$/.test(account)) && isAbsolute(repo ?? '') && ['mine', 'assigned'].includes(scope), 'Expected: allow PROJECT_ID ACCOUNT_ID[,ACCOUNT_ID...] ABSOLUTE_CHECKOUT [mine|assigned] [NAME] [takeover-stopped]');
         const path = realpathSync(repo), dir = join(common(path), 'uier-monitor', id);
         requireValue(!registryConflict(dir, id), 'Another checkout already hosts this project.');
         return change(s => {
             const old = s.projects[id];
-            if (old?.run) requireValue(old.dir === dir && old.scope === scope && old.account === account, 'Finish the existing run before changing its scope or repository.');
-            s.projects[id] = { ...old, id, name, account, repo: path, dir, scope, allowed: true, registration: randomUUID(),
+            if (old?.run) requireValue(old.dir === dir && old.scope === scope && sameAccounts(accountsOf(old), accounts), 'Finish the existing run before changing its scope, accounts or repository.');
+            s.projects[id] = { ...old, id, name, account: accounts[0], accounts, repo: path, dir, scope, allowed: true, registration: randomUUID(),
                 takeover: handoff === 'takeover-stopped', phase: old?.phase ?? 'waiting', checkedAt: null };
-            return { allowed: id };
+            return { allowed: id, accounts };
         });
     }
     if (command === 'remove' || command === 'retry') return change(s => {
