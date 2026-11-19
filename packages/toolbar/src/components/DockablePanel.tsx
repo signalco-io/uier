@@ -77,6 +77,22 @@ function setPanelDock(id: string, dock: PanelDock) {
     sidesVersion += 1;
     sideListeners.forEach(listener => listener());
 }
+// Panels shown in another's place from its title menu (uier #491): they open where it was, without sliding in
+const tookPlace = new Set<string>();
+/** `to` is about to show in `from`'s place: it docks where `from` is and, opening now, does not slide in (`usePanelSlidesIn`) */
+export function takePanelPlace(from: string, to: string, opening: boolean) {
+    if (opening) {
+        tookPlace.add(to);
+        requestAnimationFrame(() => tookPlace.delete(to));
+    }
+    const dock = panelDock(from);
+    if (panelDock(to) !== dock) setPanelDock(to, dock);
+}
+/** Whether a panel mounting now slides in: not when it took another's place */
+export function usePanelSlidesIn(id: string) {
+    const [slides] = useState(() => !tookPlace.delete(id));
+    return slides;
+}
 function subscribeSides(listener: () => void) {
     sideListeners.add(listener);
     return () => { sideListeners.delete(listener); };

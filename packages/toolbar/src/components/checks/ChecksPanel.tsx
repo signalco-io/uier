@@ -4,7 +4,7 @@ import { Row } from '@signalco/ui-primitives/Row';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { cx } from '@signalco/ui-primitives/cx';
 import { Reset } from '@signalco/ui-icons';
-import { DockablePanel, PanelCloseIcon, PanelHandle, panelEnter, panelExit } from '../DockablePanel';
+import { DockablePanel, PanelCloseIcon, PanelHandle, panelEnter, panelExit, usePanelSlidesIn } from '../DockablePanel';
 import { IconTooltip } from '../IconTooltip';
 import { InkScope } from '../InkScope';
 import { PanelTitle } from '../PanelTitle';
@@ -28,6 +28,7 @@ export function ChecksPanel({ id, title, checking, onCheckAgain, onClose, childr
     const [hiding, setHiding] = useState(false);
     const t = useMessages();
     const restored = useContext(RestoredPanelContext).includes(id);
+    const slidesIn = usePanelSlidesIn(id);
     const close = () => {
         setHiding(true);
         window.setTimeout(onClose, 150);
@@ -41,7 +42,7 @@ export function ChecksPanel({ id, title, checking, onCheckAgain, onClose, childr
                         close();
                     }
                 }}
-                className={cx(hiding ? panelExit : !restored && panelEnter)}>
+                className={cx(hiding ? panelExit : !restored && slidesIn && panelEnter)}>
                 {/* Focusable so a long report scrolls with the keyboard */}
                 <Stack tabIndex={0} className="h-full overflow-y-auto rounded-b-2xl outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
                     <Row justifyContent="space-between" className="shrink-0 px-4 pt-3">

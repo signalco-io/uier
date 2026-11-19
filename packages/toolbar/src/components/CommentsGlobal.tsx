@@ -1,7 +1,7 @@
 import { useToolbarFeatures } from '../hooks/useToolbarFeatures';
 import { ReattachContext, describeAnchor } from './CommentAnchorDetails';
 import { messages, useMessages, useToolbarLanguage } from '../i18n';
-import { DockablePanel, panelRoomNow, usePanelRoom, usePanelSidesVersion } from './DockablePanel';
+import { DockablePanel, panelRoomNow, takePanelPlace, usePanelRoom, usePanelSidesVersion } from './DockablePanel';
 import { CommentsApiError } from '../hooks/api';
 import { useCallback, useEffect, useEffectEvent, useId, useMemo, useRef, useState } from 'react';
 import { anchorSelector } from '../anchorSelector';
@@ -898,6 +898,8 @@ export function CommentsGlobal({
         ],
         switchTo: (from: DockPanelId, to: DockPanelId) => {
             const shown = openPanels.includes(to);
+            // It shows where this one is: only the contents change (uier #491); the toolbar opens panels elsewhere
+            takePanelPlace(from, to, !shown);
             setHintOpen(false);
             showPanel(from, false);
             showPanel(to, true);
