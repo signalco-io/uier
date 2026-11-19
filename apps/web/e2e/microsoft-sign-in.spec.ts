@@ -52,9 +52,13 @@ test('Microsoft sign-in confirms a chosen inbox once, signs in again and unlinks
     await page.getByRole('button', { name: 'Allow' }).click();
     await expect(page).toHaveURL(/\/app\/sign-in\?add=1&again=1&next=%2Fapp%2Faccount%2Fsign-in&microsoft=not_recent$/);
     await expect(page.getByRole('main').getByRole('alert')).toHaveText('Microsoft did not confirm a new sign-in. Use a passkey or an email code.');
-    await expectNoAxeViolations(page, { include: ['main [role="alert"]'] });
-    // One that does is a recent sign-in
-    await page.getByRole('link', { name: 'Sign in with Microsoft' }).click();
+    // The option used last says so beside its button: the button keeps its own name, and the whole card passes
+    await expect(page.getByRole('link', { name: 'Sign in with Microsoft' })).toHaveText('Microsoft');
+    await expect(page.getByRole('link', { name: 'Sign in with Microsoft' })).toHaveAccessibleDescription('Last used');
+    await expectNoAxeViolations(page, { include: ['main'] });
+    // One that does is a recent sign-in. A click on "Last used" is a click on its button
+    const badge = (await page.getByRole('main').getByText('Last used', { exact: true }).boundingBox())!;
+    await page.mouse.click(badge.x + badge.width / 2, badge.y + badge.height / 2);
     await page.getByLabel('Subject').fill(subject);
     await page.getByRole('button', { name: 'Allow' }).click();
     await page.waitForURL(url => url.pathname === '/app/account/sign-in');

@@ -17,7 +17,7 @@ import { KnownPages } from '@/src/knownPages';
 import { confirmSignInCodeAction, requestSignInAction, type SignInLinkSent } from './actions';
 import type { SignInMethod } from '@/src/lib/app/session';
 import { PasskeySignIn } from './PasskeySignIn';
-import { LAST_USED_ID, LastUsedBadge } from './LastUsedBadge';
+import { LAST_USED_ID, SignInOption } from './LastUsedBadge';
 
 /** The sign-in page, keeping `next`; `email` opens the email form straight away (`?with=email`) */
 function signInHref(next: string | undefined, email: boolean, addingAccount = false) {
@@ -162,12 +162,14 @@ export function SignInForm({ next, alternatives, problems, withEmail = false, la
                         </form>
                     </>
                 ) : (
-                    // A link, so it opens the form before hydration too (a full navigation to ?with=email)
-                    <a href={signInHref(next, true, addingAccount)} onClick={(event) => { event.preventDefault(); setEmailOpen(true); }}
-                        aria-label={t("Sign in with email")} aria-describedby={lastUsed === 'email' ? LAST_USED_ID : undefined} data-slot="button" className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'relative w-full')}>
-                        <MailIcon data-icon="inline-start" />
-                        {t("Email")}{' '}{lastUsed === 'email' && <LastUsedBadge />}
-                    </a>
+                    <SignInOption lastUsed={lastUsed === 'email'}>
+                        {/* A link, so it opens the form before hydration too (a full navigation to ?with=email) */}
+                        <a href={signInHref(next, true, addingAccount)} onClick={(event) => { event.preventDefault(); setEmailOpen(true); }}
+                            aria-label={t("Sign in with email")} aria-describedby={lastUsed === 'email' ? LAST_USED_ID : undefined} data-slot="button" className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'w-full')}>
+                            <MailIcon data-icon="inline-start" />
+                            {t("Email")}
+                        </a>
+                    </SignInOption>
                 )}
             </div>
         </AuthCard>

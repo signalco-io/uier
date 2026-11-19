@@ -6,7 +6,7 @@ import { buttonVariants } from '@/src/components/ui/button';
 import { GoogleLogo } from '@/src/components/app/SignInProviderLogos';
 import { KnownPages } from '@/src/knownPages';
 import { isGoogleSignInConfigured } from '@/src/lib/app/google/config';
-import { LAST_USED_ID, LastUsedBadge } from './LastUsedBadge';
+import { LAST_USED_ID, SignInOption } from './LastUsedBadge';
 
 const problems: Record<string, string> = {
     cancelled: 'Google sign-in was cancelled.',
@@ -46,11 +46,13 @@ export async function GoogleSignInButton({ next, lastUsed, addingAccount = false
     // Sign in again: it counts only when Google shows the sign-in to be new
     if (again) params.set('again', '1');
     return (
-        // A plain link: a full navigation, never prefetched (the route starts a sign-in).
-        <a href={`${KnownPages.AppSignInGoogle}${params.size ? `?${params}` : ''}`}
-            aria-label={t("Sign in with Google")} aria-describedby={lastUsed ? LAST_USED_ID : undefined} data-slot="button" className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'relative w-full')}>
-            <GoogleLogo data-icon="inline-start" />
-            {t("Google")}{' '}{lastUsed && <LastUsedBadge />}
-        </a>
+        <SignInOption lastUsed={lastUsed}>
+            {/* A plain link: a full navigation, never prefetched (the route starts a sign-in). */}
+            <a href={`${KnownPages.AppSignInGoogle}${params.size ? `?${params}` : ''}`}
+                aria-label={t("Sign in with Google")} aria-describedby={lastUsed ? LAST_USED_ID : undefined} data-slot="button" className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'w-full')}>
+                <GoogleLogo data-icon="inline-start" />
+                {t("Google")}
+            </a>
+        </SignInOption>
     );
 }

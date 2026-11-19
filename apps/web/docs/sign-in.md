@@ -56,8 +56,11 @@
   to `?with=email` that opens the email form in place (before hydration it navigates there); "Ask for a new
   email" uses the same URL. `app.spec.ts` checks the order and `e2e/support/app.ts` `openEmailSignIn` opens it.
   `startSession(userId, method)` also sets `__Host-uier_last_sign_in` (the method's name only, one year,
-  kept after sign-out); the page reads it with `getLastSignInMethod` and that option's button (`relative`)
-  gets `LastUsedBadge` at its right edge and `aria-describedby` pointing at it. An email proof that linked Google or Microsoft
+  kept after sign-out); the page reads it with `getLastSignInMethod` and that option (`SignInOption`) gets
+  the "Last used" badge over its button's right edge, with the button's `aria-describedby` pointing at it. The
+  badge sits beside the button, not inside it: a button named "Sign in with Google" for its visible "Google"
+  has to hold all the text it shows in that name (WCAG 2.5.3), whatever the language. Clicks on the badge
+  reach the button. An email proof that linked Google or Microsoft
   counts as that provider; invitations count as email. `passkeys.spec.ts` covers it.
 - `startSession(userId, method, provenEmail)` records whether the sign-in proved the account email now
   (`emailProof.ts`): the session token gets `ev`, a keyed hash of the address (never the address), and the call
