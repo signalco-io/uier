@@ -32,8 +32,8 @@ const questions: Question[] = [
         answer: <>The Accessibility panel runs axe-core&rsquo;s WCAG A and AA rules and best practices, plus WCAG 2.2&rsquo;s target size. The SEO panel reads the title, description, canonical link, headings, links, images, sharing tags and structured data, and measures Core Web Vitals in your browser. Both check each page as you review it, and every finding can become a comment in one click. <InlineLink href={KnownPages.PageChecks}>Page checks</InlineLink> explains what they cover and what they cannot tell.</>
     },
     {
-        question: 'Does it connect to my issue tracker?',
-        answer: <>The app has project setup for GitHub, Linear, Notion, Slack and Azure DevOps. A workspace admin chooses the destination for shared feedback; private threads stay in {brand.name}. Availability and verified workflows differ: Azure DevOps delivery and optional reply import still need hosted verification. Each <InlineLink href={KnownPages.Integrations}>integration guide</InlineLink> records its checked scope and setup.</>
+        question: 'Which tools does uier integrate with?',
+        answer: <>A workspace admin can send shared feedback to GitHub, Linear, Notion, Slack or Azure DevOps. Each <InlineLink href={KnownPages.Integrations}>integration guide</InlineLink> covers setup and availability. Azure DevOps delivery and optional reply import still need hosted verification. You can also connect your coding tool through <InlineLink href={KnownPages.McpGuide}>MCP</InlineLink> or build a custom integration with the <InlineLink href={KnownPages.DeveloperApi}>REST API</InlineLink>. You choose which projects each connection can access.</>
     },
     {
         question: 'Can developers and AI agents use the feedback?',

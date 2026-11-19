@@ -4,3 +4,4 @@ packages:
 allowBuilds:
   esbuild: true
   tesseract.js: false
+  vue-demi: false # Scalar is served from its prebuilt browser bundle.

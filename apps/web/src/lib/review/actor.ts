@@ -57,18 +57,26 @@ export function actorAuthorId(actor: ProjectActor) {
     return undefined;
 }
 
-/** A member of the project's workspace with access to it, as an actor; `null` otherwise */
-export async function memberActor(project: DbProject, userId: string): Promise<ProjectActor | null> {
-    const member = await getMember(project.workspaceId, userId);
+/** One live membership and team lookup for all projects checked in this request. */
+export async function workspaceMemberAccess(workspaceId: string, userId: string) {
+    const member = await getMember(workspaceId, userId);
     if (!member)
         return null;
     const user = await getUser(userId);
     if (!user)
         return null;
     const effective = publicProjectMember(member, user.email);
-    if (!hasProjectAccess(await loadWorkspaceAccess(project.workspaceId), effective, project))
-        return null;
-    return { kind: 'member', userId, name: user.name, isAdmin: effective.role === 'admin' };
+    const access = await loadWorkspaceAccess(workspaceId);
+    return {
+        actor: { kind: 'member' as const, userId, name: user.name, isAdmin: effective.role === 'admin' },
+        canAccess: (project: DbProject) => hasProjectAccess(access, effective, project)
+    };
+}
+
+/** A member of the project's workspace with access to it, as an actor; `null` otherwise */
+export async function memberActor(project: DbProject, userId: string): Promise<ProjectActor | null> {
+    const member = await workspaceMemberAccess(project.workspaceId, userId);
+    return member?.canAccess(project) ? member.actor : null;
 }
 
 /** The actor of a toolbar request; an invalid or foreign review token counts as none */

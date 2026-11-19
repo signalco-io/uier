@@ -11,11 +11,19 @@ import { revokeCredentialActionSchema } from './actionSchemas';
 import { KnownPageLinks } from '../../knownPages';
 
 export async function createMcpCredentialAction(_previous: ActionState<{ token: string }>, form: FormData) {
+    return createTokenAction(form);
+}
+
+export async function createRestTokenAction(_previous: ActionState<{ token: string }>, form: FormData) {
+    return createTokenAction(form, 'rest');
+}
+
+async function createTokenAction(form: FormData, audience?: 'rest') {
     return actionResult(async () => {
         const context = await appContextOrThrow();
         try {
-            const { token } = await createMcpCredential(context, { name: form.get('name'), projectIds: form.getAll('projectIds'), scopes: form.getAll('scopes'), days: 30 });
-            revalidatePath(KnownPageLinks.account('coding-agents'));
+            const { token } = await createMcpCredential(context, { name: form.get('name'), projectIds: form.getAll('projectIds'), scopes: form.getAll('scopes'), days: 30 }, audience);
+            revalidatePath(KnownPageLinks.account(audience === 'rest' ? 'api-tokens' : 'coding-agents'));
             return { token };
         } catch (error) {
             if (error instanceof ApiError) throw new UserFacingError(error.message);
@@ -29,4 +37,11 @@ export async function revokeMcpCredentialAction(id: string) {
     const context = await appContextOrThrow();
     await revokeMcpCredential(context.user.id, input.id);
     revalidatePath(KnownPageLinks.account('coding-agents'));
+}
+
+export async function revokeRestTokenAction(id: string) {
+    const input = parseActionInput(revokeCredentialActionSchema, { id });
+    const context = await appContextOrThrow();
+    await revokeMcpCredential(context.user.id, input.id, 'rest');
+    revalidatePath(KnownPageLinks.account('api-tokens'));
 }

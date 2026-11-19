@@ -28,6 +28,7 @@ export const KnownPages = {
     Board: '/features/board',
     Brand: '/brand',
     Integrations: '/integrations',
+    DeveloperApi: '/developers/api',
     FixVerification: '/features/fix-verification',
     Ai: '/features/ai',
     PageChecks: '/features/page-checks',
@@ -99,7 +100,7 @@ export const onboardingSteps = ['script', 'check', 'invite'] as const;
 export type OnboardingStep = typeof onboardingSteps[number];
 
 /** The sections of the account, each its own page under it (General is the account page itself) */
-export type AccountSection = 'sign-in' | 'notifications' | 'usage' | 'coding-agents';
+export type AccountSection = 'sign-in' | 'notifications' | 'usage' | 'coding-agents' | 'api-tokens';
 
 /** The id of a project's card on the usage pages (`code` is its public id), so a link can scroll to it */
 export const projectUsageAnchor = (code: string) => `project-${code}`;

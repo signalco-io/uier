@@ -1,5 +1,10 @@
 // English source phrases for account, authentication, navigation and integrations.
 const messages = {
+    "API tokens": "API tokens",
+    "Connect a custom integration with a project-scoped bearer token.": "Connect a custom integration with a project-scoped bearer token.",
+    "API reference": "API reference",
+    "My integration": "My integration",
+    "Create a project first.": "Create a project first.",
     "Priority: {priority}": "Priority: {priority}",
     "Environment: {environment}": "Environment: {environment}",
     "Recording": "Recording",

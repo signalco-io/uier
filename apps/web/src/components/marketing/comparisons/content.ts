@@ -60,7 +60,7 @@ export const uier: Product = {
     },
     setup: 'Create a project and use the script, a review link or the desktop extension. Guest commenting depends on the project’s access settings. Test the chosen route on your site, including its login and content security policy.',
     pricing: brand.pricing, pricingUrl: '/#pricing',
-    integrations: 'GitHub, Linear, Azure DevOps, Notion and Slack. Each project chooses a destination and optional sync behavior; capabilities differ by provider.',
+    integrations: 'Send shared feedback to GitHub, Linear, Azure DevOps, Notion or Slack. Sync options depend on the destination. Connect Claude Code, Codex or Cursor through MCP, or use the project-scoped REST API for a custom integration.',
     integrationUrl: '/integrations',
     sources: [
         { label: 'uier review workflow and limits', url: `${brand.repository}/blob/main/docs/review-workflow.md` },

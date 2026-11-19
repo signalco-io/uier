@@ -4,7 +4,7 @@ import { pageCardImage } from '@/src/lib/social/SocialCard';
 // The page's social card: the same title and description as its metadata in page.tsx
 const card: PageCard = {
     title: 'Integrations',
-    description: 'Connect website feedback to Notion, GitHub, Linear, Azure DevOps and Slack.',
+    description: 'Connect website feedback to Notion, GitHub, Linear, Azure DevOps and Slack, or build a custom integration with MCP or the REST API.',
     path: '/integrations'
 };
 

@@ -48,7 +48,7 @@ export async function proxy(request: NextRequest) {
     const policy = createSecureHeaders({
         ...combineSecureHeaders(['uier.io'], false, development, [
             { connectSrc: [request.nextUrl.origin.replace(/^http/, 'ws')] },
-            ...siteExternalUrls(development, preview), ...proofSources, ...(bridge ? [{ frameAncestors: pathname === '/extension-verification' ? extensionFrameAncestors(request.nextUrl) : ['*'] }] : [])
+            ...(pathname === KnownPages.DeveloperApi ? [] : siteExternalUrls(development, preview)), ...proofSources, ...(bridge ? [{ frameAncestors: pathname === '/extension-verification' ? extensionFrameAncestors(request.nextUrl) : ['*'] }] : [])
         ], nonce, Boolean(nonce)),
         ...(bridge ? { frameGuard: false } : {})
     });

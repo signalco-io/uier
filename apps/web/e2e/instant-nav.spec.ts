@@ -83,7 +83,7 @@ for (const populated of [false, true]) {
             await expect(page.getByTestId('account-heading')).toBeVisible();
             const sections = page.getByRole('navigation', { name: 'Account', exact: true });
             await expect(sections).toBeVisible();
-            await expect(sections.getByRole('link')).toHaveText(['General', 'Sign-in', 'Notifications', 'Usage', 'Coding agents']);
+            await expect(sections.getByRole('link')).toHaveText(['General', 'Sign-in', 'Notifications', 'Usage', 'Coding agents', 'API tokens']);
             await expect(page.getByRole('status', { name: 'Loading account', exact: true })).toBeVisible();
             await expect(page.getByLabel('Name', { exact: true })).toHaveCount(0);
             await expect(page.getByRole('main').getByText(email, { exact: true })).toHaveCount(0);
