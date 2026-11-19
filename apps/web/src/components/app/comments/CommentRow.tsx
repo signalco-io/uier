@@ -172,7 +172,7 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, prev
                             <span className="inline-flex items-center gap-1 whitespace-nowrap text-foreground">
                                 <StateDot status={status} />
                                 <span className="sr-only">{t("Status: ")}</span>
-                                {workflowStatusLabel(statusForComment(comment.workflow ?? defaultStatusWorkflow, comment, false), t)}
+                                {workflowStatusLabel(statusForComment(comment.workflow ?? defaultStatusWorkflow, comment), t)}
                             </span>
                         )}
                         {/* The right end: the assignees. The dragged copy of a card is inert: its avatars need no card */}

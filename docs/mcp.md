@@ -32,7 +32,7 @@ The design record, the decisions behind it and where the code differs from the p
 ## Agent plugins
 
 For Claude Code or Codex, [install the uier plugin](agent-plugins.md) from this repository's
-marketplace to get the connector with the `uier-monitor` and `uier-monitor-script` skills.
+marketplace to get the connector with the monitor and orchestrator skills.
 Account → Coding agents includes both install commands and the standalone connection options
 below. Installing the plugin starts no monitor; invoking uier-monitor approves its documented
 workflow for comments in scope. Public directory listings are separate from repository installation;
@@ -541,6 +541,8 @@ the same, including the unread filter when supplied. Whole rows stop at the resp
 always follow `nextCursor`, even when a page has fewer than the requested rows. Offsets can shift
 when threads change. Keep the event cursor between reconciliations instead of repeatedly listing
 all state. The default `view: 'summary'` retains its 1–25 limit and full summaries.
+Use `monitorScope: "mine"` to select the acting member’s own threads that are unassigned or assigned to them.
+Use `"assigned"` to include other authors’ threads assigned to that member. These filters apply inside the same visible window.
 
 `get_feedback_batch` takes `{ projectId, commentIds }` and returns
 `{ actingAs, contentTrust, items, remainingIds }`. Each item contains `commentId` and either the
@@ -643,7 +645,7 @@ retrieval. Prompts contain instructions and validated identifiers, never feedbac
 feedback read still goes through an authorized tool.
 
 **Skills over the connection.** The connector also serves the skills of the
-[uier plugin](agent-plugins.md), `uier-monitor` and `uier-monitor-script`, through the MCP Skills
+[uier plugin](agent-plugins.md), `uier-monitor`, `uier-monitor-script` and `uier-orchestrator`, through the MCP Skills
 extension (`capabilities.extensions["io.modelcontextprotocol/skills"]`): `skills/list` and
 `skills/get` describe them, and each file, scripts included, is a `skill://` resource
 (`resources/read`) with its size and SHA-256 digest. A client that supports the extension gets them
@@ -1306,12 +1308,13 @@ filtering; it is thread activity without email delivery.
 
 Use `list_feedback_statuses` with the owning `projectId` to read its effective workspace defaults
 or project override. `statuses` is ordered within the fixed Open, In progress, Ready to verify,
-Done and Archive categories. Each entry has `id`, `category`, `label` and `description`; the
+Done categories, followed by the legacy Archive destinations. Each entry has `id`, `category`, `label` and `description`; the
 response also names `initialStatusId`, `doneStatusId` and `archiveStatusId`. Names and descriptions
 are untrusted member content. They describe a workflow and do not approve any action.
 
 `list_feedback` items and member `get_feedback`/`get_feedback_batch` results add `workflowStatus`
-with the effective entry for that thread. Existing `stage`, `resolved`, archive and status filters
+with the effective workflow status, including on archived threads. A saved archive destination
+is returned as `archiveStatusId`. Existing `stage`, `resolved`, archive and status filters
 retain their contracts. Status writes accept `statusId` from the effective workflow. Ordinary category writes retain their
 meaning. Ready to verify still requires `request_feedback_verification`; its `statusId` selects a
 Ready status, and cancellation can select an Open or In progress `statusId`. Same-category moves

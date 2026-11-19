@@ -48,13 +48,13 @@ test('rewrite: pick a suggestion and post it', async ({ browser }, testInfo) => 
     await expect(draft.locator('blockquote')).toHaveText(selected);
 
     // One form like a new comment's (uier #180): the header, the quoted text, the instruction with
-    // Suggest, then the suggested text's box with Attach, the screenshot toggle and the send button; no hint under it
+    // Suggest, then the suggested text's box with Attach, the screenshot's thumbnail and the send button; no hint under it
     const instruction = draft.getByRole('textbox', { name: 'Instruction for suggestions' });
     const quoteTop = (await draft.locator('blockquote').boundingBox())!.y;
     const instructionTop = (await instruction.boundingBox())!.y;
     expect(quoteTop).toBeLessThan(instructionTop);
     expect(instructionTop).toBeLessThan((await suggested.boundingBox())!.y);
-    await expect(draft.getByRole('button', { name: 'Attach screenshot' })).toBeVisible();
+    await expect(draft.getByRole('button', { name: 'Remove screenshot' })).toBeVisible();
     await expect(draft.getByRole('button', { name: 'Attach', exact: true })).toBeVisible();
     await expect(draft.getByText('Shift+Enter for a new line', { exact: true })).toHaveCount(0);
 
@@ -99,6 +99,12 @@ test('rewrite: pick a suggestion and post it', async ({ browser }, testInfo) => 
     await expect(thread.locator('blockquote')).toHaveText(selected);
     await expect(thread.getByText('Comment on any live website, right on the page. Nothing to install.')).toBeVisible();
     await expect(page.getByRole('status').filter({ hasText: 'Suggestion posted' })).toBeAttached();
+    // What it changes in the selected text, word by word: struck through and underlined, named for screen readers
+    const changes = thread.locator('[data-uier-text-changes=""]');
+    await expect(changes.locator('del')).toHaveText(['Removed: Review', 'Removed: by leaving comments directly', 'Removed: it']);
+    await expect(changes.locator('ins')).toHaveText(['Added: Comment on', 'Added: , right', 'Added: the page. Nothing to install']);
+    expect(await changes.locator('del').first().evaluate(element => getComputedStyle(element).textDecorationLine)).toBe('line-through');
+    expect(await changes.locator('ins').first().evaluate(element => getComputedStyle(element).textDecorationLine)).toBe('underline');
     const [saved] = await page.evaluate(async () => await (await fetch('/api/comments?path=/')).json() as { kind: string; position: { type: string; text: string }; thread: { items: { text: string; quotedText?: string }[] } }[]);
     expect(saved).toMatchObject({
         kind: 'rewrite',
@@ -144,6 +150,25 @@ test('rewrite: without suggestions the reviewer writes their own', async ({ brow
     await context.close();
 });
 
+test('rewrite: a suggestion that keeps the selected text says it changes no text', async ({ browser }, testInfo) => {
+    const origin = isolatedOrigin(testInfo);
+    const { context, page } = await newVisitor(browser, testInfo);
+    await openLanding(page, origin, { dismissHint: true });
+
+    await selectText(page, selected);
+    await selectionToolbar(page).getByRole('button', { name: 'Rewrite' }).click();
+    const draft = page.getByRole('dialog', { name: 'New rewrite suggestion' });
+    await expect(draft.getByRole('textbox', { name: 'Suggested text' })).toHaveText(selected, { useInnerText: true });
+    await draft.getByRole('button', { name: 'Post suggestion' }).click();
+
+    const thread = openThread(page);
+    await expect(thread.getByText('Suggested rewrite', { exact: true })).toBeVisible();
+    await expect(thread.getByText('No text changes. The suggestion matches the original text.', { exact: true })).toBeVisible();
+    await expect(thread.locator('[data-uier-text-changes=""]')).toHaveCount(0);
+
+    await context.close();
+});
+
 test('rewrite: the selected text toolbar is one Tab stop, arrows move between its buttons', async ({ browser }, testInfo) => {
     const origin = isolatedOrigin(testInfo);
     const { context, page } = await newVisitor(browser, testInfo);
@@ -151,7 +176,7 @@ test('rewrite: the selected text toolbar is one Tab stop, arrows move between it
 
     await selectText(page, selected);
     const toolbar = selectionToolbar(page);
-    const addComment = toolbar.getByRole('button', { name: 'Add comment' });
+    const addComment = toolbar.getByRole('button', { name: 'Comment', exact: true });
     const rewrite = toolbar.getByRole('button', { name: 'Rewrite' });
     await expect(addComment).toHaveAttribute('tabindex', '0');
     await expect(rewrite).toHaveAttribute('tabindex', '-1');

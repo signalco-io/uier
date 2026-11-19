@@ -19,7 +19,8 @@ import { Avatar, floating, StatusBadge, type Stage } from '../LandingSpecimens';
 //   (InstallGuide), Who can comment (projectLabels), a review link (GuestReviewLinks) and Check
 //   installation (InstallationCheck);
 // - the toolbar: the pill (ToolbarIllustration), New comment with Attach and its screenshot toggle
-//   (CommentBubble, ComposerAttachMenu, ComposerScreenshotToggle);
+//   (CommentBubble, ComposerAttachMenu; the toggle as the store's extension still has it,
+//   `extensionRelease.screenshotToggle`, until that release has the thumbnail);
 // - the extension's popup (packages/extension/src/popup.tsx) in its signed-out, "Review this site"
 //   and reviewing states.
 
@@ -400,7 +401,8 @@ export function ExtensionReviewSpecimen() {
 
 /**
  * A new comment on the example site: the part of the page its screenshot shows, marked, and the
- * comment box with the screenshot toggle's tooltip
+ * comment box with the screenshot toggle's tooltip, as the extension in the stores draws it
+ * (`extensionRelease.screenshotToggle`)
  */
 export function ScreenshotSpecimen() {
     const hours = [['Monday to Friday', '12–23'], ['Saturday', '12–24'], ['Sunday', 'Closed']];

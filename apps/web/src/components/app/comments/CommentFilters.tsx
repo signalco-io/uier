@@ -7,7 +7,7 @@ import { useAppI18n } from '@/src/lib/i18n/client';
 import { priorities, priorityLabels, MAX_FEEDBACK_SEARCH, type CommentPriority } from '@uier/toolbar/triage';
 import { Fragment, useId, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { ChevronDownIcon, ListFilterIcon, SearchIcon, UserIcon, XIcon } from 'lucide-react';
+import { ArchiveIcon, ChevronDownIcon, ListFilterIcon, SearchIcon, UserIcon, XIcon } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
 import { setUrlSearchParams, urlWith } from '@/src/hooks/use-url-search-params';
 import { useViewVisible } from '@/src/hooks/use-view-visible';
@@ -19,10 +19,11 @@ import { Field, FieldGroup, FieldLabel, FieldTitle } from '@/src/components/ui/f
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from '@/src/components/ui/input-group';
 import { Popover, PopoverContent, PopoverHeader, PopoverTitle, PopoverTrigger } from '@/src/components/ui/popover';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select';
+import { Toggle } from '@/src/components/ui/toggle';
 import { ToggleGroup, ToggleGroupItem } from '@/src/components/ui/toggle-group';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/src/components/ui/tooltip';
 import type { EnvironmentOption } from '../../../lib/app/environments';
-import { activeStatusFilters, boardStatusFilter, boardStatusFilters, doneStatusFilters, isActiveStatusFilter, isDoneStatusFilter, peopleFilterLabels, statusFilterLabels, type AuthorFilter, type CommentsView, type PeopleFilter, type StatusFilter } from './commentLabels';
+import { activeStatusFilters, boardStatusFilter, boardStatusFilters, isActiveStatusFilter, peopleFilterLabels, statusFilterLabels, type AuthorFilter, type CommentsView, type PeopleFilter, type StatusFilter } from './commentLabels';
 import { LocationFilter, type PageCount } from './LocationFilter';
 import { pageFilterBase } from './pageFilter';
 import { PriorityFlag } from './PriorityFlag';
@@ -67,7 +68,7 @@ export type FilterProject = { id: string; name: string; url?: string };
  * Comments of several projects (My work) pass `projects` for a Project filter (`?project=`) and leave out what only
  * one project has (`environments`, `statusCounts`).
  */
-export function CommentFilters({ className, unread, unreadCount, view, onView, status, statusCounts, statusUnread, people, page, pages = [], environment, environments, historySources, author, search, onSearch, priority, countLine, project, projects, labels, label, verificationEnabled = false, grouping }: {
+export function CommentFilters({ className, unread, unreadCount, view, onView, archive, status, statusCounts, statusUnread, people, page, pages = [], environment, environments, historySources, author, search, onSearch, priority, countLine, project, projects, labels, label, verificationEnabled = false, grouping }: {
     grouping?: React.ReactNode;
     /** The header's width: the list's or the board's (ProjectComments) */
     verificationEnabled?: boolean;
@@ -95,6 +96,7 @@ export function CommentFilters({ className, unread, unreadCount, view, onView, s
     onView?: (view: CommentsView) => void;
     status?: StatusFilter;
     /** Comments in each status with the other filters applied; without them the list has no status tabs */
+    archive?: { pressed: boolean; count?: number; unread: boolean; sort?: React.ReactNode };
     statusCounts?: Record<StatusFilter, number>;
     /** The statuses whose comments (with the other filters applied) include unread ones: their tabs show the unread dot */
     statusUnread?: Partial<Record<StatusFilter, boolean>>;
@@ -146,6 +148,7 @@ export function CommentFilters({ className, unread, unreadCount, view, onView, s
         page && { key: 'page', name: t('Page'), value: pagePrefix !== undefined ? `${pagePrefix}/…` : page, clear: () => go({ page: undefined }) },
         people !== 'all' && { key: 'people', name: t('People'), value: t(peopleFilterLabels[people]), clear: () => go({ people: undefined }) }
     ].filter(Boolean) as { key: string; name?: string; value: string; clear: () => void }[];
+    const archiveUnreadId = useId();
     const active = chips.length + (author ? 1 : 0);
 
     return (
@@ -155,10 +158,8 @@ export function CommentFilters({ className, unread, unreadCount, view, onView, s
                 One line from `sm`: the search, then the tabs give up their room; on a phone the search and the buttons
                 have the row, the tabs and the filters in effect each their own line under it. */}
             <div className="flex min-w-0 flex-wrap items-center gap-2 sm:flex-nowrap">
-                {/* Active (the default, every status but Done), Done and All (uier #345). The board shows the statuses side
-                    by side, with Archive as its last column. Open, In progress and Ready to verify fold under Active, Archive
-                    under Done: each menu picks one, and the tab then names it. */}
-                {view === 'list' && statusCounts && <StatusTabs verificationEnabled={verificationEnabled} status={status ?? 'active'} counts={statusCounts} unread={statusUnread ?? {}} onStatus={value => go({ status: value === 'active' ? undefined : value })} />}
+                {view === 'list' && statusCounts && <StatusTabs verificationEnabled={verificationEnabled} status={status ?? 'active'} counts={statusCounts} unread={statusUnread ?? {}}
+                    onStatus={value => go({ archive: archive?.pressed ? 'only' : undefined, status: value === 'active' && !archive?.pressed ? undefined : value })} />}
                 {(active > 0 || countLine) && (
                     // Right-aligned against the search: the count line first, so the filters in effect stay where they are
                     // when the count appears or goes to zero
@@ -179,7 +180,20 @@ export function CommentFilters({ className, unread, unreadCount, view, onView, s
                         )}
                     </div>
                 )}
-                <div className={filterControls}>
+                <div className={cn(filterControls, archive && 'max-sm:flex-wrap')}>
+                    {archive && <>
+                        <span id={archiveUnreadId} hidden>{t('Unread')}</span>
+                        <Toggle size="sm" variant="outline" pressed={archive.pressed} aria-describedby={archive.unread ? archiveUnreadId : undefined}
+                            className="shrink-0 gap-1.5 pointer-coarse:min-h-11 pointer-coarse:min-w-11"
+                            onPressedChange={pressed => go({ archive: pressed ? 'only' : undefined, status: undefined, comment: undefined })}>
+                            <ArchiveIcon aria-hidden="true" />
+                            <span className="sr-only sm:not-sr-only">{t('Archive')}</span>{' '}
+                            {archive.count !== undefined && <span className="tabular-nums text-muted-foreground">{archive.count}</span>}
+                            <TabUnread unread={archive.unread} />
+                        </Toggle>
+                        {archive.sort}
+                    </>}
+
                 <Popover open={filtersOpen} onOpenChange={setFiltersOpen}>
                     {/* Icon-only (uier #404), named "Filter", or "Filter 2" with two in effect; the badge shows the count */}
                     <Tooltip>
@@ -305,13 +319,13 @@ export function CommentFilters({ className, unread, unreadCount, view, onView, s
                     </InputGroup>
                     {/* A new layout starts with no thread open (the board would open it in a sheet over itself). The choice is
                         remembered as the default and kept in the address, list too, so it wins over the remembered one there */}
-                    <CommentsViewToggle view={view} onChange={next => {
+                    {!archive?.pressed && <CommentsViewToggle view={view} onChange={next => {
                         // Preserve the current implicit view in the history entry before remembering the next one.
                         if (!new URLSearchParams(window.location.search).has('view')) setUrlSearchParams({ view });
                         if (onView) return onView(next);
                         rememberCommentsView(next);
-                        go({ view: next, comment: undefined, ...(status === 'archived' ? { status: undefined } : {}) });
-                    }} />
+                        go({ view: next, comment: undefined });
+                    }} />}
                 </div>
             </div>
         </div>
@@ -331,9 +345,7 @@ function TabUnread({ unread }: { unread?: boolean }) {
 /**
  * The list's status tabs: Active, Done and All. The menu beside Active picks one of the statuses folded under it
  * (Open, In progress, Ready to verify), which the Active tab then shows ("Active: In progress"); pressing that tab
- * goes back to every active status. Done holds Archive the same way (uier #302): its menu picks Done or Archive, the
- * tab then reads "Archive", and pressing it goes back to Done. The tabs have no status dot, so none reads as a
- * notification; the Active menu keeps them. A tab whose comments include unread ones has the unread dot after its
+ * goes back to every active status. The Active menu shows the workflow status dots. A tab whose comments include unread ones has the unread dot after its
  * count, chosen or not (`unread`, uier #346), and so do the menus' items.
  */
 function StatusTabs({ status, counts, unread, onStatus, verificationEnabled }: {
@@ -347,8 +359,6 @@ function StatusTabs({ status, counts, unread, onStatus, verificationEnabled }: {
     const activeShown = isActiveStatusFilter(status);
     const activeValue = activeShown ? status : 'active';
     const activeLabel = activeValue === 'active' ? t(statusFilterLabels.active) : `${t(statusFilterLabels.active)}: ${t(statusFilterLabels[activeValue])}`;
-    const doneShown = isDoneStatusFilter(status);
-    const doneValue = doneShown ? status : 'done';
     // What a tab with the unread dot is described by
     const unreadId = useId();
     const described = (value: StatusFilter) => unread[value] ? unreadId : undefined;
@@ -357,21 +367,19 @@ function StatusTabs({ status, counts, unread, onStatus, verificationEnabled }: {
             {/* Full width on a phone, the tabs sharing the room (uier #278); still scrolls when their words don't fit */}
             <span id={unreadId} hidden>{t("Unread")}</span>
             <ToggleGroup size="sm" spacing={0.5} aria-label={t("Status")} className={cn(segmentedGroup, 'w-max min-w-full sm:min-w-0')}
-                value={[activeShown ? 'active' : doneShown ? 'done' : status]}
-                // Pressing Active or Done again while it shows one of its folded choices unpresses it: back to Active or Done
+                value={[activeShown ? 'active' : status]}
+                // Pressing Active again while it shows one of its folded choices returns to Active.
                 onValueChange={([value]) => {
                     if (value) onStatus(value as StatusFilter);
                     else if (activeShown && status !== 'active') onStatus('active');
-                    else if (doneShown && status !== 'done') onStatus('done');
                 }}>
                 <ToggleGroupItem value="active" aria-describedby={described(activeValue)} className={cn(segmentedItem, statusTab)}>
                     {activeLabel} <span className="tabular-nums text-muted-foreground">{counts[activeValue]}</span><TabUnread unread={unread[activeValue]} />
                 </ToggleGroupItem>
                 <StatusesMenu label={t("Active statuses")} values={['active', ...activeStatusFilters.filter(value => verificationEnabled || value !== 'ready')]} status={status} counts={counts} unread={unread} unreadId={unreadId} onStatus={onStatus} />
-                <ToggleGroupItem value="done" aria-describedby={described(doneValue)} className={cn(segmentedItem, statusTab)}>
-                    {t(statusFilterLabels[doneValue])} <span className="tabular-nums text-muted-foreground">{counts[doneValue]}</span><TabUnread unread={unread[doneValue]} />
+                <ToggleGroupItem value="done" aria-describedby={described('done')} className={cn(segmentedItem, statusTab)}>
+                    {t(statusFilterLabels.done)} <span className="tabular-nums text-muted-foreground">{counts.done}</span><TabUnread unread={unread.done} />
                 </ToggleGroupItem>
-                <StatusesMenu label={t("Done and archive")} values={doneStatusFilters} status={status} counts={counts} unread={unread} unreadId={unreadId} onStatus={onStatus} />
                 <ToggleGroupItem value="all" aria-describedby={described('all')} className={cn(segmentedItem, statusTab)}>
                     {t(statusFilterLabels.all)} <span className="tabular-nums text-muted-foreground">{counts.all}</span><TabUnread unread={unread.all} />
                 </ToggleGroupItem>
@@ -382,7 +390,7 @@ function StatusTabs({ status, counts, unread, onStatus, verificationEnabled }: {
 
 /**
  * The chevron beside a status tab: a menu of the tab's own filter, then the ones folded under it, each with its count
- * (Active, then Open, In progress and Ready to verify with their status dots; Done, then Archive); a choice closes it
+ * (Active, then Open, In progress and Ready to verify with their status dots); a choice closes it
  */
 function StatusesMenu({ label, values, status, counts, unread, unreadId, onStatus }: {
     label: string;

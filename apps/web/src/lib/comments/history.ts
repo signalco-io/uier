@@ -49,7 +49,7 @@ export function withThreadHistory(previous: DbComment, next: DbComment, actorId:
         if (!old || details(old) !== details(agent)) add(old ? 'agent-updated' : 'agent-attached', { userId: agent.assigneeId, agentKind: agent.kind });
     }
     if (Boolean(previous.archivedAt) !== Boolean(next.archivedAt)) add(next.archivedAt ? 'archived' : 'restored');
-    if (feedbackStage(previous) !== feedbackStage(next) || previous.workflowStatusId !== next.workflowStatusId || (previous.archivedAt && next.archivedAt && previous.archiveStatusId !== next.archiveStatusId)) {
+    if (feedbackStage(previous) !== feedbackStage(next) || previous.workflowStatusId !== next.workflowStatusId) {
         const latest = next.notificationEvents?.at(-1);
         const event = latest && latest !== previous.notificationEvents?.at(-1) ? latest : undefined;
         add('status', { status: feedbackStage(next), statusId: event?.statusId, statusLabel: event?.statusLabel });

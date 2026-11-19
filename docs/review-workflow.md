@@ -96,7 +96,7 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
     and that environment's pages on the right: a relative URL, or a section such as `/blog/*` for every page under it;
     people: all, assigned to me, opened by me; only unread) and List/Board, with the status tabs right after the search (Active,
     Done and All, with counts; on a phone on their own line under it; Active, the default, is everything not done. Open, In progress and Ready to verify fold
-    under Active, in the menu beside it, and the tab then reads "Active: In progress"; Archive folds under Done the same way; `?status=` keeps any other choice). Filters in effect show under the bar, each with a clear button. Each
+    under Active, in the menu beside it, and the tab then reads "Active: In progress"; `?status=` keeps the status choice). The Archive toggle opens archived threads with the same status filters. Filters in effect show under the bar, each with a clear button. Each
     comment is a compact row: number, first line, author, page path (what it was left on, such as "Link in
     navigation", is in the thread's On row), then priority other than Normal (its flag, named for screen readers),
     status (a dot in the status's colour and its name, Open too, so an Active list shows where each thread is: Open ink, In progress sky, Ready to verify violet, Done green; board cards leave it to their column, and board column headers, the status menu, the Status filter and the toolbar's thread use the same colours), the assignee's avatar, age and an unread dot. A row opens its thread (`?comment=<id>`): beside the list on
@@ -485,14 +485,14 @@ by signing in. Account sign-out remains in the app's account menu.
 ## Screenshots
 
 Every new element/text comment, rewrite, feedback and bug report starts a screenshot automatically
-([#81](https://github.com/signalco-io/uier/issues/81)). There is no capture button or image preview in the composer.
-In the text box's bottom-left corner, after Attach, `ComposerScreenshotToggle` is a compact camera toggle ([uier #239](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2F5uauxu25b2es&comment=comment_gSOfyys4qR6CVHQEaaf4q), [uier #391](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_napwWAvckuKEmZr-J0GGQ)) with a tooltip. Its
-tooltip and read-out status (its description) say what will happen: "Taking a screenshot…", then "A screenshot of this
+([#81](https://github.com/signalco-io/uier/issues/81)). There is no capture button in the composer.
+In the text box's bottom-left corner, after Attach, `ComposerScreenshot` shows the capture as a small thumbnail ([uier #239](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2F5uauxu25b2es&comment=comment_gSOfyys4qR6CVHQEaaf4q), [uier #391](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_napwWAvckuKEmZr-J0GGQ), [uier #476](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2F&comment=comment_MHq-BrZmONnqI7ugzvoOX)), a placeholder of
+its size while it is taken. The thumbnail (**Preview screenshot**) opens a larger preview; its read-out status (its
+description) says what will happen: "Taking a screenshot…", then "A screenshot of this
 part of the page will be attached." ("of the visible page" for feedback and bug reports), or "The screenshot could not
-be taken. Only the text will be sent." The **Attach screenshot** toggle ([#323](https://github.com/signalco-io/uier/issues/323),
-a button with `aria-pressed`) is pressed, ink with a check, while the screenshot will be sent; turned off, it sends that
-one comment without the `screenshot` field, so the API stores no image;
-the icon shows a crossed-out camera and the status reads "No screenshot will be attached." The choice is per comment: it
+be taken. Only the text will be sent." **Remove screenshot** ([#323](https://github.com/signalco-io/uier/issues/323)),
+an X after it, sends that one comment without the `screenshot` field, so the API stores no image; **Attach screenshot**,
+a camera, then takes its place and the status reads "No screenshot will be attached." The choice is per comment: it
 stays with an open or returned (failed send) draft in memory, and the next comment, a reload or sent feedback start with
 the automatic screenshot again. **Attach image**, in the menu of Attach in the bottom-left corner of the text box ([uier #155](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2F7z6v9829ezdc%2Fsettings&comment=comment_zoNUoCT0BH5rPguGnKI4t)) so it reads as a part of the comment,
 or an image file pasted into the form without text, sends the reviewer's own image as `screenshot` instead of the

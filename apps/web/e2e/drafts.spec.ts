@@ -27,7 +27,9 @@ test('pinned and rewrite drafts restore text/anchors on navigation and reload, w
     await expect(draft.getByRole('textbox', { name: 'Comment', exact: true })).toHaveText('Keep my anchored feedback', { useInnerText: true });
     const after = await page.locator('[data-uier-comment="new"]').boundingBox();
     expect(Math.abs(after!.x - before!.x)).toBeLessThan(3);
-    await expect(draft.locator('img')).toHaveCount(0);
+    // The reopened draft takes a new screenshot of the page as it is now (its thumbnail, uier #476); the bytes stay in memory
+    await expect(draft.getByRole('button', { name: 'Preview screenshot' })).toBeVisible();
+    expect(await page.evaluate(() => JSON.stringify(Object.values(localStorage)))).not.toContain('data:image');
     await page.emulateMedia({ colorScheme: 'dark' });
     await page.reload();
     await page.getByRole('button', { name: 'New comment', exact: true }).click();

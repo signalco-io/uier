@@ -466,7 +466,8 @@ export const de: Messages = {
         pageScreenshot: 'Ein Screenshot der sichtbaren Seite wird angehängt.',
         regionScreenshot: 'Ein Screenshot dieses Teils der Seite wird angehängt.',
         attachScreenshot: 'Es wird kein Screenshot angehängt. Wählen Sie dies, um einen anzuhängen.',
-        textOnly: (status: string) => `${status} Wählen Sie dies, um den Screenshot wegzulassen.`,
+        removeScreenshot: 'Screenshot entfernen',
+        previewScreenshot: 'Vorschau des Screenshots',
         screenshotToggle: 'Screenshot anhängen',
         attachedToReply: 'An Ihre Antwort angehängt.',
         sentInstead: 'Wird statt des Screenshots gesendet.',
@@ -617,6 +618,11 @@ export const de: Messages = {
         proposed: 'Vorschlag',
         preparing: 'Vorschau wird vorbereitet…',
         values: 'Exakte Werte',
+        changes: 'Änderungen',
+        noTextChanges: 'Keine Textänderungen. Der Vorschlag entspricht dem Originaltext.',
+        onlySpacingChanges: 'Nur Abstände ändern sich. Die Wörter entsprechen dem Originaltext.',
+        removedText: 'Entfernt:',
+        addedText: 'Hinzugefügt:',
         stale: 'Die Seite entspricht nicht mehr dem gespeicherten Original. Die gespeicherten Werte stehen unten.',
         unavailable: 'Für dieses Ziel ist hier keine Vorschau verfügbar.',
         invalid: 'Geben Sie für jedes geänderte Feld einen unterstützten CSS-Wert ein.',
@@ -642,6 +648,7 @@ export const de: Messages = {
     },
     selection: {
         label: 'Markierter Text',
+        comment: 'Kommentieren',
         rewrite: 'Umformulieren'
     },
     canvas: {
@@ -710,6 +717,7 @@ export const de: Messages = {
         assignedToMe: 'Mir zugewiesen',
         reviewBrief: 'Review-Briefing',
         close: 'Seitenleiste schließen',
+        openInApp: 'In der App öffnen',
         filters: {
             archived: "Archiv",
             unresolved: 'Aktiv',

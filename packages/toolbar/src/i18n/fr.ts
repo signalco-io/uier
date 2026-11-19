@@ -466,7 +466,8 @@ export const fr: Messages = {
         pageScreenshot: 'Une capture de la page visible sera jointe.',
         regionScreenshot: 'Une capture de cette partie de la page sera jointe.',
         attachScreenshot: 'Aucune capture d’écran ne sera jointe. Sélectionnez pour en joindre une.',
-        textOnly: (status: string) => `${status} Sélectionnez pour omettre la capture d’écran.`,
+        removeScreenshot: 'Retirer la capture d’écran',
+        previewScreenshot: 'Aperçu de la capture d’écran',
         screenshotToggle: 'Joindre une capture d’écran',
         attachedToReply: 'Jointe à votre réponse.',
         sentInstead: 'Envoyée à la place de la capture d’écran.',
@@ -617,6 +618,11 @@ export const fr: Messages = {
         proposed: 'Proposition',
         preparing: 'Préparation de l’aperçu…',
         values: 'Valeurs exactes',
+        changes: 'Modifications',
+        noTextChanges: 'Aucune modification du texte. La suggestion correspond au texte d’origine.',
+        onlySpacingChanges: 'Seuls les espaces changent. Les mots correspondent au texte d’origine.',
+        removedText: 'Supprimé :',
+        addedText: 'Ajouté :',
         stale: 'La page ne correspond plus à l’original enregistré. Les valeurs enregistrées figurent ci-dessous.',
         unavailable: 'Cette cible ne peut pas être prévisualisée ici.',
         invalid: 'Saisissez une valeur CSS prise en charge dans chaque champ modifié.',
@@ -642,6 +648,7 @@ export const fr: Messages = {
     },
     selection: {
         label: 'Texte sélectionné',
+        comment: 'Commenter',
         rewrite: 'Réécrire'
     },
     canvas: {
@@ -710,6 +717,7 @@ export const fr: Messages = {
         assignedToMe: 'Attribués à moi',
         reviewBrief: 'Consignes de revue',
         close: 'Fermer le panneau',
+        openInApp: 'Ouvrir dans l’app',
         filters: {
             archived: "Archives",
             unresolved: 'Actifs',

@@ -71,7 +71,7 @@ test('workspace statuses inherit, project overrides save/discard, and board/menu
         const column = (name: string) => page.getByRole('region', { name: `${name} comments`, exact: true });
         await expect(column('Approved').getByRole('listitem')).toHaveCount(1);
         expect(await page.locator('[data-board-scroll] > section').evaluateAll(elements => elements.map(element => element.getAttribute('aria-label')))).toEqual([
-            'Open comments', 'Approved comments', 'Merging comments', 'In progress comments', 'Ready to verify comments', 'QA comments', 'Done comments', 'Production comments', 'Archived comments', 'Rejected comments'
+            'Open comments', 'Approved comments', 'Merging comments', 'In progress comments', 'Ready to verify comments', 'QA comments', 'Done comments', 'Production comments'
         ]);
         const menu = await openBoardMove(page, comment.number);
         await expect(menu).toContainText('Merging workflow description');
@@ -95,12 +95,14 @@ test('workspace statuses inherit, project overrides save/discard, and board/menu
         await page.getByRole('menuitem', { name: 'Rejected', exact: true }).click();
         await expect(thread.getByText('Archived', { exact: true })).toBeVisible();
         await thread.getByRole('button', { name: 'Back to comments' }).click();
-        await page.getByRole('button', { name: 'Rejected 1', exact: true }).click();
-        await expect(column('Rejected').getByRole('listitem')).toHaveCount(1);
+        const archive = page.getByRole('button', { name: /^Archive(?:\s*\d+)?$/ });
+        await archive.click();
+        await expect(page.locator('[data-comment-row]')).toContainText(/Status:\s*Production/);
         await openComment(page, comment.number);
         await page.getByRole('article').getByRole('button', { name: /^More actions for the comment/ }).click();
         await page.getByRole('menuitem', { name: 'Restore comment', exact: true }).click();
-        await page.getByRole('article').getByRole('button', { name: 'Back to comments' }).click();
+        await expect(page.getByText('Nothing archived', { exact: true })).toBeVisible();
+        await archive.click();
         await expect(column('Production').getByRole('listitem')).toHaveCount(1);
         await expectNoAxeViolations(page);
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -136,7 +138,7 @@ test('the statuses editor adds, moves and removes a status in its row and return
 
 test('toolbar custom status menu groups descriptions and persists moves within a category and into archive', async ({ page, baseURL }) => {
     test.setTimeout(60_000);
-    const { commentBubble, openThread } = await import('./support/toolbar');
+    const { commentBubble, openThread, threadOptions } = await import('./support/toolbar');
     const site = await startReviewedSite(new URL(baseURL!).origin);
     try {
         await signIn(page, uniqueEmail('toolbar-workflow'));
@@ -166,25 +168,26 @@ test('toolbar custom status menu groups descriptions and persists moves within a
         await page.reload();
         await commentBubble(page, 1, 1).click();
         await thread.getByRole('button', { name: 'Status: Approved. Change status', exact: true }).click();
-        await menu.getByRole('button', { name: /^Rejected/ }).click();
+        await expect(menu.getByRole('button', { name: /^Rejected/ })).toHaveCount(0);
+        await page.keyboard.press('Escape');
+        await (await threadOptions(page, thread)).getByRole('button', { name: 'Rejected', exact: true }).click();
         await expect(commentBubble(page, 1, 1)).toBeHidden();
         await page.reload();
         const inbox = page.getByRole('complementary', { name: 'Comments' });
         const inboxButton = page.getByRole('button', { name: /^Inbox/ });
         if (await inboxButton.getAttribute('aria-expanded') !== 'true') await inboxButton.click();
-        await inbox.getByRole('button', { name: 'Done and archive', exact: true }).click();
-        await page.getByRole('dialog', { name: 'Done and archive' }).getByRole('button', { name: /^Archive/ }).click();
+        await inbox.getByRole('button', { name: /^Archive\s*1$/ }).click();
         const archived = inbox.getByRole('article');
-        await archived.getByRole('button', { name: 'Status: Rejected. Change status', exact: true }).click();
-        for (const name of [/^Open$/, /^Approved/, /^In progress$/, /^Ready to verify$/, /^Done$/])
-            await expect(menu.getByRole('button', { name })).toBeDisabled();
-        await expect(menu.getByRole('button', { name: /^Rejected/ })).toBeEnabled();
+        await expect(archived).toContainText(/Status:\s*Approved/);
+        await expect(archived.getByText('Archived', { exact: true })).toBeVisible();
+        const options = await threadOptions(page, archived);
+        await expect(options.getByRole('button', { name: 'Rejected', exact: true })).toBeDisabled();
         const restored = page.waitForResponse(response => response.request().method() === 'PATCH' && /\/comments\/[^/]+$/.test(new URL(response.url()).pathname));
-        await menu.getByRole('button', { name: 'Restore comment', exact: true }).click();
+        await options.getByRole('button', { name: 'Restore comment', exact: true }).click();
         const saved = await (await restored).json();
         expect(saved.archivedAt).toBeUndefined();
         await expect(commentBubble(page, 1, 1)).toBeVisible();
-        await inbox.getByRole('button', { name: 'Active 1', exact: true }).click();
+        await inbox.getByRole('button', { name: /^Archive\s*0$/ }).click();
         await expect(inbox.getByRole('article').getByRole('button', { name: 'Status: Approved. Change status', exact: true })).toBeVisible();
     } finally { await site.close(); }
 });

@@ -14,7 +14,7 @@ In Claude Code, or a T3 Code thread on Claude, in a checkout of this repository:
 
 Add `status` to see where things stand, or `stop` to stop watching. Running it again resumes from
 the saved state. In Codex, ask it to use the uier-monitor skill for the project. Other options
-(`max=`, `scope=`, `also=`, provider instances) are listed in the skill.
+(`max=`, `global=`, `scope=`, `also=`, provider instances) are listed in the skill.
 
 To watch several projects, separate them with commas:
 
@@ -36,10 +36,18 @@ tracks switching to "never" when it becomes available.
 
 The skills live in `plugins/uier/skills/`, with repository discovery aliases in `.claude/skills/`
 and `.agents/skills/`. For another repository, [install the uier plugin](agent-plugins.md) from
-this repository's Claude Code or Codex marketplace. It includes both skills and the MCP connector.
+this repository's Claude Code or Codex marketplace. It includes the skills and the MCP connector.
 The installed Claude Code command is `/uier:uier-monitor <project>`; in Codex ask it to use
 uier-monitor for the project. Installing the plugin starts no monitoring; invoking the monitor
 grants the scope described in the skill. Manual skill links remain an option.
+
+### On-demand project monitors
+
+Use `/uier-orchestrator Project A, Project B` in a local T3, Codex or Claude Code session. The installed Claude command is `/uier:uier-orchestrator`. Select a checkout for each project once. Idle projects share a detached Node process; it checks every five minutes and launches a project-specific uier-monitor session only when an eligible comment opens. T3 uses its local CLI, Codex uses `codex exec` and Claude uses `claude -p`. Each uses the configured CLI profile and permissions.
+
+Use `allow` or `remove` with named projects to change the allowlist, `status` to inspect it, `stop` to pause dispatch, and a bare invocation to resume. Existing independent monitors keep their owners. An explicit handoff can reuse a stopped project's saved state. An in-progress fix, open PR, pending deploy, failed write or verification keeps the managed worker open. When comments and deliveries are complete, the watcher stops, T3 settles its thread, and native sessions retain their transcripts. New work gets a new thread.
+
+The local dashboard shows supervisor health, harness, last heartbeat and each allowed project's phase or error. The supervisor keeps its allowlist, checkout mappings and session receipts in `~/.uier-monitor/monitor.sqlite` (`UIER_MONITOR_HOME` overrides the home). Installation starts nothing. Restart the supervisor after a machine restart. See the [orchestrator skill](../plugins/uier/skills/uier-orchestrator/SKILL.md) for permissions, handoff and recovery.
 
 ### GitHub and GitLab
 
@@ -67,7 +75,7 @@ belong to the connection. The new token cannot create more tokens.
 The tool returns the secret once. Set `umask 077` in the writing shell before creating the file.
 The skill writes it directly to a new `0600` file in the harness scratchpad, runs `monitor.mjs token --project <id> --from-file <file>` to store it in the macOS
 keychain (service `uier-mcp`, account: the project id), and deletes the file in cleanup. The secret
-must never appear in chat, command arguments, logs, packets or state.json. Retries use the same key
+must never appear in chat, command arguments, logs, packets or monitor state. Retries use the same key
 and return metadata only. If the first response was lost, revoke the listed token before replacing it.
 The token appears under Account → Coding agents → Access tokens, marked with the connection that
 created it, and can be revoked there.
@@ -84,7 +92,7 @@ enables the 15-minute model fallback and makes its usage visible.
 While a fix session builds, uier shows a small spinner by the agent's avatar on its comments. The
 spinner is a five-minute lease that has to be renewed, and the orchestrator sleeps while sessions
 run, so the watcher keeps it: when a session starts, the orchestrator writes the session's agent,
-model, effort and thread id to the group's `agentLease` in `state.json`. The watcher attaches that
+model, effort and thread id to the group's `agentLease` in project state. The watcher attaches that
 agent with `set_feedback_agent`, renews `set_feedback_agent_working` every two minutes (checking at
 least every minute while a lease is live), and turns the spinner off when the session reports. The
 agent stays attached until the comment closes. `monitor.mjs status` lists the leases.
@@ -140,16 +148,24 @@ the message links the comment instead.
 
 ### Where its files are
 
-Everything lives in `$(git rev-parse --git-common-dir)/uier-monitor/`, which all worktrees share and
-git never commits. That folder holds `monitor.mjs`, and each project has a folder with
-`state.json`, `inbox.json` and `watch.log`. `usage.json` holds numeric usage counters for up to 31 UTC days: HTTP attempts, retries, failures,
+The monitor, dashboard and supervisor require Node 24 or newer. The local database is
+`~/.uier-monitor/monitor.sqlite`. Set `UIER_MONITOR_HOME` to select a different directory.
+Projects are keyed by the canonical `<git common dir>/uier-monitor/<projectId>` directory, so
+worktrees share one monitor. That directory holds watcher PID and diagnostic log files, briefs,
+screenshots and CI logs. The database stores project settings, feedback items, job groups, PRs,
+inbox entries, watcher checkpoints, supervisor registrations and worker receipts. A one-time
+manual cutover from JSON requires stopping old writers, backing up their files and transferring
+their records before starting the new helpers. Stopped monitors stay stopped.
+
+The usage record holds numeric counters for up to 31 UTC days, including HTTP attempts, retries, failures,
 consumed JSON body bytes, elapsed HTTP time, measured database RU with coverage, delivery failures
 and idle model wakes. It contains no feedback, endpoints, identities or tokens. `usage` prints it;
 optional `--ru-price-per-million N --currency EUR` estimates only measured RU at the supplied rate.
 Missing measurements stay unknown. AI token usage, hosting CPU/memory, storage and transfer are
 excluded. The dashboard details and `status` show the counters and call out idle model wakes.
-`context.json` retains the last compact wake and its
-delta baseline; `notification.json` tracks delivery without consuming the inbox. For a quick look:
+`context --take` saves the compact wake and its delta baseline in the same transaction that
+acknowledges its events. `context --recover` returns the most recent event-bearing packet.
+Wake delivery retries leave events pending until acknowledged. For a quick look:
 
 ```bash
 node "$(git rev-parse --path-format=absolute --git-common-dir)/uier-monitor/monitor.mjs" status --project uier00000001
@@ -186,7 +202,8 @@ A card shows:
   running or not responding, with failing wake delivery and usage limits called out. Low disk space
   shows once, at the top of the page. Stopped and inactive monitors are dimmed.
 - **Sessions:** how many of the monitor's slots are working.
-- **Waiting on:** sessions still working, pull requests to merge, deploys to finish, a timer, events
+- **Waiting on:** sessions still working, a free session slot on this machine (when the machine's
+  limit holds the monitor back), pull requests to merge, deploys to finish, a timer, events
   the orchestrator hasn't taken yet, or you. Under it, one small muted line gives the orchestrator's
   last note (what it just did); hover it for the whole note, or open the card's details to read it in full.
 - **Work in progress:** one line per group under Building, In review, Pull request, Deploying or
@@ -214,7 +231,9 @@ nothing else on the page is redrawn or highlighted for it.
 last check-in, the activity feed, comments closed per day, the median time from start to close and
 the wakes of the last 24 hours. Badges next to the title count the monitors, the ones working and the
 ones waiting. The totals above the cards count every monitor that isn't stopped or
-inactive.
+inactive. Sessions working is the machine's count (every monitor's sessions and the slots claimed
+for sessions about to start) against the machine's limit when that is lower than the monitors' own
+maximums added up, with how many monitors wait for a slot.
 Each total has a small figure beside it: a slot meter for the sessions working, a line of the
 last 24 hours for the queued groups and the open pull requests (walked back from now through the
 journal's group events, sampled on the half hour; flat where the journal doesn't reach), a pip per
@@ -232,29 +251,56 @@ node plugins/uier/skills/uier-monitor/scripts/dashboard.mjs --dev --review 4qkVL
 
 `--review` loads the toolbar for the **uier monitor dashboard** project (`uier00000003`, in the uier
 workspace, staff only). The project's addresses are `http://127.0.0.1:4780` and
-`http://localhost:4780`, so the toolbar only works on the default port. The comments are in the app
+`http://localhost:4780`, so the toolbar only works on the default port. The page includes the toolbar
+only when the dashboard starts with a review project: `?review=true` alone changes nothing on a
+dashboard without one. A dashboard already running without `--review` (or `--dev`) is restarted with
+it on the same port, and the command prints the review link to open.
+
+To have every dashboard on your machine load the toolbar, including the one the monitor skill
+starts, save the project once:
+
+```bash
+node plugins/uier/skills/uier-monitor/scripts/dashboard.mjs review 4qkVLP8gA_7ly406tHc-Q
+```
+
+It goes to `~/.uier-monitor/dashboard-settings.json` and applies to every start without `--review`.
+`review` on its own prints it, and `review off` forgets it. The comments are in the app
 under the uier workspace, and `/uier-monitor uier monitor dashboard` resolves them like any other
 project's once your uier connection includes the project. Anyone else passes their own project's id; the page loads nothing from uier without the
 flag.
 
-**How it finds monitors.** The helper announces each monitor with one small file in
-`~/.uier-monitor/monitors` (`UIER_MONITOR_HOME` moves the folder), written when the watcher starts
-and on every `patch`. The file holds the state folder's path, the project's id and name and the
-repository's name. The dashboard also looks in the checkout it runs in, so a monitor whose watcher
-predates version 1.5.0 shows up when you start the dashboard from its repository. A monitor nobody
-touched for a day is listed as Inactive, and one whose state folder is gone is left out.
-
-**What it reads.** `state.json`, `watch.json`, `watch.pid`, `inbox.json`, `notification.json` and
-`events.jsonl`, the activity history the helper appends to: one line for each event the watcher
-finds, each wake and take, and each change of a group's state or a comment's decision or stage.
-Without that history (an older watcher) the feed shows the watcher's log instead. The journal rotates
-at 2 MB, keeping one earlier file.
+**Discovery and activity.** The dashboard reads registered monitor directories from SQLite.
+It shows watcher health, recent activity and machine-wide session capacity. The database keeps the
+latest 10,000 activity events per monitor. The dashboard shows the watcher log when the journal is
+empty. A monitor nobody touched for a day is listed as Inactive, and missing directories are omitted.
 
 **What it never does.** It doesn't change a monitor, uier or the repository, and it has no write
 endpoint. It binds to `127.0.0.1` and refuses requests under another host name, so a web page you
-visit can't read it. Its server fetches only the projects' site icons (not with `--no-icons`), and the page loads nothing from the internet unless you pass `--review`. The browser receives a fixed set of fields,
+visit can't read it. Its server fetches only the projects' site icons (not with `--no-icons`), and the page loads nothing from the internet unless you pass `--review` or saved a default review project. The browser receives a fixed set of fields,
 never the state files themselves or a token, and the page renders feedback text as text. Binding
 another address with `--host` makes the page readable by everyone who can reach that address.
+
+### Machine capacity
+
+Every monitor on a machine shares one limit on sessions working at once: 12 unless changed, on top
+of each monitor's own `max=` (6 by default). Fix, follow-up, rebase and review sessions all count,
+whichever monitor started them. Change it with `/uier-monitor global=16` (any project, or none), or
+directly:
+
+```bash
+node <git common dir>/uier-monitor/monitor.mjs capacity            # sessions per monitor, the queue
+node <git common dir>/uier-monitor/monitor.mjs capacity --max 16   # the limit for every monitor here
+```
+
+The database stores the machine limit in `maxSessions`. Before starting sessions, the orchestrator claims their slots with `monitor.mjs slot
+<group>…`, in one SQLite transaction, so two monitors waking at the same moment can't both take the
+last slot. A claim counts until the patch that records the session, or 15 minutes. A monitor the
+machine refuses waits in a queue, oldest first; when a slot frees, its watcher wakes it
+with a `capacity` event on its turn, and a monitor that got a slot goes to the back, so monitors take
+turns. A woken monitor that claims nothing within 15 minutes gives its place up. Only monitors whose
+watcher checked in within five minutes and that have room under their own `max` hold a place, so a
+stopped, crashed or full monitor never blocks the others. A monitor nobody touched for a day holds
+no slots.
 
 ## How it works
 
@@ -262,7 +308,7 @@ another address with `--host` makes the page readable by everyone who can reach 
   wake its existing thread only after work arrives. Saved T3 monitors automatically select detached
   persistent mode, even when an older prompt calls `watch --replace`. Use `watch --persistent --detach --thread <id>`;
   pass `--t3-cli <absolute path>` when the CLI is not on PATH. The skill verifies a live PID and
-  fresh `watch.json.heartbeatAt` before disabling an old interval fallback. Busy threads queue the
+  fresh watcher heartbeat from `status` before disabling an old interval fallback. Busy threads queue the
   message without interruption. Models and provider routing are unchanged. A webhook task is an
   alternative for other harnesses (`--notify-file`, bearer URL in a file private from creation).
   Neither mode sends an idle heartbeat to the model. Notification failures retry after a minute
@@ -283,7 +329,7 @@ another address with `--host` makes the page readable by everyone who can reach 
   still force reconciliation immediately. Reconciliation compares reply counts for tracked items
   with decision `asked`/`rejected` or stage `ready`,
   including replies followed by closure. It reports increases as `reply`, deduplicates feed replies
-  from the same cycle and saves the baseline in `watch.json`. The first observation seeds a baseline;
+  from the same cycle and saves the baseline in the watcher checkpoint. The first observation seeds a baseline;
   it cannot recover replies that predate that observation. Reconciliation can also wake for a
   connector reply because list summaries do not identify its author. It also follows merges and deploy
   runs on GitHub or GitLab. It exits only when something needs the orchestrator: a person's action wakes it,
@@ -292,7 +338,7 @@ another address with `--host` makes the page readable by everyone who can reach 
   replies, transitions and deployed PRs. Reassignment, agent removal, stop-work and auth/lease
   errors bypass the delay. Identical poll errors notify once per outage. Lease renewal continues
   during batching and while an inbox is waiting to be consumed.
-- **The watcher does the bookkeeping.** It records merges in `state.json` itself (the deploy entry,
+- **The watcher does the bookkeeping.** It records merges in project state itself (the deploy entry,
   the PR and group state) and, when the orchestrator drafted the closing replies at approval, posts
   them once a deploy contains the merge, sets Done or asks for verification, and marks the group
   closed. These quiet events wake no one; they ride along with the next wake. It also records the In
@@ -304,7 +350,7 @@ another address with `--host` makes the page readable by everyone who can reach 
   conflict, and only then does a rebase session run. In T3 the orchestrator stops watching a PR
   once auto-merge is on; the watcher follows it and wakes the orchestrator only for failed checks,
   a conflict, requested changes or a close.
-- **The state file is the memory.** Every decision goes into `state.json`, so a fresh session can take
+- **Recovery.** Every decision goes into project state, so a fresh session can take
   over at any time. In T3 the orchestrator starts one every 15 wakes to keep its context small: a
   fresh session starts near 100k tokens and each wake adds several thousand that every later model
   call re-reads.
@@ -314,8 +360,9 @@ another address with `--host` makes the page readable by everyone who can reach 
   `prs <n>` fetches exact selected records, and `M detail <field>` fetches named extra state such as
   runtime evidence. Routing, scope, release restrictions and pending writes remain visible; closed
   history and transcripts remain on disk. A recovery packet is written before the inbox is drained.
-- **Sessions.** Up to 6 run at once. A slot frees as soon as a session opens its PR; CI, merges and
-  deploys don't hold one. Before starting one with less than 15 GiB free, the orchestrator removes
+- **Sessions.** Up to 6 run at once per monitor, and up to 12 across every monitor on the machine,
+  so ten monitors don't start sixty sessions (see [Machine capacity](#machine-capacity)). A slot frees
+  as soon as a session opens its PR; CI, merges and deploys don't hold one. Before starting one with less than 15 GiB free, the orchestrator removes
   worktrees of finished groups that are clean and fully pushed (`monitor.mjs cleanup --apply`). When
   a session hits a usage limit, its group and new sessions move to the other provider until the
   reset. Follow-ups for a PR go back to the session that wrote it while its context is fresh. Small fixes in the same area share one session and one PR, and simple
@@ -371,8 +418,8 @@ The skill reads this section at start. It takes precedence over what the skill d
 ## Changing the skill
 
 Edit `plugins/uier/skills/uier-monitor/SKILL.md`, its `references/` and its `scripts/monitor.mjs`.
-The dashboard is `scripts/dashboard.mjs`: one file with its page inside, no dependencies and no
-imports from `monitor.mjs`, so it also reads monitors that run an older helper. Its colours are the
+The monitor, dashboard and supervisor share `scripts/store.mjs`. The dashboard is
+`scripts/dashboard.mjs` and includes its page. Its colours are the
 values of `packages/brand/tokens.css`, and its agent marks and model names are those of
 `packages/toolbar/src/agents.ts`; `dashboard.test.mjs` checks both, so change them there first.
 
@@ -411,11 +458,13 @@ explicit opt-in for a harness without a usable event transport or token; it is r
 watcher record and every heartbeat-only delivery increments `idleWakes`. Existing interval model
 tasks must be disabled after a persistent replacement has a live PID and fresh heartbeat.
 
-The current helper is 1.7.0. To upgrade an existing monitor, keep its state, cursor, inbox, token,
+The current helper is 1.8.0. To upgrade an existing monitor, keep its state, cursor, inbox, token,
 target thread, routing and release restrictions; replace only the shared helper, start it with
 `watch --persistent --detach --thread <saved thread> --replace`, and verify its loaded version
 and heartbeat. Do not restart explicitly stopped monitors. The compact API capability probe
-falls back only for an older schema, not for authorization or network failures.
+falls back only for an older schema, not for authorization or network failures. Monitors on 1.8.0
+claim slots under the [machine capacity](#machine-capacity) limit; a watcher started by an older
+helper counts toward it but can't send `capacity` wakes until it is replaced.
 
 The two monitor read tools return `x-uier-database-ru` when supported, covering instrumented
 reads and the HTTP quota counter. This is response-time SDK charge accounting, independent of

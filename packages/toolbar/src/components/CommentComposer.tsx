@@ -89,7 +89,7 @@ type CommentComposerProps = {
     image?: { attachment: ReturnType<typeof useAttachedImage>; reply?: boolean };
     /** The recording the message can carry: Record screen and Upload recording in Attach's menu */
     recording?: RecordingState;
-    /** In the bottom-left corner of the text box, after Attach and before its hint (the screenshot toggle) */
+    /** In the bottom-left corner of the text box, after Attach and before its hint (the screenshot's thumbnail) */
     attachments?: ReactNode;
     /**
      * Above the text box, after the quote (and a guest's name), in the same form and spacing: a rewrite's

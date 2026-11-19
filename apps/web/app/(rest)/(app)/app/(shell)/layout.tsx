@@ -1,7 +1,7 @@
 import { getAppI18n } from '@/src/lib/i18n/server';
 import type { PropsWithChildren } from 'react';
 import { AppBoundary } from '@/src/components/app/AppBoundary';
-import { ShellFrame, shellColumnClassName, shellInsetClassName, shellTopBarClassName } from '@/src/components/app/shell/ShellFrame';
+import { ShellFrame, shellColumnClassName, shellInsetClassName, shellScrollClassName, shellTopBarClassName } from '@/src/components/app/shell/ShellFrame';
 import { ShellInfoProvider, type ShellInfo } from '@/src/components/app/shell/ShellInfo';
 import { Separator } from '@/src/components/ui/separator';
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/src/components/ui/sidebar';
@@ -21,6 +21,7 @@ import { InviteProvider } from '@/src/components/app/users/InviteDialog';
 import { AppShortcuts } from '@/src/components/app/keyboard/AppShortcuts';
 import { isGoogleSignInConfigured } from '@/src/lib/app/google/config';
 import { isMicrosoftSignInConfigured } from '@/src/lib/app/microsoft/config';
+import { KnownPageLinks } from '@/src/knownPages';
 
 /** The signed-in app: the sidebar, a top bar with the breadcrumbs (and a project's Open review at its right end), and the page in an inset panel, with the keyboard shortcuts */
 async function AppShellLayoutContent({ children }: PropsWithChildren) {
@@ -67,6 +68,7 @@ async function AppShellLayoutContent({ children }: PropsWithChildren) {
                         return {
                             id: workspace.id,
                             name: feedback ? t('Feedback on uier') : workspace.name,
+                            logoUrl: workspace.logoVersion ? KnownPageLinks.workspaceLogo(workspace.id, workspace.logoVersion) : undefined,
                             role: feedback ? t('Sent with Give feedback') : member.role === 'admin' ? t('Admin') : t('Commenter'),
                             feedback
                         };
@@ -84,7 +86,7 @@ async function AppShellLayoutContent({ children }: PropsWithChildren) {
                         {/* A project's Open review, right-aligned beside the breadcrumbs (uier #406) */}
                         <AppTopBarActions projects={Object.fromEntries(projects.flatMap(project => [project.id, project.publicId].map(id => [id, { urls: project.urls }])))} />
                     </header>
-                    <div className="flex-1 lg:overflow-y-auto">
+                    <div className={shellScrollClassName}>
                         {/* While an element marked data-page-width="wide" is in it, this is a container, so the column can
                             measure it for `page-wide` (global.css). Inside the scrolling panel, not the panel itself: a
                             scroller's `cqw` takes in its scrollbar where scrollbars take room (always shown), and the

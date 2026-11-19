@@ -35,7 +35,7 @@ test('large seeded project measures the initial board and list payloads', async 
         expect(snapshot.comments.length).toBe(view === 'board' ? 100 : 25);
         expect(snapshot.paging.scopeTotal).toBe(2000);
         expect(snapshot.paging.statusCounts.all).toBe(1600);
-        expect(snapshot.paging.statusCounts.archived).toBe(400);
+        expect(snapshot.paging.archiveCount).toBe(400);
         expect(result.jsonBytes).toBeLessThan(view === 'board' ? 300_000 : 100_000);
     }
     console.info('PAGING_BENCHMARK', JSON.stringify(results));

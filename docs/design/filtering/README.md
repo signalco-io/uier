@@ -61,8 +61,7 @@ Current contracts and source:
 [toolbar evaluation](../../../packages/toolbar/src/components/sidebar/CommentsFilter.tsx),
 [toolbar list assembly](../../../packages/toolbar/src/components/sidebar/useInboxComments.ts),
 [toolbar persistence boundary](../../../packages/toolbar/src/openPanel.ts).
-The current inbox note and source describe the board's collapsed Archive column; the older final
-paragraph in the app filter note still describes Archive as list-only.
+The inbox note describes the Archive list and its independent workflow status filter.
 
 ## The shared query model
 

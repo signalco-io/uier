@@ -59,6 +59,9 @@ still disable capture; file upload remains available when browser capture is una
 lifetimes. `__Host-uier_comments_view` is a browser-readable, Secure, SameSite=Lax presentation
 preference with Path=/ and a one-year lifetime; only `list` and `board` are accepted. It grants no
 access and is read request-scoped. The local HTTP name is `uier_comments_view`.
+The board's `__Host-uier_board_collapse` cookie (local HTTP `uier_board_collapse`) uses the same
+attributes and expiry. It carries up to 3,000 characters of validated project and workflow status IDs.
+The authorized project route reads only the selected project's entry for rendering its initial board.
 
 The registry also defines bounded legacy reads. The fixed migration cutoff is 30 October 2026 UTC; legacy sign-in bindings
 stop being accepted 15 minutes later, session/SSO cookies after 30 days, visitor/workspace cookies

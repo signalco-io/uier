@@ -11,6 +11,12 @@ token owner's current thread visibility. REST checks the requested thread before
 a write receipt. Both public and private file threads use the
 [proof-specific MCP handoff](mcp-connector.md#file-proof-handoff).
 
+Feedback list and detail return the effective workflow `statusId` for every thread,
+plus `archivedAt` (null for an unarchived thread) and an optional legacy archive destination
+`archiveStatusId`. PATCH accepts `{ archived: true }` or `{ archived: false }` under
+`feedback:status` with the usual idempotency key. Existing `{ statusId }` writes remain valid,
+including legacy archive destination IDs.
+
 Account → API tokens creates and revokes tokens. The shared credential store distinguishes REST
 from MCP with a stored audience and a dedicated bearer prefix. Existing MCP tokens keep their
 original audience. Project transfer and removal use the existing project-grant cleanup.

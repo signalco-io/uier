@@ -10,7 +10,7 @@ export const defaultStatusWorkflow: StatusWorkflow = {
     statuses: statusCategories.map(category => ({ id: category, category, label: statusCategoryLabels[category], description: '' })),
     initialStatusId: 'open', doneStatusId: 'done', archiveStatusId: 'archive'
 };
-export type WorkflowComment = { resolved?: boolean; inProgress?: boolean; verificationEnabled?: boolean; verification?: Parameters<typeof feedbackStage>[0]['verification']; archivedAt?: string; workflowStatusId?: string; archiveStatusId?: string };
+export type WorkflowComment = { resolved?: boolean; inProgress?: boolean; verificationEnabled?: boolean; verification?: Parameters<typeof feedbackStage>[0]['verification']; workflowStatusId?: string };
 export function orderedStatuses(workflow: StatusWorkflow) {
     return statusCategories.flatMap(category => workflow.statuses.filter(status => status.category === category && (workflow.verificationEnabled !== false || category !== 'ready')));
 }
@@ -19,10 +19,10 @@ export function defaultStatus(workflow: StatusWorkflow, category: StatusCategory
     return workflow.statuses.find(status => status.category === category && status.id === id)
         ?? workflow.statuses.find(status => status.category === category)!;
 }
-/** Removed/foreign IDs and category changes fall back without rewriting historical threads. */
-export function statusForComment(workflow: StatusWorkflow, comment: WorkflowComment, includeArchive = true): WorkflowStatus {
-    const category: StatusCategory = includeArchive && comment.archivedAt ? 'archive' : feedbackStage({ ...comment, verificationEnabled: workflow.verificationEnabled ?? comment.verificationEnabled });
-    const id = category === 'archive' ? comment.archiveStatusId : comment.workflowStatusId;
+/** Resolve the workflow status independently of the archive flag, with a fallback for older records. */
+export function statusForComment(workflow: StatusWorkflow, comment: WorkflowComment): WorkflowStatus {
+    const category = feedbackStage({ ...comment, verificationEnabled: workflow.verificationEnabled ?? comment.verificationEnabled });
+    const id = comment.workflowStatusId;
     return workflow.statuses.find(status => status.id === id && status.category === category) ?? defaultStatus(workflow, category);
 }
 export function workflowStatusPatch(workflow: StatusWorkflow, category: FeedbackStage) {

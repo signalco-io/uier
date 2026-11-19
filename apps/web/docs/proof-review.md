@@ -55,7 +55,9 @@ Pages are live, so a new decision can remove a pending row between reads.
 Project opt-in controls the queue, decisions and request reminders.
 
 `DbComment.assetTarget` is optional and shares the project's thread numbering,
-receipts, assignees, status, history and activity. Locations refer to a published
+receipts, assignees, workflow status, history and activity. Archived threads retain their
+workflow `statusId` and show the archive state separately. An explicit archive/restore control
+uses the existing `archive` operation. Locations refer to a published
 version's manifest. Points, regions and drawings use normalized surface coordinates.
 Text captures the quoted string with an optional occurrence and an optional
 email field. PDF and email quote threads can carry an immutable

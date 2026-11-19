@@ -43,7 +43,7 @@ export const agentCommentActionSchema = commentActionSchema.extend({ agent: assi
 /** A board column's sort: the column and one of the choices it offers (`boardSortOptions`) */
 export const boardSortActionSchema = z.object({ projectId: projectIdSchema }).and(boardSortInputSchema);
 /** Whether the board's Archive column is expanded */
-export const boardArchiveActionSchema = z.object({ projectId: projectIdSchema, expanded: z.boolean() });
+export const boardGroupingActionSchema = z.object({ projectId: projectIdSchema, grouped: z.boolean() });
 /** A board column under the board's filters (the comments page's query parameters), for Archive all (uier #357) */
 export const boardColumnActionSchema = z.object({ projectId: projectIdSchema, params: z.record(z.string().max(100), z.string().max(2000)),
     lane: z.string().min(1).max(160).regex(/^[a-z][a-zA-Z0-9_~\-]*$/) }).strict();

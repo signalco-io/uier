@@ -195,6 +195,10 @@ export function WorkspaceSettingsLoading() {
             {!feedback && (
                 <>
                     <SectionOutline title={t("General")} description={false}><FieldOutline help={1} /></SectionOutline>
+                    <SectionOutline title={t("Workspace logo")} description={false} footer={false}>
+                        <Bar className="h-9 w-36 rounded-lg" />
+                        <LineOutline className="mt-2 w-full max-w-md" />
+                    </SectionOutline>
                     <SectionOutline title={t("Toolbar language")} description={false}><FieldOutline help={2} /></SectionOutline>
                     <SectionOutline title={t("AI")} description={false} footer={false}>
                         <div className="flex gap-3">

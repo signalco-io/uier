@@ -15,7 +15,7 @@ import type { restScopes } from '../mcp/scopes';
 import { commentPageCursor, formatCommentPageCursor } from '../repo/commentPage';
 import { getCommentsStore } from '../repo/commentsStore';
 import { memberActor, workspaceMemberAccess } from '../review/actor';
-import { getProjectComment, listProjectCommentsPage, replyToProjectComment, setProjectCommentWorkflowStatus } from '../review/comments';
+import { getProjectComment, listProjectCommentsPage, replyToProjectComment, setProjectCommentArchived, setProjectCommentWorkflowStatus } from '../review/comments';
 import { itemAuthorName } from '../review/dto';
 import { apiPageLimit, apiRequestLimit, replyBody, statusBody, type feedbackDetail } from './contract';
 
@@ -32,6 +32,7 @@ function summary(comment: DbComment, workflow: StatusWorkflow) {
     const first = comment.thread?.items?.[0];
     return {
         id: comment.id, path: commentPath(comment), statusId: statusForComment(workflow, comment).id,
+        archivedAt: comment.archivedAt ?? null, ...(comment.archivedAt && comment.archiveStatusId ? { archiveStatusId: comment.archiveStatusId } : {}),
         createdAt: comment.createdAt ?? null,
         excerpt: !first?.deletedAt && typeof first?.text === 'string' ? first.text.slice(0, 200) : null
     };
@@ -138,7 +139,9 @@ export const reply = restRoute<ThreadParams>('feedback:reply', async (request, {
 export const updateStatus = restRoute<ThreadParams>('feedback:status', async (request, { projectId, feedbackId }, token) => {
     const { project, actor } = await requireWebsiteFeedback(token, projectId, feedbackId);
     const key = retryKey(request, token);
-    const { statusId } = await parseJsonBody(request, statusBody, 16_384);
-    const comment = await setProjectCommentWorkflowStatus(project, actor, feedbackId, statusId, key);
+    const input = await parseJsonBody(request, statusBody, 16_384);
+    const comment = 'archived' in input
+        ? await setProjectCommentArchived(project, actor, feedbackId, input.archived, key)
+        : await setProjectCommentWorkflowStatus(project, actor, feedbackId, input.statusId, key);
     return detail(comment, await loadStatusWorkflow(project));
 });

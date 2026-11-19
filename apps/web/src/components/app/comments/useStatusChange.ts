@@ -100,7 +100,7 @@ export function useStatusChanger(projectId: string | ((comment: ProjectCommentVi
 
     const change = (comment: ProjectCommentView, next: CommentStatus, { onMove, onVerify }: ChangeOptions, statusId?: string) => {
         const status = commentStatus(comment);
-        const customMove = statusId && statusId !== statusForComment(comment.workflow ?? defaultStatusWorkflow, comment, false).id;
+        const customMove = statusId && statusId !== statusForComment(comment.workflow ?? defaultStatusWorkflow, comment).id;
         if (!allowedStatuses(comment)[next] && !(next === status && customMove && comment.permissions.resolve)) return;
         if (next === 'ready' && status !== 'ready') onVerify(statusId);
         else if (next === status && !customMove) { if (next === 'ready') onVerify(statusId); }

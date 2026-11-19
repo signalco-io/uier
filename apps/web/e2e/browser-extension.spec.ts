@@ -70,7 +70,14 @@ test('the setup guide covers installation, reviews, links, headers, screenshots 
     await expect(page.getByRole('region', { name: 'Install the extension' }).getByRole('listitem')).toHaveCount(3);
     await expect(page.getByRole('region', { name: 'Install the extension' }).getByRole('heading', { level: 3, name: 'Firefox', exact: true })).toBeVisible();
     await expect(page.getByRole('region', { name: 'Install the extension' })).toContainText('Firefox Browser Add-ons');
-    await expect(page.getByRole('region', { name: 'Screenshots' }).getByText(extensionRelease.screenshotToggle, { exact: true })).toBeVisible();
+    // Both builds, word for word: the store's (the toggle, up to its version) and later ones (the thumbnail and Remove screenshot)
+    const { label: toggle, lastVersion } = extensionRelease.screenshotToggle;
+    await expect(page.getByRole('region', { name: 'Screenshots' }).getByRole('listitem').filter({ has: page.getByRole('strong') })).toHaveText(
+        `The comment box says when a screenshot will be attached. In version ${lastVersion} and earlier, turn off ${toggle} to send that comment as text only. `
+        + `Newer versions show the screenshot as a thumbnail: select it for a larger preview, or select ${extensionRelease.removeScreenshot} to send that comment as text only.`);
+    for (const label of [toggle, extensionRelease.removeScreenshot]) {
+        await expect(page.getByRole('region', { name: 'Screenshots' }).getByRole('strong').filter({ hasText: new RegExp(`^${label}$`) })).toBeVisible();
+    }
     await expect(page.getByRole('region', { name: 'Common problems' }).getByRole('heading', { level: 3 })).toHaveCount(8);
     await expect(page.getByRole('region', { name: 'Common problems' }).getByRole('link', { name: 'service status' })).toHaveAttribute('href', KnownPages.Status);
     await expectSocialMetadata(page, path, guides.browserExtension.title);

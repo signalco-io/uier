@@ -76,6 +76,8 @@ jobs:
               - "plugins/**"
               - ".claude-plugin/**"
               - ".agents/plugins/**"
+              - ".agents/skills/uier-orchestrator"
+              - ".claude/skills/uier-orchestrator"
               - ".agents/skills/uier-monitor*"
               - ".claude/skills/uier-monitor/**"
               - ".claude/skills/uier-monitor-script/**"
@@ -332,7 +334,7 @@ jobs:
           node --check plugins/uier/skills/uier-monitor/scripts/monitor.mjs
           node --check plugins/uier/skills/uier-monitor/scripts/dashboard.mjs
           node plugins/uier/skills/uier-monitor/scripts/build-script-skill.mjs --check
-          node --test .github/scripts/agent-plugins.test.mjs plugins/uier/skills/uier-monitor/scripts/monitor.test.mjs plugins/uier/skills/uier-monitor/scripts/dashboard.test.mjs
+          node --test .github/scripts/agent-plugins.test.mjs plugins/uier/skills/uier-monitor/scripts/monitor.test.mjs plugins/uier/skills/uier-monitor/scripts/dashboard.test.mjs plugins/uier/skills/uier-orchestrator/scripts/orchestrator.test.mjs
 
   ci-ok:
     # Single required status check: fails if any job failed or was cancelled; skipped jobs are fine.

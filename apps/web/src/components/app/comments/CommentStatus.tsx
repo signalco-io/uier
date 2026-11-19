@@ -68,7 +68,7 @@ export function StateBadge({ status, comment }: { status: CommentStatus; comment
         <Badge variant="outline" className="gap-1.5">
             <GlowingStateDot status={status} glow />
             <span className="sr-only">{t("Status: ")}</span>
-            {comment ? workflowStatusLabel(statusForComment(comment.workflow ?? defaultStatusWorkflow, comment, false), t) : t(commentStatusLabels[status])}
+            {comment ? workflowStatusLabel(statusForComment(comment.workflow ?? defaultStatusWorkflow, comment), t) : t(commentStatusLabels[status])}
         </Badge>
     );
 }
@@ -93,7 +93,7 @@ export function StateMenu({ status, allowed, disabled, onChange, triggerRef, tri
 }) {
     const { t } = useAppI18n();
     const workflow = comment?.workflow ?? defaultStatusWorkflow;
-    const current = comment ? statusForComment(workflow, comment, false).id : status;
+    const current = comment ? statusForComment(workflow, comment).id : status;
     const currentStatus = workflow.statuses.find(option => option.id === current);
     const label = currentStatus ? workflowStatusLabel(currentStatus, t) : t(commentStatusLabels[status]);
     const options = orderedStatuses(workflow).filter(option => option.category !== 'archive' && (option.category !== 'ready' || comment?.verificationEnabled === true));

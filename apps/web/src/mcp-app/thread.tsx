@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { Logo } from '@uier/brand/Logo';
 import { isAgentKind, type MessageAgentView } from '@uier/toolbar/agents';
 import type { FeedbackContext } from '@uier/toolbar/feedback-context';
+import { feedbackStageLabels, type FeedbackStage } from '@uier/toolbar/verification';
 import { ArrowUpRight, RefreshCw, User } from 'lucide-react';
 import { AgentMark, AssigneeAvatars, assignedLabel, type Assignee } from '../components/app/comments/AgentAvatar';
 import { MessageAvatar } from '../components/app/comments/MessageAvatar';
@@ -12,12 +13,9 @@ import { Button } from '../components/ui/button';
 import { Spinner } from '../components/ui/spinner';
 import { AppBridge, HostRequestError, object } from './bridge';
 
-type Stage = 'open' | 'in-progress' | 'ready' | 'done' | 'archive';
-// The default workflow's names (`statusCategoryLabels`); a project's own label from the result wins.
-const stageLabels: Record<Stage, string> = { open: 'Open', 'in-progress': 'In progress', ready: 'Ready to verify', done: 'Done', archive: 'Archive' };
-// BRAND.md, "Status": Open is an outlined ink ring, not filled. Archive stays neutral.
-const stageDots: Record<Stage, string> = { open: 'border border-foreground', 'in-progress': 'bg-[hsl(var(--brand-in-progress))]', ready: 'bg-[hsl(var(--brand-ready))]', done: 'bg-[hsl(var(--brand-success))]', archive: 'bg-muted-foreground' };
-type Status = { stage: Stage; label: string };
+// BRAND.md, "Status": Open uses an outlined ink ring.
+const stageDots: Record<FeedbackStage, string> = { open: 'border border-foreground', 'in-progress': 'bg-[hsl(var(--brand-in-progress))]', ready: 'bg-[hsl(var(--brand-ready))]', done: 'bg-[hsl(var(--brand-success))]' };
+type Status = { stage: FeedbackStage; label: string };
 /** `connecting` until the host answers `ui/initialize`; `failed` and `closed` (teardown) are final. */
 type Connection = 'connecting' | 'connected' | 'failed' | 'closed';
 type View = {
@@ -51,9 +49,13 @@ function feedback(value: unknown): FeedbackContext | undefined {
 
 function threadStatus(context: FeedbackContext, workflow: unknown): Status {
     const status = object(workflow);
-    const stage: Stage = typeof status?.category === 'string' && Object.hasOwn(stageLabels, status.category) ? status.category as Stage
-        : context.archivedAt ? 'archive' : context.stage && Object.hasOwn(stageLabels, context.stage) ? context.stage : context.status;
-    return { stage, label: typeof status?.label === 'string' && status.label ? status.label : stageLabels[stage] };
+    // Older hosts can replay a packet whose workflowStatus describes an archive destination.
+    if (typeof status?.category === 'string' && Object.hasOwn(feedbackStageLabels, status.category)) {
+        const stage = status.category as FeedbackStage;
+        return { stage, label: typeof status.label === 'string' && status.label ? status.label : feedbackStageLabels[stage] };
+    }
+    const stage = context.stage && Object.hasOwn(feedbackStageLabels, context.stage) ? context.stage : context.status;
+    return { stage, label: feedbackStageLabels[stage] };
 }
 
 function safeLink(value: unknown, protocols: readonly string[] = ['https:', 'http:']) {
@@ -292,6 +294,7 @@ function ThreadCard() {
                             <span aria-hidden="true" data-status-dot={status.stage} className={`size-1.5 shrink-0 rounded-full ${stageDots[status.stage]}`} />
                             <span className="sr-only">Status: </span><span className="truncate">{status.label}</span>
                         </Badge>
+                        {context.archivedAt && <Badge variant="outline" className="text-muted-foreground">Archived</Badge>}
                         <span className="inline-flex min-w-0 items-center gap-1.5 text-muted-foreground">
                             {/* The app's avatars (initials: the card loads no images). Screen readers hear the app's words for them,
                                 agents included ("Assigned to Ana, with Claude"), instead of the names alone. */}
