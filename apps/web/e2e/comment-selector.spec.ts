@@ -59,7 +59,7 @@ test('a long selector shows its start and its end on one line, and all of it on 
     const expand = thread.getByRole('button', { name: 'Show full selector', exact: true });
     await expect(expand).toHaveAttribute('aria-expanded', 'false');
     await expect(expand).toHaveAttribute('aria-controls', (await code.getAttribute('id'))!);
-    expect(await shown(code)).toBe('#comments>…>dd.m-0>code.ml-2');
+    expect(await shown(code)).toBe('#comments…>code.ml-2');
     expect(await read(code)).toBe(long);
 
     // One line with its button, inside the cell (a phone included)
@@ -86,7 +86,7 @@ test('a long selector shows its start and its end on one line, and all of it on 
 
     await shorten.click();
     await expect(expand).toHaveAttribute('aria-expanded', 'false');
-    expect(await shown(code)).toBe('#comments>…>dd.m-0>code.ml-2');
+    expect(await shown(code)).toBe('#comments…>code.ml-2');
     await expect(expand).toBeFocused();
 
     // A short selector is shown whole, without the button

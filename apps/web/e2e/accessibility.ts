@@ -16,6 +16,9 @@ export async function expectNoAxeViolations(page: Page, { include = [] }: { incl
             // is part of a picture is exempt from contrast): mid-fade frames would fail at random.
             // So would its caption's (also hidden), which first fades in 700 ms after it comes into view.
             .exclude('[data-landing-scene]')
+            // Base UI's focus guards beside an open popup: focusable on purpose (they hand focus on) and hidden
+            // from assistive technologies, which is what "aria-hidden-focus" reports
+            .exclude('[data-base-ui-focus-guard]')
             .exclude('#how-it-works ~ p[aria-hidden="true"]')
             .analyze();
     };

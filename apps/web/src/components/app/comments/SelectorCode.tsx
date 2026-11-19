@@ -9,11 +9,12 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/src/components/ui/too
 import { cn } from '@/src/lib/utils';
 
 /**
- * Characters a shortened selector keeps from its start and its end. With the ellipsis, 28 fit one line
- * beside the button in the thread's narrowest "On" cell on a 375px phone (about 206px of Geist Mono 12px).
+ * Characters a shortened selector keeps from its start and its end. With the ellipsis, 24 fit one line
+ * beside the button in the thread's narrowest "On" cell on a 375px phone: the cell is about 210px there, the
+ * button and its gap take 32px, and 24 characters of Geist Mono 12px take about 173px.
  */
-const startLength = 10;
-const endLength = 17;
+const startLength = 9;
+const endLength = 14;
 
 /**
  * The start, the hidden middle and the end of a long selector, cut where its parts meet when that keeps

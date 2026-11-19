@@ -1,9 +1,10 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
+import { refresh, revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { actionResult, type ActionState } from '@/src/lib/app/actionResult';
 import { AccessDeniedError } from '@/src/lib/app/context';
+import { DOMAIN_JOIN_SIGN_IN_AGAIN } from '@/src/lib/app/emailProof';
 import { getSessionEmailProof, getSessionUser } from '@/src/lib/app/session';
 import { joinNextPath } from '@/src/lib/app/signInDestination';
 import { parseActionInput, workspaceIdSchema } from '@/src/lib/app/validation';
@@ -23,8 +24,12 @@ export async function joinWorkspaceAction(_: ActionState, formData: FormData): P
         await joinWorkspaceByDomain(user, workspaceId, await getSessionEmailProof(user));
         await selectWorkspace(workspaceId);
     });
-    if (!result?.ok)
+    if (!result?.ok) {
+        // The page drew its offers with an email proof that has run out since. Draw it again: without a fresh
+        // proof it is the Sign in again card, which names no workspace.
+        if (result?.error === DOMAIN_JOIN_SIGN_IN_AGAIN) refresh();
         return result;
+    }
     revalidatePath('/app', 'layout');
     redirect(joinNextPath(formData.get('next')));
 }

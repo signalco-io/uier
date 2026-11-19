@@ -37,7 +37,13 @@ export async function appPageAccess(request: NextRequest): Promise<PageAccess> {
         return;
     }
     if (!user) return { redirect: `${KnownPages.AppSignIn}?${new URLSearchParams({ next: pathname + request.nextUrl.search })}` };
-    if (pathname === KnownPages.AppWelcome && !user.welcomePending) return { redirect: KnownPages.App };
+    if (pathname === KnownPages.AppWelcome) {
+        if (!user.welcomePending) return { redirect: KnownPages.App };
+        // The first-run step loads its own context when it is shown. Loading it here gives a new account a
+        // workspace of its own (`ensureOwnWorkspace`) when the page is only prefetched: the join page links
+        // here before the person has chosen between a team's workspace and their own.
+        return;
+    }
     if (pathname === KnownPages.AppJoin) {
         const proof = sessionEmailProof(readMigratingCookie(request.cookies, cookieNames.session), user);
         if (freshlyProvenEmail(user.email, proof) && !(await domainJoinOffers(user, proof)).length)

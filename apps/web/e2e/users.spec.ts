@@ -359,7 +359,7 @@ test('only admins see the bounced-address notice in the invite dialog', async ({
     await expectNoAxeViolations(page);
 });
 
-test('public staff cannot open Users, invite, create projects or edit public settings and retain their selected workspace', async ({ page }, testInfo) => {
+test('public staff cannot open Users, invite, create projects or edit public settings, and keep their own workspace', async ({ page }, testInfo) => {
     const device = testInfo.project.name.startsWith('Mobile') ? 'mobile' : 'desktop';
     await signIn(page, `e2e-users-staff-${device}@example.test`);
     const ownProject = await createProject(page, { urls: ['https://staff-personal.example'], name: 'Staff personal project' });
@@ -398,19 +398,18 @@ test('public staff cannot open Users, invite, create projects or edit public set
     expect(await denied.text()).toContain('The settings of uier’s feedback projects are managed by uier.');
     await page.reload();
     await expect(page.getByRole('heading', { name: 'uier.io public feedback', exact: true })).toBeVisible();
-    // A fresh sign-in keeps the chosen workspace. The personal project's admin remains intact.
+    // The chosen workspace belongs to the session that chose it: every session change clears it, so a fresh
+    // sign-in opens the person's own workspace. Its admin remains intact, and uier's is still on the menu.
     await page.goto('/app/account/sign-in');
     await page.getByRole('region', { name: 'Sign out', exact: true }).getByRole('button', { name: 'Sign out', exact: true }).click();
     await expect(page).toHaveURL(/\/app\/sign-in$/);
     await signIn(page, `e2e-users-staff-${device}@example.test`);
     await expect(page).toHaveURL(/\/app\/projects$/);
-    await expect(page.getByRole('list', { name: 'Active projects' })).toContainText('uier.io public feedback');
-    await appNavigation(page);
-    await page.getByRole('button', { name: /^Workspace:/ }).click();
-    await page.getByRole('menuitem', { name: /Personal.*Admin/ }).click();
     await expect(page.getByRole('list', { name: 'Active projects' })).toContainText('Personal project renamed');
     await page.goto(`/app/projects/${ownProject}/settings`);
     await expect(page.getByRole('region', { name: 'General', exact: true })).toBeVisible();
-    await expect((await workspaceMenu(page)).getByRole('menuitem', { name: 'Workspace settings' })).toBeVisible();
+    const ownMenu = await workspaceMenu(page);
+    await expect(ownMenu.getByRole('menuitem', { name: 'Workspace settings' })).toBeVisible();
+    await expect(ownMenu.getByRole('menuitem', { name: /uier.*Admin/ })).toBeVisible();
     await page.keyboard.press('Escape');
 });

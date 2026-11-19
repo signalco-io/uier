@@ -91,7 +91,8 @@ test('same-build refresh retains app and toolbar composers; deployment skew relo
     await page.evaluate(() => {
         Object.assign(window, { draftDocument: true, feedbackField: document.querySelector('#uier-toolbar')?.shadowRoot?.querySelector('[data-uier-editor]') });
     });
-    const refreshed = page.waitForResponse(response => new URL(response.url()).pathname === `/app/projects/${project}` && response.request().headers().rsc === '1');
+    // A change elsewhere reads the comments' data again in place (uier #410): no new page, both composers stay
+    const refreshed = page.waitForResponse(response => new URL(response.url()).pathname === `/api/projects/${project}/comments/pages`);
     appSocket.send('{"type":"comments.changed"}');
     await refreshed;
     await expect(reply).toHaveText('App reply before a deployment', { useInnerText: true });
@@ -111,7 +112,9 @@ test('same-build refresh retains app and toolbar composers; deployment skew relo
         const response = await route.fetch();
         await route.fulfill({ response, headers: { ...response.headers(), 'x-nextjs-deployment-id': 'a-new-deployment' } });
     });
-    appSocket.send('{"type":"comments.changed"}');
+    // Comments no longer refresh through the router, so ask it directly, as a navigation or an action's
+    // revalidation would.
+    await page.evaluate(() => (window as unknown as { next: { router: { refresh(): void } } }).next.router.refresh());
     // The reload gives the page a new document. A `framenavigated` alone is not proof of one: the
     // router's own history updates are navigations of the same document.
     await expect.poll(() => page.evaluate(() => 'draftDocument' in window).catch(() => true), { timeout: 15_000 }).toBe(false);

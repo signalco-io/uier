@@ -4,7 +4,7 @@ import { isFeedbackTypeId } from '../feedbackTypes';
 import { drawingFingerprint } from '../drawing';
 import { useProjectViewer } from '../project/ProjectGate';
 import { useContext, useEffect, useState } from 'react';
-import { QueryClient, UseMutationResult, UseQueryResult, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { type Query, QueryClient, UseMutationResult, UseQueryResult, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toolbarConfig } from '../config';
 import { CommentsBootstrapperContext } from '../components/CommentsBootstrapperContext';
 import { CommentActivity, CommentDeviceInfo, CommentItem, CommentItemPosition, CommentItemThreadItem, CommentKind, Mention, commentsListMaxLength } from '../components/@types/Comments';
@@ -805,7 +805,9 @@ export function useCommentsRefresh(expanded: boolean) {
             // A slow round never accumulates ticks or immediately starts a catch-up burst.
             timer = window.setTimeout(() => { void refresh(); }, remaining > 0 ? remaining : cadence);
         };
-        const refresh = async () => {
+        // `since`: the round an expansion starts. Lists read after it began (the review layer's own first load)
+        // are current, so that round does not read them a second time. A signal's round reads everything.
+        const refresh = async (since?: number) => {
             if (!active()) return;
             // Foreground signals received after a response took its snapshot need one fresh round.
             if (refreshing) { requested = true; return; }
@@ -813,6 +815,9 @@ export function useCommentsRefresh(expanded: boolean) {
             refreshing = true;
             try {
                 do {
+                    const started = since;
+                    since = undefined;
+                    const stale = started === undefined ? undefined : (query: Query) => query.state.dataUpdatedAt <= started;
                     requested = false;
                     lastStarted = performance.now();
                     const queries = [toolbarConfig.project ? projectViewerQueryKey : visitorQueryKey, commentsQueryKeyPrefix, activityQueryKey]
@@ -822,8 +827,8 @@ export function useCommentsRefresh(expanded: boolean) {
                     else await client.invalidateQueries({ queryKey: visitorQueryKey }, { cancelRefetch: false });
                     if (!active()) break;
                     await Promise.all([
-                        client.invalidateQueries({ queryKey: commentsQueryKeyPrefix, refetchType: 'active' }, { cancelRefetch: false }),
-                        client.invalidateQueries({ queryKey: activityQueryKey }, { cancelRefetch: false })
+                        client.invalidateQueries({ queryKey: commentsQueryKeyPrefix, refetchType: 'active', predicate: stale }, { cancelRefetch: false }),
+                        client.invalidateQueries({ queryKey: activityQueryKey, predicate: stale }, { cancelRefetch: false })
                     ]);
                     // React Query structurally shares unchanged JSON data. Ignore initial loads and
                     // errors; a changed successful response (including edits) restores fast polling.
@@ -867,7 +872,7 @@ export function useCommentsRefresh(expanded: boolean) {
         const interactionEvents = ['pointerdown', 'keydown', 'input', 'wheel'] as const;
         if (expanded) {
             for (const name of interactionEvents) document.addEventListener(name, interaction, { capture: true, passive: true });
-            void refresh();
+            void refresh(Date.now());
         }
         return () => {
             disposed = true;

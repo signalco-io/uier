@@ -7,9 +7,9 @@ export const toolbar = (page: Page) => page.getByRole('group', { name: 'uier fee
 export const showcaseHint = (page: Page) => page.getByRole('region', { name: 'Try uier on this page' });
 /** Saved comments' pins: "Comment #6, 3 messages" (no number on old comments; the status but Open after it, ", In progress") */
 export const commentBubbles = (page: Page) => page.getByRole('button', { name: /^Comment(?: #\d+)?, \d+ messages?(?:, [^,]+)?$/ });
-/** An open comment's pin by its message count, and its number when given */
+/** An open comment's pin by its message count, and its number when given; a status its pin shows follows the count */
 export const commentBubble = (page: Page, messages: number, number?: number) =>
-    page.getByRole('button', { name: new RegExp(`^Comment${number === undefined ? '(?: #\\d+)?' : ` #${number}`}, ${messages} ${messages === 1 ? 'message' : 'messages'}$`) });
+    page.getByRole('button', { name: new RegExp(`^Comment${number === undefined ? '(?: #\\d+)?' : ` #${number}`}, ${messages} ${messages === 1 ? 'message' : 'messages'}(?:, [^,]+)?$`) });
 /** Waits for the element's animations (a popover fading in) to finish, e.g. before an axe check */
 export async function animationsFinished(locator: Locator) {
     await locator.evaluate(async (element) => {
