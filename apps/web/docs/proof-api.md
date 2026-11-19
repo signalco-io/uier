@@ -29,7 +29,11 @@ shape. The browser-safe contracts and URL builders are in
 | POST | `/shares` | `{scope, permission, downloadOriginal?, expiresAt?}` → `{share, url}`. |
 | DELETE | `/shares/:shareId` | 204 and revokes exchanged sessions. |
 | POST | `/exchange` | `{token}` → `{scope}` and an HttpOnly proof session. |
-| GET, PATCH | `/settings` | `{formats}`. An admin can set the enabled upload formats. |
+| GET, PATCH | `/settings` | GET returns `{formats, canEdit, htmlAvailable}`. Admins can PATCH `{formats}`. |
+| POST | `/figma/frames` | `{url, token}` → `{name, frames}`. Member-only discovery using the member's Figma personal access token. |
+| POST | `/assets/:assetId/figma` | `{url, token, frameIds, requestId, expectedVersionId}` → `{version}`. Member-only snapshot import or resync. |
+| GET, POST, DELETE | `/assets/:assetId/email-address` | Member-only state, rotation or disable. POST returns the address once. |
+| GET | `/assets/:assetId/versions/:versionId/prototype` | `?surface=<id>` optionally opens another page. Returns a 30-minute bundle URL and expiry. |
 
 Read `share` from the link's fragment and POST it to the exchange endpoint.
 Remove the fragment after using it. The server stores only a hash of the link credential. A browser holds one active share scope per
@@ -53,10 +57,18 @@ the internal ID and `actor.scope` for the authorization boundary.
 Members can read `GET /settings` for `{formats}`. A workspace admin can
 `PATCH /settings` with the same shape. New upload grants and publishing
 check both this setting and the registered source adapter. The default is
-`['image']`. Pausing a format leaves published versions readable. The current
-image adapter decodes PNG, JPEG, WebP and GIF, validates the declared format,
-and publishes an oriented, metadata-free WebP preview. It caps sources at
-20 MiB and limits decoded pixels and frames. SVG requires its own safe adapter.
+`['image']`. Pausing a format leaves published versions readable. The Files page's **File formats** setting lets admins change this list. All
+sources use the 20 MiB upload cap. An HTML upload also requires a configured
+isolated preview host. Supported input and preview contracts follow.
+
+| Source | Published evidence and limits |
+| --- | --- |
+| PNG, JPEG, WebP, GIF, SVG | Pixel-decoded WebP without source metadata. Static files are oriented. GIF and animated WebP preserve frame timing. SVG is limited to 2 MiB and references within the document, then rasterized. All images are bounded by decoded pixel and frame limits. |
+| PDF | Up to 100 pages and a bounded rendering job. The authorized browser PDF and JSON text evidence are generated from rendered page pixels and local OCR. Stable page signatures support matching unique text or scanned pixels across reorders. Repeated signatures remain ambiguous. |
+| Figma Design | Choose up to 20 frames using a personal access token with `file_content:read`. Snapshots pin the Figma file revision used during export. Resync reports added, renamed and removed frames. Source links and selection metadata are member-only. |
+| MP4, MOV, WebM | AVC/AAC MP4 or MOV and VP8/VP9 with Opus/Vorbis WebM are remuxed. Other supported codecs and rotated movies require the bounded FFmpeg processor, which outputs AVC/AAC MP4 with a JPEG poster. Sources may be up to 15 minutes and 4K. Conversion is limited to two minutes of input and at most 1080p/60 fps output. |
+| EML or test email | MIME-parsed subject, preheader, sender, link destinations, text and sanitized HTML. HTML bytes are fetched as inert plain text on the app origin. The viewer uses an opaque iframe with tracking requests, active content and link navigation disabled. Embedded image previews are capped and re-encoded. |
+| HTML or ZIP | UTF-8 single HTML, or a directory packaged as ZIP in the Files dialog. The archive may contain up to 100 entries and 32 MiB expanded. Use `index.html` at the root. ZIP paths, types, compression and duplicate entries are validated without extracting files to disk. |
 
 The browser sends the file with a credential-free PUT and the returned
 headers. The upload grant can only create one staging object for ten minutes.
@@ -68,15 +80,63 @@ version. A temporary processing conflict can be retried on the same slot.
 
 Server adapters register `ProofSourceAdapter` in
 [`sources.ts`](../src/lib/proofs/sources.ts). Its `ingest({bytes, filename,
-contentType, signal})` returns `{manifest, artifacts}`, with entries
+contentType, signal})` returns `{manifest, artifacts, resources?}`, with entries
 `{id, contentType, bytes}`. The service validates output names, types and
 sizes, and checks the source and current version before publishing. An
 adapter can throw `ProofSourceError` for a terminal input error. A transient
 failure leaves a processing job for the next request or worker run.
-An authenticated server import calls `beginProofUpload(request, projectId,
-assetId, input)`, `stageProofSource(request, projectId, assetId, versionId,
-bytes)`, then `finalizeProofUpload(request, projectId, assetId, versionId)`.
-The imports use the same member, format, upload and publish checks.
+Server imports use `beginAuthorizedProofUpload`, `stageAuthorizedProofSource`
+and `finalizeAuthorizedProofUpload` with live authorization. Figma snapshots
+cannot be published through ordinary grants. The source token is used for
+each discovery or resync and kept out of storage and preview URLs. Inaccessible
+sources, a failed export or a stale version leave the current review available.
+
+### PDF display privacy
+
+PDF previews contain an independently constructed PDF and a bounded JSON
+text artifact. The processor renders each page with annotations disabled,
+then runs a bundled English OCR model over those pixels. The output PDF has
+positioned invisible OCR words so the browser can search and select text.
+The original document's attachments, form fields, action dictionaries,
+metadata and source text layer are absent from both previews. The media
+route requires the `raster-ocr-v1` marker before serving PDF derivatives.
+OCR may introduce recognition errors and has limited coverage of scripts
+outside its model. Graphics are rasterized. The authorized original endpoint
+returns the exact uploaded bytes.
+
+### Isolated prototype playback
+
+The app grants access to an immutable bundle at the configured preview host.
+The resource handler ignores cookies and checks the signed scope, expiry,
+project epoch and live membership or share on every request. The host serves
+prototype routes only. The app host denies prototype resource paths. Both the
+iframe and the response sandbox run documents as opaque origins. The policy
+allows scripts, local images, CSS, fonts and JSON under the same bundle URL.
+Relative resource paths work, and root HTML attribute paths are rewritten
+within the bundle. Runtime requests should use relative URLs. The bridge
+supports point or text evidence for bundled pages. Arbitrary application
+state and captured screenshots are outside the current preview contract.
+Reload the review if an open prototype has outlived its URL.
+
+### Inbound test messages and agents
+
+The dedicated mail worker POSTs raw `message/rfc822` to `/api/proof-mail`
+with its bearer and the complete SMTP envelope recipient in `X-Uier-Envelope-To`.
+The configured literal alias accepts a random plus detail that contains no
+project or asset identifiers. The server looks up its hash and ignores MIME
+recipients for routing. It accepts up to 4 MiB. Rotating or disabling the address invalidates
+intake immediately. The project epoch and address owner's membership are
+rechecked before publishing. The combination of address generation and
+Message-ID deduplicates retries across versions. Transport-only headers
+are excluded from the content check. The exact source stays in its original
+attachment. Uploading an EML file needs only the email format setting.
+
+A coding connection with `proofs:upload` can list its permitted files,
+begin a scoped staged upload and finalize a version. Agent tools use the
+same format policy and version concurrency checks as the library. Preview
+links require the viewer's own permission. See the [MCP contract](../../../docs/mcp.md).
+
+Hosted setup and preview qualification are in the [proof provider runbook](../../../docs/proof-providers.md).
 
 ## Access and storage maintenance
 
@@ -120,6 +180,11 @@ runtime and its own identity.
 same handlers and workers with memory storage or configured disposable Cosmos
 and Azure Blob emulators. The local API fixtures cover scoped grants, format
 policy, racing publishers, retry, transfer and removal of private bytes.
+[Source tests](../e2e/proof-sources.api.spec.ts) exercise adapter publication,
+PDF privacy and evidence, provider access and replay, source rotation,
+prototype fencing and agent permissions. [Browser imports](../e2e/proof-imports.spec.ts)
+cover guest PDF page search and directory selection with an isolated host.
+
 
 ## Version approvals and review record
 

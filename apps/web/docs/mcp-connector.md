@@ -564,3 +564,13 @@ Atomic add/remove preserves concurrent unrelated labels. Receipt keys are connec
 replay without reapplying an old operation. Results include acting identity, comment ID and labels.
 This creates ordinary thread activity/history without email or a dedicated label event.
 `thread-labels.api.spec.ts` and the labels case in `mcp.api.spec.ts` cover this contract.
+
+## File proof uploads
+
+`proofs:upload` is an explicit write scope in Coding agents and connected
+app consent. A scoped agent can use `list_proof_files`, `begin_proof_upload`,
+and `finalize_proof_upload` on projects it currently reaches. The begin tool
+returns a temporary create-only PUT URL. Its result contains storage
+credentials, so clients must keep it out of logs and messages. Finalize
+returns an ordinary immutable viewer URL and rechecks the original agent
+grant. Figma imports use the member's Figma authorization in the Files UI.

@@ -55,6 +55,8 @@ Vercel-trusted identity; account-key authentication remains enabled until the st
 
 ### Incoming email forwarding
 
+File proof mail uses a distinct literal Worker route and plus addressing. Set it up through the [file proof provider workflow](proof-providers.md#test-email-ingress).
+
 Cloudflare Email Routing manages incoming mail for `uier.io` through `infra/src/emailRouting.ts`.
 The dashboard owns its three MX records and `cf2024-1._domainkey` TXT record. Pulumi retains the
 existing root SPF resource and merges `include:_spf.mx.cloudflare.net` with the ACS-provided

@@ -9,7 +9,7 @@ export function mailAlias() {
 }
 
 /** Only creates the designated missing literal rule. Existing aliases and catch-all are read-only. */
-export async function verifyOrCreateMailRoute(target, { apply = false } = {}) {
+export async function verifyOrCreateMailRoute(target, { apply = false, lookupMx = resolveMx } = {}) {
     const address = mailAlias();
     const domain = address.split('@')[1];
     const zoneId = process.env.UIER_PROOF_EMAIL_ZONE_ID;
@@ -30,7 +30,7 @@ export async function verifyOrCreateMailRoute(target, { apply = false } = {}) {
     if (typeof settings.name !== 'string' || !(domain === settings.name || domain.endsWith('.' + settings.name))
         || !settings.enabled || settings.status !== 'ready' || settings.support_subaddress !== true)
         throw new Error('Enable Email Routing and plus addressing for the configured zone before running this workflow.');
-    const mx = await resolveMx(domain);
+    const mx = await lookupMx(domain);
     if (!mx.some(entry => /^route[1-3]\.mx\.cloudflare\.net\.?$/i.test(entry.exchange)))
         throw new Error('The configured mail hostname must have Cloudflare Email Routing MX records.');
     const rootAliases = new Set(['contact@uier.io', 'security@uier.io', 'privacy@uier.io']);
@@ -47,7 +47,7 @@ export async function verifyOrCreateMailRoute(target, { apply = false } = {}) {
             if (page === 20) throw new Error('The routing rule inventory exceeded the inspection limit.');
         }
         if (matches.length > 1) throw new Error('Multiple Cloudflare rules currently match the proof alias.');
-        const rule = matches[0];
+        const rule = matches[0]?.id ? (await request('/rules/' + encodeURIComponent(matches[0].id))).result : undefined;
         if (rule && !(rule.enabled && rule.source !== 'wrangler' && rule.matchers?.length === 1
             && rule.matchers[0].type === 'literal' && rule.matchers[0].field === 'to'
             && rule.actions?.length === 1 && rule.actions[0].type === 'worker'
@@ -61,7 +61,7 @@ export async function verifyOrCreateMailRoute(target, { apply = false } = {}) {
     const existing = await exactRule();
     if (apply && !existing.rule) {
         await request('/rules', { name: 'uier test proof email (' + target + ')', enabled: true,
-            matchers: [{ type: 'literal', field: 'to', value: address }], actions: [{ type: 'worker', value: [worker] }], source: 'api' });
+            matchers: [{ type: 'literal', field: 'to', value: address }], actions: [{ type: 'worker', value: [worker] }] });
         const verified = await exactRule();
         if (!verified.rule || verified.protectedState !== existing.protectedState)
             throw new Error('Readback did not confirm the proof alias and preserved root rules.');

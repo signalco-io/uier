@@ -1337,3 +1337,15 @@ Definitions are managed in settings, with no MCP catalog-write tool.
 Renaming a definition updates existing display; removing it hides it without deleting the thread
 or changing its status. A later add rejects an unavailable ID. Reads never acknowledge activity.
 Label writes create thread activity/history without email or a dedicated label webhook event.
+
+## Publish a proof version
+
+Approve the file with the person, then use a connection that includes
+`proofs:upload`. Call `list_proof_files` to get the asset and current version.
+Send `projectId`, `assetId`, `expectedVersionId`, a fresh `requestId`,
+`filename`, `contentType` and byte `size` to `begin_proof_upload`. Use the
+returned `uploadUrl` and headers for a raw PUT without forwarding the MCP
+bearer. Keep the temporary storage URL private. Call `finalize_proof_upload`
+with the returned `versionId` to get the authorized viewer link. Retry the
+same request ID when renewing the upload, and reuse the version ID on a
+finalize retry. See the [proof API](../apps/web/docs/proof-api.md).
