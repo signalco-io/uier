@@ -163,7 +163,7 @@ test('text comments: the selection toolbar, the saved anchor and its highlight',
     await openLanding(page, origin, { dismissHint: true });
     await openFaqAnswer(page);
 
-    // Selecting text shows the selection toolbar with Add comment
+    // Selecting text shows the selection toolbar with Comment
     await selectText(page, selectedText);
     await expect(selectionToolbar(page)).toBeVisible();
     await selectionToolbar(page).getByRole('button', { name: 'Comment', exact: true }).click();

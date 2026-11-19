@@ -381,7 +381,7 @@ test('packaged isolated runtime uses real sign-in, helper and worker under stric
     await reviewed.keyboard.press('Escape');
     // Text and area anchors use the same packaged runtime and worker image path.
     await selectText(reviewed, 'No embed or page scripts.');
-    await reviewed.getByRole('toolbar', { name: 'Selected text' }).getByRole('button', { name: 'Add comment', exact: true }).click();
+    await reviewed.getByRole('toolbar', { name: 'Selected text' }).getByRole('button', { name: 'Comment', exact: true }).click();
     await reviewed.getByRole('textbox', { name: 'Comment', exact: true }).fill('Feedback on selected text');
     await reviewed.getByRole('textbox', { name: 'Comment', exact: true }).press('Enter');
     await expect(reviewed.getByText('Feedback on selected text', { exact: true })).toBeVisible();

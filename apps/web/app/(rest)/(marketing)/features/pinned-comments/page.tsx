@@ -29,7 +29,7 @@ const steps = [
     },
     {
         title: 'Or select the words',
-        text: 'Select text on the page and choose Add comment. The words keep a blue tint, so everyone sees which ones the comment is about.'
+        text: 'Select text on the page and choose Comment. The words keep a blue tint, so everyone sees which ones the comment is about.'
     },
     {
         title: 'Write and post',

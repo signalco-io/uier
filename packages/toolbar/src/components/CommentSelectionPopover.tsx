@@ -14,7 +14,7 @@ import { useMessages } from '../i18n';
 
 type CommentSelectionPopoverProps = {
     rects: DOMRect[];
-    /** Add comment: a comment about the selected text */
+    /** Comment: a comment about the selected text */
     onCreate: () => void;
     /** Rewrite: suggested text to replace the selected text */
     onRewrite: () => void;
