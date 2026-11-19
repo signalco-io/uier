@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 // The registry of this test run, never the person's own ~/.uier-monitor.
 const home = mkdtempSync(join(tmpdir(), 'uier-monitor-home-'));
 process.env.UIER_MONITOR_HOME = home;
-const { PAGE, agentOf, collect, createDashboardServer, discover, findSiteIcon, iconLinks, iconRequest, iconType, isPublicAddress, levels, modelName, projectIcon, publicLookup, reviewOf, sessionLink, snapshot } = await import('./dashboard.mjs');
+const { PAGE, agentOf, collect, createDashboardServer, discover, findSiteIcon, iconLinks, iconRequest, iconType, isPublicAddress, levels, missingFrom, modelName, projectIcon, publicLookup, reviewOf, savedReview, sessionLink, snapshot } = await import('./dashboard.mjs');
 const monitor = fileURLToPath(new URL('./monitor.mjs', import.meta.url));
 const temporary = [home];
 after(() => { for (const dir of temporary) rmSync(dir, { recursive: true, force: true }); });
@@ -261,6 +261,97 @@ test('--review adds the uier toolbar and exactly the sources it needs; without i
         server.closeAllConnections();
         await new Promise(resolve => server.close(resolve));
     }
+});
+
+test('a start with --review takes over a running dashboard without it, on the same port', async () => {
+    assert.equal(missingFrom({ pid: 1 }, {}), null);
+    assert.equal(missingFrom({ pid: 1 }, { review: reviewOf('proj_abc123'), dev: true }), '--review proj_abc123 --dev');
+    assert.equal(missingFrom({ review: reviewOf('proj_abc123'), dev: true }, { review: reviewOf('proj_abc123'), dev: true }), null);
+    assert.equal(missingFrom({ review: reviewOf('proj_abc123') }, { review: reviewOf('proj_other1') }), '--review proj_other1');
+
+    const script = fileURLToPath(new URL('./dashboard.mjs', import.meta.url));
+    const probe = createServer().listen(0, '127.0.0.1');
+    await once(probe, 'listening');
+    const port = String(probe.address().port);
+    await new Promise(resolve => probe.close(resolve));
+    const dir = stateDir({ project: { id: 'p1', name: 'Reviewed fixture' } });
+    const start = (...args) => {
+        const child = spawn(process.execPath, [script, 'serve', '--port', port, '--no-icons', '--state', dir, ...args], { cwd: tmpdir(), env: { ...process.env }, stdio: ['ignore', 'pipe', 'pipe'] });
+        child.output = '';
+        child.stdout.on('data', chunk => { child.output += chunk; });
+        child.stderr.on('data', chunk => { child.output += chunk; });
+        return child;
+    };
+    const until = async (check, what) => {
+        for (let tries = 0; tries < 100; tries++) { const value = await check(); if (value) return value; await sleep(50); }
+        throw new Error(`Timed out waiting for ${what}.`);
+    };
+    const record = () => { try { return JSON.parse(readFileSync(join(home, 'dashboard.json'), 'utf8')); } catch { return null; } };
+    const children = [];
+    try {
+        const plain = start();
+        children.push(plain);
+        await until(() => record()?.pid === plain.pid, 'the plain dashboard');
+        assert.ok(!(await (await fetch(`http://127.0.0.1:${port}/?review=true`)).text()).includes('toolbar.js'), 'without --review a review link has no toolbar');
+
+        const again = start();
+        await once(again, 'exit');
+        assert.match(again.output, /already running/, 'a start that asks for nothing more reuses it');
+
+        const reviewed = start('--review', 'proj_abc123');
+        children.push(reviewed);
+        await once(plain, 'exit');
+        await until(() => record()?.pid === reviewed.pid, 'the reviewed dashboard');
+        assert.match(reviewed.output, /started without --review proj_abc123; restarting it on the same port/);
+        assert.deepEqual(record().review, { project: 'proj_abc123', origin: 'https://uier.io' });
+        assert.equal(record().url, `http://127.0.0.1:${port}`);
+        assert.ok((await (await fetch(`http://127.0.0.1:${port}/?review=true`)).text()).includes('data-uier-project="proj_abc123"'));
+
+        const plainAgain = start();
+        await once(plainAgain, 'exit');
+        assert.match(plainAgain.output, /already running/, 'a start without --review keeps the reviewed one');
+    } finally {
+        for (const child of children) if (child.exitCode === null && child.signalCode === null) { const exited = once(child, 'exit'); child.kill('SIGTERM'); await exited; }
+    }
+});
+
+test('review <id> saves the default --review for every later start, and review off forgets it', async () => {
+    const script = fileURLToPath(new URL('./dashboard.mjs', import.meta.url));
+    const cli = (...args) => execFileSync(process.execPath, [script, ...args], { encoding: 'utf8', cwd: tmpdir(), env: { ...process.env }, stdio: 'pipe' });
+    const settings = join(home, 'dashboard-settings.json');
+    assert.match(cli('review'), /No default review project/);
+    assert.equal(savedReview(), null);
+    assert.throws(() => cli('review', 'a"b'), /project id/);
+    assert.ok(!existsSync(settings), 'an invalid id saves nothing');
+    try {
+        assert.match(cli('review', 'proj_saved1'), /Saved: .*proj_saved1/);
+        assert.deepEqual(JSON.parse(readFileSync(settings, 'utf8')), { review: 'proj_saved1' });
+        assert.deepEqual(savedReview(), { project: 'proj_saved1', origin: 'https://uier.io' });
+        assert.match(cli('review'), /load the toolbar for project proj_saved1/);
+
+        const child = spawn(process.execPath, [script, '--port', '0', '--no-icons', '--state', stateDir({ project: { id: 'p1' } })], { cwd: tmpdir(), env: { ...process.env }, stdio: ['ignore', 'pipe', 'pipe'] });
+        let output = '';
+        child.stdout.on('data', chunk => { output += chunk; });
+        try {
+            for (let tries = 0; tries < 100 && !/Review: /.test(output); tries++) await sleep(50);
+            const url = /(http:\/\/127\.0\.0\.1:\d+)/.exec(output)?.[1];
+            assert.ok(url, `the dashboard starts: ${output}`);
+            assert.match(output, /Open http:\/\/127\.0\.0\.1:\d+\/\?review=true to leave feedback/);
+            assert.ok((await (await fetch(`${url}/`)).text()).includes('data-uier-project="proj_saved1"'), 'a start without --review uses the saved project');
+            assert.deepEqual(JSON.parse(readFileSync(join(home, 'dashboard.json'), 'utf8')).review, { project: 'proj_saved1', origin: 'https://uier.io' });
+        } finally {
+            const exited = once(child, 'exit');
+            child.kill('SIGTERM');
+            await exited;
+        }
+
+        writeFileSync(settings, JSON.stringify({ review: '<script>' }));
+        assert.equal(savedReview(), null, 'a broken setting loads no toolbar');
+    } finally {
+        assert.match(cli('review', 'off'), /only when started with --review/);
+    }
+    assert.deepEqual(JSON.parse(readFileSync(settings, 'utf8')), {});
+    assert.equal(savedReview(), null);
 });
 
 test('--dev swaps in an edited file on the same port, tells open pages to reload, and survives a broken edit', async () => {
