@@ -19,7 +19,8 @@ for (const colorScheme of ['light', 'dark'] as const) {
         await page.reload();
         const load = () => page.evaluate(async () => (await (await fetch('/api/comments?path=/')).json() as CommentItem[])[0]!);
         await expect(page.locator(`[data-uier-comment="${comment.id}"]`)).toHaveCount(0);
-        await page.getByRole('button', { name: /^Inbox(?:,|$)/ }).click();
+        const inboxButton = page.getByRole('button', { name: /^Inbox(?:,|$)/ });
+        await inboxButton.click();
         const inbox = page.getByRole('complementary', { name: 'Comments' });
         // A matching anchor is quiet: reattaching it is in the comment's menu
         const reattachFromMenu = async () => {
@@ -69,15 +70,18 @@ for (const colorScheme of ['light', 'dark'] as const) {
         expect(second.position).toMatchObject({ type: 'text', text: 'leaving comments directly' });
         expect(second.anchorContext).toMatchObject({ original: comment.position, previous: first.position, changes: 2 });
         await inbox.getByRole('button', { name: 'Close sidebar' }).click();
+        await expect(inboxButton).toHaveAttribute('aria-expanded', 'false');
         await page.getByRole('button', { name: /Collapse toolbar/ }).click();
         await expect(page.locator('[data-uier-comment]')).toHaveCount(0);
         await expect(page.locator('[data-uier-highlight]')).toHaveCount(0);
         await page.getByRole('button', { name: 'Expand toolbar' }).click();
         await expect(page.locator(`[data-uier-comment="${comment.id}"]`)).toHaveCount(1);
+        // A panel that is open when the page reloads is restored with the saved anchor history.
+        await inboxButton.click();
+        await expect(inboxButton).toHaveAttribute('aria-expanded', 'true');
         await page.reload();
         await expect(page.locator(`[data-uier-comment="${comment.id}"]`)).toHaveCount(1);
         expect((await load()).thread).toEqual(comment.thread);
-        // The inbox reopened during reattachment and restores itself across reload.
         await expect(inbox).toBeVisible();
         await expect(inbox.getByText('Anchor changed 2 times')).toBeVisible();
         await inbox.getByText('Anchor changed 2 times').click();

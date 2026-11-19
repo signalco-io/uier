@@ -309,6 +309,8 @@ can appear before the worker finishes saving, including a committed-but-lost wri
 The strict-CSP posting/reload check waits for the toolbar's `Comment posted` success announcement
 before reloading. Visible text alone can be the optimistic thread while screenshot/device capture
 is still pending; reloading then interrupts the send and correctly leaves a recoverable draft.
+The same fixture saves a combined label and side padding suggestion through the extension worker.
+After reload, Chromium verifies the Original and Proposed states and restoration when the thread closes.
 BFCache checks trigger Back through Chromium's history protocol, outside the outgoing document's
 execution context. They still assert the restored document's original time origin and the toolbar's
 live binding state; a cache restore emits no new load event to await.
