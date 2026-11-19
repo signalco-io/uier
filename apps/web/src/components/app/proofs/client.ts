@@ -28,14 +28,20 @@ export function proofWrite<T>(path: string, method: 'POST' | 'PATCH' | 'DELETE',
 
 const exchangeRequests = new Map<string, Promise<unknown>>();
 
+export function readProofLinkGrant(hash: string) {
+    const fragment = new URLSearchParams(hash.slice(1));
+    const approval = fragment.get('approval');
+    const token = approval ?? fragment.get('share');
+    if (token) return { token, endpoint: approval ? '/approvals' : '/exchange' } as const;
+}
+
 /** The fragment is consumed before fetching anything with the previous session's scope. */
 export async function exchangeProofLink(projectId: string) {
     const url = new URL(window.location.href);
-    const fragment = new URLSearchParams(url.hash.slice(1));
-    const approval = fragment.get('approval');
-    const token = approval ?? fragment.get('share');
-    if (!token) return;
-    const path = proofApiPath(projectId) + (approval ? '/approvals' : '/exchange');
+    const grant = readProofLinkGrant(url.hash);
+    if (!grant) return;
+    const { token, endpoint } = grant;
+    const path = proofApiPath(projectId) + endpoint;
     const key = JSON.stringify([path, token]);
     let request = exchangeRequests.get(key);
     if (!request) {
@@ -46,7 +52,8 @@ export async function exchangeProofLink(projectId: string) {
         await request;
     } finally {
         // A temporary network failure can be retried from the original link. Never put the grant in a request URL.
-        if (window.location.hash === url.hash)
-            window.history.replaceState(null, '', url.pathname + url.search);
+        const current = window.location;
+        if (current.pathname === url.pathname && current.hash === url.hash)
+            window.history.replaceState(window.history.state, '', current.pathname + current.search);
     }
 }

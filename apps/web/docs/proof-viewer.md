@@ -29,6 +29,11 @@ tab has already added a site, the first-site form asks the admin to reload.
   fragment before reading scoped data and strips it from the address. Collection
   links use `/proof/[publicId]/collection/[collectionId]`. Both viewer pages use
   the viewer's app language, deny indexing and send no referrer.
+  Reopening a grant link in the same tab reloads the proof page when only the
+  fragment changes. The normal exchange restores the link's scope and keeps the
+  reviewer cookie. The reload reads the current file version or collection
+  membership and refreshes the review queue. Version and thread query parameters
+  continue to open the saved permalink.
 - `ProofThreads` stays mounted when switching version or choosing a revised
   location. See [the thread interface](proof-review.md#viewer-mount) for its
   props. The viewer sends `draftAnchor` on the selected version and renders
