@@ -19,7 +19,6 @@ import { Field, FieldGroup, FieldLabel, FieldTitle } from '@/src/components/ui/f
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from '@/src/components/ui/input-group';
 import { Popover, PopoverContent, PopoverHeader, PopoverTitle, PopoverTrigger } from '@/src/components/ui/popover';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select';
-import { Toggle } from '@/src/components/ui/toggle';
 import { ToggleGroup, ToggleGroupItem } from '@/src/components/ui/toggle-group';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/src/components/ui/tooltip';
 import type { EnvironmentOption } from '../../../lib/app/environments';
@@ -138,6 +137,8 @@ export function CommentFilters({ className, unread, unreadCount, view, onView, a
     // Only a project's board (with `statusCounts`): My work's board groups by category and has no status filter
     const boardStatus = view === 'board' && statusCounts && status ? boardStatusFilter(status) : undefined;
     const projectLabel = project ? projects?.find(option => option.id === project)?.name : undefined;
+    // Leaving the Archive goes back to the list's default status; a thread open there stays behind
+    const leaveArchive = { archive: undefined, status: undefined, comment: undefined };
     const chips = [
         label && { key: 'label', name: t('Label'), value: labels?.find(item => item.id === label)?.name ?? t('Unavailable label'), clear: () => go({ label: undefined }) },
         projectLabel && { key: 'project', name: t('Project'), value: projectLabel, clear: () => go({ project: undefined }) },
@@ -146,8 +147,10 @@ export function CommentFilters({ className, unread, unreadCount, view, onView, a
         unread && { key: 'unread', value: t('Only unread'), clear: () => go({ unread: undefined }) },
         environmentLabel && { key: 'environment', name: t('Environment'), value: environmentLabel, clear: () => go({ environment: undefined, page: undefined }) },
         page && { key: 'page', name: t('Page'), value: pagePrefix !== undefined ? `${pagePrefix}/…` : page, clear: () => go({ page: undefined }) },
-        people !== 'all' && { key: 'people', name: t('People'), value: t(peopleFilterLabels[people]), clear: () => go({ people: undefined }) }
-    ].filter(Boolean) as { key: string; name?: string; value: string; clear: () => void }[];
+        people !== 'all' && { key: 'people', name: t('People'), value: t(peopleFilterLabels[people]), clear: () => go({ people: undefined }) },
+        // The Archive is a filter in the popover, not a button in the row (uier #485)
+        archive?.pressed && { key: 'archive', value: t('Archived'), icon: <ArchiveIcon data-icon="inline-start" />, clear: () => go(leaveArchive) }
+    ].filter(Boolean) as { key: string; name?: string; value: string; icon?: React.ReactNode; clear: () => void }[];
     const archiveUnreadId = useId();
     const active = chips.length + (author ? 1 : 0);
 
@@ -174,25 +177,14 @@ export function CommentFilters({ className, unread, unreadCount, view, onView, a
                         {active > 0 && (
                             <div role="group" aria-label={t("Filters in effect")}
                                 className="flex min-w-0 flex-wrap items-center gap-1.5 sm:justify-end">
-                                {chips.map(chip => <FilterChip key={chip.key} name={chip.name} value={chip.value} onClear={chip.clear} />)}
+                                {chips.map(chip => <FilterChip key={chip.key} name={chip.name} value={chip.value} icon={chip.icon} onClear={chip.clear} />)}
                                 {author && <FilterChip name="Author" value={author.name} icon={<UserIcon data-icon="inline-start" />} onClear={() => go({ author: undefined })} />}
                             </div>
                         )}
                     </div>
                 )}
-                <div className={cn(filterControls, archive && 'max-sm:flex-wrap')}>
-                    {archive && <>
-                        <span id={archiveUnreadId} hidden>{t('Unread')}</span>
-                        <Toggle size="sm" variant="outline" pressed={archive.pressed} aria-describedby={archive.unread ? archiveUnreadId : undefined}
-                            className="shrink-0 gap-1.5 pointer-coarse:min-h-11 pointer-coarse:min-w-11"
-                            onPressedChange={pressed => go({ archive: pressed ? 'only' : undefined, status: undefined, comment: undefined })}>
-                            <ArchiveIcon aria-hidden="true" />
-                            <span className="sr-only sm:not-sr-only">{t('Archive')}</span>{' '}
-                            {archive.count !== undefined && <span className="tabular-nums text-muted-foreground">{archive.count}</span>}
-                            <TabUnread unread={archive.unread} />
-                        </Toggle>
-                        {archive.sort}
-                    </>}
+                <div className={cn(filterControls, archive?.sort && 'max-sm:flex-wrap')}>
+                    {archive?.sort}
 
                 <Popover open={filtersOpen} onOpenChange={setFiltersOpen}>
                     {/* Icon-only (uier #404), named "Filter", or "Filter 2" with two in effect; the badge shows the count */}
@@ -293,9 +285,21 @@ export function CommentFilters({ className, unread, unreadCount, view, onView, a
                                     <span className={cn('tabular-nums', unreadCount > 0 ? 'text-[hsl(var(--brand-accent-text))]' : 'text-muted-foreground')}>{unreadCount}</span>
                                 </FieldLabel>
                             </Field>
+                            {archive && (
+                                <Field orientation="horizontal" className="pointer-coarse:min-h-11">
+                                    <span id={archiveUnreadId} hidden>{t('Unread')}</span>
+                                    <Checkbox id="filter-archive" checked={archive.pressed} aria-describedby={archive.unread ? archiveUnreadId : undefined}
+                                        onCheckedChange={checked => go(checked ? { archive: 'only', status: undefined, comment: undefined } : leaveArchive)} className="pointer-coarse:after:-inset-3.5" />
+                                    <FieldLabel htmlFor="filter-archive" className="font-normal">
+                                        {t("Only archived")}
+                                        {archive.count !== undefined && <span className="tabular-nums text-muted-foreground">{archive.count}</span>}
+                                        <TabUnread unread={archive.unread} />
+                                    </FieldLabel>
+                                </Field>
+                            )}
                             {active > 0 && (
                                 <Button variant="ghost" size="sm" className="self-start pointer-coarse:min-h-11"
-                                    onClick={() => { go({ priority: undefined, unread: undefined, environment: undefined, page: undefined, people: undefined, author: undefined, ...(boardStatus ? { status: undefined } : {}), ...(projects ? { project: undefined } : {}) }); setFiltersOpen(false); }}>
+                                    onClick={() => { go({ priority: undefined, unread: undefined, environment: undefined, page: undefined, people: undefined, author: undefined, ...(boardStatus ? { status: undefined } : {}), ...(projects ? { project: undefined } : {}), ...(archive?.pressed ? leaveArchive : {}) }); setFiltersOpen(false); }}>
                                     {t("Clear filters")}
                                 </Button>
                             )}

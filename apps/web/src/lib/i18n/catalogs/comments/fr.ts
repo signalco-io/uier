@@ -339,6 +339,7 @@ const messages: Record<keyof typeof en, string> = {
     "Oldest first": "Plus anciens d’abord",
     "On": "Activé",
     "Only admins and the author see this comment now.": "Seuls les admins et l’auteur voient désormais ce commentaire.",
+    "Only archived": "Archivés seulement",
     "Only unread": "Non lus seulement",
     "Only workspace admins and the author can see this thread. Other members and guests cannot.": "Seuls les admins de l’espace et l’auteur peuvent voir ce fil. Les autres membres et les invités ne le peuvent pas.",
     "Open": "Ouvert",

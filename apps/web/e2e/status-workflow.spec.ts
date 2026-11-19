@@ -1,6 +1,6 @@
 import { enableProjectVerification } from './support/app';
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { createProject, hydrated, openBoardMove, openComment, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { createProject, hydrated, openBoardMove, openComment, setProjectAccess, signIn, toggleArchive, uniqueEmail } from './support/app';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 import { startReviewedSite } from './support/reviewedSite';
 import { expectNoAxeViolations } from './accessibility';
@@ -95,14 +95,13 @@ test('workspace statuses inherit, project overrides save/discard, and board/menu
         await page.getByRole('menuitem', { name: 'Rejected', exact: true }).click();
         await expect(thread.getByText('Archived', { exact: true })).toBeVisible();
         await thread.getByRole('button', { name: 'Back to comments' }).click();
-        const archive = page.getByRole('button', { name: /^Archive(?:\s*\d+)?$/ });
-        await archive.click();
+        await toggleArchive(page);
         await expect(page.locator('[data-comment-row]')).toContainText(/Status:\s*Production/);
         await openComment(page, comment.number);
         await page.getByRole('article').getByRole('button', { name: /^More actions for the comment/ }).click();
         await page.getByRole('menuitem', { name: 'Restore comment', exact: true }).click();
         await expect(page.getByText('Nothing archived', { exact: true })).toBeVisible();
-        await archive.click();
+        await page.getByRole('button', { name: 'Archived, clear filter', exact: true }).click();
         await expect(column('Production').getByRole('listitem')).toHaveCount(1);
         await expectNoAxeViolations(page);
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

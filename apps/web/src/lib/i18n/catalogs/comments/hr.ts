@@ -339,6 +339,7 @@ const messages: Record<keyof typeof en, string> = {
     "Oldest first": "Najstarije prvo",
     "On": "Uključeno",
     "Only admins and the author see this comment now.": "Sada samo administratori i autor vide ovaj komentar.",
+    "Only archived": "Samo arhivirano",
     "Only unread": "Samo nepročitano",
     "Only workspace admins and the author can see this thread. Other members and guests cannot.": "Samo administratori radnog prostora i autor mogu vidjeti ovu raspravu. Ostali članovi i gosti ne mogu.",
     "Open": "Otvoreno",
