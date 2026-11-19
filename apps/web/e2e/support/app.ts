@@ -342,7 +342,14 @@ export async function enableProjectVerification(page: Page, projectId: string) {
     await page.goto(`/app/projects/${projectId}/settings/review`);
     const review = page.getByRole('region', { name: 'Review', exact: true });
     await hydrated(review.locator('form'));
-    await review.getByRole('checkbox', { name: 'Enable fix verification', exact: true }).check();
-    await review.getByRole('button', { name: 'Save', exact: true }).click();
-    await expect(review.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
+    const enabled = review.getByRole('checkbox', { name: 'Enable fix verification', exact: true });
+    if (await enabled.isChecked()) return;
+    await enabled.check();
+    const save = review.getByRole('button', { name: 'Save', exact: true });
+    await save.click();
+    // Save is also disabled while the request is pending. Wait for the form's confirmation before navigating.
+    await expect(review.getByRole('status').filter({
+        hasText: /^Saved\. The toolbar uses the new settings on its next page load\.$/
+    })).toBeVisible();
+    await expect(save).toBeDisabled();
 }
