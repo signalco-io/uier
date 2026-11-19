@@ -65,6 +65,12 @@ const nextConfig: NextConfig = {
                 { key: 'Cache-Control', value: 'public, max-age=300, s-maxage=3600' }
             ]
         }, {
+            source: '/proof-pdf/:version/:asset*',
+            headers: [
+                { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+                { key: 'X-Content-Type-Options', value: 'nosniff' }
+            ]
+        }, {
             // Unversioned toolbar bundle: short cache and cross-origin embedding.
             source: '/toolbar.js',
             headers: [

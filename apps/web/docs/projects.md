@@ -42,6 +42,10 @@
   `e2e/project-transfer{,.api}.spec.ts` cover it.
 - Project links (`DbProject.links`, [project settings](project-settings.md)) live on the project document: deletion removes
   them with it and a transfer copies them. They are member-only: no review API, guest page, export or MCP output includes them.
+- **Files only** creates a named project with no site address. Its first visit opens
+  [Files](proof-viewer.md) using the project’s public ID. Add the first site in Settings → Environments.
+  The save uses ordinary origin validation and the existing project record. A stale first-site form
+  cannot overwrite an address another admin has already added.
 - Project addresses use `normalizeSiteUrl` in `src/lib/app/projects.ts`: schemeless localhost,
   `.localhost` subdomains and loopback IPs default to HTTP, other hosts to HTTPS. Explicit schemes
   and ports are preserved. Review CORS and redirects still require an exact configured origin.

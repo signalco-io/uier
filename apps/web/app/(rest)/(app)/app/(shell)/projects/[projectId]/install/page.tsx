@@ -37,6 +37,9 @@ async function InstallProjectPageContent({ params, searchParams }: PageProps<'/a
     if (!project)
         notFound();
 
+    if (!project.urls.length)
+        redirect(KnownPageLinks.projectInstall(project.id));
+
     const step: OnboardingStep = onboardingSteps.find(name => name === stepParam) ?? 'script';
     const href = (name: OnboardingStep) => KnownPageLinks.projectInstall(project.id, { onboarding: true, step: name });
     const comments = KnownPageLinks.project(project.id);

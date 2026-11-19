@@ -10,6 +10,7 @@ import { requireAdminContext } from '@/src/lib/app/context';
 import { listVisibleProjects } from '@/src/lib/app/projects';
 import { clientNames, loadClients } from '@/src/lib/app/clients';
 import { NewProjectClient, NewProjectClientLoading, NewProjectForm, NewProjectSubmit } from '@/src/components/app/projects/NewProjectForm';
+import { NewProjectMode } from '@/src/components/app/projects/NewProjectMode';
 import { NewProjectHeader } from '@/src/components/app/projects/NewProjectHeader';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -48,11 +49,13 @@ async function NewProjectAuthorizedSubmit() {
  */
 export default function NewProjectPage() {
     return <div className="mx-auto flex w-full max-w-xl flex-col">
+        <NewProjectMode>
         <NewProjectHeader />
         <Card>
             <NewProjectForm
                 client={<Suspense fallback={<NewProjectClientLoading />}><NewProjectClients /></Suspense>}
                 submit={<Suspense fallback={<NewProjectSubmit authorized={false} />}><NewProjectAuthorizedSubmit /></Suspense>} />
         </Card>
+        </NewProjectMode>
     </div>;
 }

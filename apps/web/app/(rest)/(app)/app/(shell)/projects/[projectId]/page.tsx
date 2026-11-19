@@ -37,7 +37,7 @@ async function ProjectPageContent({ params, searchParams }: PageProps<'/app/proj
         openId: typeof search.comment === 'string' ? search.comment : undefined, budgetFallback: true
     });
     if (!snapshot) notFound();
-    return <ProjectComments {...snapshot} initialView={initialView} installHref={KnownPageLinks.projectInstall(project.id)} />;
+    return <ProjectComments {...snapshot} initialView={initialView} installHref={project.urls.length ? KnownPageLinks.projectInstall(project.id) : KnownPageLinks.projectFiles(project.publicId)} />;
 }
 
 export default function ProjectPage(props: Parameters<typeof ProjectPageContent>[0]) {

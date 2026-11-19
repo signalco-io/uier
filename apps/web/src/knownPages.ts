@@ -114,6 +114,7 @@ export const KnownPageLinks = {
     team: (id: string) => `/app/workspace/teams/${encodeURIComponent(id)}`,
     member: (id: string) => `/app/workspace/users/${encodeURIComponent(id)}`,
     project: (projectId: string) => `/app/projects/${encodeURIComponent(projectId)}`,
+    projectFiles: (projectId: string) => `/app/projects/${encodeURIComponent(projectId)}/files`,
     /** What the toolbar's checks found on each page members reviewed */
     projectPageChecks: (projectId: string) => `/app/projects/${encodeURIComponent(projectId)}/page-checks`,
     /** The account: General, or one of its other sections */

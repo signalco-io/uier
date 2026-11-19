@@ -1,3 +1,4 @@
+import { KnownPageLinks } from '../../knownPages';
 import { ApiError } from '../comments/http';
 import { getProjectComment } from '../review/comments';
 import { commentSourcePath } from '../comments/dto';
@@ -6,6 +7,7 @@ import type { AppContext } from './context';
 import type { DbMember } from './model';
 import { findProject, findReviewProject, projectOrigins, reviewUrl } from './projects';
 import { issueReviewCode, memberActor } from '../review/actor';
+import { proofThreadPath } from '../proofs/threadModel';
 import { PUBLIC_WORKSPACE_ID } from '../comments/publicProjectPolicy';
 
 /** Query parameters the toolbar reads on a project's site (packages/toolbar/src/review) */
@@ -39,6 +41,10 @@ export async function memberReviewTarget(userId: string, projectId: string, requ
     if (commentId) {
         if (!commentIdPattern.test(commentId)) return null;
         const comment = await getProjectComment(project, actor, commentId).catch(error => { if (error instanceof ApiError && error.status === 404) return null; throw error; });
+        if (comment?.assetTarget) {
+            const { assetId, source } = comment.assetTarget;
+            return proofThreadPath(project.publicId, assetId, source.versionId, comment.id);
+        }
         if (!comment || !feedbackSource(project, comment.origin).available) return null;
         url = `${comment.origin}${commentSourcePath(comment)}`;
     }
@@ -52,7 +58,7 @@ export async function memberReviewTarget(userId: string, projectId: string, requ
         }
     }
     if (!url)
-        return null;
+        return requestedUrl ? null : KnownPageLinks.projectFiles(project.publicId);
 
     const target = new URL(reviewUrl(url, project.publicId));
     target.searchParams.set(REVIEW_TOKEN_PARAM, await issueReviewCode(userId, project.id));

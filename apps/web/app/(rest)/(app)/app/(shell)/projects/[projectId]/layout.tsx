@@ -31,9 +31,10 @@ async function ProjectLayoutContent({ children, params }: LayoutProps<'/app/proj
     const project = await getVisibleProject(context, projectId);
     if (!project)
         notFound();
+    const hasSites = project.urls.length > 0;
     const [client, feedback] = await Promise.all([
         project.clientId ? getClient(context.workspace.id, project.clientId).then(found => found?.doc) : undefined,
-        hasProjectFeedback(context, project)
+        hasSites && hasProjectFeedback(context, project)
     ]);
     // Those who configure the project (settingsContext's rule) change who can comment from the label
     const canConfigure = context.isAdmin && project.workspaceId !== PUBLIC_WORKSPACE_ID;
@@ -81,7 +82,7 @@ async function ProjectLayoutContent({ children, params }: LayoutProps<'/app/proj
                         <ProjectLinks links={projectLinks(project)} />
                     </span>
                 )} />
-            <ProjectTabs projectId={project.id} install={!feedback} />
+            <ProjectTabs projectId={project.id} publicId={project.publicId} hasSites={hasSites} filesEnabled={project.workspaceId !== PUBLIC_WORKSPACE_ID} install={hasSites && !feedback} />
             <div className="flex flex-col gap-6 pt-6">
                 {children}
             </div>

@@ -55,6 +55,7 @@ Product contracts, API references and runbooks stay in the repository's [`docs/`
 - [Comment filters and priority](comment-filters.md): the filter bar and `PriorityFlag`.
 - [App triage](triage.md): search, priority and bulk triage.
 - [In progress](in-progress.md): the In progress stage.
+- [File library and reviewer viewer](proof-viewer.md): file setup, uploads, share links, rendering and version comparison.
 - [Fix verification](fix-verification.md): request, confirm, reject and cancel.
 - [AI agents under the assignee](assignee-agents.md): `assigneeAgent`, its UI and MCP tools.
 - [AI thread titles](ai-titles.md): `aiTitle`, the Haiku call, when titles are made and who sees them.

@@ -29,11 +29,12 @@ function withNextField(rows: { key: number; url: string }[]) {
  * reset after a form action never drops what was typed. `onUrlsChange` gets the typed addresses
  * (the main site first) after every change.
  */
-export function UrlListInput({ defaultUrls = [], description, hideLegend = false, onUrlsChange }: {
+export function UrlListInput({ defaultUrls = [], description, hideLegend = false, enabled = true, onUrlsChange }: {
     defaultUrls?: string[];
     description?: ReactNode;
     /** When a heading around the list already says "Site addresses" (the legend stays for screen readers) */
     hideLegend?: boolean;
+    enabled?: boolean;
     onUrlsChange?: (urls: string[]) => void;
 }) {
     const { t } = useAppI18n();
@@ -61,7 +62,8 @@ export function UrlListInput({ defaultUrls = [], description, hideLegend = false
                             aria-label={index === 0 ? t("Main site address") : t("Address {value0}", { value0: index + 1 })}
                             value={row.url}
                             onChange={(event) => setUrl(row.key, event.target.value)}
-                            required={index === 0}
+                            disabled={!enabled}
+                            required={enabled && index === 0}
                             inputMode="url"
                             autoComplete="url"
                             spellCheck={false}

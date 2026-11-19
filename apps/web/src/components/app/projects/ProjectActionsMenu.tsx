@@ -4,7 +4,7 @@ import { useAppI18n } from '@/src/lib/i18n/client';
 import { useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { CheckIcon, CodeIcon, MoreHorizontalIcon, SettingsIcon, Undo2Icon, UserPlusIcon } from 'lucide-react';
+import { CheckIcon, CodeIcon, FolderOpenIcon, MoreHorizontalIcon, SettingsIcon, Undo2Icon, UserPlusIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/src/components/ui/button';
 import {
@@ -21,10 +21,12 @@ import { useInvite } from '../users/InviteDialog';
 import { setProjectStatusAction } from './actions';
 
 /** More actions of a project (admins): invite people, settings, install, mark as done or reopen */
-export function ProjectActionsMenu({ projectId, projectName, status, className }: {
+export function ProjectActionsMenu({ projectId, projectName, status, filesHref, hasSites, className }: {
     projectId: string;
     projectName: string;
     status: ProjectStatus;
+    filesHref: string;
+    hasSites: boolean;
     className?: string;
 }) {
     const { t } = useAppI18n();
@@ -51,8 +53,9 @@ export function ProjectActionsMenu({ projectId, projectName, status, className }
                 <DropdownMenuGroup>
                     <DropdownMenuItem onClick={() => openInvite(projectId)}>
                         <UserPlusIcon />{t("Invite people")}</DropdownMenuItem>
-                    <DropdownMenuItem render={<Link href={KnownPageLinks.projectInstall(projectId)} />}>
-                        <CodeIcon />{t("Install script")}</DropdownMenuItem>
+                    {hasSites
+                        ? <DropdownMenuItem render={<Link href={KnownPageLinks.projectInstall(projectId)} />}><CodeIcon />{t("Install script")}</DropdownMenuItem>
+                        : <DropdownMenuItem render={<Link href={filesHref} />}><FolderOpenIcon />{t("Files")}</DropdownMenuItem>}
                     <DropdownMenuItem render={<Link href={KnownPageLinks.projectSettings(projectId)} />}>
                         <SettingsIcon />{t("Settings")}</DropdownMenuItem>
                 </DropdownMenuGroup>

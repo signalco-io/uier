@@ -10,9 +10,9 @@
     "node": "26.x"
   },
   "scripts": {
-    "dev": "node scripts/build-mcp-app.mjs && node scripts/copy-fonts.mjs && next dev -p ${PORT:-4004}",
+    "dev": "node scripts/build-mcp-app.mjs && node scripts/copy-fonts.mjs && node scripts/copy-proof-pdf-assets.mjs && next dev -p ${PORT:-4004}",
     "build:clean": "node scripts/clean-build.mjs",
-    "build:compile": "node scripts/build-mcp-app.mjs && node scripts/copy-fonts.mjs && next build && next-sitemap --config next-sitemap.config.cjs",
+    "build:compile": "node scripts/build-mcp-app.mjs && node scripts/copy-fonts.mjs && node scripts/copy-proof-pdf-assets.mjs && next build && next-sitemap --config next-sitemap.config.cjs",
     "build": "node scripts/copy-toolbar.mjs && node ../../.github/scripts/search-index.mjs generate",
     "start": "next start -p ${PORT:-4004}",
     "typecheck": "next typegen && tsc --noEmit",
@@ -45,6 +45,7 @@
     "botid": "1.5.13",
     "class-variance-authority": "0.7.1",
     "cn": "0.5.2",
+    "fflate": "0.8.3",
     "geist": "1.9.2",
     "jose": "6.2.17",
     "lucide-react": "1.74.0",
@@ -53,6 +54,7 @@
     "next": "16.4.6",
     "next-secure-headers": "2.2.0",
     "next-themes": "0.4.6",
+    "pdfjs-dist": "6.5.438",
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "sharp": "0.35.5",

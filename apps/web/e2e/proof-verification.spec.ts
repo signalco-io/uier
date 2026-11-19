@@ -63,6 +63,7 @@ test('the original guest checks two revised details and retains focus on the nex
             threads.push(review.url());
         }
 
+        let firstRevisedLocation: unknown;
         for (const [index, thread] of threads.entries()) {
             await page.goto(thread);
             await page.getByRole('button', { name: 'Request verification', exact: true }).click();
@@ -70,9 +71,19 @@ test('the original guest checks two revised details and retains focus on the nex
             await request.getByLabel('Fix summary').fill('Updated the price in version 2.');
             await request.getByRole('button', { name: 'Choose location', exact: true }).click();
             await expect(page.getByRole('combobox', { name: 'Version', exact: true })).toContainText('Version 2');
-            await selectPoint(page, isMobile, index);
+            if (isMobile && index === 1) {
+                await expect(page.getByRole('region', { name: 'File preview' }).getByRole('button', { name: 'Thread 1', exact: true })).toBeVisible();
+            }
+            await selectPoint(page, isMobile, isMobile ? 0 : index);
             await expect(request.getByText('Using the selected location.')).toBeVisible();
+            const response = page.waitForResponse(item => item.request().method() === 'POST' && item.url().split('?')[0]!.endsWith('/verification'));
             await request.getByRole('button', { name: 'Request verification', exact: true }).click();
+            const saved = await response;
+            expect(saved.ok()).toBe(true);
+            const body = saved.request().postDataJSON() as { evidence: { after: { anchor: unknown } } };
+            const revised = body.evidence.after.anchor;
+            if (index === 0) firstRevisedLocation = revised;
+            else if (isMobile) expect(revised).toEqual(firstRevisedLocation);
             await expect(request).toBeHidden();
         }
 

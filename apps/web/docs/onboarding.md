@@ -13,6 +13,9 @@ popover before choosing Invite; clicking that link navigates to Review settings.
   both before saving (`renameWorkspace`, then `finishWelcome` with the name); Skip only clears the flag. Never
   show it to existing accounts (they have no flag) and never rename a workspace the user did not get at sign-up.
   `e2e/support/app.ts` `signIn()` skips it unless `{ welcome: 'stay' }`; `welcome.api.spec.ts` covers the rules.
+- **Files only.** On Create project, choose Files only and enter a name. The project opens its
+  [file library](proof-viewer.md). Installation shows the first-site setup until an admin adds an
+  address in Environments. Website setup still starts with the address and script.
 - **Onboarding.** `OnboardingSteps` shows Your site, Add the script, Check installation and Invite a reviewer;
   once the project exists, every step after the site is a link. `install?onboarding=1` shows one step per
   screen in an `OnboardingStepCard` (`&step=check` is `InstallationCheckStep`, `&step=invite` is

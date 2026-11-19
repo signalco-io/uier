@@ -19,6 +19,7 @@ import { updateProjectSitesAction } from './actions';
 import { keepValues } from './keepFormValues';
 
 /** The columns of the site addresses table: address, label, shared with, remove */
+const blankSite: SiteRow = { url: '', label: '', group: null };
 const siteColumns = '@xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1.25fr)_2.25rem]';
 
 /**
@@ -29,7 +30,7 @@ export function ProjectSitesForm({ projectId, urls, environments }: { projectId:
     const { t } = useAppI18n();
     const formId = useId();
     const [state, formAction, pending] = useActionState(updateProjectSitesAction, null);
-    const { draft: rows, dirty, update, discard } = useSettingsDraft(savedSiteRows(urls, environments), state);
+    const { draft: rows, dirty, update, discard } = useSettingsDraft(urls.length ? savedSiteRows(urls, environments) : [blankSite], state);
     const setRow = (index: number, change: Partial<SiteRow>) => update(current => current.map((row, i) => i === index ? { ...row, ...change } : row));
     const name = (row: SiteRow, index: number) => row.url.trim() ? displayUrl(row.url.trim()) : t("address {number}", { number: index + 1 });
 
@@ -45,11 +46,14 @@ export function ProjectSitesForm({ projectId, urls, environments }: { projectId:
         <Section
             id="addresses"
             title={t(projectSettingsTitles.addresses)}
-            description={t("The toolbar works only on these addresses, the main site first. Each site keeps its own feedback unless it shares it.")}
+            description={urls.length
+                ? t("The toolbar works only on these addresses, the main site first. Each site keeps its own feedback unless it shares it.")
+                : t("Add the first site address to enable website review for this project.")}
             stickyFooter
             footer={<SaveFooter formId={formId} state={state} pending={pending} dirty={dirty} onDiscard={discard} />}>
             <form id={formId} action={formAction} onResetCapture={keepValues} className="flex flex-col gap-4">
                 <input type="hidden" name="projectId" value={projectId} />
+                {!urls.length && <input type="hidden" name="firstSite" value="true" />}
                 <input type="hidden" name="sites" value={JSON.stringify(siteRowsPayload(rows, environments))} />
                 {/* A table where the card is wide enough, otherwise a card per address */}
                 <div className="@container flex flex-col gap-3">
