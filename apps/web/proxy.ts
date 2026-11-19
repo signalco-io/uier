@@ -28,15 +28,17 @@ export async function proxy(request: NextRequest) {
     if (pathname.toLowerCase() === botIdPath || pathname.toLowerCase().startsWith(`${botIdPath}/`))
         return proxyBotId(request);
     const appPage = pathname === '/app' || pathname.startsWith('/app/');
+    const proofPage = pathname.startsWith('/proof/');
     const extensionDemo = pathname === KnownPages.ExtensionDemo;
     const bridge = pathname === '/review-verification' || pathname === '/review-session' || pathname === '/extension-verification';
-    const nonce = appPage || pathname === '/review-verification' || pathname === '/extension-verification' ? randomBytes(16).toString('base64') : undefined;
+    const nonce = appPage || proofPage || pathname === '/review-verification' || pathname === '/extension-verification' ? randomBytes(16).toString('base64') : undefined;
     const development = process.env.NODE_ENV === 'development';
     const preview = process.env.UIER_DEPLOYMENT_ENV === 'preview';
+    const proofSources = proofPage ? [{ scriptSrc: ["'wasm-unsafe-eval'"] }] : [];
     const policy = createSecureHeaders({
         ...combineSecureHeaders(['uier.io'], false, development, [
             { connectSrc: [request.nextUrl.origin.replace(/^http/, 'ws')] },
-            ...siteExternalUrls(development, preview), ...(bridge ? [{ frameAncestors: pathname === '/extension-verification' ? extensionFrameAncestors(request.nextUrl) : ['*'] }] : [])
+            ...siteExternalUrls(development, preview), ...proofSources, ...(bridge ? [{ frameAncestors: pathname === '/extension-verification' ? extensionFrameAncestors(request.nextUrl) : ['*'] }] : [])
         ], nonce, Boolean(nonce)),
         ...(bridge ? { frameGuard: false } : {})
     });
@@ -60,7 +62,8 @@ export async function proxy(request: NextRequest) {
         for (const { key, value } of policy) response.headers.set(key, value);
         response.headers.set('Content-Security-Policy', csp);
         if (bridge || nonce || extensionDemo) response.headers.set('Cache-Control', 'no-store');
-        if (extensionDemo) response.headers.set('X-Robots-Tag', 'noindex');
+        if (extensionDemo || proofPage) response.headers.set('X-Robots-Tag', 'noindex');
+        if (proofPage) response.headers.set('Referrer-Policy', 'no-referrer');
         if (!bridge) {
             response.headers.set('Permissions-Policy', permissionsPolicy);
             // The installation popup must retain its WindowProxy across the customer-site redirect.
