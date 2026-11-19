@@ -60,7 +60,8 @@ export async function retireProofProject(projectId: string, store: AppStore) {
     for (let attempt = 0; attempt < 8; attempt++) {
         const guard = await proofs.ensureGuard();
         if (guard.doc.deleted) return;
-        if (await store.replace({ ...guard.doc, deleted: true }, guard.etag) === 'ok') return;
+        const { epoch: _epoch, formats: _formats, ...tombstone } = guard.doc;
+        if (await store.replace({ ...tombstone, deleted: true }, guard.etag) === 'ok') return;
     }
     throw new Error('The proof project kept changing during deletion.');
 }

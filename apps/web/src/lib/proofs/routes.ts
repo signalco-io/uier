@@ -12,6 +12,7 @@ import { proofNotFound } from './store';
 
 const idPattern = /^(?:[0-9a-f]{32}|[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12})$/;
 const proofId = z.string().regex(idPattern);
+const digestId = /^[0-9a-f]{64}$/;
 const name = z.string().trim().min(1).max(160).regex(/^[^\p{Cc}\p{Cf}]*$/u);
 const position = z.number().int().min(0).max(1_000_000_000);
 const assetInput = z.strictObject({ name, collectionId: proofId.nullish(), position: position.optional() });
@@ -150,7 +151,7 @@ async function handleProof(request: Request, projectId: string, path: string[], 
             return Response.json({ share, url: new URL(viewerPath, base).href }, { status: 201 });
         }
     }
-    if (subresource(path, 'shares', 2) && method === 'DELETE' && idPattern.test(path[1]!)) {
+    if (subresource(path, 'shares', 2) && method === 'DELETE' && (idPattern.test(path[1]!) || digestId.test(path[1]!))) {
         await revokeProofShare(request, projectId, path[1]!);
         return noContent();
     }
