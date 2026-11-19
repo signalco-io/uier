@@ -8,6 +8,7 @@ import { botIdPath, proxyBotId } from './src/lib/botIdProxy';
 import { KnownPages } from './src/knownPages';
 import { appPageAccess } from './src/lib/app/pageAccess';
 import { cookieNames, readMigratingCookie } from './src/lib/cookieNames';
+import { proofPreviewOrigin } from './src/lib/proofs/previewOrigin';
 import { isIntegrationCatalogKey } from './src/lib/integrations/catalog';
 
 /** App pages that work signed out */
@@ -25,6 +26,12 @@ const integrationAssets = new Set(['azure-devops-showcase.png', 'github-feature.
  */
 export async function proxy(request: NextRequest) {
     const { pathname } = request.nextUrl;
+    const previewOrigin = proofPreviewOrigin();
+    if (previewOrigin && request.headers.get('host') === previewOrigin.host) {
+        if (pathname.startsWith('/proof-preview/')) return NextResponse.next();
+        return new NextResponse(null, { status: 404 });
+    }
+    if (pathname.startsWith('/proof-preview/')) return new NextResponse(null, { status: 404 });
     if (pathname.toLowerCase() === botIdPath || pathname.toLowerCase().startsWith(`${botIdPath}/`))
         return proxyBotId(request);
     const appPage = pathname === '/app' || pathname.startsWith('/app/');
@@ -34,7 +41,11 @@ export async function proxy(request: NextRequest) {
     const nonce = appPage || proofPage || pathname === '/review-verification' || pathname === '/extension-verification' ? randomBytes(16).toString('base64') : undefined;
     const development = process.env.NODE_ENV === 'development';
     const preview = process.env.UIER_DEPLOYMENT_ENV === 'preview';
-    const proofSources = proofPage ? [{ scriptSrc: ["'wasm-unsafe-eval'"] }] : [];
+    const proofHtmlOrigin = proofPage && previewOrigin?.hostname !== request.nextUrl.hostname ? previewOrigin?.origin : undefined;
+    const proofSources = proofPage ? [{
+        scriptSrc: ["'wasm-unsafe-eval'"],
+        ...(proofHtmlOrigin ? { frameSrc: [proofHtmlOrigin] } : {})
+    }] : [];
     const policy = createSecureHeaders({
         ...combineSecureHeaders(['uier.io'], false, development, [
             { connectSrc: [request.nextUrl.origin.replace(/^http/, 'ws')] },
