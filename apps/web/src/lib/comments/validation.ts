@@ -5,6 +5,10 @@ import { commentCheckCountMax, commentCheckIdPattern, commentCheckTypes } from '
 import { feedbackStatusTargets } from '@uier/toolbar/verification';
 import { pageLanguagePattern } from '@uier/toolbar/devices';
 import { parseDrawing } from '@uier/toolbar/drawing';
+import { isChangeProposal, type ChangeProposal } from '@uier/toolbar/change-proposal';
+import type { MarkdownMention } from '@uier/toolbar/markdown';
+import { apiErrors } from './http';
+import { rewriteReplacement } from './proposal';
 import { MAX_SCREENSHOT_DATA_URL_LENGTH, parseScreenshot, sanitizeScreenshot } from './screenshot';
 import {
     MAX_DEVICE_LABEL_LENGTH,
@@ -249,14 +253,22 @@ export const createCommentSchema = z.object({
     sourcePath: reviewPathSchema.optional(),
     position: positionSchema,
     kind: kindSchema.default('comment'),
-    text: textSchema,
+    text: z.preprocess(value => value === '' ? undefined : value, textSchema.optional()),
     quotedText: quotedTextSchema.optional(),
+    proposal: z.custom<ChangeProposal>(isChangeProposal, 'Use changed text or supported literal CSS values').optional(),
     check: checkSchema.optional(),
     /** A comment's drawing: only a comment on an area (the drawing's box) */
     drawing: drawingSchema.optional(),
     device: deviceSchema.optional(),
     screenshot: screenshotSchema.optional()
 }).refine(
+    input => !input.proposal || (input.kind === 'comment' && input.position.type === 'point' && input.position.widthNormal === undefined)
+        || (input.kind === 'rewrite' && input.position.type === 'text' && input.proposal.text !== undefined),
+    { path: ['proposal'], message: 'A change proposal belongs to a pinned element or a text rewrite' }
+).refine(
+    input => input.text !== undefined || (input.kind === 'comment' && input.proposal !== undefined),
+    { path: ['text'], message: 'Text must not be empty' }
+).refine(
     input => !input.drawing || (input.kind === 'comment' && input.position.type === 'point'
         && input.position.widthNormal !== undefined && input.position.heightNormal !== undefined),
     { path: ['drawing'], message: 'A drawing belongs to a comment on an area' }
@@ -307,6 +319,28 @@ export const updateCommentSchema = z.object({
 }).refine(input => [input.resolved, input.status, input.archived].filter(value => value !== undefined).length === 1, 'Send exactly one of resolved, status or archived.');
 
 export type CreateCommentInput = z.infer<typeof createCommentSchema>;
+
+/** The message remains usable by comment readers that predate proposals. */
+export function createCommentMessage(input: CreateCommentInput & { mentions?: readonly MarkdownMention[] }) {
+    let quotedText = input.quotedText;
+    if (input.kind === 'rewrite' && input.proposal) {
+        const original = input.proposal.text?.original;
+        const originalQuote = original === undefined ? undefined : withoutBidiControls(original);
+        if (input.position.type !== 'text' || originalQuote !== input.position.text
+            || (quotedText !== undefined && quotedText !== originalQuote)) {
+            throw apiErrors.invalidRequest('The original rewrite text must match the selected text and quote.');
+        }
+        const replacement = rewriteReplacement(input.proposal, input.text ?? '', input.mentions);
+        if (!replacement || replacement.text.proposed !== input.proposal.text?.proposed) {
+            throw apiErrors.invalidRequest('The proposed rewrite must match the visible replacement text.');
+        }
+        quotedText = originalQuote;
+    }
+    return {
+        text: input.text ?? 'Suggested change',
+        quotedText
+    };
+}
 export type ReplyInput = z.infer<typeof replySchema>;
 export type UpdateCommentInput = z.infer<typeof updateCommentSchema>;
 

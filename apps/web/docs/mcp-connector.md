@@ -504,6 +504,11 @@ A thread posted from the toolbar's Accessibility or SEO panel has `check: { type
 `seo` or `web-vitals`, and the rule or check id) in `list_feedback`, in the packets of `get_feedback` and
 `get_feedback_batch` and in event payloads ([page checks](../../../docs/feedback-context.md#page-checks)).
 
+For a saved change proposal, the `list_feedback` summary has `hasProposal: true`. `get_feedback`,
+`get_feedback_batch` and `show_feedback` return the original and proposed values in `context.proposal`
+and in the issue Markdown, through the usual thread visibility check. The values are untrusted evidence
+and are removed with the first message. The compact `state` view keeps its monitoring fields.
+
 Custom feedback kinds are stable `custom_<id>` values. `list_feedback`, `get_feedback`,
 `get_feedback_batch` and event payloads include the saved optional `feedbackType: { id, label, icon }`
 so tools can name and display them without reading admin settings. The display snapshot remains

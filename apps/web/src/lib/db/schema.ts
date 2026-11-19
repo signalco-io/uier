@@ -240,6 +240,8 @@ export type DbComment = {
      * `commentDrawing`. Removed with the comment.
      */
     drawing?: import('@uier/toolbar/drawing').CommentDrawing;
+    /** Original and proposed values captured at submission. Redacted with the first message. */
+    proposal?: import('@uier/toolbar/change-proposal').ChangeProposal;
     thread: { items: DbThreadItem[] };
     /**
      * Project comments: the thread's title, written by AI from its first message after it was saved

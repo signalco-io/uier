@@ -13,6 +13,7 @@ import { getReadSequence, loadReadSequences, unreadComments } from './readState'
 import { nanoid } from 'nanoid';
 import { submission, recoverSubmission, commitNewSubmission, commitReplySubmission } from './submissions';
 import { withEditedThreadItem } from './editing';
+import { withEditedRewriteProposal } from './proposal';
 import type { EditThreadItemInput } from './validation';
 import { screenshotDocumentId, type DbComment, type DbCommentDevice, type DbCommentScreenshot, type DbScreenshot, type DbThreadItem } from '../db/schema';
 import { commentsContainerName, DEFAULT_COMMENTS_CONTAINER_NAME } from '../db/client';
@@ -29,7 +30,7 @@ import {
 import { enforceNewCommentLimits, enforceReactionLimits, enforceReplyLimits, enforceScreenshotLimits, rateLimitIpBucket, usageLinks, type RateLimitSubject, type RewriteLimitSubject } from './rateLimits';
 import { withReaction, type ReactionInput } from './reactions';
 import type { ParsedScreenshot } from './screenshot';
-import type { CreateCommentInput, ReplyInput, UpdateCommentInput } from './validation';
+import { createCommentMessage, type CreateCommentInput, type ReplyInput, type UpdateCommentInput } from './validation';
 import { HEADLINE_COMMENT_ID, STEP_COMMENT_ID, PUBLIC_PROJECT_PARTITION, USER_FEEDBACK_PROJECT_ID, isPrivateAppFeedback } from './publicProject';
 import { isVisible } from './visibility';
 
@@ -282,8 +283,9 @@ export async function forgetScreenshot(store: CommentsStore, domain: string, id:
 export async function createComment(context: CommentsApiContext, input: CreateCommentInput) {
     const store = getCommentsStore();
     const subject = rateLimitSubject(context);
+    const message = createCommentMessage(input);
     const attempt = submission(context.domain, subject.authorId, input.idempotencyKey ?? input.recordingId, {
-        operation: 'create', path: input.path, position: input.position, kind: input.kind, text: input.text, quotedText: input.quotedText,
+        operation: 'create', path: input.path, position: input.position, kind: input.kind, ...message, proposal: input.proposal,
         ...(input.drawing ? { drawing: input.drawing } : {}), ...(input.recordingId ? { recordingId: input.recordingId } : {})
     });
     const recovered = await recoverSubmission(store, attempt);
@@ -297,8 +299,7 @@ export async function createComment(context: CommentsApiContext, input: CreateCo
     const sourcePath = newSourcePath(input.path, input.sourcePath);
     const firstItem: DbThreadItem = {
         id: `item_${nanoid()}`,
-        text: input.text,
-        quotedText: input.quotedText,
+        ...message,
         authorId: subject.authorId,
         createdAt: now
     };
@@ -317,6 +318,7 @@ export async function createComment(context: CommentsApiContext, input: CreateCo
         ...(feedbackType ? { feedbackType } : {}),
         ...(input.check ? { check: input.check } : {}),
         ...(input.drawing ? { drawing: input.drawing } : {}),
+        ...(input.proposal ? { proposal: input.proposal } : {}),
         thread: { items: [firstItem] },
         device: compactDevice(input.device),
         resolved: false,
@@ -422,8 +424,9 @@ export async function editCommentThreadItem(context: CommentsApiContext, id: str
     const updated = await updateComment(getCommentsStore(), context, id, comment => {
         assertVisible(comment, context);
         const edited = withEditedThreadItem(comment, itemId, input, item => Boolean(item.authorId) && item.authorId === context.visitor.authorId);
-        if (comment.thread.items[0]?.id === itemId && comment.thread.items[0].text !== input.text) delete edited.aiTitle;
-        return edited;
+        if (comment.thread.items[0]?.id !== itemId || comment.thread.items[0].text === input.text) return edited;
+        delete edited.aiTitle;
+        return withEditedRewriteProposal(edited, itemId);
     });
     return toDto(updated, context);
 }
@@ -469,6 +472,7 @@ function withoutFirstItem(comment: DbComment, context: CommentsApiContext): DbCo
     delete updated.device;
     delete updated.screenshot;
     delete updated.recording;
+    delete updated.proposal;
     return updated;
 }
 
