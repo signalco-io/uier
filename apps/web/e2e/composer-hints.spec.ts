@@ -52,8 +52,8 @@ test('toolbar composers keep Enter and Shift+Enter without a hint under the text
     await expect(thread.getByText(newLineHint, { exact: true })).toHaveCount(0);
     if (!touch) {
         // Editing: Enter saves; the original text is not a saved draft
-        await thread.getByRole('button', { name: 'More options for your comment' }).click();
-        await page.getByRole('dialog', { name: 'Comment options', exact: true }).getByRole('button', { name: 'Edit', exact: true }).click();
+        await thread.getByRole('button', { name: 'Thread options', exact: true }).click();
+        await page.getByRole('dialog', { name: 'Thread options', exact: true }).getByRole('button', { name: 'Edit', exact: true }).click();
         const editor = thread.getByRole('textbox', { name: 'Edit comment', exact: true });
         await expect(editor).toHaveAttribute('enterkeyhint', 'done');
         await expect(editor).toHaveAccessibleDescription('Enter to save. Shift+Enter for a new line.');

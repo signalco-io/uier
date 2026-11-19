@@ -6,9 +6,10 @@ import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { Button } from '@signalco/ui-primitives/Button';
 import { Stack } from '@signalco/ui-primitives/Stack';
 import { cx } from '@signalco/ui-primitives/cx';
-import { ArrowDownToLine, ArrowUp, Check, ExternalLink, Mail, MoreHorizontal, Mute, Pin, PinOff, Undo, User, Verified, Volume2 } from '@signalco/ui-icons';
+import { Row } from '@signalco/ui-primitives/Row';
+import { ArrowDownToLine, ArrowUp, Check, Delete, Edit, ExternalLink, Mail, MoreHorizontal, Mute, MyLocation, Pin, PinOff, Undo, User, Verified, Volume2 } from '@signalco/ui-icons';
 import { useToolbarPortalContainer } from './CommentsBootstrapperContext';
-import { floatingShadowClassName } from './@types/Comments';
+import { destructiveTextClassName, floatingShadowClassName } from './@types/Comments';
 import { useIconTooltip } from './IconTooltip';
 import { commentPriority, priorities, type CommentPriority } from '../triage';
 import { keepMovedFocus, toolbarSurface } from '../toolbarReview';
@@ -16,7 +17,19 @@ import { moveFocusInMenu } from '../focusKeys';
 import { useMessages } from '../i18n';
 import { useInkContainer } from './InkScope';
 
+/** The first message's own options: the first message is the thread, so they share its menu (uier #470) */
+export type FirstMessageActions = {
+    /** Edit, Reattach comment and Delete wait while the message is saving or being deleted */
+    disabled?: boolean;
+    onEdit?: () => void;
+    /** Pick the thread's element or text again (a thread on its own page) */
+    onReattach?: () => void;
+    /** Deleting asks first, with `confirmText` (e.g. "Delete this comment and your 2 replies?") */
+    delete?: { confirmText: string; onDelete: () => void };
+};
+
 export type ThreadMenuActions = {
+    message?: FirstMessageActions;
     /** "Unassigned" / "Assigned to Ana": opens the people under the header */
     assign?: { label: string; onAssign: () => void };
     priority?: { value: CommentPriority | undefined; pending: boolean; onChange: (priority: CommentPriority) => void };
@@ -30,9 +43,9 @@ export type ThreadMenuActions = {
     openInApp?: { href: string };
 };
 
-function MenuButton({ icon, buttonRef, onClick, disabled, label, href, children }: { icon?: ReactNode; buttonRef?: Ref<HTMLButtonElement>; onClick: () => void; disabled?: boolean; label?: string; href?: string; children: ReactNode }) {
+function MenuButton({ icon, buttonRef, onClick, disabled, label, href, className, children }: { icon?: ReactNode; buttonRef?: Ref<HTMLButtonElement>; onClick: () => void; disabled?: boolean; label?: string; href?: string; className?: string; children: ReactNode }) {
     return (
-        <Button ref={buttonRef} variant="plain" size="sm" fullWidth className="justify-start"
+        <Button ref={buttonRef} variant="plain" size="sm" fullWidth className={cx('justify-start', className)}
             startDecorator={icon && <span className="flex size-4 shrink-0 items-center justify-center" aria-hidden="true">{icon}</span>}
             aria-label={label} disabled={disabled} onClick={onClick}
             // A link opens in a new tab, like Options → View project
@@ -43,42 +56,53 @@ function MenuButton({ icon, buttonRef, onClick, disabled, label, href, children 
 }
 
 /**
- * Thread options, the last of the header's actions: the triage and email controls, so an opened
- * thread shows its messages and reply box first. Each item is there only for those who may use it
- * (the API's permissions); with none, there is no menu. A popover inside the toolbar's shadow root,
- * like `CommentThreadItemMenu` (a message's More options); in the inbox it opens in the ink scope,
- * so it stays dark like the thread it belongs to.
+ * Thread options, the last of the header's actions: the first message's Edit and Reattach comment, the
+ * triage and email controls, then Delete, so an opened thread shows its messages and reply box first and
+ * its top has one menu (uier #470). Each item is there only for those who may use it (the API's
+ * permissions); with none, there is no menu. Delete asks first, in the menu. A popover inside the
+ * toolbar's shadow root, like `CommentThreadItemMenu` (a reply's More options); in the inbox it opens in
+ * the ink scope, so it stays dark like the thread it belongs to.
  */
 export function CommentThreadMenu({ className, actions, triggerRef }: { className?: string; actions: ThreadMenuActions; triggerRef?: Ref<HTMLButtonElement> }) {
     const container = useToolbarPortalContainer(useInkContainer());
     const t = useMessages();
     const [open, setOpen] = useState(false);
     const [choosingPriority, setChoosingPriority] = useState(false);
+    const [confirming, setConfirming] = useState(false);
     const firstRef = useRef<HTMLButtonElement>(null);
+    const confirmRef = useRef<HTMLButtonElement>(null);
+    // The edit form and reattachment panel take focus as they open.
+    const leaveFocus = useRef(false);
     const requestVerification = useRef<(() => void) | undefined>(undefined);
     useLayoutEffect(() => () => { requestVerification.current = undefined; }, []);
     const { triggerProps, tooltip } = useIconTooltip(t.thread.options);
-    const { assign, priority, verify, follow, mute, markUnread, archive, openInApp } = actions;
-    if (!assign && !priority && !verify && !follow && !mute && !markUnread && !archive && !openInApp) return null;
-    const run = (action: () => void) => { setOpen(false); setChoosingPriority(false); action(); };
+    const { message, assign, priority, verify, follow, mute, markUnread, archive, openInApp } = actions;
+    const edit = message?.onEdit, reattach = message?.onReattach, remove = message?.delete;
+    if (!edit && !reattach && !remove && !assign && !priority && !verify && !follow && !mute && !markUnread && !archive && !openInApp) return null;
+    const close = () => { setOpen(false); setChoosingPriority(false); setConfirming(false); };
+    const run = (action: () => void) => { close(); action(); };
     const current = commentPriority(priority?.value);
 
     // Radix props passed through the Popper to the popover content
     const contentProps = {
         onOpenAutoFocus: (event: Event) => {
             event.preventDefault();
-            firstRef.current?.focus();
+            const target = event.target;
+            const first = firstRef.current;
+            if (first && !first.disabled) first.focus();
+            else if (target instanceof HTMLElement) target.querySelector<HTMLElement>('button:not(:disabled), a[href]')?.focus();
         },
         onCloseAutoFocus: (event: Event) => {
             const request = requestVerification.current;
             requestVerification.current = undefined;
-            if (!request) {
+            if (!leaveFocus.current && !request) {
                 keepMovedFocus(event);
                 return;
             }
-            // As with Ready to verify in the status menu, let the form take focus after the menu closes.
+            leaveFocus.current = false;
             event.preventDefault();
-            request();
+            // As with Ready to verify in the status menu, open the form after the menu closes.
+            request?.();
         }
     };
     let first = true;
@@ -88,12 +112,13 @@ export function CommentThreadMenu({ className, actions, triggerRef }: { classNam
         <Popper
             container={container}
             open={open}
-            onOpenChange={next => { setOpen(next); if (!next) setChoosingPriority(false); }}
+            onOpenChange={next => { if (next) setOpen(true); else close(); }}
             align="end"
             aria-label={t.thread.options}
             // Like a menu: ↑ and ↓ move between its buttons
-            onKeyDown={moveFocusInMenu}
-            {...toolbarSurface('uier-thread-menu', cx('z-[70] w-60 max-w-[calc(100vw-1rem)] rounded-xl p-1', floatingShadowClassName))}
+            onKeyDown={event => { if (event.key === 'Escape') event.stopPropagation(); else moveFocusInMenu(event); }}
+            // Bounded by the window's room on its side and scrolling inside, so every item (Delete last) stays reachable on a short screen
+            {...toolbarSurface('uier-thread-menu', cx('z-[70] max-h-[var(--radix-popover-content-available-height)] w-60 max-w-[calc(100vw-1rem)] overflow-y-auto overscroll-contain rounded-xl p-1', floatingShadowClassName))}
             trigger={(
                 <IconButton
                     ref={triggerRef}
@@ -107,7 +132,23 @@ export function CommentThreadMenu({ className, actions, triggerRef }: { classNam
                 </IconButton>
             )}
             {...contentProps}>
-            <Stack>
+            {confirming && remove ? (
+                <Stack spacing={1} className="p-2">
+                    <p className="m-0 text-sm text-foreground">{remove.confirmText}</p>
+                    <Row spacing={1} justifyContent="end">
+                        <Button variant="plain" size="sm" onClick={close}>{t.common.cancel}</Button>
+                        <Button ref={confirmRef} variant="outlined" size="sm" className={destructiveTextClassName} onClick={() => run(remove.onDelete)}>
+                            {t.common.delete}
+                        </Button>
+                    </Row>
+                </Stack>
+            ) : <Stack>
+                {edit && (
+                    <MenuButton buttonRef={takeFirst()} icon={<Edit size={16} />} disabled={message?.disabled} onClick={() => { leaveFocus.current = true; run(edit); }}>{t.common.edit}</MenuButton>
+                )}
+                {reattach && (
+                    <MenuButton buttonRef={takeFirst()} icon={<MyLocation size={16} />} disabled={message?.disabled} onClick={() => { leaveFocus.current = true; run(reattach); }}>{t.thread.reattach}</MenuButton>
+                )}
                 {assign && (
                     // The visible words are part of the name: "Assigned to you. Change assignee"
                     <MenuButton buttonRef={takeFirst()} icon={<User size={16} />} label={t.thread.changeAssignee(assign.label)} onClick={() => run(assign.onAssign)}>
@@ -163,7 +204,14 @@ export function CommentThreadMenu({ className, actions, triggerRef }: { classNam
                         {t.thread.openInApp}
                     </MenuButton>
                 )}
-            </Stack>
+                {remove && (
+                    <MenuButton buttonRef={takeFirst()} icon={<Delete size={16} />} disabled={message?.disabled} className={destructiveTextClassName}
+                        // After the question renders
+                        onClick={() => { setConfirming(true); window.setTimeout(() => confirmRef.current?.focus(), 0); }}>
+                        {t.thread.deleteMenu}
+                    </MenuButton>
+                )}
+            </Stack>}
         </Popper>
         {tooltip}
     </>;

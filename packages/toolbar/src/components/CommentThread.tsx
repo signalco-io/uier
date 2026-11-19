@@ -94,19 +94,23 @@ function ThreadContents({ commentItem, reading, onPage, allMessages, previewOnPa
     const ready = readyForReview(commentItem);
 
     return (
-        // Tight around the messages (uier #215): the header, the messages and what follows them are 8 px apart
+        // Tight around the messages (uier #215): the messages and what follows them are 8 px apart
         <Stack ref={threadRef} spacing={1} className="px-4 py-3">
-            <CommentThreadHeader comment={commentItem} onMarkedUnread={() => setKeptUnread(true)}
-                onRequestVerification={statusId => { stopProposalSession(); setVerificationStatusId(statusId); setVerifying(true); }} optionsRef={optionsRef} />
-            {/* Where it came from */}
-            {source && <div className="text-xs text-muted-foreground">{source}</div>}
-            {/* The messages, one under the other like a chat; the avatars make the column */}
+            {/* The messages, one under the other like a chat; the replies' avatars make the column. The first message
+                is the thread: its author and actions are in the header line, its text right under it (uier #470) */}
             <Stack spacing={2}>
                 {threadFistItem && (
                     <CommentThreadItem
                         first
                         comment={commentItem}
-                        threadItem={threadFistItem} />
+                        threadItem={threadFistItem}
+                        optionsRef={optionsRef}
+                        header={message => <>
+                            <CommentThreadHeader comment={commentItem} message={message} onMarkedUnread={() => setKeptUnread(true)}
+                                onRequestVerification={statusId => { stopProposalSession(); setVerificationStatusId(statusId); setVerifying(true); }} optionsRef={optionsRef} />
+                            {/* Where it came from */}
+                            {source && <div className="text-xs text-muted-foreground">{source}</div>}
+                        </>} />
                 )}
                 {proposal && <SavedProposal key={commentItem.anchorContext?.revision ?? 'original'} comment={commentItem} proposal={proposal} interactive={previewOnPage && !verifying} />}
                 {expanded && restComments.map((item, index) => (

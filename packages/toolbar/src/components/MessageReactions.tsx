@@ -159,7 +159,7 @@ export function ReactionPicker({ comment, item, disabled }: { comment: CommentIt
             trigger={(
                 <IconButton size="xs" variant="plain" className="size-6 text-muted-foreground hover:text-foreground" {...tip.triggerProps}
                     aria-label={t.reactions.add} disabled={disabled} data-uier-add-reaction="" data-uier-thread-control="">
-                    <SmilePlusIcon size={16} />
+                    <SmilePlusIcon size={14} />
                 </IconButton>
             )}
             {...contentProps}>
