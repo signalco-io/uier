@@ -200,7 +200,10 @@ Select all operations includes it. Existing grants keep their stored scopes. `cr
 (`createAccessToken.ts`) requires that permission, a name, `workspaceId`, 1–20 distinct explicit
 `projectIds`, scopes, `days` (integer 1–30) and an `idempotencyKey`. It checks every project with
 `mcpProject`, including current membership, and rejects scopes absent from the authenticating token
-(including a narrowed OAuth access token). The issued token can never contain `tokens:create` or
+(including a narrowed OAuth access token). Optional `accountId` passes through to `mcpProject`, which
+then resolves every project only under that selected account (no other account is tried), so the token's
+`actingUserId` is that profile. An unselected account, or one that can't open a project on its own, is
+`not_found`. The issued token can never contain `tokens:create` or
 future/all-project selections. It is an ordinary independently revocable credential; revoking its
 creator can also revoke its created tokens (checked by default in the connection revoke dialog).
 Unchecking leaves them independently active. Expiry is capped at the creating Account token’s expiry

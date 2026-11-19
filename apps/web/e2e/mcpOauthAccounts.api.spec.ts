@@ -261,6 +261,49 @@ test('overlapping profiles use one deterministic actor without combining private
     } finally { await client.close(); }
 });
 
+test('a token can act as another selected profile that opens the project on its own', async () => {
+    const a = await person('token-account-owner');
+    const b = await person('token-account-other');
+    const c = await person('token-account-unselected');
+    const member: DbMember = {
+        type: 'member', id: memberId(a.user.id), pk: workspacePk(b.project.workspaceId), workspaceId: b.project.workspaceId,
+        userId: a.user.id, email: a.user.email, role: 'commenter', projects: 'all', createdAt: new Date().toISOString()
+    };
+    expect(await getAppStore().create(member)).toBe(true);
+    await setProjectCommentPrivate(b.project, b.actor, b.comment.id, true);
+    const app = await authorize(a.user, [
+        { userId: a.user.id, access: { kind: 'all' } }, { userId: b.user.id, access: selected(b.project.workspaceId, b.project.id) }
+    ], [a.user, b.user], ['feedback:read', 'tokens:create']);
+    const client = await connect(app.tokens.access_token);
+    const create = (args: Record<string, unknown>) => client.callTool({ name: 'create_access_token', arguments: {
+        name: 'Account watcher', workspaceId: b.project.workspaceId, projectIds: [b.project.id], scopes: ['feedback:read'],
+        days: 1, idempotencyKey: randomUUID(), ...args
+    } });
+    try {
+        // Without accountId the token keeps the project's acting profile, the manager.
+        const managed = data(await create({}));
+        expect(managed.actingAs).toMatchObject({ userId: a.user.id });
+        expect((await mcpProject(await authenticateMcp(bearer(managed.token), base), b.project.id)).actor).toMatchObject({ userId: a.user.id });
+        const other = data(await create({ accountId: b.user.id }));
+        expect(other.error).toBeUndefined();
+        expect(other.actingAs).toMatchObject({ userId: b.user.id });
+        expect(other.credential).toMatchObject({ actingUserId: b.user.id });
+        const watcher = await authenticateMcp(bearer(other.token), base);
+        expect((await mcpProject(watcher, b.project.id)).actor).toMatchObject({ userId: b.user.id });
+        // The selected profile's own visibility applies: it reads its private thread, the manager can't.
+        const watcherClient = await connect(other.token);
+        try {
+            expect(data(await watcherClient.callTool({ name: 'get_feedback', arguments: { projectId: b.project.id, commentId: b.comment.id } })).error).toBeUndefined();
+        } finally { await watcherClient.close(); }
+        // An account outside the connection's selection, or one that can't open every project, gets nothing.
+        for (const args of [{ accountId: c.user.id }, { accountId: b.user.id, workspaceId: a.project.workspaceId, projectIds: [a.project.id] }]) {
+            const refused = await create(args);
+            expect(refused.isError).toBe(true);
+            expect(data(refused).error).toBe('not_found');
+        }
+    } finally { await client.close(); }
+});
+
 test('truncated discovery reports the same acting profile as project tools for a shared project', async () => {
     const a = await person('truncated-owner');
     const b = await person('truncated-secondary');
