@@ -100,24 +100,26 @@ async function signInAgain(current, others = usual) {
 
 test('discovery in one popup leaves the attempt another popup still needs', async () => {
     const current = await worker();
-    // Two windows show the form and send it. uier commits once; the second window's answer is lost on the way
+    // Two windows show the form and send it. uier commits once; the answer to the request that arrives second is
+    // lost on the way. Either window's may be that one: each computes its record's key before it is sent
     let lose = true;
     current.api.answer = request => request.path === 'projects' && request.method === 'POST' && request.body && lose && current.creates().length === 2
         ? Promise.reject(new TypeError('Failed to fetch')) : usual(request);
-    const [first, second] = await Promise.all([current.send({ ...submission, tabId: 1 }), current.send({ ...submission, tabId: 2 })]);
-    assert.equal(first.value.project.projectId, project.projectId);
-    assert.equal(second.ok, false);
+    const answers = await Promise.all([current.send({ ...submission, tabId: 1 }), current.send({ ...submission, tabId: 2 })]);
+    assert.deepEqual(answers.map(answer => answer.ok).sort(), [false, true]);
+    assert.equal(answers.find(answer => answer.ok).value.project.projectId, project.projectId);
+    const lost = answers[0].ok ? 2 : 1;
     const [sent] = current.creates();
-    // The first popup refreshes and sees the project in its list
+    // The popup that got its answer refreshes and sees the project in its list
     current.api.answer = request => request.path.startsWith('projects?') ? json({ projects: [project], workspaces: [], canSetUp: true }) : usual(request);
     assert.deepEqual((await current.send({ type: 'state' })).value.projects, [project]);
     assert.deepEqual(current.attempts(), [{ attempt: sent.body.attempt }]);
-    // The second popup's own refresh fails, so its form is still there. Its retry is the same request, now and later
+    // The other popup's own refresh fails, so its form is still there. Its retry is the same request, now and later
     lose = false;
     current.api.answer = request => request.path.startsWith('projects?') ? Promise.reject(new TypeError('Failed to fetch')) : usual(request);
     assert.equal((await current.send({ type: 'state' })).ok, false);
-    assert.equal((await current.send({ ...submission, tabId: 2 })).value.project.projectId, project.projectId);
-    assert.equal((await current.send({ ...submission, tabId: 2 })).value.project.projectId, project.projectId);
+    assert.equal((await current.send({ ...submission, tabId: lost })).value.project.projectId, project.projectId);
+    assert.equal((await current.send({ ...submission, tabId: lost })).value.project.projectId, project.projectId);
     assert.deepEqual(current.creates().map(request => request.body.attempt), Array(4).fill(sent.body.attempt));
     assert.deepEqual(current.attempts(), [{ attempt: sent.body.attempt }]);
 });
