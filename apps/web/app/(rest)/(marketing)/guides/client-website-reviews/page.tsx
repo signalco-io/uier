@@ -95,7 +95,7 @@ export default function ClientReviewGuide() {
                 <GuideCard>
                     <BoardSpecimen />
                     <p className="p-6 text-sm leading-relaxed text-muted-foreground">
-                        Use <InlineLink href={KnownPages.FeedbackTriage}>feedback triage</InlineLink> when the review has many threads.
+                        Use <InlineLink href={KnownPages.FeedbackTriage}>feedback triage</InlineLink> when the review has many threads. If your team follows the round in Slack, <InlineLink href={KnownPageLinks.integration('slack')}>send shared feedback to a Slack channel</InlineLink>.
                     </p>
                 </GuideCard>
             </GuideStep>
@@ -131,9 +131,11 @@ export default function ClientReviewGuide() {
             lead="If your team already works in another service, choose a supported integration in the project settings.">
             <ul aria-label="Supported services" className="flex flex-wrap gap-2">
                 {services.map(([id, name]) => (
-                    <li key={id} className="inline-flex h-10 items-center gap-2 rounded-full border pl-1.5 pr-4 text-sm font-medium">
-                        <IntegrationLogo provider={id} className="size-7 rounded-full p-1" />
-                        {name}
+                    <li key={id}>
+                        <Button variant="outlined" href={KnownPageLinks.integration(id)}>
+                            <IntegrationLogo provider={id} className="size-7 rounded-full p-1" />
+                            {name}
+                        </Button>
                     </li>
                 ))}
             </ul>

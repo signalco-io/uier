@@ -79,6 +79,10 @@ above and the inventory review date above; the last column records additional cl
 | `/legal/acceptable-use-policy` | Understand acceptable service use | P1 | `LegalAcceptableUsePolicy`; legal document and product scope | Owner review for changed legal wording |
 | `/legal/sla` | Understand the absence of service commitments | P1 | `LegalSla`; legal note and verified backup scope | No invented uptime/recovery guarantees |
 
+The bug-report guide links to GitHub and Linear at the handoff step, and the client-review guide
+links to Slack during triage. The AI feature page uses [PR #809](https://github.com/signalco-io/uier/pull/809)
+as its worked example. Provider guides serve their catalog content in the initial visible HTML.
+
 ## Canonical choices and pending acceptance
 
 All acquisition/setup routes from #294/#298/#299/#301–#305 are now published and verified.

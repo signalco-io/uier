@@ -46,7 +46,14 @@ test('practical guides have useful scope, examples and working crosslinks', asyn
         await expect(template).toContainText(field);
     await expect(template).toContainText('does not record session replay, console logs or network traffic');
     await expect(page.getByRole('region', { name: 'A filled bug report' })).toContainText('restaurant.example/booking');
+    const handoff = page.getByRole('region', { name: 'Hand it to the developer' });
+    await expect(handoff.getByRole('link', { name: 'GitHub Issues' })).toHaveAttribute('href', '/integrations/github');
+    await expect(handoff.getByRole('link', { name: 'Linear' })).toHaveAttribute('href', '/integrations/linear');
     await page.goto(guides.clientReviews.path);
+    const services = page.getByRole('list', { name: 'Supported services' });
+    for (const [name, slug] of [['GitHub', 'github'], ['Linear', 'linear'], ['Notion', 'notion'], ['Slack', 'slack'], ['Azure DevOps', 'azure-devops']])
+        await expect(services.getByRole('link', { name, exact: true })).toHaveAttribute('href', `/integrations/${slug}`);
+    await expect(page.getByRole('link', { name: 'send shared feedback to a Slack channel' })).toHaveAttribute('href', '/integrations/slack');
     await expect(page.getByRole('region', { name: 'Agree a review brief' })).toContainText('Out of scope:');
     await expect(page.getByRole('region', { name: 'Plan review rounds and handoff' })).toContainText('confirming one fix does not approve the whole release');
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
