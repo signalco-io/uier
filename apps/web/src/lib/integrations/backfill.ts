@@ -1,9 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import { memberId, workspacePk, type DbMember, type DbProject } from '../app/model';
 import { getAppStore, updateDoc, type AppStore } from '../app/store';
-import { isPrivateAppFeedback, isUierFeedbackProject } from '../comments/publicProject';
+import { isUierFeedbackProject } from '../comments/publicProject';
 import { getCommentsStore, type CommentsStore } from '../repo/commentsStore';
 import { getIntegrationConnection, IntegrationAccessError } from './connection';
+import { canSyncThread } from './source';
 import { enqueueIntegrationSync, integrationProject } from './discovery';
 import type { IntegrationConnection, IntegrationProviderId } from './model';
 
@@ -17,8 +18,13 @@ export async function startIntegrationBackfill(project: DbProject, provider: Int
     const connection = await getIntegrationConnection(current, provider, store);
     if (!connection || !connection.enabled || connection.status !== 'connected') throw new Error('Turn on the integration before requesting a backfill');
     const cap = provider === 'slack' ? 100 : 1000;
-    const sources = (await getCommentsStore().listAll(`project:${current.id}`, cap))
-        .filter(source => !source.private && !isPrivateAppFeedback(source));
+    const candidates = await getCommentsStore().listAll(`project:${current.id}`, cap, undefined, undefined, undefined, { includeProofs: true });
+    const sources = [];
+    for (let offset = 0; offset < candidates.length; offset += 25) {
+        const batch = candidates.slice(offset, offset + 25);
+        const eligible = await Promise.all(batch.map(source => canSyncThread(current, source, store)));
+        sources.push(...batch.filter((_, index) => eligible[index]));
+    }
     const request = { id: `backfill_${randomUUID()}`, threadIds: sources.map(source => source.id), queued: 0,
         requestedAt: new Date().toISOString(), done: sources.length === 0, destinationRevision: connection.destinationRevision };
     const saved = await updateDoc<IntegrationConnection>(connection.pk, connection.id, row => {
@@ -63,7 +69,7 @@ export async function queueIntegrationBackfills(provider: IntegrationProviderId,
             const current = (await store.get<IntegrationConnection>(connection.pk, connection.id))?.doc;
             if (!current || !current.enabled || current.destinationRevision !== connection.destinationRevision || current.backfill?.id !== request.id) break;
             const source = (await comments.get(`project:${project.id}`, request.threadIds[index]!))?.comment;
-            if (source && !source.assetTarget && !source.private && !isPrivateAppFeedback(source)) await enqueueIntegrationSync(project, provider,
+            if (source && await canSyncThread(project, source, store)) await enqueueIntegrationSync(project, provider,
                 connection.id, source.id, source.syncVersion ?? 0, { store, requestId: request.id, destinationRevision: connection.destinationRevision });
             const saved = await updateDoc<IntegrationConnection>(connection.pk, connection.id, row => {
                 if (row.backfill?.id !== request.id || row.destinationRevision !== connection.destinationRevision) return row;

@@ -36,7 +36,7 @@ function version(comment: DbComment | null | undefined) {
  * gating here would lose a mutation that races connection setup in the other container.
  */
 export function withSyncMark(project: DbProject, before: DbComment | null | undefined, after: DbComment): DbComment {
-    if (after === before || after.assetTarget || isUierFeedbackProject(project.id) || after.domain !== `project:${project.id}`
+    if (after === before || isUierFeedbackProject(project.id) || after.domain !== `project:${project.id}`
         || (after.projectId !== undefined && after.projectId !== project.id)
         || ((!before || isPrivate(before)) && isPrivate(after))) return after;
     return { ...after, projectId: project.id, syncKey: syncPendingKey(after.domain, after.id), syncVersion: Math.max(version(before), version(after)) + 1, syncPending: true };
