@@ -48,7 +48,7 @@ above and the inventory review date above; the last column records additional cl
 | `/compare/bugherd` | Evaluate uier against BugHerd's workflow | P1 | `KnownPageLinks.comparison('bugherd')`; comparison ledger | Dated first-party source review |
 | `/compare/marker-io` | Evaluate capture and developer handoff differences | P1 | `KnownPageLinks.comparison('marker-io')`; comparison ledger | Dated first-party source review |
 | `/compare/usersnap` | Distinguish page review from broader product feedback | P2 | `KnownPageLinks.comparison('usersnap')`; comparison ledger | Dated first-party source review |
-| `/compare/pastel` | Compare file formats, revision feedback and version approval | P2 | `KnownPageLinks.comparison('pastel')`; comparison ledger | Dated first-party sources and deployed scope in the [comparison note](../apps/web/docs/comparison-pages.md#file-review-and-approval-scope) |
+| `/compare/pastel` | Distinguish live-page review from asset proofing | P2 | `KnownPageLinks.comparison('pastel')`; comparison ledger | Dated first-party source review |
 | `/compare/userback` | Product-team diagnostics, feedback and agent workflow fit | P2 | `KnownPageLinks.comparison('userback')`; sourced ledger dated 15 November | Maintain tier-specific entitlements and dated source reviews |
 | `/compare/ruttl` | Agency visual-editing demonstrations versus anchored discussion | P2 | `KnownPageLinks.comparison('ruttl')`; sourced ledger dated 15 November | Contested free allowances remain omitted; dated source reviews |
 | `/use-cases/client-feedback` | Evaluate a client website review round | P1 | `ClientFeedback`; use-case catalog, current review brief/access rules | Fictional scenario; preserve current access rules |
