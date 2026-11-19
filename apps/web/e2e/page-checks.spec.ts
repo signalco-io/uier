@@ -535,6 +535,7 @@ test('panels docked in the top and bottom quarters of a side stay open together,
     await openPageCheck(page, /^SEO/);
     await expect(seo).toBeVisible();
     await expect(accessibility).toBeVisible();
+    await animationsFinished(seo);
     const seoBox = (await seo.boundingBox())!;
     const accessibilityBox = (await accessibility.boundingBox())!;
     expect(seoBox.y + seoBox.height).toBeLessThan(accessibilityBox.y);
@@ -743,6 +744,8 @@ test('on a phone the panels open from Options, keep the pill as wide as before, 
     await options.getByRole('button', { name: /^SEO/ }).tap();
     const seo = page.getByRole('complementary', { name: 'SEO' });
     await expect(seo.locator('[data-uier-check="alt"]')).toContainText('img#plan-chart');
+    // It slides in from its side: measured once there
+    await animationsFinished(seo);
     const box = (await seo.boundingBox())!;
     const viewport = page.viewportSize()!;
     expect(box.x).toBeGreaterThanOrEqual(0);
