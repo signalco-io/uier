@@ -27,6 +27,7 @@
                 "public/robots.txt",
                 "public/toolbar-fonts/**",
                 "public/scalar/standalone.js",
+                "public/proof-pdf/**",
                 "dist/mcp/**"
             ],
             "env": ["SITE_URL", "UIER_DEPLOYMENT_ENV", "VERCEL_ENV", "VERCEL", "UIER_INSTANT_TEST", "NEXT_PUBLIC_UIER_PROOF_HTML_ORIGIN"]
