@@ -10,8 +10,8 @@ official sources. Unknown slugs return 404.
 unsupported or unverified, with a detail and source per documented competitor capability. Its
 `reviewed` records a date and its readable label per product, printed beside that product's source
 list. It is the actual source-review date, not a build date or the date another vendor was added.
-BugHerd, Marker.io, Usersnap and Pastel retain 11 November 2026; uier's updated product sources,
-Userback and ruttl were checked on 15 November 2026. Update a product's date only after reviewing
+BugHerd, Marker.io and Usersnap were checked on 11 November 2026. The review dates are
+15 November 2026 for uier, Userback and ruttl and 19 November 2026 for Pastel. Update a product's date only after reviewing
 its sources. These pages are written by uier and say they compare
 documented capabilities rather than a hands-on benchmark: that note sits in each page's "Sources
 and scope" section, not under the hero actions, and the `/compare` hub (no sources section) does not
@@ -20,20 +20,49 @@ features from documentation silence or turn an unverified entry into a negative.
 browser and capture-mode caveats. Do not count coming-soon features as available or claim MCP
 is exclusive to uier. Link current pricing matrices instead of copying volatile price amounts.
 
+Pastel's [HTML upload guide](https://help.usepastel.com/en/articles/17629923-get-feedback-on-html-files-upload-directly-from-your-ai-agent)
+documents single files and folders or ZIPs with bundled assets. An agent can upload a revision to the same
+canvas using the CLI or MCP. The [MCP reference](https://help.usepastel.com/en/articles/16399713-connect-your-ai-agent-to-pastel-mcp-server)
+documents its permissions and comment tools. The ledger distinguishes an uploaded prototype from a live website URL.
+
 uier's claims follow the shipped feature pages, `docs/review-workflow.md`, the reproduction
 allowlist and screenshot/recording policies. Short screen recordings have explicit browser,
 permission, size and duration limits; built-in capture has no audio and ends on full-page navigation.
 The ledger marks them available and keeps those limits in the detail text.
-Keep its absent replay, console/network capture,
-file proofing, surveys, due dates and release-wide approval visible. Custom statuses and
-labels are shipped: up to 30 workspace statuses, with project overrides, refine the five categories
+Keep the limits on replay, console/network capture, surveys, task due dates and release-wide
+approval visible. Up to 30 workspace statuses, with project overrides, refine the five categories
 Open, In progress, Ready to verify, Done and Archive, while guest actions
 retain their category permissions. Project search covers the authorized scope with paged results;
 the former 1,000-recent-thread cap does not apply. Bulk operations still affect at most 50 shown
-threads. Fix verification needs project opt-in and a per-thread request. Image attachments do not imply
-asset proofing, in-browser checks do not imply scheduled site crawling, and per-thread reviewer
-confirmation does not approve an entire asset version or release. No competitor-history importer
-is provided. Change these entries with the product.
+threads. In-browser checks cover the reviewed page. No competitor-history importer is provided.
+Change these entries with the product.
+
+## File review and approval scope
+
+The release copy marks file proofing limited to formats enabled by project. The protected preview
+qualified member and guest image review, selected Figma frame import and rename resync, MP4 video,
+and an EML upload across two versions. A Figma resync keeps the review link and the existing thread
+retains its original version and location. The [file viewer](proof-viewer.md) and
+[format settings](proof-api.md#format-settings-and-processing) document those contracts.
+
+Preview recorded two independent whole-version approvals and a separate fix verification on an
+existing thread. The matrix has separate rows for
+[version approval](proof-api.md#version-approvals-and-review-record) and
+[per-thread fix verification](fix-verification.md). Fix verification needs project opt-in and a
+request on the thread. An approval round may have a deadline, while tasks have no due dates.
+A new file version starts with fresh approval decisions.
+
+Publish this copy after the corresponding workflows deploy, following the
+[release plan](../../../docs/design/file-design-proofing.md#release-and-verification). PDF and HTML
+proof review and real SMTP ingress still need hosted qualification. Keep the email claim scoped to
+EML upload. The broader proofing claim requires all six formats and live ingress qualification.
+
+The approval row points to official sources that distinguish actual decisions from version history
+and task status. BugHerd documents asset versions in beta. Marker.io documents an issue review status.
+ruttl documents page and image approval. Those sources do not establish per-version file decisions.
+Pastel documents decisions tied to individual canvas versions.
+
+## Website editing and capture scope
 
 The CSS and text demonstration row describes a single-element preview and exact original and proposed
 values for implementation in source. The linked pinned-comments page explains how to use it. ruttl's
@@ -102,5 +131,5 @@ competitor account or a performance benchmark.
 responsive width and accessibility. The shared SEO and social-card API suites cover generated
 HTML, sitemap inclusion and actual card PNGs. The public-footer suite includes all eight pages.
 Focused comparison coverage also guards general and scope-specific source-review dates, CSS and text
-claims, current custom-status/paging claims, distinct examples, ruttl's announced checks and pricing
-conflicts, and the shared MCP limits.
+claims, current custom-status/paging claims, limited file proofing, distinct approval and verification
+rows, distinct examples, ruttl's announced checks and pricing conflicts, and the shared MCP limits.

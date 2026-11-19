@@ -5,6 +5,38 @@ test('unknown comparison slugs return a real 404', async ({ request }) => {
         expect((await request.get(path)).status(), path).toBe(404);
 });
 
+test('both comparison tables document Pastel HTML uploads and the agent workflow', async ({ request }) => {
+    for (const path of ['/compare/pastel', '/compare/website-feedback-tools']) {
+        const response = await request.get(path, { headers: { 'User-Agent': 'Googlebot' } });
+        expect(response.status(), path).toBe(200);
+        const html = await response.text();
+        expect(html).toContain('HTML prototype as a single file, folder or ZIP');
+        expect(html).toContain('same canvas link across revisions');
+        expect(html).toContain('upload an HTML revision');
+        expect(html).toContain('href="https://help.usepastel.com/en/articles/17629923-get-feedback-on-html-files-upload-directly-from-your-ai-agent"');
+        expect(html).toContain('href="https://help.usepastel.com/en/articles/16399713-connect-your-ai-agent-to-pastel-mcp-server"');
+    }
+});
+
+test('comparison HTML links the scoped file proof and approval claims', async ({ request }) => {
+    const docs = 'https://github.com/signalco-io/uier/blob/main/apps/web/docs';
+    for (const path of ['/compare/pastel', '/compare/website-feedback-tools']) {
+        const response = await request.get(path, { headers: { 'User-Agent': 'Googlebot' } });
+        expect(response.status(), path).toBe(200);
+        const html = await response.text();
+        expect(html).toContain('Project-enabled file review');
+        expect(html).toContain('Review images, selected Figma frames, MP4 videos and EML uploads. Formats are enabled per project.');
+        expect(html).toContain('Reviewing a finished fix');
+        expect(html).toContain('Approving a file version');
+        expect(html).toContain('Set a deadline for an approval round.');
+        expect(html).toContain('No task due dates.');
+        expect(html).toContain(`href="${docs}/proof-api.md#format-settings-and-processing"`);
+        expect(html).toContain(`href="${docs}/proof-api.md#version-approvals-and-review-record"`);
+        expect(html).toContain(`href="${docs}/proof-viewer.md"`);
+        expect(html).not.toContain('No file proofing');
+    }
+});
+
 test('comparison caveats and official evidence are present in crawler HTML', async ({ request }) => {
     const response = await request.get('/compare/website-feedback-tools', { headers: { 'User-Agent': 'Googlebot' } });
     expect(response.status()).toBe(200);
