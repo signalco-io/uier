@@ -34,7 +34,7 @@ export async function loadAppCommentsSnapshot(context: AppContext, project: DbPr
                 statusUnread: { active: 0, open: 0, 'in-progress': 0, ready: 0, done: 0, all: 0 },
                 archiveCount: 0, archiveUnread: 0, scopeTotal: 0, matchedTotal: 0, unreadCount: 0, pages: [], historySources: [], queryTooExpensive: true
             };
-            return { comments: [], openedComment: undefined, paging, revision: 'query-too-expensive' };
+            return { comments: [], openedComment: undefined, paging, revision: 'query-too-expensive', sidebarSummary: undefined };
         }),
         membersForRequest
     ]);

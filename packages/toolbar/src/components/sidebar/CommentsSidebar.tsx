@@ -9,7 +9,7 @@ import { LocationPicker } from './LocationPicker';
 import { useInboxComments } from './useInboxComments';
 import type { CommentsFilter } from './CommentsFilter';
 import { InkScope } from '../InkScope';
-import { DockablePanel } from '../DockablePanel';
+import { DockablePanel, panelEnter, panelExit, usePanelSlidesIn } from '../DockablePanel';
 import { MarkAllRead } from './MarkAllRead';
 import { InboxSearch } from './InboxSearch';
 import { RestoredPanelContext } from '../../openPanel';
@@ -52,6 +52,7 @@ export function CommentsSidebar({ filter, onFilterChange: setFilter, onClose, on
     const [hidding, setHidding] = useState<boolean>(false);
     // Open on the previous page: it stays without sliding in or taking the focus
     const restored = useContext(RestoredPanelContext).includes('inbox');
+    const slidesIn = usePanelSlidesIn('inbox');
     const contentRef = useRef<HTMLDivElement>(null);
     // The search popover; `/` opens it
     const [searchOpen, setSearchOpen] = useState(focusRequest?.target === 'search');
@@ -90,9 +91,7 @@ export function CommentsSidebar({ filter, onFilterChange: setFilter, onClose, on
         <InkScope>
             {/* Slides in from (and out to) the side it is docked on; only fades with reduced motion */}
             <DockablePanel id="inbox" label={t.inbox.label} onKeyDown={handleKeyDown}
-                className={cx(hidding
-                    ? 'animate-out fade-out fill-mode-forwards duration-150 ease-in motion-safe:data-[side=left]:slide-out-to-left motion-safe:data-[side=right]:slide-out-to-right'
-                    : !restored && 'animate-in fade-in duration-200 ease-out motion-safe:data-[side=left]:slide-in-from-left motion-safe:data-[side=right]:slide-in-from-right')}>
+                className={cx(hidding ? panelExit : !restored && slidesIn && panelEnter)}>
                 <Stack ref={contentRef} tabIndex={0} data-uier-inbox-scroll="" className="h-full overflow-y-auto rounded-b-2xl outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
                     <Stack spacing={2} className="shrink-0 px-4 pt-3">
                         <CommentsSidebarHeader onClose={handleClose} autoFocus={!restored}

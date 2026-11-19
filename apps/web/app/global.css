@@ -110,3 +110,15 @@ html, body, #__next {
 :target {
   scroll-margin-top: 64px;
 }
+
+/*
+ * The signed-in shell's copy from this browser (`CachedShell`, docs/app-shell.md "Local shell cache") takes the frame's
+ * place while the request is read, and gives way to the live shell the moment it is in the document (before React has
+ * seen it). During a switch it draws over the live shell instead, which stays mounted underneath until the destination
+ * renders.
+ */
+body:has([data-cached-shell]) [data-shell-frame],
+body:has([data-app-shell]) [data-cached-shell]:not([data-switching]),
+body:has([data-cached-shell][data-switching]) [data-app-shell] {
+  display: none;
+}

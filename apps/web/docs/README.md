@@ -29,7 +29,7 @@ Product contracts, API references and runbooks stay in the repository's [`docs/`
 - [Proof threads and verification](proof-review.md): canonical file comments, viewer integration and reviewer queue.
 - [App languages](localization.md): supported languages, browser defaults, profile preference and catalogs.
 
-- [App shell](app-shell.md): sidebar, sidebar project order, workspace area, project header, `ProjectMark`, projects list, My work.
+- [App shell](app-shell.md): sidebar, sidebar project order, workspace area, project header, `ProjectMark`, projects list, My work, the local shell cache.
 - [Project settings](project-settings.md): settings sections, one save per page, notification settings.
 - [Environments](environments.md): the site addresses table and environment filters.
 - [Page checks](page-checks.md): the project's page check summaries from members' toolbars, their store and view.

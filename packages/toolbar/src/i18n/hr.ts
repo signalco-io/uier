@@ -1078,6 +1078,8 @@ export const hr: Messages = {
             showOrder: 'Prikaži redoslijed tabulatora',
             focusNote: 'Pomiče fokus kroz kontrole stranice, pokreće njihove rukovatelje fokusom i navodi one koji ne pokazuju vidljivu promjenu.',
             checkFocus: 'Provjeri pokazatelje fokusa',
+            indicators: 'Pokazatelji fokusa',
+            notRun: 'Još nije provjereno: provjera pomiče fokus pa se pokreće samo na zahtjev.',
             moving: 'Pomicanje fokusa kroz stranicu…',
             focusFailed: 'Provjera fokusa nije pokrenuta.'
         },

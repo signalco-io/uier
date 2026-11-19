@@ -1077,6 +1077,8 @@ export const fr: Messages = {
             showOrder: 'Afficher l’ordre de tabulation',
             focusNote: 'Déplace le focus dans les contrôles de la page, en exécutant leurs gestionnaires de focus, et liste ceux qui ne montrent aucun changement visible.',
             checkFocus: 'Vérifier les indicateurs de focus',
+            indicators: 'Indicateurs de focus',
+            notRun: 'Pas encore vérifié : la vérification déplace le focus, elle ne s’exécute donc qu’à la demande.',
             moving: 'Déplacement du focus dans la page…',
             focusFailed: 'La vérification du focus n’a pas pu s’exécuter.'
         },

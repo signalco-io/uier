@@ -41,17 +41,39 @@ test('confirming an account deletion ends its sessions and opens a fresh account
     } finally { await otherDevice.close(); }
 });
 
+/** The keys of this browser's copies of the app shell (IndexedDB `uier-app`): each names its account */
+function shellCopies(page: Page) {
+    return page.evaluate(() => new Promise<string[]>((resolve, reject) => {
+        const request = indexedDB.open('uier-app');
+        request.onupgradeneeded = () => request.result.createObjectStore('entries');
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => {
+            const database = request.result;
+            const keys = database.transaction('entries').objectStore('entries').getAllKeys();
+            keys.onsuccess = () => { database.close(); resolve(keys.result.map(String).filter(key => key.startsWith('shell:'))); };
+            keys.onerror = () => reject(keys.error);
+        };
+    }));
+}
+
 test('deleting the active account preserves the other signed-in account on this browser', async ({ page }) => {
     const kept = uniqueEmail('keep-account'), removed = uniqueEmail('remove-account');
     await signIn(page, kept);
     const before = await (await page.request.get('/api/account/sessions')).json();
     await signIn(page, removed, { from: '/app/sign-in?add=1' });
     await page.goto('/app/account');
+    // This browser keeps a copy of each signed-in account's sidebar (`shellCache`), under the account's id
+    const { userId: removedId } = await (await page.request.get('/api/account/sessions')).json() as { userId: string };
+    const copies = async (userId: string) => (await shellCopies(page)).filter(key => key.startsWith(`shell:${encodeURIComponent(userId)}:`)).length;
+    await expect.poll(() => copies(removedId)).toBeGreaterThan(0);
     await page.getByRole('button', { name: 'Delete account', exact: true }).click();
     const dialog = page.getByRole('alertdialog');
     await dialog.getByRole('textbox').fill(removed);
     await dialog.getByRole('button', { name: 'Delete account' }).click();
     await expect(page.getByText(`Account deleted. You are now using ${kept}.`)).toBeVisible();
+    // The deleted account's copy left the browser with it; the other account has its own
+    expect(await copies(removedId)).toBe(0);
+    await expect.poll(() => copies(before.userId)).toBeGreaterThan(0);
     await page.goto('/app/account?deleted=1');
     await expect(page.getByRole('region', { name: 'Delete account' })).toBeVisible();
     await expect(page.getByText(/^Account deleted\./)).toHaveCount(0);

@@ -2,7 +2,7 @@
 
 import { useLayoutEffect, useReducer, useSyncExternalStore } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
-import { ArchiveIcon, ChevronDownIcon, KanbanIcon, ListFilterIcon, ListIcon, SearchIcon } from 'lucide-react';
+import { ChevronDownIcon, KanbanIcon, ListFilterIcon, ListIcon, SearchIcon } from 'lucide-react';
 import { useAppI18n } from '@/src/lib/i18n/client';
 import { cn } from '@/src/lib/utils';
 import { Button } from '@/src/components/ui/button';
@@ -134,11 +134,7 @@ function FiltersPlaceholder({ view, status }: { view: CommentsView; status: Stat
                     </div>
                 </div>
             )}
-            <div className={cn(filterControls, 'max-sm:flex-wrap')}>
-                <Button variant="outline" size="sm" aria-label={t('Archive')} className="shrink-0 pointer-coarse:min-h-11" tabIndex={-1}>
-                    <ArchiveIcon /><span className="hidden sm:inline">{t('Archive')}</span><Skeleton className="h-3 w-4 animate-none" />
-                </Button>
-
+            <div className={filterControls}>
                 <Button variant="ghost" size="icon" tabIndex={-1} aria-label={t("Filter")} className={filterIconButton}><ListFilterIcon /></Button>
                 <InputGroup className={searchInput}>
                     <InputGroupAddon><SearchIcon /></InputGroupAddon>

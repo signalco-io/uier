@@ -1,6 +1,6 @@
 import { enableProjectVerification } from './support/app';
 import { expect, test, type APIRequestContext, type Locator, type Page, type Route } from '@playwright/test';
-import { commentRowLink, createProject, hydrated, openCommentFilters, selectThread, heldForDrag, longPress, openBoardMove, openComment, selectionBar, setProjectAccess, signIn, uniqueEmail, type ProjectAccessLabel } from './support/app';
+import { commentRowLink, createProject, hydrated, openCommentFilters, selectThread, toggleArchive, heldForDrag, longPress, openBoardMove, openComment, selectionBar, setProjectAccess, signIn, uniqueEmail, type ProjectAccessLabel } from './support/app';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 import { startReviewedSite } from './support/reviewedSite';
 import { expectNoAxeViolations } from './accessibility';
@@ -228,7 +228,6 @@ test('the board widens on a wide window, the filters and project headers and the
     }
     expect(boxes[0]!.width).toBeGreaterThan(300);
     expect(boxes[0]!.width).toBeLessThanOrEqual(320);
-    await expect(page.getByRole('button', { name: /^Archive(?:\s*\d+)?$/ })).toBeVisible();
     await expect(column('Archived')).toHaveCount(0);
     await headerSpans(column('Open'));
 
@@ -932,7 +931,7 @@ for (const preference of ['sort', 'Archive sort'] as const) {
         const { project, column } = await board(page, request, { label: 'Bug' });
         const open = column('Open');
         if (preference === 'Archive sort') {
-            await page.getByRole('button', { name: /^Archive(?:\s*\d+)?$/ }).click();
+            await toggleArchive(page);
             await expect(page.getByText('Nothing archived', { exact: true })).toBeVisible();
         }
         let release!: () => void;

@@ -47,8 +47,9 @@ for (const colorScheme of ['light', 'dark'] as const) {
         await expect(log).toContainText(`${name} changed priority to High.`);
         await expect(log).toContainText(`${name} changed status to In progress.`);
         const lines = await log.getByRole('listitem').allTextContents();
-        expect(lines.findIndex(text => text.includes('assigned'))).toBeLessThan(lines.findIndex(text => text.includes('changed priority')));
-        expect(lines.findIndex(text => text.includes('changed priority'))).toBeLessThan(lines.findIndex(text => text.includes('changed status')));
+        // Newest first, as a timeline (uier #486)
+        expect(lines.findIndex(text => text.includes('changed status'))).toBeLessThan(lines.findIndex(text => text.includes('changed priority')));
+        expect(lines.findIndex(text => text.includes('changed priority'))).toBeLessThan(lines.findIndex(text => text.includes('assigned')));
         await expect(log.locator('time').first()).toHaveAttribute('datetime', /T/);
         await expectNoAxeViolations(page, { include: ['[role="article"]'] });
         await activity.click();

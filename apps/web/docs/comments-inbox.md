@@ -318,11 +318,11 @@ still detect assignment changes; catalog edits still change the snapshot revisio
 
 ## Archive
 
-The Archive toggle in the project comments header opens a paged list (`?archive=only`).
+Only archived in the project comments' Filter popover ([comment filters](comment-filters.md)) opens a paged list (`?archive=only`).
 Existing `?status=archived` links open the same list. The list starts on All and its status
 tabs filter archived threads by their own workflow status. Rows and details show that
 status, including custom names and Ready to verify. The thread also shows an Archived
-label. Turning the toggle off returns to the chosen List/Board layout. My work continues to
+label. Turning it off (the checkbox or the Archived chip) returns to the chosen List/Board layout. My work continues to
 list unarchived threads.
 
 More actions → Archive comment archives a thread and Restore comment returns it to its

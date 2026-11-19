@@ -3,12 +3,14 @@
 import type { ProjectCommentView } from '@/src/lib/app/projectComments';
 import { useEffect, useRef, useState } from 'react';
 import type { loadAppCommentsSnapshot } from '@/src/lib/app/appCommentsSnapshot';
+import type { SidebarCommentSummary } from '@/src/lib/app/sidebarProjects';
 import { PROJECT_COMMENT_MAX_DEPTH, projectCommentPageKey, type CommentLane } from '@/src/lib/app/projectCommentPaging';
 import type { CommentsQuery } from './commentsQuery';
 import type { StatusWorkflow } from '@/src/lib/app/statusWorkflow';
 import type { BoardColumn, BoardSort } from '@/src/lib/app/boardSort';
 
-type Snapshot = Pick<NonNullable<Awaited<ReturnType<typeof loadAppCommentsSnapshot>>>, 'comments' | 'paging' | 'revision' | 'projectId' | 'userId'> & { openedComment?: ProjectCommentView };
+type Snapshot = Pick<NonNullable<Awaited<ReturnType<typeof loadAppCommentsSnapshot>>>,
+    'comments' | 'paging' | 'revision' | 'projectId' | 'userId'> & { openedComment?: ProjectCommentView; sidebarSummary?: SidebarCommentSummary };
 export function mergePage(current: Snapshot, next: Snapshot, lane: CommentLane): Snapshot {
     const page = next.paging.lanes[lane];
     if (!page) return current;
@@ -21,7 +23,7 @@ export function mergePage(current: Snapshot, next: Snapshot, lane: CommentLane):
             : lanes[id] ? { ...lanes[id]!, total: metadata.total } : metadata;
     }
     // A continuation refreshes one lane only; preserve the full-window refresh baseline.
-    return { ...next, revision: current.revision, comments: [...rows.values()], openedComment: next.openedComment ?? current.openedComment,
+    return { ...next, revision: current.revision, sidebarSummary: current.sidebarSummary, comments: [...rows.values()], openedComment: next.openedComment ?? current.openedComment,
         paging: { ...next.paging, lanes } };
 }
 

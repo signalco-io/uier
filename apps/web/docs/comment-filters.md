@@ -13,12 +13,12 @@
   A project's comments pass neither `projects` nor `onView`.
 - The comments' filter bar (`CommentFilters.tsx`): in the list the status tabs first, left-aligned at the list's left edge
   ([uier #405](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_fQEilWWPBW-H35qpwStTM); below), then at the right end of that row the filters in
-  effect, Archive, Filter, Group by, the search and List/Board, the search directly left of List/Board in the list and the board
+  effect, the Archive's sort (in the Archive only), Filter, Group by, the search and List/Board, the search directly left of List/Board in the list and the board
   ([uier #403](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_TyebDCmyAli8-wC0qBZDY); `filterControls`, `searchInput` and `statusTabsBox` in `CommentsViewToggle.tsx`, shared with the loading
   header; [uier #411](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_uA2peoXUrJYMWoMxg5LPO) moved it there from left of Filter, uier #403). Filter and Group by are icon-only ghost buttons, no outline and no words
   ([uier #404](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_32FuLmqvjAFqPTxak92oh), `filterIconButton`): each has a tooltip and is named by it ("Filter", "Group by"), and
   Filter's corner badge counts the filters in effect, its name then "Filter 2". Filter is one button (a popover with Status on the board only (below), Priority, Environment
-  and page, People (Everyone, Assigned to me, Unassigned, Opened by me) and Only unread (plus the open thread)). On a touch screen the search, Filter, Group by and the List/Board group are one height, 44 px:
+  and page, People (Everyone, Assigned to me, Unassigned, Opened by me), Only unread (plus the open thread) and, on a project's comments, Only archived). On a touch screen the search, Filter, Group by and the List/Board group are one height, 44 px:
   the group's 3 px padding around 38 px tabs; uier #277. The search is 16rem; the row stays one line from `sm`, the
   search giving up its room first, down to 6rem (its placeholder then ends in an ellipsis), then the tabs, which scroll
   sideways. This replaces uier #355, #384 and #398, where the search (with the tabs after it) took the first column's
@@ -95,7 +95,11 @@ A status narrows the board to that column: the other columns stay, empty, as dro
 Select shown results takes only what is shown. It shows in effect as "Status: Done", counts in Filter's badge, and Clear
 filters (or its chip) goes back to every column. `comment-board.spec.ts` covers it.
 
-The Archive toggle opens archived threads with the All status selected (`archive=only`).
+Only archived, the last choice in the Filter popover, opens archived threads with the All status selected (`archive=only`).
+It moved there from its own toggle in the filter row so the row stays short ([uier #485](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000001&comment=comment_dUPm60LuvpFCJg7EHgS_1)).
+Its label has the archive's count and the unread dot (described as "Unread"). While it is on it shows in effect as
+"Archived" (with the archive icon, named "Archived, clear filter") and counts in Filter's badge; its chip, the checkbox
+and Clear filters leave the Archive for the default status.
 Existing `status=archived` links resolve to the same view. Status, search, people, page,
 priority, unread, author, label and environment still filter the archive. The Archive
 list has its own total and sort. The toolbar's Archive toggle uses the same separation

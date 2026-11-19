@@ -81,7 +81,9 @@ says what was requested (`GET <address>` through `writtenAddress`, no query) and
   (Anthropic), PerplexityBot, Perplexity-User, Google-Extended, Applebot-Extended, CCBot (Common Crawl),
   meta-externalagent (Meta) and Amazonbot. Bytespider is left out: ByteDance publishes no page that
   could be confirmed. The tokens change: check the links before changing the list. Their row folds a
-  list of each with its vendor, what it is for and the rule that applies.
+  list of each with its vendor, what it is for and the rule that applies. The list is a grid whose rows share its columns
+  (subgrid): name, what it is for and the verdict, right-aligned; under 18rem of width (a container query)
+  what it is for moves below the name and verdict.
 
 ## Sitemaps
 

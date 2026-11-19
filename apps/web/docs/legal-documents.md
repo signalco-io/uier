@@ -34,6 +34,10 @@ The privacy policy's 14 November 2026 update also describes optional workspace N
 and the identifier-only associations retained to prevent recreation after manual override, deletion
 or transfer. This wording remains subject to the owner review above before merge.
 
+The cookie policy's 19 November 2026 update lists `uier-app`, the app's IndexedDB copy of the sidebar
+([local shell cache](app-shell.md#local-shell-cache)): what it holds, that it never grants access and that signing out
+removes it. Change that entry with the cache.
+
 The privacy policy's 16 November 2026 update describes the optional Slack file sharing: screenshot and
 recording files reach Slack only after an admin allows file uploads and turns the option on, are posted
 in the message's thread, and are removed when replaced, deleted or made private. The recordings section

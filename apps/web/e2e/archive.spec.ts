@@ -2,7 +2,7 @@ import type { CommentItem } from '../../../packages/toolbar/src/components/@type
 import { expect, test, type Page } from '@playwright/test';
 import { expectNoAxeViolations } from './accessibility';
 import { startReviewedSite } from './support/reviewedSite';
-import { backToComments, createProject, openComment, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { backToComments, createProject, expectArchiveCount, openComment, setProjectAccess, signIn, toggleArchive, uniqueEmail } from './support/app';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 import { animationsFinished, commentBubble, expectInboxListed, openThread, threadOptions } from './support/toolbar';
 
@@ -47,11 +47,12 @@ test('app archive stays separate from Done and All, reloads and restores the pri
     await tabs.getByRole('button', { name: 'All 0', exact: true }).click();
     await expect(page.locator('[data-comment-row]')).toHaveCount(0);
     await expect(tabs.getByRole('button', { name: /^Archive/ })).toHaveCount(0);
-    const archive = page.getByRole('button', { name: /^Archive(?:\s*\d+)?$/ });
-    await expect(archive).toHaveText(/1/);
-    await archive.click();
+    // The Archive is in the Filter popover (uier #485), and shows as a filter in effect
+    const archived = page.getByRole('button', { name: 'Archived, clear filter', exact: true });
+    await expectArchiveCount(page, 1);
+    await toggleArchive(page);
     await expect(page).toHaveURL(/archive=only/);
-    await expect(archive).toHaveAttribute('aria-pressed', 'true');
+    await expect(archived).toBeVisible();
     await expect(tabs.getByRole('button', { name: 'Done 1', exact: true })).toBeVisible();
     await page.reload();
     card = await openComment(page, 1);
@@ -66,8 +67,8 @@ test('app archive stays separate from Done and All, reloads and restores the pri
     await card.getByRole('button', { name: /^More actions for the comment/ }).click();
     await page.getByRole('menuitem', { name: 'Restore comment', exact: true }).click();
     await expect(page.getByText('Nothing archived', { exact: true })).toBeVisible();
-    await archive.click();
-    await expect(archive).toHaveAttribute('aria-pressed', 'false');
+    await archived.click();
+    await expect(archived).toHaveCount(0);
     await tabs.getByRole('button', { name: 'Done 1', exact: true }).click();
     card = await openComment(page, 1);
     await expect(card).toContainText('Keep this feedback for later');
@@ -79,11 +80,11 @@ test('the board archives to a separate list and restores to the same column', as
     const project = `/app/projects/${f.projectId}`;
     await page.goto(`${project}?view=board`);
     const column = (name: string) => page.getByRole('region', { name: `${name} comments`, exact: true });
-    const archive = page.getByRole('button', { name: /^Archive(?:\s*\d+)?$/ });
+    const archived = page.getByRole('button', { name: 'Archived, clear filter', exact: true });
     await expect(column('Open').getByRole('listitem')).toHaveCount(1);
     await expect(page.locator('[data-board-scroll] > section')).toHaveCount(3);
     await expect(column('Archived')).toHaveCount(0);
-    await expect(archive).toHaveAttribute('aria-pressed', 'false');
+    await expect(archived).toHaveCount(0);
 
     let thread = await openComment(page, 1);
     await page.mouse.move(0, page.viewportSize()!.height - 1);
@@ -92,11 +93,11 @@ test('the board archives to a separate list and restores to the same column', as
     await expect(thread.getByText('Archived', { exact: true })).toBeVisible();
     await backToComments(page);
     await expect(column('Open').getByRole('listitem')).toHaveCount(0);
-    await expect(archive).toHaveText(/1/);
+    await expectArchiveCount(page, 1);
 
     // The legacy toolbar link lands in the same archive. Workflow filters compose with it.
     await page.goto(`${project}?view=board&status=archived`);
-    await expect(archive).toHaveAttribute('aria-pressed', 'true');
+    await expect(archived).toBeVisible();
     await expect(page.locator('[data-board-scroll]')).toHaveCount(0);
     const row = page.locator('[data-comment-row]').filter({ hasText: 'Keep this feedback for later' });
     await expect(row).toContainText(/Status:\s*Open/);
@@ -120,9 +121,9 @@ test('the board archives to a separate list and restores to the same column', as
     await thread.getByRole('button', { name: /^More actions for the comment/ }).click();
     await page.getByRole('menuitem', { name: 'Restore comment', exact: true }).click();
     await expect(page.getByText('Nothing archived', { exact: true })).toBeVisible();
-    await archive.click();
+    await archived.click();
     await expect(column('Open').getByRole('listitem')).toHaveCount(1);
-    await expect(archive).toHaveAttribute('aria-pressed', 'false');
+    await expect(archived).toHaveCount(0);
 });
 
 test('Archive all in a board column archives every thread in it, the ones not loaded yet too, after a confirmation', async ({ page, request }) => {
@@ -172,11 +173,11 @@ test('Archive all in a board column archives every thread in it, the ones not lo
     await expect(page.getByText('29 threads archived.', { exact: true })).toBeVisible();
     await expect(done.getByRole('button', { name: /^Archive all/ })).toHaveCount(0);
     await expect(done.getByRole('button', { name: /^Sort Done: / })).toBeFocused();
-    await expect(page.getByRole('button', { name: /^Archive(?:\s*\d+)?$/ })).toHaveText(/29/);
+    await expectArchiveCount(page, 29);
     await page.reload();
     await expect(done.getByRole('heading')).toHaveText('Done0');
     await expect(column('Open').getByRole('heading')).toHaveText('Open1');
-    await expect(page.getByRole('button', { name: /^Archive(?:\s*\d+)?$/ })).toHaveText(/29/);
+    await expectArchiveCount(page, 29);
 });
 
 test('toolbar archive removes the pin, restores from Archive and rolls back a failed save', async ({ page }) => {

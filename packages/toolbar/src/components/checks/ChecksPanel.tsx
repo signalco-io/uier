@@ -3,8 +3,8 @@ import { Stack } from '@signalco/ui-primitives/Stack';
 import { Row } from '@signalco/ui-primitives/Row';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { cx } from '@signalco/ui-primitives/cx';
-import { PanelRightClose, Reset } from '@signalco/ui-icons';
-import { DockablePanel, PanelHandle } from '../DockablePanel';
+import { Reset } from '@signalco/ui-icons';
+import { DockablePanel, PanelCloseIcon, PanelHandle, panelEnter, panelExit, usePanelSlidesIn } from '../DockablePanel';
 import { IconTooltip } from '../IconTooltip';
 import { InkScope } from '../InkScope';
 import { PanelTitle } from '../PanelTitle';
@@ -28,6 +28,7 @@ export function ChecksPanel({ id, title, checking, onCheckAgain, onClose, childr
     const [hiding, setHiding] = useState(false);
     const t = useMessages();
     const restored = useContext(RestoredPanelContext).includes(id);
+    const slidesIn = usePanelSlidesIn(id);
     const close = () => {
         setHiding(true);
         window.setTimeout(onClose, 150);
@@ -41,9 +42,7 @@ export function ChecksPanel({ id, title, checking, onCheckAgain, onClose, childr
                         close();
                     }
                 }}
-                className={cx(hiding
-                    ? 'animate-out fade-out fill-mode-forwards duration-150 ease-in motion-safe:data-[side=left]:slide-out-to-left motion-safe:data-[side=right]:slide-out-to-right'
-                    : !restored && 'animate-in fade-in duration-200 ease-out motion-safe:data-[side=left]:slide-in-from-left motion-safe:data-[side=right]:slide-in-from-right')}>
+                className={cx(hiding ? panelExit : !restored && slidesIn && panelEnter)}>
                 {/* Focusable so a long report scrolls with the keyboard */}
                 <Stack tabIndex={0} className="h-full overflow-y-auto rounded-b-2xl outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
                     <Row justifyContent="space-between" className="shrink-0 px-4 pt-3">
@@ -60,7 +59,7 @@ export function ChecksPanel({ id, title, checking, onCheckAgain, onClose, childr
                             </IconTooltip>
                             <IconTooltip label={t.checks.closePanel}>
                                 <IconButton variant="plain" size="sm" aria-label={t.checks.closeNamed(title)} autoFocus={!restored} data-uier-panel-close="" onClick={close}>
-                                    <PanelRightClose size={16} aria-hidden="true" />
+                                    <PanelCloseIcon />
                                 </IconButton>
                             </IconTooltip>
                         </Row>
