@@ -139,13 +139,17 @@ the separately bundled review toolbar owns its own query cache.
   Sort and Group (`recent`, `alphabetical`, `recent.client`, `alphabetical.client`) are the same strings and read
   back as the same choice; anything else is the default. The shell layout reads it, so the first render is already
   in order. The shell layout
-  renders on every refresh (`RealtimeComments` too): keep its reads point reads or bounded aggregates, and list them in
+  uses point reads or bounded aggregates when it renders: list them in
   [Cosmos query costs](../../../docs/cosmos-query-costs.md#shell-layout-sidebar-project-order).
 - **Sidebar open counts (uier #463).** Each listed project has a quiet `SidebarMenuBadge` for unfinished,
   unarchived comments visible to the current member. Zero and unavailable counts render no badge; the link
   describes the count to screen readers. Counts refresh with the shell, in every sort/group, using
   partition-scoped `COUNT(1)` with at most four count queries in flight. Only authorized projects from
   `listVisibleProjects` reach this loader.
+  When the comments page receives a newer full snapshot (uier #488), it also updates that project's
+  open count and recent-activity position in the mounted sidebar and the shell's loading hints.
+  The shell keeps these values across navigation within the same account and workspace and prefers
+  a newer shell read over an older page snapshot.
 - **Workspace area** (`workspace/`): the workspace's name above `LinkTabs` (`workspace/(tabs)/layout.tsx`,
   `WorkspaceHeader`, `workspaceTabs`): Users, Teams, Clients, Usage, Activity and Settings for admins, Clients and Usage for everyone
   else and in the uier workspace ([Usage](usage.md)). `/app/workspace` opens the first tab. A team's and a person's own pages (`workspace/teams/[teamId]`,
@@ -302,7 +306,7 @@ board policy and the current project's navigation fields. The route is `private,
 by Cookie and rejects cross-site browser requests. The live project-members load is shared only
 within that snapshot request; there is no positive authorization cache between requests.
 
-Other projects' names, client grouping and recent-activity order update on navigation. The five-minute
+Other projects' names, client grouping and activity still come from their shell or page reads. The five-minute
 safety check now refreshes only project comment data and metadata (uier #410), keeping the mounted
 shell intact during background loads. `realtime.spec.ts` checks the cadence, read/render races and
 late hidden-tab responses; `app-comments-snapshot.api.spec.ts` checks revision privacy, read-state,
