@@ -57,7 +57,7 @@ interactive HTML ZIP uploads as preview.
 - Two HTML ZIP revisions opened and ran interactively on the isolated preview host. Hosted
   acceptance at `47235b6e` reopened historical native controls and showed a captured reference for
   the custom menu state. A scoped MCP client published a second version, and revoking the share
-  blocked guest access. [Hosted acceptance run](https://github.com/signalco-io/uier/actions/runs/44520142945)
+  blocked guest access. [Hosted preview deployment](https://github.com/signalco-io/uier/actions/runs/44520142945)
 - On production `24040d3c`, the dedicated renderer returned the expected anonymous 404 at its root.
   A signed production guest review with an interactive render is still pending.
   [Production deployment run](https://github.com/signalco-io/uier/actions/runs/44522256999)
