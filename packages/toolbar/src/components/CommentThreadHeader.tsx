@@ -373,9 +373,11 @@ export function CommentThreadHeader({ comment, message, onMarkedUnread, onReques
     return (
         // S and A find the thread's status menu and its people here (`threadShortcuts.ts`)
         <Stack ref={headerRef} spacing={1} data-uier-thread-header="">
-            {/* The actions keep to the first line when the author wraps under the status */}
-            <Row spacing={1} justifyContent="space-between" alignItems="start" className="flex-nowrap">
-                <Row spacing={1} className="min-w-0 flex-wrap gap-y-1">
+            {/* The actions keep to the first line when the author wraps under the status. Where even the status and the
+                actions don't fit side by side (a 320 px phone, 44 px touch targets) the actions wrap to a line of their own
+                instead of covering the status: the left part's flex basis is its narrowest width */}
+            <Row spacing={1} justifyContent="space-between" alignItems="start" className="flex-wrap gap-y-1">
+                <Row spacing={1} className="min-w-min grow basis-0 flex-wrap gap-y-1">
                     {canChangeStatus
                         ? <CommentStatusMenu verificationEnabled={comment.verificationEnabled === true} stage={stage} allowed={allowed} statuses={custom.workflow.data?.statuses} selectedId={selectedStatus?.id} canArchive={canResolve} archived={Boolean(comment.archivedAt)} onRestore={() => void handleArchive(false)} shortcut={shortcuts}
                             pending={archive.isPending || custom.mutation.isPending || resolve.isPending || progress.isPending || verificationMutation.isPending}
@@ -394,7 +396,7 @@ export function CommentThreadHeader({ comment, message, onMarkedUnread, onReques
                     {message?.author && <span className="flex min-w-0 max-w-full items-center gap-1" data-uier-thread-author="">{message.author}</span>}
                 </Row>
                 {/* Always on the first line: the device marks and the actions (uier #470) */}
-                <Row className="-mr-1 shrink-0">
+                <Row className="-mr-1 ml-auto shrink-0">
                     <CommentAssignee comment={comment} className={threadActionClassName} />
                     {message?.device}
                     {/* A comment on its way has no reactions, link, issue or options yet */}

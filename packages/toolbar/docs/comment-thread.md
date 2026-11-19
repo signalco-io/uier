@@ -46,7 +46,9 @@ Checked in `apps/web/e2e/toolbar-thread.spec.ts`.
 
 `CommentThreadHeader.tsx` is one line, the thread's and its first message's together (uier #470). It wraps only
 where it is too narrow, as in a pin's 288 px popover: the first message's author and time move under the status as
-one piece, its name truncated, and the device marks and actions stay on the first line.
+one piece, its name truncated, and the device marks and actions stay on the first line. Where even the status and
+the actions don't fit side by side (a 320 px phone, whose touch targets are 44 px), the actions wrap to a line of
+their own, at the right, rather than cover the status. `e2e/toolbar-thread.spec.ts` checks it at 320 px.
 
 - The status: a menu like the app's `StateMenu` (Open, In progress, Ready to verify, Done) for those who may
   change it, else a badge ([status changes](optimistic-status.md)). Its dot glows like the app's status chip
@@ -67,7 +69,9 @@ one piece, its name truncated, and the device marks and actions stay on the firs
   person's row hold their place, `aria-hidden`, and a visually hidden `role="status"` says "Loading people…"),
   priority, Request verification ([fix verification](fix-verification.md)),
   Follow / Unfollow thread, Mute project emails and, once read, Mark as unread, Open in app, and last the first message's
-  Delete… (destructive), which asks in the menu what deleting does before Delete. The first message's items are
+  Delete… (destructive), which asks in the menu what deleting does before Delete. The menu is no taller than the
+  window's room on its side and scrolls inside, so Delete stays reachable by touch and End on a 480×320 screen
+  (`e2e/toolbar-thread.spec.ts`). The first message's items are
   left out while it is edited, and wait while it saves. No menu when there is none, and none on a comment still
   on its way.
   Members (the project's viewer is a member, `useProjectViewer`) also get Open in app: a link to the thread in the

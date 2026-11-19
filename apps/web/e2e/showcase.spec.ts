@@ -138,6 +138,11 @@ test('visitors leave public feedback; only the author resolves or deletes it', a
     await expect(visitorThread.getByRole('button', { name: /Change status$/ })).toHaveCount(0);
     await expect(visitorThread).toContainText('Status: Open');
     await expect(visitorThread.getByRole('button', { name: 'More options' })).toHaveCount(0);
+    // Someone else's comment: none of the first message's options (uier #470). They live in Thread options, which a
+    // guest gets only for them here, so it is absent: Edit, Reattach comment or Delete would bring it back
+    await expect(visitorThread.getByRole('button', { name: 'Thread options', exact: true })).toHaveCount(0);
+    for (const name of ['Edit', 'Reattach comment', 'Delete…'])
+        await expect(visitor.getByRole('button', { name, exact: true })).toHaveCount(0);
     // Anyone can copy a link to it
     await expect(visitorThread.getByRole('button', { name: 'Copy', exact: true })).toBeVisible();
 

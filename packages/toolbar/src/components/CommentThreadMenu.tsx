@@ -109,7 +109,8 @@ export function CommentThreadMenu({ className, actions, triggerRef }: { classNam
             aria-label={t.thread.options}
             // Like a menu: ↑ and ↓ move between its buttons
             onKeyDown={moveFocusInMenu}
-            {...toolbarSurface('uier-thread-menu', cx('z-[70] w-60 max-w-[calc(100vw-1rem)] rounded-xl p-1', floatingShadowClassName))}
+            // Bounded by the window's room on its side and scrolling inside, so every item (Delete last) stays reachable on a short screen
+            {...toolbarSurface('uier-thread-menu', cx('z-[70] max-h-[var(--radix-popover-content-available-height)] w-60 max-w-[calc(100vw-1rem)] overflow-y-auto overscroll-contain rounded-xl p-1', floatingShadowClassName))}
             trigger={(
                 <IconButton
                     ref={triggerRef}
