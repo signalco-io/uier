@@ -39,6 +39,8 @@ the separately bundled review toolbar owns its own query cache.
   side by side breaks out of it with the `page-wide` utility (`app/global.css`: the panel's width less the gutters, centred
   on the column; its parent must span the column) and `data-page-width="wide"`, which makes the panel's content a container
   (CSS `:has()`, so it follows a client-side view switch at once) for the registered `--page-wide` length the column sets.
+  The desktop panel reserves its classic scrollbar gutter in the loading frame and loaded shell. A board that
+  crosses the overflow threshold while loading or filtering keeps the same usable width (uier #484).
   The container is a wrapper inside the scrolling panel, not the panel: a scroller's `cqw` takes in its own scrollbar where
   scrollbars take room (shown always, as on macOS with a mouse), and the board would then be that much wider than the panel
   and scroll it sideways when its columns fit.
