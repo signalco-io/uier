@@ -7,7 +7,7 @@ import type { CommentItem } from '../@types/Comments';
  * `unresolved`: Active, everything not done (Open, In progress and Ready to verify), the default; `open`, `in-progress`
  * and `ready` are the statuses folded under Active, one each; `resolved` is Done. The app's `StatusFilter`.
  */
-export type CommentsStatusFilter = 'unresolved' | 'open' | 'in-progress' | 'ready' | 'resolved' | 'all' | 'archived';
+export type CommentsStatusFilter = 'unresolved' | 'open' | 'in-progress' | 'ready' | 'resolved' | 'all';
 
 /** The statuses folded under Active, each also a filter of its own */
 export const activeStatusFilters = ['open', 'in-progress', 'ready'] as const satisfies readonly CommentsStatusFilter[];
@@ -15,14 +15,6 @@ export const activeStatusFilters = ['open', 'in-progress', 'ready'] as const sat
 /** Whether the status filter shows Active or one of the statuses folded under it */
 export function isActiveStatusFilter(status: CommentsStatusFilter) {
     return status === 'unresolved' || (activeStatusFilters as readonly CommentsStatusFilter[]).includes(status);
-}
-
-/** Done's tab also holds Archive: its menu picks one or the other, and the tab then names it */
-export const doneStatusFilters = ['resolved', 'archived'] as const satisfies readonly CommentsStatusFilter[];
-
-/** Whether the status filter shows Done or Archive */
-export function isDoneStatusFilter(status: CommentsStatusFilter) {
-    return (doneStatusFilters as readonly CommentsStatusFilter[]).includes(status);
 }
 
 /**
@@ -38,6 +30,7 @@ export type CommentsFilter = {
     keywords?: string;
     unread?: boolean;
     status: CommentsStatusFilter;
+    archived?: boolean;
     assignedToMe?: boolean;
     page?: CommentsPageFilter;
 };
@@ -49,15 +42,13 @@ export function inboxPageKey(comment: CommentItem): `page:${string}` {
 
 /** Whether the comment has the status and every word of the search (pages are chosen separately) */
 export function matchesFilter(comment: CommentItem, filter: CommentsFilter) {
-    if (!matchesStatus(comment, filter.status)) {
+    if (Boolean(comment.archivedAt) !== Boolean(filter.archived) || !matchesStatus(comment, filter.status)) {
         return false;
     }
     return matchesSearch(comment, filter);
 }
 
 export function matchesStatus(comment: CommentItem, status: CommentsStatusFilter) {
-    if (status === 'archived') return Boolean(comment.archivedAt);
-    if (comment.archivedAt) return false;
     if (status === 'all') return true;
     if (status === 'unresolved') return !comment.resolved;
     return feedbackStage(comment) === (status === 'resolved' ? 'done' : status);

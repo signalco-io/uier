@@ -523,8 +523,9 @@ Claude Code/Cowork routes and official documentation are in
 it; guests and connected-service deliveries never do. Lease heartbeats do not change it.
 
 Archive is additive: `list_feedback.archive` is `exclude` by default, `only` for the archive, or `all`.
-This scope is applied before the storage window, alongside page/environment. Summaries and v1 context
-packets expose optional `archivedAt`; existing `resolved`, `status` and `stage` retain their meanings.
+This scope is applied before the storage window, alongside page/environment. Summaries, state rows and v1 context packets expose optional `archivedAt`. The existing
+`resolved`, `status` and `stage` keep their meanings. `workflowStatus` describes the retained
+workflow status. A saved archive destination is available independently as `archiveStatusId`.
 `set_feedback_archived` requires `feedback:status`, accepts `archived: boolean` and the usual write ids
 and receipt key, and preserves workflow/content/verification. Authorized single/batch reads and
 screenshots remain available. `feedback.archive_changed` uses the durable notification ledger and
@@ -543,14 +544,16 @@ exclusions still apply. See [read state](read-state-and-activity.md#read-cursors
 
 `list_feedback_statuses` requires `feedback:read` and the same live `mcpProject` access check as
 thread reads. It returns the effective workspace/project workflow, ordered definitions (ID,
-category, label, description), and initial/Done/Archive defaults. Results are untrusted content.
+category, label, description), and initial/Done/Archive defaults. Archive entries are legacy destinations. Results are untrusted content.
 `list_feedback` adds `workflowStatus`; member single/batch packets add the same display object.
 Guest exports omit this enrichment. Existing category filters and legacy write inputs retain their
 meaning. The generated connector skill lists the discovery tool and treats descriptions as untrusted guidance.
 
 `set_feedback_status` accepts exactly one of `statusId`, legacy `status`, or `resolved`. Use `list_feedback_statuses` for IDs. `request_feedback_verification` and `cancel_feedback_verification` also accept `statusId` within their permitted categories. Same-category moves emit `feedback.status_changed` with `change: workflow_status_changed`, previous/selected IDs, label and category. These names remain untrusted content. Same-category events are not emailed.
 
-`set_feedback_status` results include `archivedAt` (or `null`), so a custom Archive status write reports its archive state.
+`set_feedback_status` results include `archivedAt` (or `null`). Legacy archive destination IDs
+are still accepted. Archiving and restoring emit `feedback.archive_changed`. Changing an
+archived thread’s destination leaves its workflow status and status events alone.
 
 Fix verification is a per-project opt-in, off when absent. `list_feedback_statuses` reports `verificationEnabled` and omits Ready definitions when off; lists and packets project dormant requests as Open/In progress. `request_feedback_verification` refuses with “Fix verification is off for this project. Mark the comment done instead.” Custom Ready IDs are refused too. Ordinary approved `set_feedback_status` Done remains available and does not record reviewer confirmation. Existing request revisions/evidence are retained, and requests resume on re-enable unless closed in the meantime.
 

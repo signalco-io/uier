@@ -9,7 +9,7 @@ import { ExpandDown, ExternalLink, PanelRightClose } from '@signalco/ui-icons';
 import { Popper } from '@signalco/ui-primitives/Popper';
 import { Stack } from '@signalco/ui-primitives/Stack';
 import { useProjectViewer } from '../../project/ProjectGate';
-import { activeStatusFilters, doneStatusFilters, isActiveStatusFilter, isDoneStatusFilter, type CommentsStatusFilter } from './CommentsFilter';
+import { activeStatusFilters, isActiveStatusFilter, type CommentsStatusFilter } from './CommentsFilter';
 import { CommentsBootstrapperContext } from '../CommentsBootstrapperContext';
 import { StatusDot } from '../CommentThreadHeader';
 import { floatingShadowClassName } from '../@types/Comments';
@@ -89,10 +89,8 @@ const tabStateClassName = (pressed: boolean) => pressed ? 'border-foreground tex
  * Active, Done and All, with their counts for the chosen pages, as the app's status tabs: underlined tabs right above
  * the list, one tab stop. Active (the default) is every status but Done; the Active statuses menu beside it picks one
  * of the statuses folded under it (Open, In progress, Ready to verify), which the Active tab then names ("Active: In
- * progress 4"); pressing that tab goes back to every active status. Done holds Archive the same way (uier #302): its
- * menu picks Done or Archive, the tab then reads "Archive 2", and pressing it goes back to Done. The menu buttons keep
- * their own tab stops: the arrow keys move between the tabs only. A tab whose listed comments include unread ones has
- * the unread dot after its count, chosen or not (`unread`, uier #346), and so do the menus' items. While the lists
+ * progress 4"); pressing that tab goes back to every active status. The Active menu button has its own tab stop.
+ * Arrow keys move through the status tabs. The tabs and menu items show an unread dot after their count (uier #346). While the lists
  * load (`countsLoaded` false) the tabs and the menus' items show no counts (`TabCount`).
  */
 export function CommentsStatusTabs({ status, counts, countsLoaded = true, unread = {}, onStatusChange }: {
@@ -112,8 +110,7 @@ export function CommentsStatusTabs({ status, counts, countsLoaded = true, unread
     const activeShown = isActiveStatusFilter(status);
     const activeValue = activeShown ? status : 'unresolved';
     const activeLabel = activeValue === 'unresolved' ? statusLabels.unresolved : t.inbox.activeOne(statusLabels[activeValue]);
-    const doneShown = isDoneStatusFilter(status);
-    const doneValue = doneShown ? status : 'resolved';
+    const doneShown = status === 'resolved';
     // What a tab with the unread dot is described by
     const unreadId = useId();
     const described = (value: CommentsStatusFilter) => unread[value] ? unreadId : undefined;
@@ -130,15 +127,11 @@ export function CommentsStatusTabs({ status, counts, countsLoaded = true, unread
                 </Button>
                 <StatusesMenu label={t.inbox.activeStatuses} values={['unresolved', ...activeStatusFilters.filter(value => verificationEnabled || value !== 'ready')]} status={status} count={count} unread={unread} unreadId={unreadId} onStatusChange={onStatusChange} />
             </Row>
-            <Row className="-mb-px">
-                <Button size="sm" variant="plain" aria-pressed={doneShown} aria-describedby={described(doneValue)}
-                    className={cx(tabClassName, tabStateClassName(doneShown))}
-                    // Pressed again while it shows Archive: back to Done
-                    onClick={() => onStatusChange('resolved')}>
-                    {statusLabels[doneValue]} <TabCount count={count(doneValue)} /><TabUnread unread={unread[doneValue]} />
-                </Button>
-                <StatusesMenu label={t.inbox.doneStatuses} values={doneStatusFilters} status={status} count={count} unread={unread} unreadId={unreadId} onStatusChange={onStatusChange} />
-            </Row>
+            <Button size="sm" variant="plain" aria-pressed={doneShown} aria-describedby={described('resolved')}
+                className={cx('-mb-px', tabClassName, tabStateClassName(doneShown))}
+                onClick={() => onStatusChange('resolved')}>
+                {statusLabels.resolved} <TabCount count={count('resolved')} /><TabUnread unread={unread.resolved} />
+            </Button>
             <Button size="sm" variant="plain" aria-pressed={status === 'all'} aria-describedby={described('all')}
                 className={cx('-mb-px', tabClassName, tabStateClassName(status === 'all'))}
                 onClick={() => onStatusChange('all')}>
@@ -150,7 +143,7 @@ export function CommentsStatusTabs({ status, counts, countsLoaded = true, unread
 
 /**
  * The chevron beside a tab: a menu of the tab's own filter, then the ones folded under it, each with its count (Active,
- * then Open, In progress and Ready to verify with their status dots; Done, then Archive); a choice closes it
+ * then Open, In progress and Ready to verify with their status dots); a choice closes it
  */
 function StatusesMenu({ label, values, status, count, unread, unreadId, onStatusChange }: {
     label: string;
@@ -223,13 +216,14 @@ function StatusesMenu({ label, values, status, count, unread, unreadId, onStatus
 }
 
 /** A filter that is on or off, an outlined toggle like the page picker beside it (and the app's Unread filter) */
-export function FilterChip({ pressed, onClick, children }: {
+export function FilterChip({ pressed, onClick, children, describedBy }: {
     pressed: boolean;
     onClick: () => void;
     children: React.ReactNode;
+    describedBy?: string;
 }) {
     return (
-        <Button variant="outlined" aria-pressed={pressed} onClick={onClick}
+        <Button variant="outlined" aria-pressed={pressed} aria-describedby={describedBy} onClick={onClick}
             className={cx('shrink-0 rounded-md font-normal', pressed && 'bg-accent')}>
             {children}
         </Button>

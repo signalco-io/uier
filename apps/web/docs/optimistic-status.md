@@ -59,7 +59,7 @@ Confirmed-write retention still bridges the independent page/detail requests. A 
 both the authorized loaded window and its retained changes until retry succeeds.
 
 Board preferences now have their own confirmed-save retention (uier #410 review follow-up).
-Each successfully saved column sort, Archive expansion and label grouping remains the local
+Each successfully saved column sort, Archive list sort and label grouping remains the local
 baseline until a snapshot observes that field. Unconfirmed failures still roll back, and
 project/account changes clear retention. This keeps the board stable when the save finishes
 before a delayed or failed pages request; `comment-board.spec.ts` holds those requests through

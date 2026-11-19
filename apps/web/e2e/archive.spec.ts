@@ -46,15 +46,13 @@ test('app archive stays separate from Done and All, reloads and restores the pri
     await expect(tabs.getByRole('button', { name: 'Done 0', exact: true })).toBeVisible();
     await tabs.getByRole('button', { name: 'All 0', exact: true }).click();
     await expect(page.locator('[data-comment-row]')).toHaveCount(0);
-    // Archive is folded under Done (uier #302): its menu picks it, the Done tab then names it, and pressing it goes back to Done
-    await expect(tabs.locator('[aria-pressed]')).toHaveText([/^Active \d+$/, /^Done 0$/, /^All 0$/]);
-    await tabs.getByRole('button', { name: 'Done and archive', exact: true }).click();
-    const doneMenu = page.getByRole('menu');
-    await animationsFinished(doneMenu);
-    await expect(doneMenu.getByRole('menuitemradio')).toHaveText([/^Done\s*0$/, /^Archive\s*1$/]);
-    await doneMenu.getByRole('menuitemradio', { name: 'Archive 1', exact: true }).click();
-    await expect(page).toHaveURL(/status=archived/);
-    await expect(tabs.getByRole('button', { name: 'Archive 1', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(tabs.getByRole('button', { name: /^Archive/ })).toHaveCount(0);
+    const archive = page.getByRole('button', { name: /^Archive(?:\s*\d+)?$/ });
+    await expect(archive).toHaveText(/1/);
+    await archive.click();
+    await expect(page).toHaveURL(/archive=only/);
+    await expect(archive).toHaveAttribute('aria-pressed', 'true');
+    await expect(tabs.getByRole('button', { name: 'Done 1', exact: true })).toBeVisible();
     await page.reload();
     card = await openComment(page, 1);
     await expect(card.getByText('Archived', { exact: true })).toBeVisible();
@@ -68,84 +66,63 @@ test('app archive stays separate from Done and All, reloads and restores the pri
     await card.getByRole('button', { name: /^More actions for the comment/ }).click();
     await page.getByRole('menuitem', { name: 'Restore comment', exact: true }).click();
     await expect(page.getByText('Nothing archived', { exact: true })).toBeVisible();
-    // Pressing the tab again while it shows Archive goes back to Done
-    await tabs.getByRole('button', { name: 'Archive 0', exact: true }).click();
-    await expect(page).toHaveURL(/status=done/);
-    await expect(tabs.getByRole('button', { name: 'Done 1', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await archive.click();
+    await expect(archive).toHaveAttribute('aria-pressed', 'false');
+    await tabs.getByRole('button', { name: 'Done 1', exact: true }).click();
     card = await openComment(page, 1);
     await expect(card).toContainText('Keep this feedback for later');
     await expect(card.getByRole('button', { name: /^Status: Done/ })).toBeVisible();
 });
 
-test('the board shows Archive as its last column, collapsed until someone expands it for the project', async ({ page }) => {
+test('the board archives to a separate list and restores to the same column', async ({ page }) => {
     const f = await fixture(page);
-    await page.goto(`/app/projects/${f.projectId}?view=board`);
+    const project = `/app/projects/${f.projectId}`;
+    await page.goto(`${project}?view=board`);
     const column = (name: string) => page.getByRole('region', { name: `${name} comments`, exact: true });
-    const archive = column('Archived');
+    const archive = page.getByRole('button', { name: /^Archive(?:\s*\d+)?$/ });
     await expect(column('Open').getByRole('listitem')).toHaveCount(1);
-    // Collapsed: its name and count, no cards; the filters have no Archive button of their own
-    const expand = archive.getByRole('button', { name: 'Archive 0', exact: true });
-    await expect(expand).toHaveAttribute('aria-expanded', 'false');
-    await expect(archive.getByRole('listitem')).toHaveCount(0);
-    await expect(page.getByRole('button', { name: /^Archive \d+$/ })).toHaveCount(1);
-    // Last, after Done
-    const regions = page.locator('[data-board-scroll] > section');
-    await expect(regions.last()).toHaveAttribute('aria-label', 'Archived comments');
+    await expect(page.locator('[data-board-scroll] > section')).toHaveCount(3);
+    await expect(column('Archived')).toHaveCount(0);
+    await expect(archive).toHaveAttribute('aria-pressed', 'false');
 
-    // Archiving from the board's sheet moves the card out of its column; the count follows
     let thread = await openComment(page, 1);
-    // The emulated mouse stays where the card was, which on a phone is over the thread's device icon: away from it, so its hover card stays shut
     await page.mouse.move(0, page.viewportSize()!.height - 1);
     await thread.getByRole('button', { name: /^More actions for the comment/ }).click();
     await page.getByRole('menuitem', { name: 'Archive comment', exact: true }).click();
     await expect(thread.getByText('Archived', { exact: true })).toBeVisible();
-    await page.keyboard.press('Escape');
+    await backToComments(page);
     await expect(column('Open').getByRole('listitem')).toHaveCount(0);
-    await expect(archive.getByRole('button', { name: 'Archive 1', exact: true })).toBeVisible();
+    await expect(archive).toHaveText(/1/);
 
-    // Expanded: a column of its cards, which don't move; the focus goes to its Collapse button
-    const saved = page.waitForResponse(response => response.request().method() === 'POST' && response.request().headers()['next-action'] !== undefined);
-    await archive.getByRole('button', { name: 'Archive 1', exact: true }).click();
-    expect((await saved).ok()).toBe(true);
-    const collapse = archive.getByRole('button', { name: 'Collapse Archive', exact: true });
-    await expect(collapse).toBeFocused();
-    await expect(collapse).toHaveAttribute('aria-expanded', 'true');
-    const archivedCard = archive.getByRole('listitem').filter({ hasText: 'Keep this feedback for later' });
-    await expect(archivedCard).toBeVisible();
-    await expect(archivedCard.getByRole('button', { name: /^Move / })).toHaveCount(0);
-    for (const colorScheme of ['light', 'dark'] as const) {
-        await page.emulateMedia({ colorScheme });
-        await expect(page.locator('html')).toHaveClass(colorScheme === 'dark' ? /\bdark\b/ : /^(?!.*\bdark\b)/);
-        await animationsFinished(page.locator('body'));
-        await expectNoAxeViolations(page);
-    }
+    // The legacy toolbar link lands in the same archive. Workflow filters compose with it.
+    await page.goto(`${project}?view=board&status=archived`);
+    await expect(archive).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('[data-board-scroll]')).toHaveCount(0);
+    const row = page.locator('[data-comment-row]').filter({ hasText: 'Keep this feedback for later' });
+    await expect(row).toContainText(/Status:\s*Open/);
+    const tabs = page.getByRole('group', { name: 'Status', exact: true });
+    await tabs.getByRole('button', { name: 'Done 0', exact: true }).click();
+    await expect(page).toHaveURL(/archive=only/);
+    await expect(row).toHaveCount(0);
+    await tabs.getByRole('button', { name: 'All 1', exact: true }).click();
+    await expect(row).toBeVisible();
 
-    // Saved on the project: still expanded after a reload
-    await page.reload();
-    await expect(archive.getByRole('listitem')).toHaveCount(1);
-    // Its own sort, like Done's: newest archived first by default, saved on the project too
-    await archive.getByRole('button', { name: 'Sort Archive: Recently archived', exact: true }).click();
+    await page.getByRole('button', { name: 'Sort Archive: Recently archived', exact: true }).click();
     await expect(page.getByRole('menuitemradio', { name: 'Recently archived', exact: true })).toHaveAttribute('aria-checked', 'true');
     const sorted = page.waitForResponse(response => response.request().method() === 'POST' && response.request().headers()['next-action'] !== undefined);
     await page.getByRole('menuitemradio', { name: 'Oldest first', exact: true }).click();
     expect((await sorted).ok()).toBe(true);
     await page.reload();
-    await expect(archive.getByRole('button', { name: 'Sort Archive: Oldest first', exact: true })).toBeVisible();
-    // Restore from its thread returns it to its column
+    await expect(page.getByRole('button', { name: 'Sort Archive: Oldest first', exact: true })).toBeVisible();
+
     thread = await openComment(page, 1);
+    await expect(thread.getByRole('button', { name: /^Status: Open/ })).toBeVisible();
     await thread.getByRole('button', { name: /^More actions for the comment/ }).click();
     await page.getByRole('menuitem', { name: 'Restore comment', exact: true }).click();
-    await page.keyboard.press('Escape');
+    await expect(page.getByText('Nothing archived', { exact: true })).toBeVisible();
+    await archive.click();
     await expect(column('Open').getByRole('listitem')).toHaveCount(1);
-    await expect(archive.getByText('Nothing archived.', { exact: true })).toBeVisible();
-
-    // Collapsed again, for the next load too; the focus goes back to the strip
-    const collapsed = page.waitForResponse(response => response.request().method() === 'POST' && response.request().headers()['next-action'] !== undefined);
-    await archive.getByRole('button', { name: 'Collapse Archive', exact: true }).click();
-    await collapsed;
-    await expect(archive.getByRole('button', { name: 'Archive 0', exact: true })).toBeFocused();
-    await page.reload();
-    await expect(archive.getByRole('button', { name: 'Archive 0', exact: true })).toHaveAttribute('aria-expanded', 'false');
+    await expect(archive).toHaveAttribute('aria-pressed', 'false');
 });
 
 test('Archive all in a board column archives every thread in it, the ones not loaded yet too, after a confirmation', async ({ page, request }) => {
@@ -195,11 +172,11 @@ test('Archive all in a board column archives every thread in it, the ones not lo
     await expect(page.getByText('29 threads archived.', { exact: true })).toBeVisible();
     await expect(done.getByRole('button', { name: /^Archive all/ })).toHaveCount(0);
     await expect(done.getByRole('button', { name: /^Sort Done: / })).toBeFocused();
-    await expect(column('Archived').getByRole('button', { name: 'Archive 29', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Archive(?:\s*\d+)?$/ })).toHaveText(/29/);
     await page.reload();
     await expect(done.getByRole('heading')).toHaveText('Done0');
     await expect(column('Open').getByRole('heading')).toHaveText('Open1');
-    await expect(column('Archived').getByRole('button', { name: 'Archive 29', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Archive(?:\s*\d+)?$/ })).toHaveText(/29/);
 });
 
 test('toolbar archive removes the pin, restores from Archive and rolls back a failed save', async ({ page }) => {
@@ -218,15 +195,15 @@ test('toolbar archive removes the pin, restores from Archive and rolls back a fa
     await expect(tabs.getByRole('button', { name: 'Active 0', exact: true })).toBeVisible();
     await tabs.getByRole('button', { name: 'All 0', exact: true }).click();
     await expect(inbox.getByRole('article')).toHaveCount(0);
-    // Archive is folded under Done, as in the app
-    await tabs.getByRole('button', { name: 'Done and archive', exact: true }).click();
-    const doneMenu = page.getByRole('dialog', { name: 'Done and archive' });
-    await expect(doneMenu.getByRole('button')).toHaveText([/^Done\s*0$/, /^Archive\s*1$/]);
-    await doneMenu.getByRole('button', { name: /^Archive/ }).click();
-    await expect(doneMenu).toBeHidden();
-    await expect(tabs.getByRole('button', { name: 'Archive 1', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    const archive = inbox.getByRole('button', { name: /^Archive\s*1$/ });
+    await archive.click();
+    await expect(archive).toHaveAttribute('aria-pressed', 'true');
+    await expect(tabs.getByRole('button', { name: 'Active 1', exact: true })).toBeVisible();
+    const openInApp = inbox.getByRole('link', { name: 'Open in app', exact: true });
+    await expect(openInApp).toHaveAttribute('href', /[?&]archive=only/);
     const archived = inbox.getByRole('article');
     await expect(archived).toContainText('Keep this feedback for later');
+    await expect(archived).toContainText(/Status:\s*Open/);
     for (const colorScheme of ['light', 'dark'] as const) {
         await page.emulateMedia({ colorScheme });
         await animationsFinished(page.locator('#uier-toolbar'));
@@ -238,7 +215,7 @@ test('toolbar archive removes the pin, restores from Archive and rolls back a fa
     expect((await restored).status()).toBe(200);
     await expect(inbox.getByRole('article')).toHaveCount(0);
     await expect(commentBubble(page, 1, 1)).toBeVisible();
-    await tabs.getByRole('button', { name: 'Active 1', exact: true }).click();
+    await inbox.getByRole('button', { name: /^Archive\s*0$/ }).click();
     const thread = inbox.getByRole('article');
     await expect(thread).toContainText('Keep this feedback for later');
     const endpoint = `**/api/review/*/comments/${f.comment.id}`;
@@ -273,7 +250,6 @@ test('toolbar page and site windows retain active feedback behind 1001 newer arc
     const inbox = page.getByRole('complementary', { name: 'Comments' });
     await expect(inbox).toContainText('Keep this feedback for later');
     await expect.poll(() => [...scopes].sort()).toEqual(['page:exclude', 'page:only', 'site:exclude', 'site:only']);
-    await inbox.getByRole('button', { name: 'Done and archive', exact: true }).click();
-    await page.getByRole('dialog', { name: 'Done and archive' }).getByRole('button', { name: /^Archive / }).click();
+    await inbox.getByRole('button', { name: /^Archive\s*\d+$/ }).click();
     await expectInboxListed(inbox, 200);
 });

@@ -32,9 +32,8 @@ allowlist and screenshot/recording policies. Short screen recordings have explic
 permission, size and duration limits; built-in capture has no audio and ends on full-page navigation.
 The ledger marks them available and keeps those limits in the detail text.
 Keep the limits on replay, console/network capture, surveys, task due dates and release-wide
-approval visible. Up to 30 workspace statuses, with project overrides, refine the five categories
-Open, In progress, Ready to verify, Done and Archive, while guest actions
-retain their category permissions. Project search covers the authorized scope with paged results;
+approval visible. Up to 30 workspace statuses, with project overrides, refine the four workflow categories
+Open, In progress, Ready to verify and Done. Archive preserves workflow status. Guest actions retain their category permissions. Project search covers the authorized scope with paged results;
 the former 1,000-recent-thread cap does not apply. Bulk operations still affect at most 50 shown
 threads. In-browser checks cover the reviewed page. No competitor-history importer is provided.
 Change these entries with the product.

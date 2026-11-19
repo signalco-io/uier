@@ -302,7 +302,7 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
                 const assignee = assignedUserIds(comment)[0];
                 const item = { id: comment.id, number: comment.number, updatedAt: comment.updatedAt,
                     resolved: Boolean(comment.resolved), stage: feedbackStage({ ...comment, verificationEnabled: project.verificationEnabled === true }),
-                    priority: commentPriority(comment.priority), private: Boolean(comment.private), assignee: assignee ? { id: assignee } : null,
+                    archivedAt: comment.archivedAt, archiveStatusId: comment.archiveStatusId, priority: commentPriority(comment.priority), private: Boolean(comment.private), assignee: assignee ? { id: assignee } : null,
                     authorKind: first && !first.deletedAt ? first.authorId?.startsWith('user:') ? 'member' as const : 'guest' as const : undefined,
                     replyCount: Math.max(0, comment.thread.items.length - 1) };
                 const itemBytes = Buffer.byteLength(JSON.stringify(item)) + (items.length ? 1 : 0);
@@ -325,7 +325,7 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
             const { path, source, assignee, assignees, activity } = projectCommentRouting(comment, project, participants, authorId, reads.get(comment.id));
             return { verification: verificationDetails(comment, project, actor, participants), id: comment.id, number: comment.number, kind: comment.kind ?? 'comment', ...(feedbackTypeSnapshot(comment.feedbackType, comment.kind) ? { feedbackType: feedbackTypeSnapshot(comment.feedbackType, comment.kind) } : {}),
                 ...(commentProposal(comment) ? { hasProposal: true } : {}),
-                ...(commentCheck(comment.check) ? { check: commentCheck(comment.check) } : {}), priority: commentPriority(comment.priority), workflowStatus: statusForComment(workflow, comment), labels: labelsForComment(labels, comment), archivedAt: comment.archivedAt, resolved: Boolean(comment.resolved), stage: feedbackStage({ ...comment, verificationEnabled: project.verificationEnabled === true }), private: Boolean(comment.private),
+                ...(commentCheck(comment.check) ? { check: commentCheck(comment.check) } : {}), priority: commentPriority(comment.priority), workflowStatus: statusForComment(workflow, comment), labels: labelsForComment(labels, comment), archivedAt: comment.archivedAt, archiveStatusId: comment.archiveStatusId, resolved: Boolean(comment.resolved), stage: feedbackStage({ ...comment, verificationEnabled: project.verificationEnabled === true }), private: Boolean(comment.private),
                 title: threadTitle(comment, titles)?.text, summary: first?.deletedAt ? 'Comment deleted' : first?.text.slice(0, 240), updatedAt: comment.updatedAt,
                 path, environment: { id: source.environment, label: source.label }, anchorType: comment.position.type, assignee: assignee ?? null, assignees,
                 authorKind: first && !first.deletedAt ? first.authorId?.startsWith('user:') ? 'member' : 'guest' : undefined,

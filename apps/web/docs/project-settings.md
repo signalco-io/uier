@@ -230,8 +230,9 @@ Project settings and installation copy use the app language from the account pre
 
 ## Custom statuses
 
-Workspace settings → Statuses defines up to 30 statuses across the five categories: Open,
-In progress, Ready to verify, Done and Archive. Every category keeps at least one status.
+Workspace settings → Statuses defines up to 30 entries across Open, In progress, Ready to
+verify, Done and Archive. The Archive entries are destinations for the archive action.
+Each category keeps at least one entry.
 Each status has a stable ID, a distinct name (40 characters), an optional description (500
 characters), and its position within its category. Move up/down changes that order. Categories
 retain their semantic order and colour. Names and descriptions are plain text, never instructions.
@@ -257,8 +258,8 @@ comments may start only in Open or In progress, keeping them in active lists. Re
 requires a real request and reviewer. Creation retries retain their original saved status. Done, Archive and verification
 confirmation resolve current settings, including when an older client sends the existing category
 write. No migration changes historical comment categories. Removed/foreign IDs fall back to the
-first status in that same category (the configured default for Done/Archive). Archive retains a
-separate ordinary ID, so restore preserves the thread's prior custom status.
+first status in that same category (the configured default for Done/Archive). Archive writes preserve the ordinary workflow ID. Board columns and status menus use
+the ordinary status. The Archive list shows that status after archiving.
 
 Custom workflows apply to app settings, board columns, app and toolbar status/archive menus, and MCP reads and writes.
 My work keeps its category columns across projects, while its thread menus use each project's

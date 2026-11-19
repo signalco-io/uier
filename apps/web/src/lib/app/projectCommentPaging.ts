@@ -16,6 +16,8 @@ export type CommentPage = { ids: string[]; total: number; nextCursor: string | n
 export type ProjectCommentPaging = {
     key: string;
     lanes: Partial<Record<CommentLane, CommentPage>>;
+    archiveCount: number;
+    archiveUnread: number;
     statusCounts: Record<StatusFilter, number>;
     statusUnread: Record<StatusFilter, number>;
     queryTooExpensive?: boolean;
@@ -30,6 +32,6 @@ export type ProjectCommentPageInput = { lane?: CommentLane; cursor?: string; dep
     allIds?: boolean };
 
 /** No open-thread id in the ordinary key: opening a card must not restart its column. */
-export function projectCommentPageKey(query: CommentsQuery, sorts: Record<BoardColumn, BoardSort>, archiveExpanded: boolean, workflow: StatusWorkflow = defaultStatusWorkflow, projectId = '', groupByLabel: false | string[] = false) {
-    return JSON.stringify([projectId, query.environment ?? 'all', query.author ?? '', query.q ?? '', query.priority ?? '', query.label ?? '', Boolean(query.unread), query.people, query.page ?? '', query.status, query.view, sorts, archiveExpanded, workflow, groupByLabel]);
+export function projectCommentPageKey(query: CommentsQuery, sorts: Record<BoardColumn, BoardSort>, workflow: StatusWorkflow = defaultStatusWorkflow, projectId = '', groupByLabel: false | string[] = false) {
+    return JSON.stringify([projectId, query.environment ?? 'all', query.author ?? '', query.q ?? '', query.priority ?? '', query.label ?? '', Boolean(query.unread), query.people, query.page ?? '', query.status, query.view, query.archive, sorts, workflow, groupByLabel]);
 }

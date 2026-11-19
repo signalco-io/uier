@@ -18,16 +18,15 @@ export function useWorkflowStatuses() {
 }
 
 /**
- * The thread's status within its category (`feedbackStage`, or archive): the custom status it names, else the
- * category's default (Done, Archive) or first. Undefined without the project's statuses (guests).
+ * The thread's status within its category (`feedbackStage`): the custom status it names, else the
+ * category's default (Done) or first. Undefined without the project's statuses (guests).
  */
-export function selectedWorkflowStatus(comment: Pick<CommentItem, 'archivedAt' | 'archiveStatusId' | 'workflowStatusId'>, stage: FeedbackStage, workflow: WorkflowStatuses | undefined) {
-    const selectedStatusId = comment.archivedAt ? comment.archiveStatusId : comment.workflowStatusId;
-    const category = comment.archivedAt ? 'archive' : stage;
-    const fallbackId = category === 'archive' ? workflow?.archiveStatusId : category === 'done' ? workflow?.doneStatusId : undefined;
-    return workflow?.statuses.find(status => status.id === selectedStatusId && status.category === category)
-        ?? workflow?.statuses.find(status => status.id === fallbackId && status.category === category)
-        ?? workflow?.statuses.find(status => status.category === category);
+export function selectedWorkflowStatus(comment: Pick<CommentItem, 'workflowStatusId'>, stage: FeedbackStage, workflow: WorkflowStatuses | undefined) {
+    const selectedStatusId = comment.workflowStatusId;
+    const fallbackId = stage === 'done' ? workflow?.doneStatusId : undefined;
+    return workflow?.statuses.find(status => status.id === selectedStatusId && status.category === stage)
+        ?? workflow?.statuses.find(status => status.id === fallbackId && status.category === stage)
+        ?? workflow?.statuses.find(status => status.category === stage);
 }
 
 export function useWorkflowStatus() {

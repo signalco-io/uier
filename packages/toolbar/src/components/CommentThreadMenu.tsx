@@ -37,17 +37,18 @@ export type ThreadMenuActions = {
     verify?: { label: string; onRequest: () => void };
     follow?: { following: boolean; pending: boolean; onToggle: () => void };
     mute?: { muted: boolean; pending: boolean; onToggle: () => void };
-    archive?: { archived: boolean; pending: boolean; onToggle: () => void };
+    archive?: { archived: boolean; pending: boolean; onToggle: () => void;
+        destinations?: { id: string; label: string; description: string; selected: boolean; onChoose: () => void }[] };
     markUnread?: { pending: boolean; onMarkUnread: () => void };
     /** The thread in the signed-in uier app (`/app/projects/<code>?comment=<id>`), opened in a new tab; members only */
     openInApp?: { href: string };
 };
 
-function MenuButton({ icon, buttonRef, onClick, disabled, label, href, className, children }: { icon?: ReactNode; buttonRef?: Ref<HTMLButtonElement>; onClick: () => void; disabled?: boolean; label?: string; href?: string; className?: string; children: ReactNode }) {
+function MenuButton({ icon, buttonRef, onClick, disabled, label, href, title, className, children }: { icon?: ReactNode; buttonRef?: Ref<HTMLButtonElement>; onClick: () => void; disabled?: boolean; label?: string; href?: string; title?: string; className?: string; children: ReactNode }) {
     return (
         <Button ref={buttonRef} variant="plain" size="sm" fullWidth className={cx('justify-start', className)}
             startDecorator={icon && <span className="flex size-4 shrink-0 items-center justify-center" aria-hidden="true">{icon}</span>}
-            aria-label={label} disabled={disabled} onClick={onClick}
+            aria-label={label} title={title} disabled={disabled} onClick={onClick}
             // A link opens in a new tab, like Options → View project
             {...href ? { href, target: '_blank', rel: 'noopener noreferrer' } : {}}>
             {children}
@@ -194,6 +195,12 @@ export function CommentThreadMenu({ className, actions, triggerRef }: { classNam
                         {archive.archived ? t.thread.restore : t.thread.archive}
                     </MenuButton>
                 )}
+                {archive?.destinations?.map(destination => (
+                    <MenuButton key={destination.id} icon={<ArrowDownToLine size={16} />} title={destination.description || undefined}
+                        disabled={archive.pending || destination.selected} onClick={() => run(destination.onChoose)}>
+                        {destination.label}
+                    </MenuButton>
+                ))}
                 {markUnread && (
                     <MenuButton buttonRef={takeFirst()} icon={<Mail size={16} />} disabled={markUnread.pending} onClick={() => run(markUnread.onMarkUnread)}>
                         {t.thread.markUnread}

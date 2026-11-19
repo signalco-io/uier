@@ -37,7 +37,8 @@ import { parseCommentsView } from '@/src/lib/app/commentsViewPreference';
 import type { CommentsView } from './commentLabels';
 import { orderComments, sortBoardColumn } from './commentOrder';
 import type { BoardColumn, BoardSort } from '../../../lib/app/boardSort';
-import { setBoardArchiveAction, setBoardSortAction } from './actions';
+import { setBoardSortAction } from './actions';
+import { BoardSortMenu } from './BoardSortMenu';
 import { CommentUpdatesProvider } from './CommentUpdates';
 import { useConfirmedBoardSettings } from './useConfirmedBoardSettings';
 import { useOptimisticCommentUpdates } from './useOptimisticCommentUpdates';
@@ -57,7 +58,6 @@ const emptyStatus: Record<StatusFilter, { title: string; description: string }> 
     'in-progress': { title: 'Nothing in progress', description: 'Comments someone is working on show here.' },
     ready: { title: 'No checks requested', description: 'Requested fix checks show here.' },
     done: { title: 'Nothing done yet', description: 'Comments marked as done show here.' },
-    archived: { title: 'Nothing archived', description: 'Archived comments stay here until you restore them.' },
     all: { title: 'Nothing here', description: 'No comments match these filters.' }
 };
 
@@ -89,11 +89,9 @@ type ProjectCommentsProps = {
     openedComment?: ProjectCommentView;
     /** Each board column's sort, saved on the project for everyone (`lib/app/boardSort.ts`) */
     boardSorts: Record<BoardColumn, BoardSort>;
-    /** Whether the board's Archive column is expanded, saved on the project for everyone like the sorts */
-    boardArchiveExpanded?: boolean;
     boardGroupByLabel?: boolean;
     boardGroupLabelIds?: string[];
-    /** Whether this person may change them, the sorts and Archive (`canSortProjectBoard`) */
+    /** Whether this person may change them, the sorts and grouping (`canSortProjectBoard`) */
     canSortBoard: boolean;
     authorFilter?: AuthorFilter;
     environments: import('../../../lib/app/environments').EnvironmentOption[];
@@ -115,7 +113,7 @@ export function ProjectComments(props: ProjectCommentsProps) {
         onSnapshot={snapshot => setFresh({ source: props, snapshot })} />;
 }
 
-function ProjectCommentsView({ labels = [], workflow = defaultStatusWorkflow, projectId, revision, access, isAdmin, comments: savedComments, query: serverQuery, userId, assignees, installHref, environments, authorFilter, boardSorts: savedSorts, boardArchiveExpanded: savedArchiveExpanded = false, boardGroupByLabel = false, boardGroupLabelIds, canSortBoard, initialView, paging: savedPaging, openedComment: savedOpenedComment, onSnapshot }: ProjectCommentsProps & { onSnapshot: (snapshot: Partial<ProjectCommentsProps>) => void }) {
+function ProjectCommentsView({ labels = [], workflow = defaultStatusWorkflow, projectId, revision, access, isAdmin, comments: savedComments, query: serverQuery, userId, assignees, installHref, environments, authorFilter, boardSorts: savedSorts, boardGroupByLabel = false, boardGroupLabelIds, canSortBoard, initialView, paging: savedPaging, openedComment: savedOpenedComment, onSnapshot }: ProjectCommentsProps & { onSnapshot: (snapshot: Partial<ProjectCommentsProps>) => void }) {
     const { t } = useAppI18n();
     // The presentation filters and the open thread change with the address at once, even while a
     // change waits for the server (`useUrlSearchParams`)
@@ -143,7 +141,7 @@ function ProjectCommentsView({ labels = [], workflow = defaultStatusWorkflow, pr
     const [searchDraft, setSearchDraft] = useState({ url: urlKey, value: urlQuery.q ?? '' });
     const search = searchDraft.url === urlKey ? searchDraft.value : urlQuery.q ?? '';
     const searchNeedsNormalization = searchParams.getAll('q').length > 1 || (searchParams.get('q') ?? '') !== (urlQuery.q ?? '');
-    const query = { ...urlQuery, ...(workflow.verificationEnabled !== true && urlQuery.status === 'ready' ? { status: 'active' as const } : {}), view: explicit ?? remembered ?? 'list', q: search, environment: serverQuery.environment, author: serverQuery.author };
+    const query = { ...urlQuery, ...(workflow.verificationEnabled !== true && urlQuery.status === 'ready' ? { status: urlQuery.archive ? 'all' as const : 'active' as const } : {}), view: explicit ?? remembered ?? 'list', q: search, environment: serverQuery.environment, author: serverQuery.author };
     useEffect(() => {
         if (search === (urlQuery.q ?? '') && !searchNeedsNormalization) return;
         const timer = window.setTimeout(() => setUrlSearchParams({ q: search || undefined }), 250);
@@ -152,11 +150,11 @@ function ProjectCommentsView({ labels = [], workflow = defaultStatusWorkflow, pr
     const commitSearch = () => { setUrlSearchParams({ q: search || undefined }); };
     const clearFilters = () => {
         setSearchDraft({ url: urlKey, value: '' });
-        setUrlSearchParams({ q: undefined, label: undefined, priority: undefined, status: undefined, people: undefined, page: undefined, unread: undefined }, { history: 'push' });
+        setUrlSearchParams({ q: undefined, label: undefined, priority: undefined, status: undefined, archive: query.archive, people: undefined, page: undefined, unread: undefined }, { history: 'push' });
         document.getElementById('feedback-search')?.focus();
     };
-    const [{ archiveExpanded: confirmedArchive, groupIds: confirmedGroups, ...confirmedSorts }, confirmBoardSettings] = useConfirmedBoardSettings(
-        { ...savedSorts, archiveExpanded: savedArchiveExpanded, groupIds: selectedGroupLabels({ boardGroupByLabel, boardGroupLabelIds }, labels) },
+    const [{ groupIds: confirmedGroups, ...confirmedSorts }, confirmBoardSettings] = useConfirmedBoardSettings(
+        { ...savedSorts, groupIds: selectedGroupLabels({ boardGroupByLabel, boardGroupLabelIds }, labels) },
         `${projectId}:${userId}`);
     // A column's new sort shows at once, and goes back with an error if saving it fails
     const [boardSorts, showSort] = useOptimistic(confirmedSorts, (current, change: { status: BoardColumn; sort: BoardSort }) => ({ ...current, [change.status]: change.sort }));
@@ -168,49 +166,37 @@ function ProjectCommentsView({ labels = [], workflow = defaultStatusWorkflow, pr
         if (result && !result.ok) toast.error(result.error);
         else if (result?.ok) confirmBoardSettings({ [status]: sort });
     });
-    // Archive expands and collapses at once. For the people who may sort the board it is saved on the project (and goes
-    // back with an error if that fails); for everyone else it lasts until the page is opened again.
-    const [savedArchive, showArchive] = useOptimistic(confirmedArchive, (_current, expanded: boolean) => expanded);
-    const [ownArchive, setOwnArchive] = useState<boolean>();
-    const archiveExpanded = canSortBoard ? savedArchive : ownArchive ?? savedArchiveExpanded;
-    const changeArchive = (expanded: boolean) => {
-        if (!canSortBoard) return setOwnArchive(expanded);
-        startSorting(async () => {
-            showArchive(expanded);
-            const result = await setBoardArchiveAction(projectId, expanded)
-                .catch(() => ({ ok: false as const, error: t("Could not save the board. Try again.") }));
-            if (result && !result.ok) toast.error(result.error);
-            else if (result?.ok) confirmBoardSettings({ archiveExpanded: expanded });
-        });
-    };
     const [groupIds, showGrouping] = useOptimistic(confirmedGroups, (_current, ids: string[]): false | string[] =>
         ids.length ? labels.filter(label => ids.includes(label.id)).map(label => label.id) : false);
     const groupedLabels = labels.filter(label => groupIds && groupIds.includes(label.id));
     const pager = useProjectCommentPages({ projectId, userId, comments: savedComments, revision, paging: savedPaging, openedComment: savedOpenedComment },
-        { ...query, q: urlQuery.q }, boardSorts, archiveExpanded, workflow, openComment.openId, groupIds, onSnapshot);
+        { ...query, q: urlQuery.q }, boardSorts, workflow, openComment.openId, groupIds, onSnapshot);
     const [optimisticComments, updateComment] = useOptimisticCommentUpdates(pager.data.comments,
         JSON.stringify([projectId, userId, query.environment, query.author]));
     // Priority first (Urgent to Low), then number, highest first: the list, selection and keyboard follow this
     // order. The board's columns each follow the project's sort for them, by default this one in active columns
     // and the completion history in Done.
-    const comments = orderComments(optimisticComments.map(comment => ({ ...comment, workflow })));
-    const board = query.view === 'board' && query.status !== 'archived';
+    const archived = query.archive === 'only';
+    const inArchive = (comment: ProjectCommentView) => Boolean(comment.archivedAt) === archived;
+    const withWorkflow = optimisticComments.map(comment => ({ ...comment, workflow }));
+    const comments = archived ? sortBoardColumn(withWorkflow, boardSorts.archive) : orderComments(withWorkflow);
+    const board = query.view === 'board' && !archived;
     // An open thread that is not loaded (deleted, or outside a new author or environment scope) is
-    // closed, so it cannot reopen later when the scope changes back. The board has Archive as its last column.
+    // closed, so it cannot reopen later when the scope changes back. A board sheet stays open through archive or restore.
     const openId = openComment.openId;
-    const openScope = JSON.stringify([projectId, userId, query.environment, query.author, board, query.status === 'archived']);
-    const listedScope = board ? comments : comments.filter(comment => Boolean(comment.archivedAt) === (query.status === 'archived'));
+    const openScope = JSON.stringify([projectId, userId, query.environment, query.author, board, archived]);
+    const listedScope = board ? comments : comments.filter(inArchive);
     const freshOpen = listedScope.find(comment => comment.id === openId) ?? (pager.data.openedComment?.id === openId ? pager.data.openedComment : undefined)
         ?? (savedOpenedComment?.id === openId ? savedOpenedComment : undefined);
     const [heldOpen, setHeldOpen] = useState<{ scope: string; key: string; comment: ProjectCommentView }>();
     const freshKey = freshOpen ? JSON.stringify(freshOpen) : undefined;
     if (freshOpen && (heldOpen?.scope !== openScope || heldOpen.key !== freshKey)) setHeldOpen({ scope: openScope, key: freshKey!, comment: freshOpen });
     const retained = freshOpen ?? (heldOpen?.scope === openScope && heldOpen.comment.id === openId ? { ...heldOpen.comment, summary: true } : undefined);
-    const keepsOpen = retained && (board || Boolean(retained.archivedAt) === (query.status === 'archived'));
+    const keepsOpen = retained && (board || inArchive(retained));
     const scopeComments = keepsOpen && !listedScope.some(comment => comment.id === retained.id) ? [...listedScope, retained] : listedScope;
     useEffect(() => {
         if (!openId || pager.loading || scopeComments.some(comment => comment.id === openId
-            && (board || statusMatches(query.status, commentStatus(comment), comment.archivedAt)))) return;
+            && (board || statusMatches(query.status, commentStatus(comment))))) return;
         setUrlSearchParams({ comment: undefined });
     }, [openId, scopeComments, pager.loading, board, query.status]);
     const installText = query.environment === 'all'
@@ -269,10 +255,12 @@ function ProjectCommentsView({ labels = [], workflow = defaultStatusWorkflow, pr
     const filtered = applyFilters(comments, { ...query, q: undefined }, userId, openId);
     const delta = (matches: (comment: ProjectCommentView) => boolean) => filtered.filter(matches).length - pager.data.comments.filter(matches).length;
     const statusCounts = Object.fromEntries((Object.keys(statusFilterLabels) as StatusFilter[]).map(filter => [filter,
-        Math.max(0, pager.data.paging.statusCounts[filter] + delta(comment => statusMatches(filter, commentStatus(comment), comment.archivedAt)))])) as Record<StatusFilter, number>;
+        Math.max(0, pager.data.paging.statusCounts[filter] + delta(comment => inArchive(comment) && statusMatches(filter, commentStatus(comment))))])) as Record<StatusFilter, number>;
     const statusUnread = Object.fromEntries((Object.keys(statusFilterLabels) as StatusFilter[]).map(filter => [filter,
-        pager.data.paging.statusUnread[filter] + delta(comment => Boolean(comment.activity?.unread) && statusMatches(filter, commentStatus(comment), comment.archivedAt)) > 0]));
-    const inLane = (lane: CommentLane, comment: ProjectCommentView) => { const [status, label] = lane.split('~'); return statusForComment(workflow, comment).id === status && (!label || labelLaneMatches(comment.labels, label, groupIds || undefined)); };
+        pager.data.paging.statusUnread[filter] + delta(comment => Boolean(comment.activity?.unread) && inArchive(comment) && statusMatches(filter, commentStatus(comment))) > 0]));
+    const archiveCount = Math.max(0, pager.data.paging.archiveCount + delta(comment => Boolean(comment.archivedAt)));
+    const archiveUnread = pager.data.paging.archiveUnread + delta(comment => Boolean(comment.archivedAt && comment.activity?.unread)) > 0;
+    const inLane = (lane: CommentLane, comment: ProjectCommentView) => { const [status, label] = lane.split('~'); return !comment.archivedAt && statusForComment(workflow, comment).id === status && (!label || labelLaneMatches(comment.labels, label, groupIds || undefined)); };
     const totalFor = (lane: CommentLane) => lane === 'list' && !board ? statusCounts[query.status]
         : Math.max(0, (pager.data.paging.lanes[lane]?.total ?? 0) + delta(comment => inLane(lane, comment)));
     // The threads with a local change the snapshot doesn't show yet, as saved and as shown: a background refresh
@@ -294,20 +282,13 @@ function ProjectCommentsView({ labels = [], workflow = defaultStatusWorkflow, pr
     const populated = pager.data.paging.scopeTotal > 0 || Boolean(budgetExceeded);
     // The board's status filter (uier #335) narrows its columns to one; the others stay, empty, as drop targets
     const boardStatus = board ? boardStatusFilter(query.status) : undefined;
-    const shown = board ? filtered.filter(comment => !comment.archivedAt && (!boardStatus || commentStatus(comment) === boardStatus)) : filtered.filter(comment => statusMatches(query.status, commentStatus(comment), comment.archivedAt));
+    const shown = filtered.filter(comment => inArchive(comment) && (board ? !boardStatus || commentStatus(comment) === boardStatus : statusMatches(query.status, commentStatus(comment))));
     // Hide filters on narrow screens only while the opened thread is actually shown.
     // A status change can remove it from the current list while the scope still retains it.
     const threadOnly = !board && shown.some(comment => comment.id === openComment.openId);
     // The board's columns, one per status in order (each thread in exactly one), each in the project's sort for it
     const columns = Object.fromEntries(commentStatuses.map(status => [status,
         sortBoardColumn(shown.filter(comment => commentStatus(comment) === status), boardSorts[status])])) as Record<CommentStatus, ProjectCommentView[]>;
-    // The board's last column, in the project's sort for it: by default like Done but by when each was archived
-    // (`compareArchivedOrder`), ties in the list's order
-    const archived = board && !boardStatus ? sortBoardColumn(filtered.filter(comment => comment.archivedAt), boardSorts.archive) : [];
-    // What the board shows: its columns, and Archive's cards while it is expanded
-    const boardShown = [...commentStatuses.flatMap(status => columns[status]), ...(archiveExpanded ? archived : [])];
-    // Nothing to show: the board still shows its columns while only Archive has threads
-    const nothingShown = board ? !shown.length && !statusCounts.archived : !shown.length;
     // What the header takes the width of: the list with its thread beside it, or the board (see below)
     // Search and live updates must not recenter the controls when their result becomes empty.
     const headerWide = !populated ? undefined : board ? 'board' : 'list';
@@ -318,8 +299,7 @@ function ProjectCommentsView({ labels = [], workflow = defaultStatusWorkflow, pr
     // them the column's width, shifted left (uier #383)
     const emptyWideClassName = headerWide && 'w-(--page-wide) page-wide';
     const unreadShown = Math.max(0, pager.data.paging.unreadCount + delta(comment => Boolean(comment.activity?.unread)
-        && (board ? comment.archivedAt ? archiveExpanded && !boardStatus : !boardStatus || commentStatus(comment) === boardStatus
-            : statusMatches(query.status, commentStatus(comment), comment.archivedAt))));
+        && inArchive(comment) && (board ? !boardStatus || commentStatus(comment) === boardStatus : statusMatches(query.status, commentStatus(comment)))));
     // Keep the open composer mounted while page windows revalidate. Selection resets per scope.
     // Only the unread count: the list's status tabs and the board's columns already count what is shown
     // The count toggles Only unread (uier #193), like the toolbar's Unread toggle; while the filter is on it stays,
@@ -331,8 +311,12 @@ function ProjectCommentsView({ labels = [], workflow = defaultStatusWorkflow, pr
             {t("{count} unread", { count: unreadShown })}
         </Toggle>
     );
-    const unreadActions = unreadShown > 0 && <MarkAllRead projectId={projectId} shownOnly={unreadShown > (board ? boardShown : shown).filter(comment => comment.activity?.unread).length} threads={(board ? boardShown : shown).flatMap(comment => comment.activity?.unread ? [{ id: comment.id, sequence: comment.activity.sequence }] : [])} />;
-    const selectionScope = JSON.stringify([projectId, userId, query.environment, query.author, query.unread, query.people, query.page, query.status, query.q, query.priority, query.label, query.view]);
+    const inOrder = board ? commentStatuses.flatMap(status => columns[status]) : shown;
+    const unreadActions = unreadShown > 0 && <MarkAllRead projectId={projectId} shownOnly={unreadShown > inOrder.filter(comment => comment.activity?.unread).length} threads={inOrder.flatMap(comment => comment.activity?.unread ? [{ id: comment.id, sequence: comment.activity.sequence }] : [])} />;
+    const selectionScope = JSON.stringify([projectId, userId, query.environment, query.author, query.unread, query.people, query.page, query.status, query.archive, query.q, query.priority, query.label, query.view]);
+    const empty = archived && query.status === 'all'
+        ? { title: 'Nothing archived', description: 'Archived comments stay here until you restore them.' }
+        : archived ? emptyStatus.all : emptyStatus[query.status];
     return (
         <CommentUpdatesProvider value={updateComment}>
         <RealtimeComments projectId={projectId} revision={pager.data.revision} pending={pager.loading} onRefresh={pager.refresh} environment={serverQuery.environment} author={serverQuery.author} />
@@ -348,7 +332,9 @@ function ProjectCommentsView({ labels = [], workflow = defaultStatusWorkflow, pr
             className="@container/comments flex flex-col gap-2 [&_[data-board-scroll]]:justify-start">
             <div data-header-wide={headerWide} className={cn('flex min-w-0 flex-col gap-2', threadOnly && '@max-3xl/comments:hidden', wideClassName)}>
             {/* Group by only shows once the project has labels to group on (uier #429); without them it leaves no gap */}
-            <CommentFilters grouping={labels.length > 0 && <CommentGrouping labels={labels} selected={groupIds || []} disabled={!canSortBoard || sorting} onChange={ids => startSorting(async () => {
+            <CommentFilters archive={{ pressed: archived, count: budgetExceeded ? undefined : archiveCount, unread: archiveUnread,
+                sort: archived && canSortBoard ? <BoardSortMenu label={t('Archive')} status="archive" sort={boardSorts.archive} onChange={sort => changeSort('archive', sort)} className="mx-0 after:hidden pointer-coarse:min-h-11 pointer-coarse:min-w-11" /> : undefined }}
+                grouping={labels.length > 0 && <CommentGrouping labels={labels} selected={groupIds || []} disabled={!canSortBoard || sorting} onChange={ids => startSorting(async () => {
                     showGrouping(ids);
                     const result = await setBoardGroupingAction(projectId, ids.length > 0, ids).catch(() => ({ ok: false as const, error: t("Could not save the board. Try again.") }));
                     if (result && !result.ok) toast.error(result.error);
@@ -360,7 +346,7 @@ function ProjectCommentsView({ labels = [], workflow = defaultStatusWorkflow, pr
                 <Button variant="ghost" onClick={pager.retry}>{t('Try again')}</Button>
             </p>}
             </div>
-            <TriageSelection projectId={projectId} scope={selectionScope} shown={board ? boardShown : shown} assignees={assignees}
+            <TriageSelection projectId={projectId} scope={selectionScope} shown={inOrder} assignees={assignees}
                 barClassName={cn(threadOnly && '@max-3xl/comments:hidden', !populated && 'hidden')}
                 // With room (uier #300) the count line is in the search row, left of Filter (`CommentFilters`): this row
                 // only shows, keeping its height through read/unread changes, where the header is narrower than that
@@ -368,7 +354,7 @@ function ProjectCommentsView({ labels = [], workflow = defaultStatusWorkflow, pr
                 reserveLine={populated}
                 summary={unreadSummary}
                 actions={unreadActions}>
-            {pager.data.paging.queryTooExpensive ? null : !populated ? emptyState : pager.data.paging.matchedTotal + delta(() => true) === 0 ? (
+            {pager.data.paging.queryTooExpensive ? null : !populated && !archived ? emptyState : populated && pager.data.paging.matchedTotal + delta(() => true) === 0 ? (
                 <Empty className={cn('border', emptyWideClassName)}>
                     <EmptyHeader>
                         <EmptyMedia variant="icon">
@@ -379,25 +365,25 @@ function ProjectCommentsView({ labels = [], workflow = defaultStatusWorkflow, pr
                     </EmptyHeader>
                     <EmptyContent><Button variant="outline" className="pointer-coarse:min-h-11" onClick={clearFilters}>{t("Clear filters")}</Button></EmptyContent>
                 </Empty>
-            ) : nothingShown ? (
+            ) : !board && !shown.length ? (
                 <Empty className={cn('border', emptyWideClassName)}>
                     <EmptyHeader>
                         <EmptyMedia variant="icon">
                             {query.status === 'active' ? <CircleCheckIcon /> : <CircleDashedIcon />}
                         </EmptyMedia>
-                        <EmptyTitle>{t(emptyStatus[query.status].title)}</EmptyTitle>
-                        <EmptyDescription>{t(emptyStatus[query.status].description)}</EmptyDescription>
+                        <EmptyTitle>{t(empty.title)}</EmptyTitle>
+                        <EmptyDescription>{t(empty.description)}</EmptyDescription>
                     </EmptyHeader>
                 </Empty>
             ) : board ? (
                 <LabelBoards grouped={groupIds !== false} labels={groupedLabels} renderBoard={group => <CommentBoard workflow={workflow} projectOf={() => ({ id: projectId, assignees })} columns={Object.fromEntries(Object.entries(columns).map(([status, cards]) => [status, cards.filter(comment => inLabelWindow(comment, group))])) as typeof columns} sorts={boardSorts} onSort={canSortBoard ? changeSort : undefined}
                     archiveAll={canSortBoard ? { projectId, group, params: Object.fromEntries(Object.entries(query).flatMap(([key, value]) => value === undefined ? [] : [[key, String(value)]])) } : undefined}
-                    archive={{ comments: archived.filter(comment => inLabelWindow(comment, group)), expanded: archiveExpanded, onExpandedChange: changeArchive }} collapseScope={projectId}
+                    collapseScope={projectId}
                     allComments={scopeComments} userId={userId} openComment={openComment}
-                    detailRevision={pager.data.revision} paging={Object.fromEntries(orderedStatuses(workflow).map(status => [status.id, pageControl(group ? labelLaneKey(status.id, group) : status.id)]))} />} />
+                    detailRevision={pager.data.revision} paging={Object.fromEntries(orderedStatuses(workflow).filter(status => status.category !== 'archive').map(status => [status.id, pageControl(group ? labelLaneKey(status.id, group) : status.id)]))} />} />
             ) : (
                 <CommentInbox groupLabels={groupIds !== false ? groupedLabels : undefined} projectId={projectId} comments={shown} allComments={scopeComments} assignees={assignees} userId={userId} label={t("Comments")}
-                    keeps={status => statusMatches(query.status, status, query.status === 'archived' ? 'archived' : undefined)} readLeaves={Boolean(query.unread)} openComment={openComment} detailRevision={pager.data.revision} paging={pageControl('list')} />
+                    keeps={status => statusMatches(query.status, status)} readLeaves={Boolean(query.unread)} openComment={openComment} detailRevision={pager.data.revision} paging={pageControl('list')} />
             )}
             </TriageSelection>
         </div>

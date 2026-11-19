@@ -1,13 +1,12 @@
 import type { CommentsFilter, CommentsPageFilter, CommentsStatusFilter } from './CommentsFilter';
 
 /** The app's `?status=` for an inbox status tab: Active is the app's default, so it has none */
-const appStatus: Record<CommentsStatusFilter, string | undefined> = {
-    unresolved: undefined,
+const appStatus: Record<CommentsStatusFilter, string> = {
+    unresolved: 'active',
     open: 'open',
     'in-progress': 'in-progress',
     ready: 'ready',
     resolved: 'done',
-    archived: 'archived',
     all: 'all'
 };
 
@@ -22,7 +21,7 @@ function appPage(scope: CommentsPageFilter, currentPath: string) {
 
 /**
  * The project's comments in the uier app (`/app/projects/<code>`) for what the inbox shows: its environment, pages,
- * status, unread and Assigned to me filters and its search, as the app's own query (`parseCommentsQuery` in apps/web)
+ * archive, status, unread and Assigned to me filters and its search, as the app's own query (`parseCommentsQuery` in apps/web)
  */
 export function inboxAppLink({ apiUrl, project, filter, scope, currentPath, environment }: {
     apiUrl: string;
@@ -37,7 +36,8 @@ export function inboxAppLink({ apiUrl, project, filter, scope, currentPath, envi
 }) {
     const params = new URLSearchParams();
     const status = appStatus[filter.status];
-    if (status) params.set('status', status);
+    if (status !== 'active' || filter.archived) params.set('status', status);
+    if (filter.archived) params.set('archive', 'only');
     if (environment && environment !== 'all') params.set('environment', environment);
     const page = appPage(scope, currentPath);
     if (page) params.set('page', page);

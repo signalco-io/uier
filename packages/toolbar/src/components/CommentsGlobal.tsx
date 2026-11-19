@@ -746,8 +746,8 @@ export function CommentsGlobal({
     };
 
     /** Opens the inbox on the status of a comment it should show (and without a search that could hide it) */
-    const showInSidebar = (status: CommentsStatusFilter) => {
-        setSidebarFilter({ status });
+    const showInSidebar = (status: CommentsStatusFilter, archived = false) => {
+        setSidebarFilter({ status, archived });
         setSidebarOpen(true);
     };
 
@@ -823,13 +823,13 @@ export function CommentsGlobal({
         linkHandledRef.current = true;
         if (linked.path !== path) {
             // Not this page's (any more): all pages, narrowed to its public id
-            setSidebarFilter({ status: linked.archivedAt ? 'archived' : linked.resolved ? 'resolved' : 'unresolved', page: 'all', keywords: linked.number !== undefined ? `#${linked.number}` : undefined });
+            setSidebarFilter({ status: linked.archivedAt ? 'all' : linked.resolved ? 'resolved' : 'unresolved', archived: Boolean(linked.archivedAt), page: 'all', keywords: linked.number !== undefined ? `#${linked.number}` : undefined });
             setSidebarOpen(true);
             announce(messages().page.earlierPageState);
             return;
         }
         if (linked.archivedAt || linked.resolved || linked.position.type === 'page') {
-            showInSidebar(linked.archivedAt ? 'archived' : linked.resolved ? 'resolved' : 'unresolved');
+            showInSidebar(linked.archivedAt ? 'all' : linked.resolved ? 'resolved' : 'unresolved', Boolean(linked.archivedAt));
         } else {
             setOpenComment({ id: linked.id });
         }

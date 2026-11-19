@@ -23,7 +23,6 @@ export const markCommentsReadAction = refreshCommentsAfter(server.markCommentsRe
 export const copyIssueAction = server.copyIssueAction;
 export const setCommentPriorityAction = refreshCommentsAfter(server.setCommentPriorityAction);
 export const setBoardSortAction = refreshCommentsAfter(server.setBoardSortAction);
-export const setBoardArchiveAction = refreshCommentsAfter(server.setBoardArchiveAction);
 export const setCommentAgentAction = refreshCommentsAfter(server.setCommentAgentAction);
 export const boardColumnThreadsAction = server.boardColumnThreadsAction;
 export const triageCommentsAction = refreshCommentsAfter(server.triageCommentsAction);
