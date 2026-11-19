@@ -57,3 +57,5 @@
   on subsequent imports, including after secret rotation; public review IDs remain independently random.
 
 - Sidebar project entries show a nonzero open comment count (all unfinished, unarchived threads the viewer can see, including In progress and Ready to verify); Done projects get counts when listed by status.
+- Project marks request favicons sized to their visible content: 14 px in the sidebar, 26 px on project
+  cards and 34 px in the project header. Each has a 2× candidate. See [app shell](app-shell.md).

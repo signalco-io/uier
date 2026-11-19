@@ -242,6 +242,9 @@ test('the sidebar shows project favicons padded inside their tiles with names in
     page.on('request', request => { if (/(^|\.)example\.com$/.test(new URL(request.url()).hostname)) siteRequests.push(request.url()); });
     await signIn(page, uniqueEmail('project-icons'));
     await createProject(page, { urls: ['icon.example.com'], name: 'Icon' });
+    const headerIcon = page.getByRole('main').locator('img[src$="&size=34"]');
+    await expect(headerIcon).toBeVisible();
+    await expect(headerIcon).toHaveAttribute('srcset', /&size=34 1x, .*&size=68 2x$/);
     await createProject(page, { urls: ['letter.example.com'], name: 'Letter' });
     await page.goto('/app/projects');
 
@@ -249,7 +252,8 @@ test('the sidebar shows project favicons padded inside their tiles with names in
     const card = page.getByRole('list', { name: 'Active projects' }).getByRole('listitem')
         .filter({ has: page.getByRole('link', { name: 'Icon', exact: true }) });
     await expect(card.locator('img')).toBeVisible();
-    await expect(card.locator('img')).toHaveAttribute('src', /^\/api\/projects\/[a-z0-9]{12}\/icon\?site=https%3A%2F%2Ficon\.example\.com$/);
+    await expect(card.locator('img')).toHaveAttribute('src', /^\/api\/projects\/[a-z0-9]{12}\/icon\?site=https%3A%2F%2Ficon\.example\.com&size=26$/);
+    await expect(card.locator('img')).toHaveAttribute('srcset', /&size=26 1x, .*&size=52 2x$/);
     // The site's SVG never runs as a uier.io page, also behind the app's own page policy
     const served = await page.request.get((await card.locator('img').getAttribute('src'))!);
     expect(served.headers()).toMatchObject({ 'content-type': 'image/svg+xml', 'content-disposition': 'attachment; filename="icon"',
@@ -264,6 +268,9 @@ test('the sidebar shows project favicons padded inside their tiles with names in
     // a site without one shows the name's first letter
     const favicon = withFavicon.locator('img');
     await expect(favicon).toBeVisible();
+    await expect(favicon).toHaveAttribute('srcset', /&size=14 1x, .*&size=28 2x$/);
+    const density = await page.evaluate(() => window.devicePixelRatio);
+    expect(await favicon.evaluate((image: HTMLImageElement) => new URL(image.currentSrc).searchParams.get('size'))).toBe(density > 1 ? '28' : '14');
     expect(await favicon.evaluate((image: HTMLImageElement) => {
         const style = getComputedStyle(image);
         return [image.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight),
