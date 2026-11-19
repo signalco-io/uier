@@ -424,12 +424,20 @@ test('Cloudflare relay forwards its complete envelope recipient and ignores the 
 test('Cloudflare setup reads back its literal Worker rule and preserves protected mail routes', async () => {
     const { verifyOrCreateMailRoute } = await import('../../../.github/proofs/cloudflare-mail-route.mjs');
     const priorFetch = globalThis.fetch;
-    const priorToken = process.env.CLOUDFLARE_API_TOKEN;
-    const priorZone = process.env.UIER_PROOF_EMAIL_ZONE_ID;
-    const priorAlias = process.env.UIER_PROOF_EMAIL_ALIAS;
-    process.env.CLOUDFLARE_API_TOKEN = 'synthetic-routing-test-bearer';
-    process.env.UIER_PROOF_EMAIL_ZONE_ID = '0'.repeat(32);
-    process.env.UIER_PROOF_EMAIL_ALIAS = mailAlias;
+    const zoneId = 'a'.repeat(32);
+    const accountId = 'b'.repeat(32);
+    const ruleId = 'c'.repeat(32);
+    const settings = {
+        CLOUDFLARE_API_TOKEN: 'synthetic-routing-test-bearer', CLOUDFLARE_ACCOUNT_ID: accountId,
+        UIER_PROOF_EMAIL_ZONE_ID: zoneId, UIER_PROOF_EMAIL_ALIAS: mailAlias
+    };
+    const priorSettings = Object.keys(settings).map(name => [name, process.env[name]] as const);
+    Object.assign(process.env, settings);
+    const zonePath = '/client/v4/zones/' + zoneId;
+    const routingPath = zonePath + '/email/routing';
+    const rulesPath = routingPath + '/rules';
+    const rulePath = rulesPath + '/' + ruleId;
+    const catchAllPath = rulesPath + '/catch_all';
     const protectedRules = ['contact', 'security', 'privacy'].map(alias => ({ id: alias, enabled: true,
         actions: [{ type: 'forward', value: ['operator@example.test'] }],
         matchers: [{ type: 'literal', field: 'to', value: alias + '@uier.io' }] }));
@@ -438,20 +446,24 @@ test('Cloudflare setup reads back its literal Worker rule and preserves protecte
     let rule: object | undefined;
     let supportsPlus = true;
     globalThis.fetch = async (input, init) => {
-        const { pathname } = new URL(String(input));
-        const path = pathname.split('/email/routing')[1] ?? '';
+        const { origin, pathname } = new URL(String(input));
+        expect(origin).toBe('https://api.cloudflare.com');
         if (init?.method === 'POST') {
-            expect(path).toBe('/rules');
+            expect(pathname).toBe(rulesPath);
             const payload = JSON.parse(String(init.body)) as Record<string, unknown>;
             writes.push(payload);
-            rule = { ...payload, id: 'proof-rule', source: 'api' };
+            rule = { ...payload, id: ruleId, source: 'api' };
             return Response.json({ success: true, result: rule });
         }
-        reads.push(path);
-        const result = path === '/rules' ? [...protectedRules, ...(rule ? [rule] : [])]
-            : path === '/rules/catch_all' ? { enabled: false, actions: [{ type: 'drop' }] }
-                : path === '/rules/proof-rule' ? rule : { name: 'uier.io', enabled: true, status: 'ready', support_subaddress: supportsPlus };
-        return Response.json({ success: true, result });
+        expect(init?.method).toBe('GET');
+        reads.push(pathname);
+        const json = (result: unknown) => Response.json({ success: true, result });
+        if (pathname === zonePath) return json({ id: zoneId, name: 'uier.io', account: { id: accountId } });
+        if (pathname === routingPath) return json({ name: 'uier.io', enabled: true, status: 'ready', support_subaddress: supportsPlus });
+        if (pathname === rulesPath) return json([...protectedRules, ...(rule ? [rule] : [])]);
+        if (pathname === catchAllPath) return json({ enabled: false, actions: [{ type: 'drop' }] });
+        if (pathname === rulePath) return json(rule);
+        throw new Error('Unexpected Cloudflare fixture request: ' + pathname);
     };
     try {
         const lookupMx = async (host: string) => {
@@ -462,14 +474,14 @@ test('Cloudflare setup reads back its literal Worker rule and preserves protecte
         await verifyOrCreateMailRoute('preview', { apply: true, lookupMx });
         expect(writes).toEqual([{ name: 'uier test proof email (preview)', enabled: true,
             matchers: [{ type: 'literal', field: 'to', value: mailAlias }], actions: [{ type: 'worker', value: ['uier-proof-mail-preview'] }] }]);
-        expect(reads).toContain('/rules/proof-rule');
-        expect(reads.filter(path => path === '/rules/catch_all')).toHaveLength(3);
+        expect(reads).toContain(rulePath);
+        expect(reads.filter(path => path === catchAllPath)).toHaveLength(3);
         supportsPlus = false;
         await expect(verifyOrCreateMailRoute('preview', { apply: true, lookupMx })).rejects.toThrow('Enable Email Routing and plus addressing');
         expect(writes).toHaveLength(1);
     } finally {
         globalThis.fetch = priorFetch;
-        for (const [name, value] of Object.entries({ CLOUDFLARE_API_TOKEN: priorToken, UIER_PROOF_EMAIL_ZONE_ID: priorZone, UIER_PROOF_EMAIL_ALIAS: priorAlias })) {
+        for (const [name, value] of priorSettings) {
             if (value === undefined) delete process.env[name];
             else process.env[name] = value;
         }

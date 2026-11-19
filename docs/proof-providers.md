@@ -9,13 +9,18 @@ The app has no shared Figma credential. See the [source and API contract](../app
 ## Isolated HTML host
 
 Set `UIER_PROOF_HTML_ORIGIN_PREVIEW` and `UIER_PROOF_HTML_ORIGIN_PRODUCTION`
-as repository variables for the credential-free build. Each is a separate
-HTTPS origin on a dedicated domain outside `uier.io`, with a DNS record
-pointing to the project's Vercel domain target. The build embeds the
-corresponding origin in the viewer and the route guard. Configure an
-exception for the isolated preview hostname if Vercel Deployment Protection
-covers it. The signed proof URL supplies application authorization on that
-host. Keep the ordinary preview application protected as configured. [Vercel Deployment Protection Exceptions](https://vercel.com/docs/deployment-protection/methods-to-bypass-deployment-protection/deployment-protection-exceptions)
+as repository variables for the credential-free build. The dedicated HTTPS
+hostnames are `uier-proof-preview-signalco.vercel.app` and
+`uier-proof-production-signalco.vercel.app`. A custom hostname must be
+outside `uier.io`, isolated from the app and its cookies, and provisioned for
+the uier Vercel team with working DNS and TLS. Reserve it for an explicit
+proof deployment alias, separate from app project domains and wildcard domains.
+The build embeds the target origin in the viewer and route guard. The signed
+proof URL supplies application authorization on that host. Keep Vercel Deployment
+Protection in place. The workflow can use `UIER_PROOF_VERCEL_BYPASS` for the
+root check on a protected dedicated Vercel hostname. If the workflow verifies
+the alias and reports HTTP 401, complete the root 404 and signed iframe checks
+using authenticated access. [File proof provider operations](operations.md#file-proof-provider-setup)
 
 1. Build and deploy the selected commit using existing CI after setting the origin variable.
 2. Run **Configure file proof providers** on `main` with feature `html`, the target environment and the exact deployment URL. It needs the existing target environment's `VERCEL_TOKEN` with project alias access. The workflow checks the selected deployment and probes the isolated host's app root for a 404.
