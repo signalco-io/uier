@@ -602,3 +602,6 @@ returns a temporary create-only PUT URL. Its result contains storage
 credentials, so clients must keep it out of logs and messages. Finalize
 returns an ordinary immutable viewer URL and rechecks the original agent
 grant. Figma imports use the member's Figma authorization in the Files UI.
+
+The bundled monitor and orchestrator require Node 24 or newer. The monitor skill serves
+`scripts/store.mjs` alongside its helper so MCP-only installs use the same local SQLite store.

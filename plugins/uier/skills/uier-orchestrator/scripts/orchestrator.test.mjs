@@ -1,3 +1,4 @@
+import * as store from '../../uier-monitor/scripts/store.mjs';
 import assert from 'node:assert/strict';
 import { execFileSync, spawn } from 'node:child_process';
 import { once } from 'node:events';
@@ -10,7 +11,7 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 
 const root = realpathSync(mkdtempSync(join(tmpdir(), 'uier-orchestrator-')));
-const home = join(root, 'home'), file = join(home, 'orchestrator.json');
+const home = join(root, 'home');
 process.env.UIER_MONITOR_HOME = home;
 process.env.UIER_MCP_TOKEN = 'local-fixture-token';
 const { eligible, inspect, unfinished } = await import('./orchestrator.mjs');
@@ -30,11 +31,13 @@ http.listen(0, '127.0.0.1');
 await once(http, 'listening');
 process.env.UIER_MCP_URL = 'http://127.0.0.1:' + http.address().port;
 after(() => { http.close(); rmSync(root, { recursive: true, force: true }); });
-const read = path => JSON.parse(readFileSync(path, 'utf8'));
-const write = (path, data) => writeFileSync(path, JSON.stringify(data));
+const setInbox = (dir, events) => store.transaction(() => {
+    store.clearInbox(dir);
+    store.appendInbox(dir, events);
+});
 const cli = (cwd, ...args) => JSON.parse(execFileSync(process.execPath, [helper, ...args], { cwd, encoding: 'utf8', env: process.env }));
-const config = () => read(file);
-const change = fn => { const state = config(); fn(state); write(file, state); };
+const config = () => store.readRecord(null, 'orchestrator');
+const change = fn => { const state = config(); fn(state); store.writeRecord(null, 'orchestrator', state); };
 const project = id => config().projects[id];
 const open = id => ({ id, stage: 'open', updatedAt: '2026-01-01T00:00:00Z' });
 
@@ -89,7 +92,7 @@ if (args[0] === 'thread') {
     rows.set(id, [{ id: 'legacy', stage: 'open' }, open('b')]);
     await Promise.all([tick(), tick()]);
     await waitForTurn();
-    const p = project(id), stateFile = join(p.dir, 'state.json');
+    const p = project(id);
     const starts = () => readFileSync(log, 'utf8').trim().split('\n').map(line => JSON.parse(line))
         .filter(args => args[1] === 'start' || args.includes('--session-id') || (args[0] === 'exec' && !args.includes('resume')));
     assert.equal(starts().length, 1);
@@ -98,41 +101,41 @@ if (args[0] === 'thread') {
     const childEnv = { ...process.env, T3CODE_THREAD_ID: 't3-worker', CODEX_THREAD_ID: 'codex-worker' };
     const entered = JSON.parse(execFileSync(process.execPath, [helper, ...args], { cwd: repo, env: childEnv }));
     assert.equal(entered.first, true);
-    const s = read(stateFile);
+    const s = store.readState(p.dir);
     Object.assign(s, { project: { id }, items: { a: { stage: 'done' }, b: { stage: 'ready' } } });
-    write(stateFile, s);
+    store.writeState(p.dir, s);
     // Keep a fixture watcher alive so the real process-identity check sees a live monitor.
     const dummy = join(repo, 'monitor.mjs');
     writeFileSync(dummy, 'setInterval(() => {}, 1000);');
     const watcher = spawn(process.execPath, [dummy], { stdio: 'ignore' });
     t.after(() => { watcher.kill(); });
-    write(join(p.dir, 'watch.pid'), { pid: watcher.pid, inboxOnly: true });
+    writeFileSync(join(p.dir, 'watch.pid'), JSON.stringify({ pid: watcher.pid, inboxOnly: true }));
     rows.set(id, []);
     change(c => { c.projects[id].checkedAt = null; c.projects[id].sentAt = null; });
-    write(join(p.dir, 'inbox.json'), [{ type: 'reply', commentId: 'b' }]);
+    setInbox(p.dir, [{ type: 'reply', commentId: 'b' }]);
     await tick(); await waitForTurn();
     const wake = JSON.parse(readFileSync(log, 'utf8').trim().split('\n').at(-1));
     assert.ok(wake.includes(p.thread));
     assert.ok(wake.includes(harness === 't3' ? 'send' : harness === 'claude' ? '--resume' : 'resume'));
-    write(join(p.dir, 'inbox.json'), []);
+    setInbox(p.dir, []);
     change(c => { c.projects[id].sentAt = null; });
     await tick();
     assert.equal(project(id).phase, 'monitoring');
-    s.items.b.stage = 'done'; write(stateFile, s);
+    s.items.b.stage = 'done'; store.writeState(p.dir, s);
     await tick();
     assert.equal(project(id).phase, 'parking');
-    assert.equal(read(stateFile).watch.stoppedBy, 'orchestrator:' + p.run);
+    assert.equal(store.readState(p.dir).watch.stoppedBy, 'orchestrator:' + p.run);
     const exited = once(watcher, 'exit'); watcher.kill(); await exited;
     if (harness === 't3') {
         // A last watch cycle can enqueue a close receipt while its stop is propagating.
-        write(join(p.dir, 'inbox.json'), [{ quiet: true, type: 'closed', threads: ['fix-session'] }]);
+        setInbox(p.dir, [{ quiet: true, type: 'closed', threads: ['fix-session'] }]);
         await tick();
         assert.equal(project(id).phase, 'monitoring');
-        assert.equal(read(stateFile).stopped, false);
-        write(join(p.dir, 'inbox.json'), []);
+        assert.equal(store.readState(p.dir).stopped, false);
+        setInbox(p.dir, []);
         const lastWatcher = spawn(process.execPath, [dummy], { stdio: 'ignore' });
         t.after(() => { lastWatcher.kill(); });
-        write(join(p.dir, 'watch.pid'), { pid: lastWatcher.pid, inboxOnly: true });
+        writeFileSync(join(p.dir, 'watch.pid'), JSON.stringify({ pid: lastWatcher.pid, inboxOnly: true }));
         await tick();
         assert.equal(project(id).phase, 'parking');
         const ended = once(lastWatcher, 'exit'); lastWatcher.kill(); await ended;
@@ -149,7 +152,7 @@ if (args[0] === 'thread') {
     const resumed = JSON.parse(execFileSync(process.execPath, [helper, 'enter', id, next.run], { cwd: repo, env: childEnv }));
     assert.equal(resumed.first, false);
     assert.deepEqual(resumed.recheck, ['b']);
-    assert.equal(read(stateFile).watch.stopped, false);
+    assert.equal(store.readState(p.dir).watch.stopped, false);
     assert.ok(requests.every(r => r.name === 'list_feedback'));
     assert.equal(starts()[0].some(arg => arg.includes('managed=' + p.run)), true);
     assert.ok(!readFileSync(log, 'utf8').includes('local-fixture-token'));
@@ -162,10 +165,10 @@ test('a pause, independent monitor or human stop prevents discovery and launches
     const p = project(id);
     mkdirSync(p.dir, { recursive: true });
     const count = requests.length, tick = () => inspect({ ...project(id), instance: 'test-loop' });
-    write(join(p.dir, 'state.json'), { project: { id } });
+    store.writeState(p.dir, { project: { id } });
     await tick();
     assert.equal(project(id).phase, 'external');
-    write(join(p.dir, 'state.json'), { project: { id }, stopped: true, watch: { stoppedBy: 'person' } });
+    store.writeState(p.dir, { project: { id }, stopped: true, watch: { stoppedBy: 'person' } });
     await tick();
     assert.equal(project(id).phase, 'stopped');
     cli(repo, 'remove', id);
@@ -174,7 +177,7 @@ test('a pause, independent monitor or human stop prevents discovery and launches
     const status = cli(repo, 'status');
     assert.equal(status.projects[id].allowed, false);
     assert.equal(status.running, false);
-    assert.equal(JSON.parse(execFileSync(process.execPath, [monitor, 'version'])).version, '1.9.0');
+    assert.equal(JSON.parse(execFileSync(process.execPath, [monitor, 'version'])).version, '2.0.0');
 });
 
 test('the actual managed watcher exits before polling a revoked registration', async () => {
@@ -183,12 +186,12 @@ test('the actual managed watcher exits before polling a revoked registration', a
     cli(repo, 'allow', id, account, repo);
     const { dir } = project(id);
     mkdirSync(dir, { recursive: true });
-    write(join(dir, 'state.json'), { project: { id }, harness: { kind: 't3' }, orchestrator: { run: 'owned-run' } });
+    store.writeState(dir, { project: { id }, harness: { kind: 't3' }, orchestrator: { run: 'owned-run' } });
     change(s => { s.projects[id].run = 'owned-run'; });
     cli(repo, 'remove', id);
     const before = requests.length;
     const child = spawn(process.execPath, [monitor, 'watch', '--inbox-only', '--state', dir], { cwd: repo, stdio: 'ignore' });
     assert.deepEqual(await once(child, 'exit'), [0, null]);
     assert.equal(requests.length, before);
-    assert.match(readFileSync(join(dir, 'events.jsonl'), 'utf8'), /"event":"stopped"/);
+    assert.ok(store.activity(dir).some(event => event.event === 'stopped'));
 });

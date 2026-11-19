@@ -1,6 +1,6 @@
 # uier monitor state reference
 
-`state.json` fields the watcher and `M status` read (add your own freely, but prefer these):
+Project state fields the watcher and `M status` read (add your own freely, but prefer these):
 
 ```json
 {
@@ -67,7 +67,7 @@
 - `groups.*.threads`: every session thread of the group (fix, review, follow-up, rebase), archived
   when the group closes.
 - `groups.*.agentLease.state`: `working` while its session runs, then `done`. The watcher keeps its
-  progress per comment (attached details, last renewal) in `watch.json`; a lease removed from the
+  progress per comment (attached details, last renewal) in the watcher checkpoint; a lease removed from the
   state counts as done. `clear` lists comments whose agent the watcher removes when it ends.
 - `groups.*.closing`: the replies drafted when the PR was approved (`SKILL.md`, Closing in uier). Per
   item: `reply` (may use `{sha}`, `{sha7}`, `{commitUrl}`), optional `status: "keep"` (reply only) or
@@ -82,29 +82,26 @@
 - `watch.note`: one sentence on what you just did and what you wait on, rewritten on every wake.
   The dashboard shows it; nothing else reads it.
 
-`events.jsonl`, next to `state.json`, is the activity history: one JSON line for each event the
-watcher finds, each wake and take, and each change of a group's `state` or an item's `decision` or
-`stage` made through `M patch` or by the watcher. Only the helper writes it; the dashboard reads it
-for its feed and for how long a group has been in its state. Never read it on a wake.
+The SQLite activity journal holds the latest 10,000 events per monitor, including wakes,
+acknowledgements and changes to group state or item decisions and stages. The dashboard reads its
+recent entries. The watcher commits each event batch together with its checkpoint and local state
+updates. `M context --take` saves the receipt and acknowledges the inbox in one transaction.
 
 - `watch.idleMinutes`: minutes without visible activity before slower event polling (default 15).
   `watch.idleIntervalSeconds`: idle event-read interval (default 300, bounded to 60–900 seconds).
   Active sessions/deploys and working leases keep the active cadence. Local controls, hold timers,
   wake retries and lease/release checks run at least every minute regardless of event backoff.
-- `watch.json.eventCheckedAt`, `lastActivityAt` and `eventIntervalSeconds`: event read cadence,
+- Checkpoint fields `eventCheckedAt`, `lastActivityAt` and `eventIntervalSeconds`: event read cadence,
   separate from the every-minute process heartbeat.
 
-Files the monitors on one machine share, in `~/.uier-monitor` (`UIER_MONITOR_HOME` moves it). Only
-the helper writes them, under its lock; read them with `M capacity`:
+One database per user, `~/.uier-monitor/monitor.sqlite` (`UIER_MONITOR_HOME` overrides the
+directory), holds monitor registrations, project metadata, individually indexed items, groups
+and PRs, events, settings and supervisor receipts. `M registry` lists projects by canonical
+state directory. `M capacity --max N` sets the machine limit. Claims expire after 15 minutes
+or when a group's state changes. Waiting monitors take turns in order of arrival. The monitor
+stores reply cooldowns separately under `cooldowns/`.
 
-- `settings.json`: `{ "maxSessions": 12 }`, the limit on sessions working at once across every
-  monitor here (`M capacity --max N`). Each monitor's `max` still applies.
-- `slots.json`: `claims` (`"<monitor key>:<group>": { monitor, dir, group, from, at }`, a slot taken
-  for a session about to start; it counts while the group's state is still `from`, for 15 minutes at
-  most) and `waiting` (`"<monitor key>": { since, dir, project, notifiedAt }`, the queue for slots).
-- `monitors/*.json`: the registry the dashboard reads; `cooldowns/`: shared reply cooldowns.
-
-`usage.json` holds only numeric counters in at most 31 UTC day buckets, under its own lock.
+The per-monitor usage record keeps numeric counters in at most 31 UTC day buckets.
 It records actual HTTP attempts (including retries), consumed body bytes, elapsed request time,
 measured database RU and coverage, delivery failures, wakes and idle model wakes. It contains no
 feedback, tokens, endpoints or identity values. `M usage` optionally prices observed RU at a

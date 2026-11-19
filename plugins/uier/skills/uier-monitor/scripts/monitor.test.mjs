@@ -1,3 +1,5 @@
+import * as store from './store.mjs';
+import { DatabaseSync } from 'node:sqlite';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as fs from 'node:fs';
@@ -140,6 +142,24 @@ function runtime() {
         connection: () => ({}), keepLeases: async () => {}, pollUier: async () => {},
         pollDeploys() {}, pollPullRequests() {}, wakeUrl: () => 'https://wake.example/secret',
         diskFree: () => null, repoCwd: () => '/repo', capacityTurn: async () => {}
+    });
+    Object.assign(context, {
+        structuredClone, transaction: fn => fn(), addActivity() {},
+        readState: (dir, fallback) => context.readJson(join(dir, 'state.json'), fallback),
+        readConfig: dir => context.readState(dir),
+        stateSnapshot: (dir, fallback) => context.readState(dir, fallback),
+        readEntities: (dir, section, ids) => Object.fromEntries(Object.entries(context.readState(dir)?.[section] ?? {}).filter(([id]) => !ids || ids.includes(id))),
+        readRecord: (dir, name, fallback) => context.readJson(join(dir ?? '/home', name + '.json'), fallback),
+        writeRecord: (dir, name, value) => context.writeJson(join(dir ?? '/home', name + '.json'), value),
+        writeState: (dir, value) => context.writeJson(join(dir, 'state.json'), value),
+        readInbox: dir => context.readJson(join(dir, 'inbox.json'), []),
+        clearInbox: dir => context.writeJson(join(dir, 'inbox.json'), []),
+        appendInbox: (dir, events, suppress) => {
+            const before = context.readInbox(dir).filter(e => !suppress || !['heartbeat','poll-uier'].includes(e.type));
+            const next = context.coalesceEvents([...before, ...events]);
+            context.writeJson(join(dir, 'inbox.json'), next);
+            return next.slice(before.length);
+        }
     });
     files.set('/state/state.json', { project: { id: 'project' } });
     return { context, files, output, advance: ms => { now += ms; } };
@@ -359,7 +379,7 @@ test('context writes a recovery receipt before consuming events, and a failed re
     assert.equal(output[0].events.length, 1);
     assert.equal(files.get('/state/inbox.json').length, 0);
     await context.contextCommand({});
-    assert.equal(output[1].recoverFrom, '/state/context.json');
+    assert.equal(output[1].recoverFrom, 'context --recover');
     assert.equal(files.get('/state/context.json').recovery.events.length, 1);
     files.set('/state/inbox.json', events);
     context.writeJson = () => { throw new Error('disk full'); };
@@ -1212,7 +1232,7 @@ for (const detached of [false, true]) test(`standalone persistent watcher delive
         writeFileSync(cli, `#!${process.execPath}\nimport {writeFileSync, readFileSync, renameSync} from 'node:fs';\n`
             + `const out = process.env.UM_TEST_WAKE_OUTPUT;\n`
             + `writeFileSync(out + '.tmp', JSON.stringify({args:process.argv.slice(2),prompt:readFileSync(0,'utf8')}));\nrenameSync(out + '.tmp', out);\n`, { mode: 0o700 });
-        writeFileSync(join(dir, 'state.json'), JSON.stringify({ project: { id: 'fixture' }, me: { name: 'person' } }));
+        store.writeState(dir, { project: { id: 'fixture' }, me: { name: 'person' } });
         child = spawn(process.execPath, [fileURLToPath(new URL('./monitor.mjs', import.meta.url)), 'watch', '--state', dir,
             '--persistent', '--thread', 'fixture-thread', '--t3-cli', cli, '--batch-seconds', '0', ...(detached ? ['--detach'] : [])], {
             env: { ...process.env, UIER_MCP_TOKEN: 'fixture-only-token',
@@ -1224,18 +1244,17 @@ for (const detached of [false, true]) test(`standalone persistent watcher delive
         const wake = JSON.parse(readFileSync(delivered, 'utf8'));
         assert.deepEqual(wake.args, ['thread', 'send', '--json', 'fixture-thread', '-']);
         assert.match(wake.prompt, /context --take/);
-        assert.equal(JSON.parse(readFileSync(join(dir, 'inbox.json'), 'utf8'))[0].type, 'new');
+        assert.equal(store.readInbox(dir)[0].type, 'new');
         assert.equal(JSON.parse(readFileSync(join(dir, 'watch.pid'), 'utf8')).persistent, true);
-        assert.ok(JSON.parse(readFileSync(join(dir, 'watch.json'), 'utf8')).heartbeatAt);
+        assert.ok(store.readRecord(dir, 'watch').heartbeatAt);
         // The dashboard's feed: the watcher announced the state folder and journaled what it did.
         // The wake is journaled once its delivery returned, a moment after the CLI wrote its output.
-        const readJournal = () => readFileSync(join(dir, 'events.jsonl'), 'utf8').split('\n').filter(line => line.endsWith('}')).map(line => JSON.parse(line));
+        const readJournal = () => store.activity(dir);
         for (let tries = 0; tries < 200 && !readJournal().some(event => event.type === 'wake'); tries++) await sleep(20);
         const journal = readJournal();
         assert.deepEqual(journal.slice(0, 3).map(event => event.type), ['watcher', 'new', 'wake']);
         assert.ok(journal.every(event => !Number.isNaN(Date.parse(event.at))) && journal[2].delivered === true);
-        assert.ok(readdirSync(join(process.env.UIER_MONITOR_HOME, 'monitors')).filter(name => name.endsWith('.json')).some(name =>
-            JSON.parse(readFileSync(join(process.env.UIER_MONITOR_HOME, 'monitors', name), 'utf8')).stateDir === dir));
+        assert.ok(store.registrations().some(entry => entry.stateDir === realpathSync(dir)));
         const health = execFileSync(process.execPath, [fileURLToPath(new URL('./monitor.mjs', import.meta.url)),
             'status', '--state', dir], { env: { ...process.env, UIER_MCP_TOKEN: 'fixture-only-token' }, encoding: 'utf8' });
         assert.match(health, /persistent/);
@@ -1256,19 +1275,26 @@ function machine() {
     const add = (name, groups, { max = 6, watching = true } = {}) => {
         const dir = join(home, 'states', name);
         fs.mkdirSync(dir, { recursive: true });
-        writeFileSync(join(dir, 'state.json'), JSON.stringify({ project: { id: name, name }, max,
-            groups: Object.fromEntries(Object.entries(groups).map(([id, state]) => [id, { state }])) }));
-        if (watching) writeFileSync(join(dir, 'watch.json'), JSON.stringify({ heartbeatAt: new Date().toISOString() }));
+        inHome(() => {
+            store.writeState(dir, { project: { id: name, name }, max,
+                groups: Object.fromEntries(Object.entries(groups).map(([id, state]) => [id, { state }])) });
+            if (watching) store.writeRecord(dir, 'watch', { heartbeatAt: new Date().toISOString() });
+        });
         text(dir, 'patch', '{}');
         return dir;
     };
-    const slots = () => JSON.parse(readFileSync(join(home, 'slots.json'), 'utf8'));
+    function inHome(fn) {
+        const previous = process.env.UIER_MONITOR_HOME;
+        process.env.UIER_MONITOR_HOME = home;
+        try { return fn(); } finally { process.env.UIER_MONITOR_HOME = previous; }
+    }
+    const slots = () => inHome(store.readSlots);
     // The watcher's step, run against the real files of this machine.
     const context = vm.createContext({ process: { argv: [], pid: 42, env: { UIER_MONITOR_HOME: home }, on() {} }, Date, Set, Map,
-        createHash, join, resolve, dirname, homedir: () => home, sleep, ...fs });
+        createHash, join, resolve, dirname, homedir: () => home, sleep, ...fs, ...store });
     vm.runInContext(source, context);
-    const turn = async (dir, now) => { const found = []; await context.capacityTurn(dir, found, now); return JSON.parse(JSON.stringify(found)); };
-    return { home, run, text, add, slots, turn };
+    const turn = async (dir, now) => { const found = []; await inHome(() => context.capacityTurn(dir, found, now)); return JSON.parse(JSON.stringify(found)); };
+    return { home, run, text, add, slots, turn, inHome };
 }
 
 test('one limit holds sessions across every monitor on the machine, with per-monitor max and claims', () => {
@@ -1376,9 +1402,11 @@ test('stopped and abandoned monitors neither hold slots nor block the queue', ()
         assert.deepEqual(Object.keys(m.slots().waiting).length, 1, 'only A waits');
         // Nobody touched it for a day: it was left behind and holds nothing.
         const old = (Date.now() - 25 * 3_600_000) / 1000;
-        utimesSync(join(stale, 'state.json'), old, old);
-        writeFileSync(join(stale, 'watch.json'), JSON.stringify({ heartbeatAt: new Date(old * 1000).toISOString() }));
-        utimesSync(join(stale, 'state.json'), old, old);
+        m.inHome(() => {
+            store.writeRecord(stale, 'watch', { heartbeatAt: new Date(old * 1000).toISOString() });
+            const db = new DatabaseSync(store.databasePath());
+            try { db.prepare('UPDATE monitors SET touched=? WHERE dir=?').run(old * 1000,stale); } finally { db.close(); }
+        });
         assert.deepEqual(m.run(a, 'slot', 'g1').granted, ['g1']);
     } finally { rmSync(m.home, { recursive: true, force: true }); }
 });
@@ -1386,3 +1414,63 @@ test('stopped and abandoned monitors neither hold slots nor block the queue', ()
 function pickKeys(value, keys) {
     return Object.fromEntries(keys.map(key => [key, value[key]]));
 }
+
+test('SQLite commits the recovery receipt and inbox acknowledgement together', () => {
+    const dir = realpathSync(mkdtempSync(join(tmpdir(), 'uier-receipt-')));
+    const script = fileURLToPath(new URL('./monitor.mjs', import.meta.url));
+    const run = (...args) => execFileSync(process.execPath, [script, ...args, '--state', dir], { encoding: 'utf8', stdio: ['pipe','pipe','pipe'] });
+    const event = { type: 'reply', number: 17 };
+    store.writeState(dir, { project: { id: 'p17' } });
+    store.transaction(() => {
+        store.writeRecord(dir, 'watch', { cursor: 'one' });
+        store.appendInbox(dir, [event, { ...event, foundAt: 'later' }]);
+    });
+    const db = new DatabaseSync(store.databasePath());
+    try {
+        db.exec("CREATE TRIGGER fail_ack BEFORE DELETE ON inbox BEGIN SELECT RAISE(ABORT,'interrupted ack'); END");
+        assert.throws(() => run('context','--take'), /interrupted ack/);
+        assert.deepEqual(store.readInbox(dir), [event]);
+        assert.equal(store.readRecord(dir, 'context', null), null);
+        db.exec('DROP TRIGGER fail_ack');
+        assert.deepEqual(JSON.parse(run('context','--take')).events, [event]);
+        assert.deepEqual(store.readInbox(dir), []);
+        assert.deepEqual(JSON.parse(run('context','--recover')).events, [event]);
+        assert.throws(() => store.transaction(() => {
+            store.writeRecord(dir, 'watch', { cursor: 'two' });
+            store.appendInbox(dir, [{ type: 'new' }]);
+            throw new Error('interrupted poll');
+        }), /interrupted poll/);
+        assert.deepEqual(store.readInbox(dir), []);
+        assert.equal(store.readRecord(dir, 'watch').cursor, 'one');
+    } finally { db.close(); rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('simultaneous CLI writers preserve separate patches and grant the last slot once', async () => {
+    const home = realpathSync(mkdtempSync(join(tmpdir(), 'uier-sql-race-')));
+    const script = fileURLToPath(new URL('./monitor.mjs', import.meta.url));
+    const dir = join(home, 'project');
+    const env = { ...process.env, UIER_MONITOR_HOME: home };
+    const run = async (...args) => {
+        const child = spawn(process.execPath, [script, ...args, '--state', dir], { env });
+        let output = '', error = '';
+        child.stdout.on('data', chunk => { output += chunk; });
+        child.stderr.on('data', chunk => { error += chunk; });
+        const [code] = await once(child, 'close');
+        assert.equal(code, 0, error);
+        return output.trim() === 'ok' ? null : JSON.parse(output);
+    };
+    try {
+        const ids = ['a','b','c','d','e','f'];
+        await Promise.all(ids.map(id => run('patch', JSON.stringify({ groups: { [id]: { state: 'queued' } } }))));
+        assert.deepEqual(Object.keys(await run('detail', 'groups')).sort(), ids);
+        await run('capacity','--max','1');
+        const results = await Promise.all(ids.map(id => run('slot',id)));
+        assert.equal(results.flatMap(result => result.granted).length, 1);
+        assert.equal((await run('capacity')).used, 1);
+        await run('patch', JSON.stringify({ groups: { a: null }, custom: { list: ['one'] } }));
+        assert.deepEqual(Object.keys(await run('detail','groups')).sort(), ids.slice(1));
+        assert.deepEqual(await run('detail','custom'), { list: ['one'] });
+        assert.equal(existsSync(join(dir,'state.json')), false);
+        assert.equal(fs.statSync(join(home,'monitor.sqlite')).mode & 0o777, 0o600);
+    } finally { rmSync(home, { recursive: true, force: true }); }
+});

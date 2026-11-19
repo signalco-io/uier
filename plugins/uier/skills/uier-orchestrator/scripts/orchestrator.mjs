@@ -1,9 +1,8 @@
 #!/usr/bin/env node
-// The detached supervisor owns discovery and wake delivery. Project monitor state and its
-// watcher remain local to the repository. Run the installed copy from a stable directory.
+// The detached supervisor owns discovery and wake delivery. The monitor and supervisor share a local SQLite database. Run the installed copy from a stable directory.
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { existsSync, mkdirSync, readdirSync, realpathSync } from 'node:fs';
+import { existsSync, mkdirSync, realpathSync } from 'node:fs';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { createInterface } from 'node:readline';
 import { setTimeout as sleep } from 'node:timers/promises';
@@ -12,14 +11,15 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const script = fileURLToPath(import.meta.url);
 const bundled = resolve(dirname(script), '../../uier-monitor/scripts/monitor.mjs');
 const helper = existsSync(join(dirname(script), 'monitor.mjs')) ? join(dirname(script), 'monitor.mjs') : bundled;
-const { connection, monitorHome, readJson, tool, watcherPid, withLock, writeJson } = await import(pathToFileURL(helper));
+const { connection, tool, watcherPid, withLock } = await import(pathToFileURL(helper));
+const { monitorHome, readState, readInbox, readRecord, registrations, transaction, writeRecord, writeState } =
+    await import(pathToFileURL(join(dirname(helper), 'store.mjs')));
 const home = monitorHome();
-const file = join(home, 'orchestrator.json');
 const minute = 60_000;
 const now = () => new Date().toISOString();
-const load = () => readJson(file, { enabled: false, projects: {} });
-const local = p => readJson(join(p.dir, 'state.json'), null);
-const inbox = p => readJson(join(p.dir, 'inbox.json'), []);
+const load = () => readRecord(null, 'orchestrator', { enabled: false, projects: {} });
+const local = p => readState(p.dir, null);
+const inbox = p => readInbox(p.dir);
 const alive = pid => {
     if (!Number.isSafeInteger(pid) || pid <= 0) return false;
     try { process.kill(pid, 0); return true; } catch (error) { return error.code === 'EPERM'; }
@@ -35,12 +35,12 @@ function requireValue(value, message) { if (!value) throw new Error(message); re
 // Only short, synchronous mutations run under this lock. Network and CLI reads are fenced
 // by the supervisor instance, project registration and run ID when their results are applied.
 async function change(fn) {
-    return withLock(home, 'orchestrator', () => {
+    return withLock(home, 'orchestrator', () => transaction(() => {
         const state = load();
         const result = fn(state);
-        writeJson(file, state, 0o600);
+        writeRecord(null, 'orchestrator', state);
         return result;
-    });
+    }));
 }
 function matches(s, p) {
     const current = s.projects[p.id];
@@ -55,12 +55,7 @@ async function update(p, fields) {
     });
 }
 function registryConflict(dir, id) {
-    const registry = join(home, 'monitors');
-    return existsSync(registry) && readdirSync(registry).some(name => {
-        const entry = readJson(join(registry, name), {});
-        return entry.project?.id === id && entry.stateDir && existsSync(join(entry.stateDir, 'state.json'))
-            && realpathSync(entry.stateDir) !== dir;
-    });
+    return registrations().some(entry => entry.id === id && entry.stateDir !== dir);
 }
 
 export async function eligible(project, fetchPage) {
@@ -121,7 +116,7 @@ async function enter(id, run, suppliedThread) {
             : p.harness === 'codex' ? process.env.CODEX_THREAD_ID || suppliedThread : run;
         requireValue(thread && (!p.thread || p.thread === thread), 'Wrong worker session.');
         p.thread = thread;
-        return withLock(p.dir, 'state', () => {
+        return transaction(() => {
             const s = local(p);
             requireValue((!s?.me?.id || s.me.id === p.account) && !s?.me?.also?.length,
                 'Saved monitor uses different accounts. Reconcile its scope before handoff.');
@@ -133,9 +128,9 @@ async function enter(id, run, suppliedThread) {
                 next.watch = { ...next.watch, stopped: false, enabled: true, stoppedBy: null };
             }
             if (next.orchestrator?.run !== run) next.orchestrator = { run, recheck: p.recheck ?? [] };
-            writeJson(join(p.dir, 'state.json'), next);
+            writeState(p.dir, next);
             Object.assign(p, { phase: 'monitoring', takeover: false, error: null });
-            writeJson(file, state, 0o600);
+            writeRecord(null, 'orchestrator', state);
             return { first: !next.project, scope: p.scope, account: p.account, harness: p.harness, recheck: next.orchestrator.recheck ?? [] };
         });
     });
@@ -148,7 +143,7 @@ async function park(p) {
     return withLock(home, 'orchestrator', async () => {
         const state = load();
         if (!matches(state, p)) return false;
-        return withLock(p.dir, 'state', () => {
+        return transaction(() => {
             const s = local(p);
             requireValue((!s?.me?.id || s.me.id === p.account) && !s?.me?.also?.length,
                 'Saved monitor uses different accounts. Reconcile its scope before handoff.');
@@ -156,13 +151,13 @@ async function park(p) {
                 rows.some(row => s.items?.[row.id]?.decision !== 'skipped')) return false;
             s.stopped = true;
             s.watch = { ...s.watch, stopped: true, stoppedBy: 'orchestrator:' + p.run };
-            writeJson(join(p.dir, 'state.json'), s);
+            writeState(p.dir, s);
             // The next scan waits for the stopped watcher to exit before another start.
             const current = state.projects[p.id];
             current.skipped = Object.fromEntries(rows.map(row => [row.id, revision(row)]));
             current.phase = 'parking';
             current.error = null;
-            writeJson(file, state, 0o600);
+            writeRecord(null, 'orchestrator', state);
             return true;
         });
     });
@@ -192,7 +187,7 @@ async function dispatch(p, action) {
         if (current.sentAt !== p.sentAt || alive(current.pid)) return;
         current.sentAt = now();
         current.retryRequested = false;
-        writeJson(file, state, 0o600);
+        writeRecord(null, 'orchestrator', state);
         if (p.harness === 't3') {
             const args = action === 'start' ? ['start', '--json', '--title', '🛎 Monitor: ' + p.name.replace(/[\r\n]/g, ' ').slice(0, 45), p.repo]
                 : ['send', '--json', p.thread];
@@ -200,14 +195,14 @@ async function dispatch(p, action) {
             const reply = t3(p, [...args, prompt(p, action)]);
             if (action === 'settle') current.retireSent = true;
             if (action === 'start') current.thread = requireValue(reply.threadId, 'Missing T3 launch receipt.');
-            writeJson(file, state, 0o600);
+            writeRecord(null, 'orchestrator', state);
             return;
         }
         const child = spawn(p.cli, nativeCommand(p, action), { cwd: p.repo,
             stdio: ['ignore', p.harness === 'codex' ? 'pipe' : 'ignore', 'ignore'] });
         current.pid = child.pid ?? null;
         if (p.harness === 'claude') current.thread = p.run;
-        writeJson(file, state, 0o600);
+        writeRecord(null, 'orchestrator', state);
         // Child receipts still belong to this run if discovery is paused while the turn is
         // finishing; a different run can never inherit its session ID or exit status.
         const receipt = fields => change(latest => {
@@ -262,14 +257,14 @@ async function finishParking(p, s, thread) {
         await withLock(home, 'orchestrator', async () => {
             const state = load();
             if (!matches(state, p)) return;
-            await withLock(p.dir, 'state', () => {
+            await transaction(() => {
                 const latest = local(p);
                 if (latest?.orchestrator?.run !== p.run || latest.watch?.stoppedBy !== 'orchestrator:' + p.run) return;
                 latest.stopped = false;
                 Object.assign(latest.watch, { stopped: false, stoppedBy: null });
-                writeJson(join(p.dir, 'state.json'), latest);
+                writeState(p.dir, latest);
                 Object.assign(state.projects[p.id], { phase: 'monitoring', sentAt: null });
-                writeJson(file, state, 0o600);
+                writeRecord(null, 'orchestrator', state);
             });
         });
         return;

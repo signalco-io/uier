@@ -18,6 +18,9 @@ test('cached plugin works without repository skill aliases or dependencies', asy
         // This is the extraction used by the fallback skill, exercised after the package is copied.
         const embedded = fallback.split('<!-- monitor.mjs:begin -->\n````js\n')[1]?.split('````\n<!-- monitor.mjs:end -->')[0];
         assert.equal(embedded, await readFile(monitor, 'utf8'));
+        const store = fallback.split('<!-- store.mjs:begin -->\n````js\n')[1]?.split('````\n<!-- store.mjs:end -->')[0];
+        assert.equal(store, await readFile(join(temp, 'skills/uier-monitor/scripts/store.mjs'), 'utf8'));
+        await writeFile(join(temp, 'store.mjs'), store);
         await writeFile(join(temp, 'restored.mjs'), embedded);
         const restored = JSON.parse(execFileSync(process.execPath, [join(temp, 'restored.mjs'), 'version'], { encoding: 'utf8', cwd: temp }));
         assert.deepEqual(restored, installed);

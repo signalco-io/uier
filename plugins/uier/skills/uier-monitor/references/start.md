@@ -1,6 +1,6 @@
 # Starting the uier monitor
 
-Read this on a first start, when `state.json` lacks something below, or when `SKILL.md` sends you
+Read this on a first start, when project state lacks something below, or when `SKILL.md` sends you
 here (several projects, re-arming the watcher, re-detecting the workflow, replacing the token,
 fallback mode).
 
@@ -41,14 +41,12 @@ one start command per project with the checkout to run it in, and start nothing.
 
 1. **Projects.** `list_projects` once (follow `nextCursor`) and match each name as in First start,
    step 2. Ask once about every name that stays ambiguous or unknown, and carry on with the rest.
-2. **Repository.** Every monitor registers in `~/.uier-monitor/monitors/*.json`
-   (`UIER_MONITOR_HOME` moves the folder) with its `stateDir`, `project.id` and `repo`; read them in
-   one command and ignore entries whose `stateDir` is gone. A registered project's T3 project is the
+2. **Repository.** Run `node <bundled monitor.mjs> registry` using the monitor home for this machine.
+   Each row includes `stateDir`, project `id`, `name` and `repo`. A registered project's T3 project is the
    `t3_project_list` entry whose `workspaceRoot` starts its `stateDir`, else the one whose
    `repositoryIdentity.displayName` equals `repo`. For the rest, ask the person once, for all of
    them, which T3 project holds the code (offer this thread's project first).
-3. **Running already?** For a registered project, read `stopped` and `harness.threadId` from
-   `<stateDir>/state.json`, and the watcher from the second line of
+3. **Running already?** For a registered project, read `M context` for the stop flags and `harness.threadId`, and the watcher from the second line of
    `node <stateDir>/../monitor.mjs status --state <stateDir>` (`watcher running` or `watcher stopped`).
    When `t3_thread_read` finds that thread and it isn't `archived`, rename it if its `title` differs
    (`t3_thread_update` with its `threadId`), then:
@@ -165,7 +163,7 @@ After `M check`:
     The returned `token` is a secret: set `umask 077` in the writing shell, write it directly to a
     new file in the harness scratchpad (mode `0600` from creation; no shell arguments, output or logs
     containing it), run `M token --from-file <file>`, delete the file in a cleanup step, then run
-    `M check`. Never put it in chat, packets or state.json. A retry must use the same key and input;
+    `M check`. Never put it in chat, packets or monitor state. A retry must use the same key and input;
     it returns metadata only. If the first response was lost, have the person revoke the listed token
     before creating a replacement; never create duplicates automatically.
   - Otherwise, in T3 call `request_secret` with `delivery: "file"`, label "uier access token for
@@ -216,7 +214,7 @@ How the watcher behaves:
   five minutes while idle. A new event restores the fast cadence. Safety reconciliation still
   runs every 15 minutes, with compact state and every returned page. `watch.idleMinutes` and
   `watch.idleIntervalSeconds` adjust the idle thresholds (five minutes by default, capped at 15).
-- It reads `state.json` at least every minute, so new pending deploys, PRs, the hold timer (`watch.wakeAt`),
+- It checks project state at least every minute, so new pending deploys, PRs, the hold timer (`watch.wakeAt`),
   agent leases and closing drafts need only `M patch`, not a restart. While a lease is working it
   runs a cycle at least every 60 seconds.
 - Ordinary events collect for ten seconds (`--batch-seconds`, at most thirty); duplicates coalesce,
