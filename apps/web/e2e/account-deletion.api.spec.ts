@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import { expect, test } from '@playwright/test';
 import { NextRequest } from 'next/server.js';
 import { POST } from '../app/api/account/sessions/route';
@@ -6,8 +7,8 @@ import { accountDeletedNotice, isAccountDeletedNotice } from '../src/lib/app/acc
 import type { AccountDeletion } from '../src/lib/app/accountDeletionGuard';
 import type { EmailMessage } from '../src/lib/email/send';
 import { deleteAccount, sweepAccountDeletions } from '../src/lib/app/accountDeletion';
-import { emailPk, memberId, userPk, workspacePk, type DbMember } from '../src/lib/app/model';
-import { createProject, findProject, getProject } from '../src/lib/app/projects';
+import { emailPk, memberId, userPk, workspacePk, type DbMember, type DbWorkspace } from '../src/lib/app/model';
+import { createProject, findProject, getProject, reserveProjectCreation } from '../src/lib/app/projects';
 import { sweepProjectTransfers, transferProject, type ProjectTransfer } from '../src/lib/app/projectTransfer';
 import { loadAppContext } from '../src/lib/app/requestContext';
 import { cookieName, cookieNames } from '../src/lib/cookieNames';
@@ -20,6 +21,7 @@ import { linkMicrosoftAccount, findUserByMicrosoftSubject } from '../src/lib/app
 import { PUBLIC_WORKSPACE_ID } from '../src/lib/comments/publicProjectPolicy';
 import { authenticateMcp, createMcpCredential } from '../src/lib/mcp/credentials';
 import { exchangeReviewCode, issueReviewCode, resolveActor } from '../src/lib/review/actor';
+import { siteProjectsLimit } from '../src/lib/extension/review';
 import { createExtensionSession, extensionSession } from '../src/lib/extension/sessions';
 import { uniqueEmail } from './support/app';
 
@@ -171,6 +173,42 @@ test('concurrent deletions cannot leave a project without an admin', async () =>
     const [survivor] = await getAppStore().query<DbMember>({ type: 'member', pk: context.workspace.pk, where: { role: 'admin' } });
     expect(await getUser(survivor!.userId)).toBeTruthy();
     expect(await findProject(project.id)).toBeTruthy();
+});
+
+test('a workspace held by an account deletion takes no new project, from the app or the extension', async () => {
+    const user = await findOrCreateUser(uniqueEmail('held-workspace'));
+    const context = (await loadAppContext(user))!;
+    const store = getAppStore(), pk = context.workspace.pk;
+    // A deletion that reserved the workspace and has not committed yet
+    const job: AccountDeletion = { type: 'account-deletion', id: 'account-deletion', pk: userPk(user.id), userId: user.id, attempt: 'held',
+        requestedAt: new Date().toISOString(), status: 'preparing', workspaceIds: [context.workspace.id], closedWorkspaceIds: [], ttl: -1 };
+    expect(await store.create(job)).toBe(true);
+    const workspace = (await store.get<DbWorkspace>(pk, context.workspace.id))!;
+    expect(await store.replace({ ...workspace.doc, accountDeletion: { userId: user.id, attempt: job.attempt } }, workspace.etag)).toBe('ok');
+
+    const site = { name: 'Held site', urls: ['https://held.example'] };
+    const projects = async () => (await store.query({ type: 'project', pk })).map(project => project.id);
+    const before = await projects();
+    await expect(createProject(context, site)).rejects.toThrow('Workspace access is changing. Try again shortly.');
+    // The extension's popup creates through a receipt, so the same request can be sent again
+    const receipt = await reserveProjectCreation(context, site, randomBytes(32).toString('base64url'), siteProjectsLimit(user.id));
+    await expect(createProject(context, site, { receipt })).rejects.toThrow('Workspace access is changing. Try again shortly.');
+    expect(await projects()).toEqual(before);
+    expect(await store.query({ type: 'project-created', pk })).toHaveLength(0);
+
+    // The deletion did not go through: the same request creates its one project
+    const current = (await store.get<AccountDeletion>(job.pk, job.id))!;
+    expect(await store.replace({ ...current.doc, status: 'cancelled' }, current.etag)).toBe('ok');
+    expect(await createProject(context, site, { receipt })).toMatchObject({ id: receipt.projectId, name: 'Held site' });
+    expect(await createProject(context, site, { receipt })).toMatchObject({ id: receipt.projectId });
+    expect((await projects()).filter(id => !before.includes(id))).toEqual([receipt.projectId]);
+
+    // A workspace that closed meanwhile takes none either
+    const closing = await createWorkspace(user, 'Closing');
+    const late = await reserveProjectCreation({ user, workspace: closing }, site, randomBytes(32).toString('base64url'), siteProjectsLimit(user.id));
+    await store.delete(closing.pk, closing.id);
+    await expect(createProject({ user, workspace: closing }, site, { receipt: late })).rejects.toThrow('This workspace is unavailable or your access changed.');
+    expect(await store.query({ type: 'project', pk: closing.pk })).toHaveLength(0);
 });
 
 test('a transfer that was finishing when its old workspace closed settles without it', async () => {

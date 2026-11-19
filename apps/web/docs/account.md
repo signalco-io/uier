@@ -140,7 +140,10 @@ contact remains available for scoped erasure of retained feedback and history.
 
 While a deletion prepares and until the membership is removed, access changes and new projects in the
 person’s workspaces answer “Workspace access is changing. Try again shortly.” That ends with the
-deleting request itself. A workspace document that changed meanwhile is read again a few times, and
+deleting request itself. Every way to create a project goes through `projectCreation` (`clients.ts`), the app’s
+form and the extension popup’s repeatable request alike: its transaction includes the workspace document as it
+was read, so a workspace that was reserved or closed meanwhile receives nothing. Give a new way to create a
+project the same operations. A workspace document that changed meanwhile is read again a few times, and
 one workspace that fails does not hold the others; only what still fails waits for the worker’s next
 run. A project transfer that was still finishing when its old workspace closed settles without that
 workspace.
