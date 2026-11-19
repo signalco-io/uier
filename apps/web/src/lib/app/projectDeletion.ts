@@ -1,9 +1,10 @@
 import { UserFacingError } from './actionErrors';
-import { mutateAccess, type AccessChange } from './accessMutations';
+import { mutateAccess, SYSTEM_ACTOR, type AccessChange } from './accessMutations';
 import type { AppContext } from './context';
 import {
     memberId,
     projectRefPk,
+    userPk,
     workspacePk,
     type AppDoc,
     type DbMember,
@@ -148,10 +149,12 @@ async function unpublishProject(intent: ProjectDeletion, app: AppStore) {
 
 /** Team grants, direct member grants and pending invitations, through the workspace access guard. */
 async function removeProjectAccess(intent: ProjectDeletion, app: AppStore) {
+    if (!await app.get(workspacePk(intent.workspaceId), intent.workspaceId)) return;
+    const actorId = await app.get(userPk(intent.requestedBy), intent.requestedBy) ? intent.requestedBy : SYSTEM_ACTOR;
     for (let batch = 0; batch < 100; batch++) {
         let more = false;
         let tokens: string[] = [];
-        await mutateAccess(intent.workspaceId, intent.requestedBy, async store => {
+        await mutateAccess(intent.workspaceId, actorId, async store => {
             const removals = await projectGrantRemovals(store, intent.workspaceId, intent.id, ACCESS_BATCH);
             ({ more, tokens } = removals);
             if (!removals.operations.length) return null;

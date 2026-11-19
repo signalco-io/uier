@@ -33,6 +33,7 @@ test.beforeAll(async () => {
         '../src/lib/proofs/approvals/mail': 'export async function runApprovalMail() { console.log("CALL approval mail"); return {failed:0}; }',
         '../src/lib/proofs/cleanup': 'export async function sweepProofStorage() { console.log("CALL proof cleanup"); return {failed:process.env.UIER_WORKER_TEST_PROOF_FAILURE === "1" ? 1 : 0}; }',
         '../src/lib/comments/cleanup': 'export async function sweepCommentCleanup() { console.log("CALL cleanup"); return {removed:0,failed:0}; }',
+        '../src/lib/app/accountDeletion': 'export async function sweepAccountDeletions() { console.log("CALL account deletions"); return {failed:0}; }',
         '../src/lib/app/projectDeletion': 'export async function sweepProjectDeletions() { console.log("CALL deletions"); return {failed:0}; }',
         '../src/lib/app/projectTransfer': 'export async function sweepProjectTransfers() { console.log("CALL transfers"); return {failed:0}; }',
         '../src/lib/notifications/delivery': 'export async function retryNotificationDelivery() { console.log("CALL retry"); } export async function runNotificationWorker() { console.log("CALL email"); return JSON.parse(process.env.UIER_WORKER_TEST_DELIVERY || \'{"checked":0,"failed":0,"blocked":0,"review":[]}\'); }',
@@ -78,11 +79,12 @@ test('integration-only runs do not invoke email discovery, sending or retry', as
     expect(result.stdout).toContain('CALL integrations');
     // MCP event webhooks are not email: they are delivered on integration-only runs too.
     expect(result.stdout).toContain('CALL mcp-events');
-    expect(result.stdout).not.toMatch(/CALL email|CALL retry|CALL cleanup|CALL deletions|CALL transfers|CALL migrate|CALL blobs|CALL recordings|CALL proof cleanup|CALL approval mail/);
+    expect(result.stdout).not.toMatch(/CALL account deletions|CALL email|CALL retry|CALL cleanup|CALL deletions|CALL transfers|CALL migrate|CALL blobs|CALL recordings|CALL proof cleanup|CALL approval mail/);
 });
 
 test('normal scheduled runs retain email retries and integration delivery', async () => {
     const result = await run(false, 'isolated-delivery');
+    expect(result.stdout).toContain('CALL account deletions');
     expect(result.stdout).toContain('CALL migrate production');
     expect(result.stdout).toContain('CALL migrate preview');
     expect(result.stdout).toContain('CALL blobs');

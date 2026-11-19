@@ -20,6 +20,7 @@ export const accountSections: SettingsSection<AccountSection>[] = [
  */
 export const accountTitles = {
     profile: 'Profile',
+    deleteAccount: 'Delete account',
     appLanguage: 'App language',
     appearance: 'Appearance',
     toolbarLanguage: 'Toolbar language',

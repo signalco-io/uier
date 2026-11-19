@@ -436,6 +436,8 @@ async function switchProjectCode({ id, fromWorkspaceId: from, toWorkspaceId: to 
  * the last batch. Members are only updated, never deleted or recreated.
  */
 async function removeProjectCopy(workspaceId: string, id: string, actorId: string, action: 'project.transferred-out' | 'project.transfer-abandoned', store: AppStore) {
+    // A workspace that closed with its last member's account took the copy and its access with it.
+    if (!await store.get(workspacePk(workspaceId), workspaceId)) return;
     for (let batch = 0; batch < 100; batch++) {
         let more = false;
         let tokens: string[] = [];

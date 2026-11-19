@@ -14,7 +14,7 @@ export const metadata = publicPageMetadata('/legal/privacy-policy', {
 
 export default function PrivacyPolicyPage() {
     return (
-        <LegalDocument href={KnownPages.LegalPrivacyPolicy} title="Privacy policy" effective="16 November 2026">
+        <LegalDocument href={KnownPages.LegalPrivacyPolicy} title="Privacy policy" effective="19 November 2026">
             <p>
                 This policy explains what {brand.domain} collects, why, where it is stored and for how long.
                 {' '}{brand.name} is a {brand.parent.name} project: {brand.parent.name} runs {brand.domain} and is
@@ -714,7 +714,7 @@ export default function PrivacyPolicyPage() {
             <h2>How long we keep it</h2>
             <ul>
                 <li>Threads in uier&rsquo;s own feedback projects, including signed-in feedback: 90 days after their last change, then they expire automatically. Our starter threads and their replies do not expire. You can delete your own messages earlier in the toolbar.</li>
-                <li>Read cursors: removed when their thread is deleted, and expire no later than a thread with automatic expiry. Otherwise member cursors stay until removed with the account or project on request; guest cursors expire one year after the last acknowledgement that advances the cursor.</li>
+                <li>Read cursors: removed when their thread is deleted, and expire no later than a thread with automatic expiry. Otherwise member cursors stay until the account or project is deleted; guest cursors expire one year after the last acknowledgement that advances the cursor.</li>
                 <li>Screenshots: as long as their comment, and on {brand.domain} at most 90 days after they were taken. Deleting a comment, or its text, removes access to its screenshot and deletes the stored image. Failed image deletes are retried by a scheduled sweep once an unreferenced image is over an hour old. Legacy public-feedback copies are removed when the migrated thread is deleted or its screenshot is replaced. Cleanup intents contain only thread identifiers and expire one day after successful cleanup.</li>
                 <li>Coding tool connections: until you revoke them, 30 days after the tool last renewed its access, or one year after you allowed them, whichever comes first. A tool&rsquo;s access tokens last one hour; its refresh tokens are replaced on each use and last at most 30 days, and the hash of a used one is kept for a day to detect reuse. Pending sign-in requests: 10 minutes. Sign-in codes: valid for 60 seconds, their hashes kept for 10 minutes. Descriptions of tools that registered themselves: 30 days after their last sign-in; published descriptions: cached for up to 24 hours. Expired records are deleted automatically. Attribution stays with the feedback.</li>
                 <li>Coding tool access tokens: until revoked, at most 90 days through the credential service (30 days in the app and through MCP). Expired hashes and grant metadata are deleted automatically. MCP token-creation audits and retry receipts: 30 days, without secrets. Attribution stays with the feedback.</li>
@@ -729,8 +729,8 @@ export default function PrivacyPolicyPage() {
                 <li>Comments in customer projects: until their author or a project admin deletes them, or the project is deleted.</li>
                 <li>Deleted data can stay in backups for up to seven days.</li>
                 <li>Sign-in links: until you use them, at most 15 minutes.</li>
-                <li>A linked Google account: until you unlink it or ask us to delete your account. Google sign-ins in progress: at most 10 minutes. A Google account waiting for an email code: at most 15 minutes.</li>
-                <li>A linked Microsoft account: until you unlink it or ask us to delete your account. Microsoft sign-ins in progress: at most 10 minutes. A Microsoft identity waiting for an email code: at most 15 minutes.</li>
+                <li>A linked Google account: until you unlink it or delete your account. Google sign-ins in progress: at most 10 minutes. A Google account waiting for an email code: at most 15 minutes.</li>
+                <li>A linked Microsoft account: until you unlink it or delete your account. Microsoft sign-ins in progress: at most 10 minutes. A Microsoft identity waiting for an email code: at most 15 minutes.</li>
                 <li>Passkeys: until you remove them on your Account page, or with your account. Passkey challenges: at most five minutes.</li>
                 <li>Invitations: until they are accepted or revoked, at most 7 days.</li>
                 <li>A workspace&rsquo;s email domains: until an admin removes them, or with the workspace.</li>
@@ -739,6 +739,16 @@ export default function PrivacyPolicyPage() {
             </ul>
 
             <h2>Your rights</h2>
+            <p>
+                You can permanently delete your account in Account → General → Delete account.
+                Confirm with your account email after a recent sign-in. This ends your sessions and removes
+                your profile, sign-in methods, access tokens, personal preferences and workspace memberships.
+                Projects, feedback you contributed and workspace history follow their existing retention periods.
+                You can delete your own messages before closing your account.
+                If you are the last admin in a shared workspace, make another member an admin first.
+                If you are its only member, transfer or delete its projects first. Workspaces with no projects
+                or other members close with your account.
+            </p>
             <p>
                 You can ask us for a copy of your data, to correct or delete it, to restrict or object to how we use
                 it, and to receive it in a portable format. You can delete your own comments and replies with the

@@ -9,7 +9,7 @@ import { isRandomToken, randomToken, sha256Hex } from './tokens';
 import { findOrCreateUser, findUserByEmail } from './users';
 import { getMember, getWorkspace } from './workspaces';
 import { getProject } from './projects';
-import { accessGeneration, bumpAccessGeneration, mutateAccess } from './accessMutations';
+import { accessGeneration, bumpAccessGeneration, memberRemovalChange, mutateAccess } from './accessMutations';
 import { getTeam, validateTeamIds, validateProjectIds, relationshipSchema, teamIdsSchema } from './teams';
 import type { AppStore } from './store';
 import { z } from 'zod';
@@ -332,16 +332,7 @@ export async function removeMember(context: AppContext, userId: string) {
             });
             if (admins.length <= 1) throw new UserFacingError('A workspace needs at least one admin.');
         }
-        return {
-            operations: [
-                { kind: 'delete', pk: member.doc.pk, id: member.doc.id, etag: member.etag },
-                await bumpAccessGeneration(workspaceId, member.doc.email, store)
-            ],
-            action: 'member.removed',
-            targetIds: [member.doc.id],
-            before: { role: member.doc.role, projects: member.doc.projects, teamIds: member.doc.teamIds ?? [] },
-            after: {}
-        };
+        return memberRemovalChange(member, store);
     });
     await revokeIntegrationGrantsOf(workspaceId, userId, getAppStore());
 }

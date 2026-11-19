@@ -1,19 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server.js';
+import { userIdSchema } from '@/src/lib/app/validation';
 import { z } from 'zod';
 import { removeBrowserAccount, switchBrowserAccount } from '@/src/lib/app/browserAccounts';
 import { assertAppOrigin } from '@/src/lib/app/avatarUpload';
 import { safeNextPath } from '@/src/lib/app/signIn';
-import { requestSessionUser } from '@/src/lib/app/sessionIdentity';
+import { requestSessionUser, sessionSignedInAt } from '@/src/lib/app/sessionIdentity';
 import { UserFacingError } from '@/src/lib/app/actionErrors';
 import { apiErrors, errorResponse, parseJsonBody } from '@/src/lib/comments/http';
 import { projectLinkAccounts, projectLinkSwitchPath } from '@/src/lib/app/projectLinkAccounts';
-import { cookieName, cookieNames } from '@/src/lib/cookieNames';
+import { cookieName, cookieNames, readMigratingCookie } from '@/src/lib/cookieNames';
 import { appCookieOptions } from '@/src/lib/app/appCookies';
 
 const inputSchema = z.discriminatedUnion('action', [
     z.object({ action: z.literal('switch'), userId: z.string().min(1).max(100), next: z.string().max(2048).optional() }).strict(),
     z.object({ action: z.literal('open-project-link'), next: z.string().max(2048) }).strict(),
     z.object({ action: z.literal('sign-out') }).strict(),
+    z.object({ action: z.literal('delete-account'), expectedUserId: userIdSchema, confirmation: z.string().min(1).max(254) }).strict(),
     z.object({ action: z.literal('sign-out-all') }).strict()
 ]);
 const privateHeaders = { 'Cache-Control': 'private, no-store', Vary: 'Cookie' };
@@ -49,6 +51,14 @@ export async function POST(request: NextRequest) {
         else if (input.action === 'switch') {
             await switchBrowserAccount(jar, input.userId);
             next = safeNextPath(input.next) ?? '/app';
+        }
+        else if (input.action === 'delete-account') {
+            const session = sessionSignedInAt(readMigratingCookie(jar, cookieNames.session));
+            if (!session || session.userId !== input.expectedUserId)
+                throw apiErrors.signInRequired('Your session has ended. Sign in again.');
+            const { deleteAccount } = await import('@/src/lib/app/accountDeletion');
+            await deleteAccount(session, input.confirmation);
+            next = await removeBrowserAccount(jar) ? '/app/account?deleted=1' : '/app/sign-in?deleted=1';
         }
         else if (!await removeBrowserAccount(jar, input.action === 'sign-out-all')) next = '/app/sign-in';
         response.headers.set('Content-Type', 'application/json');

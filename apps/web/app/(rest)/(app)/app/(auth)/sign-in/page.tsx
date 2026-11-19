@@ -27,7 +27,7 @@ export async function generateMetadata({ searchParams }: PageProps<'/app/sign-in
 
 async function SignInPageContent({ searchParams }: PageProps<'/app/sign-in'>) {
     const { t } = await getAppI18n();
-    const { next, google, microsoft, with: method, add, accounts: accountProblem } = await searchParams;
+    const { next, google, microsoft, with: method, add, deleted, accounts: accountProblem } = await searchParams;
     const nextPath = safeNextPath(next);
     if (add !== '1' && await getSessionUser())
         redirect(nextPath ?? KnownPages.App);
@@ -39,6 +39,7 @@ async function SignInPageContent({ searchParams }: PageProps<'/app/sign-in'>) {
         <SignedInAccounts accounts={accounts} next={nextPath} />
         <SignInForm addingAccount={add === '1'} next={nextPath} withEmail={method === 'email'} lastUsed={lastUsed}
             problems={<>
+                {deleted === '1' && <Alert role="status"><AlertDescription>{t('Your account has been deleted.')}</AlertDescription></Alert>}
                 {accountProblem === 'full' && <Alert role="alert"><AlertDescription>{t(ACCOUNT_LIMIT_MESSAGE)}</AlertDescription></Alert>}
                 <GoogleSignInProblem outcome={google} />
                 <MicrosoftSignInProblem outcome={microsoft} />

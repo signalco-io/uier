@@ -1,6 +1,7 @@
 import { getAppI18n } from '@/src/lib/i18n/server';
 import { AccountGeneralLoading } from '@/src/components/app/account/AccountLoading';
 import { accountTitles } from '@/src/components/app/account/accountSections';
+import { Alert, AlertDescription } from '@/src/components/ui/alert';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { Section } from '@/src/components/app/PageHeader';
@@ -8,6 +9,9 @@ import { requireAppContext } from '@/src/lib/app/context';
 import { listVisibleProjects } from '@/src/lib/app/projects';
 import { loadWorkspaceAccess } from '@/src/lib/app/access';
 import { avatarUrl } from '@/src/lib/app/avatars';
+import { RECENT_SIGN_IN_SECONDS } from '@/src/lib/app/limits';
+import { getSessionSignIn } from '@/src/lib/app/session';
+import { DeleteAccountSection } from './DeleteAccountSection';
 import { AccountForm, AppearanceSection } from './AccountForm';
 import { AppLanguageForm } from './AppLanguageForm';
 import { userAppLanguage } from '@/src/lib/app/appLanguage';
@@ -23,11 +27,14 @@ export async function generateMetadata(): Promise<Metadata> {
 
 const relationshipLabels = { internal: 'Internal', external: 'External' } as const;
 
-/** General: the name, the theme, the toolbar's language and the person's access in the selected workspace */
-async function AccountPageContent() {
+/** General: the name, the theme, the toolbar's language, the person's access in the selected workspace and deleting the account */
+async function AccountPageContent({ searchParams }: PageProps<'/app/account'>) {
     const { t } = await getAppI18n();
     const context = await requireAppContext();
-    const [projects, access] = await Promise.all([listVisibleProjects(context), loadWorkspaceAccess(context.workspace.id)]);
+    const [projects, access, { deleted }, session] = await Promise.all([listVisibleProjects(context), loadWorkspaceAccess(context.workspace.id), searchParams, getSessionSignIn()]);
+    // Rendered per request (the app pages are dynamic), so the time is current. The server checks it again.
+    const recentSignIn = session?.userId === context.user.id
+        && Date.now() - session.signedInAt * 1000 <= RECENT_SIGN_IN_SECONDS * 1000;
     const teams = access.teams.filter(team => context.member.teamIds?.includes(team.id)).map(team => team.name);
     // Only what is set: no relationship or teams leave their rows out
     const rows = [
@@ -39,6 +46,7 @@ async function AccountPageContent() {
 
     return (
         <>
+            {deleted === '1' && <Alert role="status"><AlertDescription>{t('Account deleted. You are now using {email}.', { email: context.user.email })}</AlertDescription></Alert>}
             <AccountForm name={context.user.name} avatarUrl={avatarUrl(context.user)} />
             <AppLanguageForm language={userAppLanguage(context.user)} />
             <AppearanceSection />
@@ -53,10 +61,11 @@ async function AccountPageContent() {
                     ))}
                 </dl>
             </Section>
+            <DeleteAccountSection userId={context.user.id} email={context.user.email} recentSignIn={recentSignIn} />
         </>
     );
 }
 
-export default function AccountPage() {
-    return <Suspense fallback={<AccountGeneralLoading />}><AccountPageContent /></Suspense>;
+export default function AccountPage(props: PageProps<'/app/account'>) {
+    return <Suspense fallback={<AccountGeneralLoading />}><AccountPageContent {...props} /></Suspense>;
 }

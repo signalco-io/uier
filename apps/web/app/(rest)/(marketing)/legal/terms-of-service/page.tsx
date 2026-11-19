@@ -10,7 +10,7 @@ export const metadata = publicPageMetadata('/legal/terms-of-service', {
 
 export default function TermsOfServicePage() {
     return (
-        <LegalDocument href={KnownPages.LegalTermsOfService} title="Terms of service" effective="12 November 2026">
+        <LegalDocument href={KnownPages.LegalTermsOfService} title="Terms of service" effective="19 November 2026">
             <p>
                 These terms apply when you use {brand.domain}, its app, toolbar, browser extension and coding-tool
                 connections. {brand.name} is a {brand.parent.name} project; in these terms &ldquo;we&rdquo; means{' '}
@@ -52,7 +52,8 @@ export default function TermsOfServicePage() {
 
             <h2>Removal and outside copies</h2>
             <p>
-                A workspace admin can delete a project. You can request account or personal-data removal using
+                A workspace admin can delete a project. You can delete your account in Account → General.
+                You can also request personal-data removal using
                 the contact in our <a href={KnownPages.LegalPrivacyPolicy}>privacy policy</a>. Removing an account
                 or someone&rsquo;s project access does not automatically delete all feedback they contributed.
                 Cleanup can require retries. Deleted data can remain in backups for up to seven days; copies

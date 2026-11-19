@@ -18,7 +18,7 @@ import { getCommentsStore } from '../repo/commentsStore';
 import { APP_COUNTERS_PARTITION, consume } from '../comments/rateLimits';
 import { cookieName, cookieNames } from '../cookieNames';
 import { UserFacingError } from './actionErrors';
-import { MAX_PASSKEY_NAME_LENGTH, MAX_PASSKEYS } from './limits';
+import { MAX_PASSKEY_NAME_LENGTH, MAX_PASSKEYS, RECENT_SIGN_IN_SECONDS } from './limits';
 import { getAppStore, updateDoc } from './store';
 import { sha256Hex, signToken, verifyToken } from './tokens';
 import { getUser } from './users';
@@ -34,7 +34,7 @@ export const PASSKEY_CHALLENGE_TTL_SECONDS = 5 * 60;
  * another passkey). A stolen session cookie that is older can't add a passkey and so can't keep
  * access after the person signs out.
  */
-export const PASSKEY_RECENT_SIGN_IN_SECONDS = 10 * 60;
+export const PASSKEY_RECENT_SIGN_IN_SECONDS = RECENT_SIGN_IN_SECONDS;
 export const PASSKEY_CHALLENGE_COOKIE_NAME = cookieName(cookieNames.passkeyChallenge);
 export const PASSKEY_SIGN_IN_AGAIN = 'Sign in again to add a passkey. Adding one needs a sign-in from the last 10 minutes.';
 

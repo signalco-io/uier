@@ -1,3 +1,4 @@
+import { getUser } from '../../app/users';
 import { createHash } from 'node:crypto';
 import type { AppDoc } from '../../app/model';
 import { getAppStore, type AppMutation } from '../../app/store';
@@ -101,7 +102,7 @@ export async function exchangeCode(form: URLSearchParams, issuer: string, attemp
         await revokeGrant(userId, record.grantId);
         throw new OAuthError('invalid_grant', 'The code was already used.');
     }
-    if (Date.parse(record.expiresAt) <= Date.now()) throw new OAuthError('invalid_grant', 'The code is invalid or expired.');
+    if (Date.parse(record.expiresAt) <= Date.now() || !await getUser(userId)) throw new OAuthError('invalid_grant', 'The code is invalid or expired.');
     if (record.clientId !== clientId) throw new OAuthError('invalid_grant', 'The code was issued to another client.');
     if (record.redirectUri !== redirectUri || !redirectUriMatches(record.redirectUri, redirectUri)) throw new OAuthError('invalid_grant', 'The redirect URI does not match.');
     if (!pkceMatches(verifier, record.codeChallenge)) throw new OAuthError('invalid_grant', 'The code verifier does not match.');
@@ -153,7 +154,7 @@ export async function refreshTokens(form: URLSearchParams, issuer: string, attem
         throw new OAuthError('invalid_grant', 'The refresh token was already used. Sign in again.');
     }
     const grant = await getGrant(userId, record.grantId);
-    if (!grant || !isGrantActive(grant.doc, now) || Date.parse(record.expiresAt) <= now || !isMcpResource(record.resource, issuer))
+    if (!grant || !isGrantActive(grant.doc, now) || Date.parse(record.expiresAt) <= now || !isMcpResource(record.resource, issuer) || !await getUser(userId))
         throw new OAuthError('invalid_grant', 'The connection ended. Sign in again.');
 
     if (attempt === 0) await limitByKey('refresh', grant.doc.id, 120);

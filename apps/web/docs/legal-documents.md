@@ -39,3 +39,7 @@ recording files reach Slack only after an admin allows file uploads and turns th
 in the message's thread, and are removed when replaced, deleted or made private. The recordings section
 no longer says recordings are never copied to connected services. This wording needs the same owner
 review before merge.
+
+The privacy policy and terms of service were updated on 19 November 2026 to describe self-service account deletion in Account →
+General, workspace handoff, and retention of contributed feedback and history. The existing owner
+review applies before merge.

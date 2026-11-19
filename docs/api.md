@@ -202,6 +202,13 @@ rejects cross-site browser requests and never falls back to parked accounts. Bot
 private, no-store and vary by Cookie. Up to five independent sessions retain their original expiry,
 recent-sign-in time and account email proof; see [sign-in](../apps/web/docs/sign-in.md#several-accounts-in-one-browser).
 
+The same endpoint accepts `{ action: "delete-account", expectedUserId, confirmation }`. It checks
+the active session’s user id, a sign-in within ten minutes and the account email before committing
+deletion. The expected id prevents a stale tab from deleting a different account. The response
+selects another live browser account or returns the sign-in page. A `400` names what is in the way in
+`message`: `Sign in again to delete your account.` for an older sign-in, or every workspace that needs
+a handoff first, one per line. See [account deletion](../apps/web/docs/account.md#deleting-an-account).
+
 Passkeys (`src/lib/app/passkeys.ts`, `@simplewebauthn/server`) use the RP ID and origin of
 `appBaseUrl()`. Every ceremony's challenge is a single-use record that only the winner of an atomic
 delete may verify, bound to the browser by the signed HttpOnly `__Host-uier_passkey_challenge` cookie

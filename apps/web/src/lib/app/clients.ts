@@ -1,3 +1,4 @@
+import { assertWorkspaceWritable } from './accountDeletionGuard';
 import { KnownPageLinks } from '../../knownPages';
 import { nanoid } from 'nanoid';
 import { z } from 'zod';
@@ -5,7 +6,7 @@ import type { AppContext } from './context';
 import { UserFacingError } from './actionErrors';
 import { clientColors, clientIcons } from './clientAppearance';
 import { MAX_CLIENT_DESCRIPTION_LENGTH, MAX_CLIENT_NAME_LENGTH } from './limits';
-import { clientLogoDocId, workspacePk, type DbClientLogo, type DbClient, type DbClientName, type DbProject } from './model';
+import { clientLogoDocId, workspacePk, memberId, type DbMember, type DbWorkspace, type DbClientLogo, type DbClient, type DbClientName, type DbProject } from './model';
 import { getAppStore, type AppMutation, type AppStore, type StoredDoc } from './store';
 import { sha256Hex } from './tokens';
 import { assertMutableProject, assertMutableWorkspace } from '../comments/publicProjectPolicy';
@@ -167,18 +168,25 @@ async function assignProjectClient(store: AppStore, project: Pick<DbProject, 'pk
 
 /** Creates a new project together with its client (by name), in one transaction */
 export async function createProjectWithClient(project: DbProject, name: string | undefined, store: AppStore = getAppStore()) {
-    if (!name) {
-        await store.create(project);
-        return project;
-    }
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-        const client = await clientNamed(store, project.workspaceId, name, project.createdBy);
-        const created: DbProject = { ...project, clientId: client.doc.id };
-        if (await store.transact([{ kind: 'create', doc: created }, { kind: 'replace', doc: client.doc, etag: client.etag }]))
-            return created;
+        const [workspace, member] = await Promise.all([
+            store.get<DbWorkspace>(project.pk, project.workspaceId),
+            store.get<DbMember>(project.pk, memberId(project.createdBy))
+        ]);
+        if (!workspace || member?.doc.role !== 'admin')
+            throw new UserFacingError('This workspace is unavailable or your access changed.');
+        await assertWorkspaceWritable(workspace.doc, store);
+        const client = name ? await clientNamed(store, project.workspaceId, name, project.createdBy) : null;
+        const created = client ? { ...project, clientId: client.doc.id } : project;
+        const operations: AppMutation[] = [
+            { kind: 'replace', doc: workspace.doc, etag: workspace.etag },
+            { kind: 'create', doc: created }
+        ];
+        if (client) operations.push({ kind: 'replace', doc: client.doc, etag: client.etag });
+        if (await store.transact(operations)) return created;
         await backOff(attempt);
     }
-    throw new Error(`Could not create project ${project.id} with its client`);
+    throw new Error('The workspace changed while creating the project');
 }
 
 /** Sets a project's client by name (`projectClientNameSchema`); `undefined` removes it. */

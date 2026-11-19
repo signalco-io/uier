@@ -728,6 +728,19 @@ test('expired codes and malformed token requests fail with RFC 6749 errors', asy
     expect(large).toMatchObject({ status: 400, body: { error: 'invalid_request' } });
 });
 
+test('a deleted account cannot exchange a pending code or refresh a token while grant cleanup is pending', async () => {
+    const { user } = await person('oauth-deleted-owner');
+    const app = await connectApp(user);
+    const pending = await approvedCode(user, { clientId: app.clientId });
+    // Committed account deletion removes the user before the post-response grant cleanup.
+    await getAppStore().delete(user.pk, user.id);
+    const exchanged = await token({ grant_type: 'authorization_code', code: pending.code, code_verifier: pending.verifier,
+        client_id: pending.clientId, redirect_uri: pending.redirectUri, resource });
+    expect(exchanged.body).toMatchObject({ error: 'invalid_grant' });
+    expect((await refresh(app.clientId, app.tokens.refresh_token)).body).toMatchObject({ error: 'invalid_grant' });
+    expect((await mcpRequest(app.tokens.access_token)).status).toBe(401);
+});
+
 test('a rotated refresh token works once more within the grace period; a second reuse revokes the grant', async () => {
     const { user } = await person('oauth-refresh-grace');
     const app = await connectApp(user);
