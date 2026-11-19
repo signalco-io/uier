@@ -97,7 +97,7 @@ export function ConnectConsent({ requestId, request }: { requestId: string; requ
         </>;
     if (outcome || !request)
         return <ExpiredRequest />;
-    return <ConsentForm requestId={requestId} request={request} onOutcome={setOutcome} />;
+    return <ConsentForm key={`${requestId}:${request.userId}`} requestId={requestId} request={request} onOutcome={setOutcome} />;
 }
 
 /** A profile's choice as the existing connection has it, without workspaces and projects it can no longer open. */
