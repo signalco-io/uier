@@ -3,12 +3,14 @@
 import type { ProjectCommentView } from '@/src/lib/app/projectComments';
 import { useEffect, useRef, useState } from 'react';
 import type { loadAppCommentsSnapshot } from '@/src/lib/app/appCommentsSnapshot';
+import type { SidebarCommentSummary } from '@/src/lib/app/sidebarProjects';
 import { PROJECT_COMMENT_MAX_DEPTH, projectCommentPageKey, type CommentLane } from '@/src/lib/app/projectCommentPaging';
 import type { CommentsQuery } from './commentsQuery';
 import type { StatusWorkflow } from '@/src/lib/app/statusWorkflow';
 import type { BoardColumn, BoardSort } from '@/src/lib/app/boardSort';
 
-type Snapshot = Pick<NonNullable<Awaited<ReturnType<typeof loadAppCommentsSnapshot>>>, 'comments' | 'paging' | 'revision' | 'projectId' | 'userId'> & { openedComment?: ProjectCommentView };
+type Snapshot = Pick<NonNullable<Awaited<ReturnType<typeof loadAppCommentsSnapshot>>>,
+    'comments' | 'paging' | 'revision' | 'projectId' | 'userId'> & { openedComment?: ProjectCommentView; sidebarSummary?: SidebarCommentSummary };
 export function mergePage(current: Snapshot, next: Snapshot, lane: CommentLane): Snapshot {
     const page = next.paging.lanes[lane];
     if (!page) return current;
@@ -21,13 +23,13 @@ export function mergePage(current: Snapshot, next: Snapshot, lane: CommentLane):
             : lanes[id] ? { ...lanes[id]!, total: metadata.total } : metadata;
     }
     // A continuation refreshes one lane only; preserve the full-window refresh baseline.
-    return { ...next, revision: current.revision, comments: [...rows.values()], openedComment: next.openedComment ?? current.openedComment,
+    return { ...next, revision: current.revision, sidebarSummary: current.sidebarSummary, comments: [...rows.values()], openedComment: next.openedComment ?? current.openedComment,
         paging: { ...next.paging, lanes } };
 }
 
 /** Query changes cancel stale reads; refreshes rebuild the loaded windows and keep the composers mounted. */
-export function useProjectCommentPages(initial: Snapshot, query: CommentsQuery, sorts: Record<BoardColumn, BoardSort>, archiveExpanded: boolean, workflow: StatusWorkflow, openId?: string, groupByLabel: false | string[] = false, onSnapshot?: (snapshot: Snapshot) => void) {
-    const desiredKey = projectCommentPageKey(query, sorts, archiveExpanded, workflow, `${initial.projectId}:${initial.userId}`, groupByLabel);
+export function useProjectCommentPages(initial: Snapshot, query: CommentsQuery, sorts: Record<BoardColumn, BoardSort>, workflow: StatusWorkflow, openId?: string, groupByLabel: false | string[] = false, onSnapshot?: (snapshot: Snapshot) => void) {
+    const desiredKey = projectCommentPageKey(query, sorts, workflow, `${initial.projectId}:${initial.userId}`, groupByLabel);
     const [data, setData] = useState(initial);
     const [loading, setLoading] = useState(false);
     const [announcing, setAnnouncing] = useState(false);
@@ -51,7 +53,7 @@ export function useProjectCommentPages(initial: Snapshot, query: CommentsQuery, 
         const response = await fetch(`/api/projects/${encodeURIComponent(initial.projectId)}/comments/pages`, {
             method: 'POST', credentials: 'same-origin', cache: 'no-store', signal, headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ params: Object.fromEntries(Object.entries(params).filter(([, value]) => value !== undefined).map(([key, value]) => [key, String(value)])),
-                archiveExpanded, openId: latestOpen.current, lane, cursor, depths })
+                openId: latestOpen.current, lane, cursor, depths })
         });
         if (response.status === 401) { window.location.assign('/app/sign-in'); throw new Error('401'); }
         if (response.status === 403 || response.status === 404) { window.location.assign('/app/projects'); throw new Error(String(response.status)); }

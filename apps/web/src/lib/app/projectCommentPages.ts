@@ -33,6 +33,7 @@ import type { DbProject } from './model';
 import type { listProjectMembers } from './members';
 import { englishAppTranslator } from '../i18n/translate';
 import type { AppTranslator } from '../i18n/types';
+import { readSidebarCommentSummary, type SidebarCommentSummary } from './sidebarProjects';
 
 export { PROJECT_COMMENT_PAGE_SIZE } from './projectCommentPaging';
 import { labelLaneKey, PROJECT_COMMENT_MAX_DEPTH, PROJECT_COMMENT_PAGE_SIZE, projectCommentPageKey, type CommentLane, type CommentPage, type ProjectCommentPaging, type ProjectCommentPageInput } from './projectCommentPaging';
@@ -41,7 +42,7 @@ export type { ProjectCommentPageInput } from './projectCommentPaging';
 type Pivot = Pick<ProjectCommentView, 'id' | 'number' | 'createdAt' | 'updatedAt' | 'completedAt' | 'archivedAt'> & { priority?: ProjectCommentView['priority']; labelIds?: string[] };
 type Cursor = { key: string; after: Pivot; expires: number };
 const stages = feedbackStages;
-const filters: StatusFilter[] = ['active', ...stages, 'all', 'archived'];
+const filters: StatusFilter[] = ['active', ...stages, 'all'];
 
 function signCursor(cursor: Cursor) {
     const body = Buffer.from(JSON.stringify(cursor)).toString('base64url');
@@ -81,7 +82,7 @@ function summary(view: ProjectCommentView): ProjectCommentView {
         .map(link => ({ url: link.url, canRemove: view.pullRequests?.find(saved => saved.url === link.url)?.canRemove ?? false }));
     return { ...view, pullRequests, workflow: undefined, availableLabels: undefined, summary: true, text: view.text.slice(0, 500), displayText: view.displayText.slice(0, 500),
         displayMentions: view.displayMentions?.filter(mention => mention.end <= 500), replies: [], history: undefined,
-        screenshot: undefined, anchor: { type: 'page', label: '' }, reproduction: { text: '' }, quotedText: undefined, proposal: undefined, reactions: undefined,
+        screenshot: undefined, anchor: { type: 'page', label: '' }, reproduction: { text: '' }, quotedText: undefined, proposal: undefined, rewriteOriginal: undefined, reactions: undefined,
         verification: view.verification ? { ...view.verification, fixUrl: undefined } : undefined,
         outline: outline(view) };
 }
@@ -90,9 +91,10 @@ function summary(view: ProjectCommentView): ProjectCommentView {
 export async function loadProjectCommentPages(context: AppContext, project: DbProject, query: CommentsQuery,
     membersForRequest: ReturnType<typeof listProjectMembers>, authorId?: string, input: ProjectCommentPageInput = {}, t: AppTranslator = englishAppTranslator) {
     const actor = appActor(context), domain = `project:${project.id}`, viewerId = `user:${context.user.id}`;
+    const origin = query.environment && query.environment !== 'all' ? environmentFilter(project, query.environment) : undefined;
+    const readAt = Date.now();
     const [candidates, reads, members, subscriptions] = await Promise.all([
-        getCommentsStore().queryCandidates(domain, { visibility: commentVisibilityFilter(domain, actor),
-            origin: query.environment && query.environment !== 'all' ? environmentFilter(project, query.environment) : undefined,
+        getCommentsStore().queryCandidates(domain, { visibility: commentVisibilityFilter(domain, actor), origin,
             archive: 'all', authorId, includeText: Boolean(query.q), signal: input.signal }),
         loadReadSequences(domain, viewerId), membersForRequest,
         getAppStore().query<NotificationSubscription>({ type: 'notification-subscription', pk: notificationPk(project.id), where: { actorId: viewerId } })
@@ -114,38 +116,40 @@ export async function loadProjectCommentPages(context: AppContext, project: DbPr
             context: [threadTitle(comment, titles)?.text ?? ''], messages: comment.thread.items.map(item => ({ ...item, deleted: Boolean(item.deletedAt) })) }, query.q ?? '');
     };
     const matching = scope.filter(matches), sorts = boardSortsOf(project.boardSorts);
-    const archiveExpanded = input.archiveExpanded ?? Boolean(project.boardArchiveExpanded);
-    const workflow = effectiveStatusWorkflow(context.workspace, project), definitions = orderedStatuses(workflow);
+    const workflow = effectiveStatusWorkflow(context.workspace, project), definitions = orderedStatuses(workflow).filter(status => status.category !== 'archive');
     const stage = (comment: CommentQueryCandidate) => feedbackStage({ ...comment, verificationEnabled: workflow.verificationEnabled === true });
-    const key = projectCommentPageKey(query, sorts, archiveExpanded, workflow, `${project.id}:${context.user.id}`, selectedGroupLabels(project, labels));
-    const board = query.view === 'board' && query.status !== 'archived';
+    const archived = query.archive === 'only';
+    const board = query.view === 'board' && !archived;
+    const inArchive = (comment: CommentQueryCandidate) => Boolean(comment.archivedAt) === archived;
+    const inScope = matching.filter(inArchive);
     const boardStatus = board ? boardStatusFilter(query.status) : undefined;
     const lanes: Partial<Record<CommentLane, CommentPage>> = {};
     const selected = new Set<string>();
     const groupLabels = selectedGroupLabels(project, labels);
+    const key = projectCommentPageKey(query, sorts, workflow, `${project.id}:${context.user.id}`, groupLabels);
     const groups = groupLabels ? [...groupLabels, 'unlabeled'] : [''];
     const laneDefinitions = definitions.flatMap(status => groups.map(label => ({ status, label, id: label ? labelLaneKey(status.id, label) : status.id })));
     const rowsByLane = new Map(laneDefinitions.map(lane => [lane.id, [] as CommentQueryCandidate[]]));
-    for (const comment of matching) {
+    if (board) for (const comment of inScope) {
         const status = statusForComment(workflow, comment).id;
         const assigned = groupLabels ? labelsForComment(labels, comment).map(label => label.id).filter(id => groupLabels.includes(id)) : [''];
         for (const label of assigned.length ? assigned : ['unlabeled'])
             rowsByLane.get(label ? labelLaneKey(status, label) : status)?.push(comment);
     }
     if (board) for (const { status, id } of laneDefinitions) lanes[id] = { ids: [], total: boardStatus && status.category !== boardStatus ? 0 : rowsByLane.get(id)!.length, nextCursor: null };
-    const available = laneDefinitions.filter(({ status }) => (!boardStatus || status.category === boardStatus) && (status.category !== 'archive' || archiveExpanded));
+    const available = laneDefinitions.filter(({ status }) => !boardStatus || status.category === boardStatus);
     const choices: CommentLane[] = input.lane ? [input.lane] : board ? available.map(lane => lane.id) : ['list'];
     if (input.lane && (board ? !available.some(lane => lane.id === input.lane) : input.lane !== 'list')) throw apiErrors.invalidRequest('This column does not belong to the current view.');
     if (input.depths && Object.keys(input.depths).some(lane => !choices.includes(lane))) throw apiErrors.invalidRequest('This column does not belong to the current view.');
     for (const lane of choices) {
         const definition = board ? laneDefinitions.find(value => value.id === lane)!.status : undefined;
-        const sort = definition ? sorts[definition.category] : undefined;
+        const sort = definition ? sorts[definition.category] : archived ? sorts.archive : undefined;
         const groupIndex = (row: Pivot) => {
             const index = groupLabels ? groupLabels.findIndex(id => row.labelIds?.includes(id)) : -1;
             return index < 0 ? (groupLabels ? groupLabels.length : 0) : index;
         };
         const compare = (a: Pivot, b: Pivot) => (!board && groupLabels ? groupIndex(a) - groupIndex(b) : 0) || (sort ? boardSortOrders[sort](a, b) : compareCommentOrder(a, b)) || compareCommentOrder(a, b) || a.id.localeCompare(b.id);
-        const rows = (board ? rowsByLane.get(lane)! : matching.filter(comment => statusMatches(query.status, stage(comment), comment.archivedAt))).sort(compare);
+        const rows = (board ? rowsByLane.get(lane)! : inScope.filter(comment => statusMatches(query.status, stage(comment)))).sort(compare);
         const binding = keyedHash('project-comment-page-binding', JSON.stringify([key, lane, viewerId, project.id, context.isAdmin, project.access, project.urls, query.unread ? input.openId : undefined]));
         const cursor = input.cursor ? readCursor(input.cursor, binding) : undefined;
         const remaining = cursor ? rows.filter(row => compare(row, cursor.after) > 0) : rows;
@@ -159,22 +163,27 @@ export async function loadProjectCommentPages(context: AppContext, project: DbPr
             nextCursor: remaining.length > size && after ? signCursor({ key: binding, after, expires: cursor?.expires ?? Date.now() + 15 * 60_000 }) : null };
         for (const row of page) selected.add(row.id);
     }
-    const statusCounts = Object.fromEntries(filters.map(filter => [filter, matching.filter(comment => statusMatches(filter, stage(comment), comment.archivedAt)).length])) as Record<StatusFilter, number>;
-    const statusUnread = Object.fromEntries(filters.map(filter => [filter, matching.filter(comment => statusMatches(filter, stage(comment), comment.archivedAt) && readActivity(comment, viewerId, reads.get(comment.id)).unread).length])) as Record<StatusFilter, number>;
+    const statusCounts = Object.fromEntries(filters.map(filter => [filter, inScope.filter(comment => statusMatches(filter, stage(comment))).length])) as Record<StatusFilter, number>;
+    const statusUnread = Object.fromEntries(filters.map(filter => [filter, inScope.filter(comment => statusMatches(filter, stage(comment)) && readActivity(comment, viewerId, reads.get(comment.id)).unread).length])) as Record<StatusFilter, number>;
     const paths = new Map<string, number>();
-    for (const comment of scope.filter(comment => board || Boolean(comment.archivedAt) === (query.status === 'archived'))) {
+    for (const comment of scope.filter(inArchive)) {
         const path = commentPath(comment); paths.set(path, (paths.get(path) ?? 0) + 1);
     }
-    const paging: ProjectCommentPaging = { key, lanes, statusCounts, statusUnread, scopeTotal: scope.length, matchedTotal: matching.length,
+    const archiveRows = archived ? inScope : matching.filter(comment => comment.archivedAt);
+    const paging: ProjectCommentPaging = { key, lanes, statusCounts, statusUnread, archiveCount: archiveRows.length,
+        archiveUnread: archiveRows.filter(comment => readActivity(comment, viewerId, reads.get(comment.id)).unread).length, scopeTotal: scope.length, matchedTotal: matching.length,
         pages: [...paths].map(([path, count]) => ({ path, count })),
         historySources: [...new Set(scope.map(comment => feedbackSource(project, comment.origin).environment).filter(id => id === 'removed' || id === 'unknown'))],
-        unreadCount: matching.filter(comment => (board ? (!boardStatus || stage(comment) === boardStatus && !comment.archivedAt) && (!comment.archivedAt || archiveExpanded) : statusMatches(query.status, stage(comment), comment.archivedAt)) && readActivity(comment, viewerId, reads.get(comment.id)).unread).length };
-    const [views, openedComment] = await Promise.all([
+        unreadCount: inScope.filter(comment => (board ? !boardStatus || stage(comment) === boardStatus : statusMatches(query.status, stage(comment))) && readActivity(comment, viewerId, reads.get(comment.id)).unread).length };
+    const [views, openedComment, sidebarSummary] = await Promise.all([
         input.revisionOnly ? [] : loadProjectComments(context, project, undefined, undefined, undefined, Promise.resolve(members), 'all', t, [...selected], { reads, subscriptions }),
         !input.revisionOnly && input.openId && !selected.has(input.openId) && scope.some(comment => comment.id === input.openId) ? loadProjectComment(context, project, input.openId).catch(error => {
             if (error instanceof ApiError && error.status === 404) return null;
             throw error;
-        }) : undefined
+        }) : undefined,
+        input.revisionOnly || input.lane ? undefined
+            : origin || authorId ? readSidebarCommentSummary(context, project, readAt)
+                : summarizeSidebarComments(candidates, project.createdAt, readAt)
     ]);
     // Stable across presentation filters and cursors. Off-page edits, read cursors, policy, names and expiring leases count.
     const revision = keyedHash('app-comments-paged-snapshot', JSON.stringify({
@@ -184,5 +193,16 @@ export async function loadProjectCommentPages(context: AppContext, project: DbPr
     }));
     const byId = new Map(views.map(view => [view.id, view]));
     if (!input.revisionOnly) for (const lane of Object.values(lanes)) if (lane) lane.ids = lane.ids.filter(id => byId.has(id));
-    return { comments: [...selected].flatMap(id => byId.has(id) ? [summary(byId.get(id)!)] : []), openedComment: openedComment ?? undefined, paging, revision };
+    return { comments: [...selected].flatMap(id => byId.has(id) ? [summary(byId.get(id)!)] : []), openedComment: openedComment ?? undefined, paging, revision, sidebarSummary };
+}
+
+/** The full candidate scan already matches the sidebar's partition, website and visibility scope. */
+function summarizeSidebarComments(candidates: CommentQueryCandidate[], createdAt: string, readAt: number): SidebarCommentSummary {
+    let openCount = 0;
+    let activityAt = createdAt;
+    for (const comment of candidates) {
+        if ((comment.resolved === undefined || comment.resolved === false) && typeof comment.archivedAt !== 'string') openCount++;
+        if (typeof comment.updatedAt === 'string' && comment.updatedAt > activityAt) activityAt = comment.updatedAt;
+    }
+    return { openCount, activityAt, readAt };
 }

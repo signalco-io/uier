@@ -53,8 +53,7 @@ mutations and accessibility scans; individual assertions retain their usual time
   the sheet they open the next one there. `e2e/comment-keyboard.spec.ts` covers the list's keys,
   `e2e/app-keyboard.spec.ts` the board's and My work's. `CommentBoard.tsx` shows
   Open, In progress, Ready to verify and Done as compact cards, one column per `commentStatuses` entry (keep the
-  column set data-driven: that list and `commentStatusLabels`), then Archive, collapsed unless expanded
-  ([Board archive column](#board-archive-column); any status column folds to a strip too, [collapsed board columns](#collapsed-board-columns)), in one row of equal columns however many there are, on phones and
+  column set data-driven: that list and `commentStatusLabels`). Each status column can [fold to a strip](#collapsed-board-columns). The board draws them in one row of equal columns however many there are, on phones and
   tablets too, each 18rem to 20rem (on a phone at most the page's width less 3rem, so the next column peeks in at the
   edge, [uier #305](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_Lnt-zHIL2JcwH6VBeik9Y)) and centred beyond that; when they don't fit, the board scrolls sideways
   (`data-board-scroll`, `justify-center-safe`; a swipe on a touch screen) rather than squeezing them. The scroller runs
@@ -175,7 +174,7 @@ The orders above are the board's defaults. Each column can have its own sort ins
 browser or person, and not one setting for every project. `lib/app/boardSort.ts` (browser-safe) has
 the choices: active columns offer Priority (default, `compareCommentOrder`), Newest first and Oldest
 first (`createdAt`, then number) and Recently updated (`updatedAt`, then the usual order); Done offers
-Recently completed (default, `compareDoneOrder`) and the same four; Archive ([below](#board-archive-column))
+Recently completed (default, `compareDoneOrder`) and the same four; the [Archive list](#archive)
 offers Recently archived (default, `compareArchivedOrder`) and the same four, saved under `archive`. Only choices other than a column's
 default are stored, and a stored value a column does not offer reads as its default (`boardSort`).
 The list view keeps its order.
@@ -208,15 +207,16 @@ defaults does not initialize Zod. Actions and persistence use that same schema b
 ## Collapsed board columns
 
 [uier #464](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_YRhNYQfUrEUYtzlB_GI4h): each status column's header ends with Collapse (`FoldHorizontalIcon`, "Collapse In progress", a tooltip,
-`aria-expanded`), after the sort. Collapsed, the column is a 3rem strip like Archive's, on phones too: its dot (with
+`aria-expanded`), after the sort. Collapsed, the column is a 3rem strip, on phones too: its dot (with
 its glow), name and count run down it as one turned group, the whole strip one button inside the column's heading
 ("In progress 2", `aria-expanded="false"`, `data-column-toggle`) that expands it. The focus moves to the other toggle
-either way, and the strip and the column morph into each other like Archive's (`useColumnFold`, nothing moves with
+either way, and the strip and the column morph into each other (`useColumnFold`, nothing moves with
 reduced motion). The grid's tracks follow (`--board-columns`), so the next column moves up beside the strip.
-- Per viewer, unlike the sorts and Archive's expansion: `comments/boardCollapse.ts` keeps the collapsed status ids in this
+- Per viewer, unlike the sorts: `comments/boardCollapse.ts` keeps the collapsed status ids in this
   browser (`localStorage` `uier:board-collapsed`, one list per board: the project's id, or `my-work`), and other tabs
-  follow. The server and the first paint show every column; a remembered choice applies once the board hydrates.
-  Blocked storage keeps it until the page is opened again. Label lanes on one project share the choice.
+  follow. Project folds are mirrored in a bounded cookie so the server paints the saved tracks before
+  hydration. A localStorage-only choice migrates when its board opens. My work reads its saved folds during hydration.
+  If both browser stores are blocked, the choice lasts until the page is opened again. Label lanes on one project share the choice.
 - A collapsed column's cards are not rendered: they are out of the keys' lanes (← → skip it, J and K pass it) and
   the tab stop. It is still a drop target: while a card is dragged the strip stretches to the longest column and
   takes the dashed, highlighted and refused looks like any column, and a dropped card waits there, counted. Move
@@ -264,7 +264,7 @@ reduced motion). The grid's tracks follow (`--board-columns`), so the next colum
   (`staggerDelays`); off-screen cards just wait. When the last has gone they leave the page together and the cards below
   slide up (`LayoutMotion` needs no copies of `inert` items, so the bulk limit does not apply). It decides during render
   (a card that is archived in `allComments` and gone from the columns), so a card never disappears for a frame first.
-  A card that comes back meanwhile (a failed save) stays. While Archive is expanded the cards travel to it instead.
+  A card that comes back meanwhile (a failed save) stays.
 - A column's next page rises in below the cards that stay (`appends`): cards added after the last card a column keeps
   (Load more, or a refresh) fade in with an 8 px slide up, one after another from the top, however many, and only those
   on screen. Cards that come to a column while its archived cards are leaving wait until they have gone, and so do the
@@ -302,7 +302,7 @@ session loss navigates to sign-in and access loss returns to Projects. Hidden/of
 signals do not fetch; successful local writes reconcile even when the document is hidden.
 
 Each board column reserves a 12 px progress slot left of its actions, the size of their icons (uier #432), including expanded and
-collapsed archive columns. Scope changes and explicit retries mark every column busy; continuations mark only their
+archived rows. Scope changes and explicit retries mark every column busy; continuations mark only their
 lane. A same-scope background refresh (a saved change, a realtime signal) marks only the lanes of threads with a
 local change the snapshot doesn't show yet, as saved and as shown: a moved card's old and new columns (uier #442).
 A change from someone else shows no column progress; its cards arrive with the data. One persistent polite status announces Loading comments for scope changes and explicit retries,
@@ -318,53 +318,25 @@ still detect assignment changes; catalog edits still change the snapshot revisio
 
 ## Archive
 
-Archive is an explicit list scope (`?status=archived`), separate from Active, Done and All; it is chosen from the
-"Done and archive" menu beside the Done tab, which then reads "Archive" ([comment filters](comment-filters.md)). The
-ordinary tabs, workflow board columns and My work exclude archived threads. On the board, Archive is
-the last column, after Done ([below](#board-archive-column)); `?status=archived` with Board shows the
-list's Archive, and choosing Board from there returns to the columns.
-Counts follow the selected search, people, page, priority, environment and author scopes. The project app pages ordinary and archive columns independently by effective status ID, with exact
-server totals. Collapsed archive columns load counts without rows. My work retains its ordinary
-window. Project presentation filters now query the complete authorized scope; see [paged project comments](#paged-project-comments).
-An archived or restored open thread leaves its previous scope, including its detail panel.
+Only archived in the project comments' Filter popover ([comment filters](comment-filters.md)) opens a paged list (`?archive=only`).
+Existing `?status=archived` links open the same list. The list starts on All and its status
+tabs filter archived threads by their own workflow status. Rows and details show that
+status, including custom names and Ready to verify. The thread also shows an Archived
+label. Turning it off (the checkbox or the Archived chip) returns to the chosen List/Board layout. My work continues to
+list unarchived threads.
 
-More actions → Archive comment moves a thread into Archive; Restore comment returns it to its prior
-workflow status, including Done or Ready to verify. Both changes are optimistic and roll back on
-failure; they do not delete content or mark it read. The archive detail carries an Archived label.
-The toolbar uses the same actions in Thread options and Archive under its Done tab; archived threads have no pins,
-highlights, inline slots or Show on page action until restored. `e2e/archive.spec.ts` covers both
-surfaces, reload, restore, failed saves, mobile and light/dark accessibility.
+More actions → Archive comment archives a thread and Restore comment returns it to its
+workflow column. In the list, a thread leaves the current scope when archived or restored.
+A board sheet stays open through archiving, so it can restore the thread in place.
+Both actions keep pending verification, completion time and read cursors. They update
+optimistically and roll back on failure.
 
-### Board archive column
-
-[uier #243](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_ell0Rb7O9hDp71RsDToUS):
-`ArchiveColumn` in `CommentBoard.tsx` comes after the status columns, collapsed by default: a 3rem strip
-only as tall as its content (from `md` its icon, name and count run down it as one turned group, a full-width row on
-a phone) that is one button, "Archive 3", with
-`aria-expanded`. Expanded, it is a column like the others (18rem to 20rem) whose header ends with
-Collapse Archive (`FoldHorizontalIcon`, a tooltip); the focus moves to the other toggle either way. The grid's
-tracks come from `--board-columns` (the statuses, then the strip or a column); the project header is full width either way.
-- [uier #369](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_zTdFM-sfeJ0lM6ukyBQ5G):
-  collapsed, the strip has no fill, a fainter border and a muted name and icon until it is pointed at (not a lower opacity
-  on the whole strip, which would take its count below text contrast). Expanding or collapsing it morphs: the grid's
-  tracks (resolved to pixels) and the column's height animate for 200 ms, the new content fades in and the fill follows
-  by transition. Nothing animates with reduced motion.
-- Order: by default like Done but by archive time (`compareArchivedOrder`: `archivedAt`, newest first, then the update and
-  creation times, ties in the list's order). [uier #251](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_isE8wcqHfUDuHHI3xdXB9):
-  its expanded header has a sort menu like Done's (Recently archived instead of Recently completed), before Collapse
-  Archive, saved on the project like the other columns' sorts (`boardSorts.archive`, the same people and action).
-- Its cards open their thread in the sheet like the others (the board's scope includes archived threads, so
-  archiving from the sheet keeps it open with the Archived label) but don't drag and have no Move; Restore comment
-  returns one to its column. It is not a drop target and is dimmed (`data-drop="refused"`) while a card is dragged.
-  While expanded its cards are in the keys' lanes (← → reach it, J and K go through it) and in the selection.
-- Expanded is saved on the project (`DbProject.boardArchiveExpanded`, missing when collapsed), like the sorts:
-  everyone who opens the board sees it, and the same people change it (`saveProjectBoardArchive`,
-  `setBoardArchiveAction`, `canSortProjectBoard`), optimistically with an error toast. Others can still expand it
-  for themselves until the page is opened again. The action schema and `saveProjectBoardArchive` both accept only
-  a boolean, so a string such as `"false"` or `null` is refused before any write.
-- `e2e/archive.spec.ts` covers collapsed and expanded, archiving and restoring from the board, its sort, the focus, a reload
-  and light/dark axe; `e2e/board-sort.api.spec.ts` the order, the saved state and invalid inputs; `e2e/comment-board.spec.ts` its
-  place in the layout and during a drag.
+Archive has its own total and unread indicator under the current search, people, page,
+priority, label, environment and author filters. It uses the saved `boardSorts.archive`
+choice, with Recently archived as the default. The toolbar inbox has the same separate
+toggle and keeps the workflow status on every thread. Archived threads have no pins,
+highlights, inline slots or Show on page action until restored. `e2e/archive.spec.ts`
+covers both surfaces, legacy links, status filters, sort, restore, and failed saves.
 
 The Board stays directly imported by `ProjectComments`, so direct Board visits hydrate its
 keyboard controls with the rest of the view.
@@ -381,10 +353,10 @@ the reserved row is hidden. Live arrivals and reading the last unread thread can
 in its left padding, out of the flow, so reading it leaves its title and path where they are.
 
 `e2e/project-cls.spec.ts` measures production HTML through delayed hydration at the reported desktop
-viewport (1674 × 1366) and on Mobile Chrome, with 20 API-created threads and 4× CPU slowdown. It
+viewport (1674 × 1366) and on Mobile Chrome, with 30 API-created threads and 4× CPU slowdown. It
 records every `layout-shift` source and before/after rectangle in `project-cls.json`, with the toolbar's
 largest-session-window calculation (recent input and toolbar-only entries excluded). It checks the
-painted view before releasing scripts, read-all, a background unread arrival, an empty search and
+painted view and saved column tracks before releasing scripts, read-all, a background unread arrival, an empty search and
 Give feedback's toolbar injection, plus unchanged board/header geometry, the count line left of the search on
 desktop (under it on a phone) and Filter staying put through read-all and the arrival. The full report and limits
 are in [the CLS investigation](project-comments-cls.md).
@@ -394,7 +366,7 @@ are in [the CLS investigation](project-comments-cls.md).
 `CommentBoard` takes each card's project (`projectOf`: id, name, people to assign) instead of one project id, and
 `archive` is optional. A project's board passes its own project for every card; My work (`MyWorkBoard`, [uier #294](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fmy-work&comment=comment_UFce1oOdSATj5MRS9lRNt))
 passes each thread's, so the card names its project, a move is saved in that project with the thread's own permissions,
-and the sheet opens the thread with that project's people. My work has no Archive column; its columns' sort menus change
+and the sheet opens the thread with that project's people. My work's column sort menus change
 My work's own sorts, not a project's (`onSort` from `MyWorkBoard`, remembered in the browser). The List/Board toggle is one
 component (`CommentsViewToggle`) in both places, in `CommentFilters`' row (My work passes `onView` to remember its own).
 Cards and rows of several projects show the project's icon before its name (`BoardProject`'s `url`, `CommentRow`'s `projectUrl`). See [app shell](app-shell.md) for what My work's board shows.
@@ -410,8 +382,7 @@ Relative times use the app language and the existing shared clock.
 ## Custom status columns
 
 Project boards resolve the workspace status workflow or project override. Each ordinary status
-gets a column in its category's order; each archive status gets a collapsed/expanded archive
-column, sharing the project's archive expansion choice. Column IDs are status IDs, labels and
+gets a column in its category's order. Archive destinations share the Archive list. Column IDs are status IDs, labels and
 descriptions come from settings, and dots/permissions/sorts continue to use the category. Existing
 card spacing and content stay shared with the inbox. Move, drag targets, keyboard lanes and the
 placeholder follow those IDs. Within-category moves retain completion times and verification.
@@ -448,8 +419,8 @@ Project Board and List request 25 summaries at a time (`projectCommentPages.ts`,
 `POST /api/projects/:projectId/comments/pages`). Board starts one page per effective ordinary status,
 in category order. Custom status IDs have independent cursors and totals; missing/removed stored IDs
 fall back through `statusForComment` to the category default. Default statuses retain their columns; Ready to verify is only shown when the project enables verification.
-Each archive status has a total while collapsed and gets its first page when expanded. The list has
-one cursor for the selected status scope. Sorts retain their category settings, completion/archive
+The board gets the archive count without archive rows. The list has
+one cursor for the selected archive scope and workflow status. Sorts retain their category settings, completion/archive
 fallbacks, missing-value rules and deterministic ID ties.
 
 Search (including replies and quotes), people, page/section, priority, labels, unread, environment and author
@@ -489,7 +460,7 @@ on loaded unread rows while more unread matches exist, and Mark all as read rema
 Summaries omit replies, screenshots, reproduction details and history; their `outline` keeps only the counts and
 sizes the [loading shell](comment-thread.md) needs, under 200 bytes a thread. Opening a thread loads its
 fresh canonical detail; a deep link outside the first page works independently. A board sheet remains
-open when its thread moves into a collapsed archive column. Details/composers keep their identity
+open when its thread is archived. Details/composers keep their identity
 through fresh snapshots; deleted/inaccessible details close on a fresh 404.
 
 Filter changes keep URL/history controls immediate, cancel stale page requests and replace the window.
@@ -507,7 +478,7 @@ canonical detail enrichment. No private application data is put in a shared cach
 in-process snapshot loads. The baseline is the previous full-thread loader at
 `b354414442b9653ab9c48da72bdaf0f49865b577`: it returned 1,400 views (1,000 ordinary plus 400 archived),
 so its ordinary window also omitted 600 threads. The new snapshot counts all 2,000, returns 100 board
-summaries or 25 list summaries, and leaves the collapsed archive bodies unloaded. The fixture enables verification so its four ordinary status lanes remain comparable after #687.
+summaries or 25 list summaries, and leaves the archive bodies unloaded. The fixture enables verification so its four ordinary status lanes remain comparable after #687.
 
 | In-process snapshot, 2,000 × 11 messages | Before | After |
 | --- | ---: | ---: |
@@ -578,7 +549,7 @@ shared choice; `project-comment-pages.api.spec.ts` covers unselected labels and 
 
 When project filters match no comments, the empty placeholder spans the same full content width as the filter and count rows (uier #382). It sets `w-(--page-wide)` with `page-wide`, so its own `w-full`, later in the CSS, does not keep it the column's width shifted left (uier #383).
 
-Successful board sort, Archive and Group by saves retain their confirmed values until an authorized
+Successful board sorts, Archive sorts and Group by saves retain their confirmed values until an authorized
 snapshot reflects them. A late or failed data load cannot undo the saved choice when its action
 transition ends; failed saves still revert. See [optimistic updates](optimistic-status.md).
 

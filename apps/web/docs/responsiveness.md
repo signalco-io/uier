@@ -73,7 +73,10 @@ navigation audit, deliberate document boundaries and regression coverage.
 
 Project comment pagination keeps one in-flight read per column and aborts stale generations when a
 query/view/workflow changes. A realtime data snapshot rebuilds the loaded lane depths in one batched request (at most eight pages per lane); it does not
-unmount the open composer. Column totals come from the server, with optimistic deltas only for
+unmount the open composer. A full snapshot supplies the current project's sidebar count and latest activity
+from the authorized candidate scan. Environment- or author-scoped scans use the shell's bounded project-wide
+aggregates in the same response. Idle probes and lane continuations skip this work.
+Column totals come from the server, with optimistic deltas only for
 loaded rows being changed. Idle revision checks omit bodies and canonical enrichment. Read mutations
 retain their explicit rendered cursors; the paged view labels their partial scope Mark shown as read.
 Below 1024 px the inbox virtualizes against the document viewport and scrolls with the page; board columns follow the page's scroll at every width (uier #400). Wider lists use a bounded list scroller that reaches the panel's bottom (uier #401). See [paged project comments](comments-inbox.md#paged-project-comments) for limits and measurement boundaries.

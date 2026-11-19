@@ -26,7 +26,7 @@ test('reply images can be picked, removed, retried and expanded in toolbar and a
     await page.mouse.click(heading!.x + 20, heading!.y + heading!.height / 2);
     const draft = page.getByRole('dialog', { name: 'New comment', exact: true });
     await draft.getByRole('textbox', { name: 'Comment', exact: true }).fill('Thread for image replies');
-    await draft.getByRole('button', { name: 'Attach screenshot', exact: true }).click();
+    await draft.getByRole('button', { name: 'Remove screenshot', exact: true }).click();
     const response = page.waitForResponse(response => response.request().method() === 'POST' && response.url().endsWith(`/api/review/${projectId}/comments`));
     await draft.getByRole('button', { name: 'Post comment', exact: true }).click();
     const comment = await (await response).json();

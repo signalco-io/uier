@@ -1,6 +1,7 @@
 'use client';
 
-import { createContext, useContext, type PropsWithChildren } from 'react';
+import { createContext, useCallback, useContext, useState, type PropsWithChildren } from 'react';
+import type { SidebarCommentSummary, SidebarProject } from '@/src/lib/app/sidebarProjects';
 
 /**
  * What the shell has already read about the workspace and its projects, for the loading states of the pages inside
@@ -38,9 +39,40 @@ export type ShellInfo = {
 };
 
 const ShellInfoContext = createContext<ShellInfo | null>(null);
+const SidebarProjectsContext = createContext<SidebarProject[]>([]);
+const SidebarCommentUpdateContext = createContext<((projectId: string, userId: string, summary: SidebarCommentSummary) => void) | null>(null);
 
-export function ShellInfoProvider({ value, children }: PropsWithChildren<{ value: ShellInfo }>) {
-    return <ShellInfoContext.Provider value={value}>{children}</ShellInfoContext.Provider>;
+export function ShellInfoProvider({ value, projects, userId, readAt, children }: PropsWithChildren<{
+    value: ShellInfo; projects: SidebarProject[]; userId: string; readAt: number;
+}>) {
+    const [updates, setUpdates] = useState<Record<string, SidebarCommentSummary>>({});
+    const publish = useCallback((projectId: string, viewer: string, summary: SidebarCommentSummary) => {
+        if (viewer !== userId || !Object.hasOwn(value.projects, projectId) || summary.readAt <= readAt) return;
+        setUpdates(current => summary.readAt <= (current[projectId]?.readAt ?? 0) ? current : { ...current, [projectId]: summary });
+    }, [userId, value.projects, readAt]);
+    const hints = { ...value.projects };
+    const listed = projects.map(project => {
+        const summary = updates[project.id];
+        if (!summary || summary.readAt <= readAt) return project;
+        const { openCount, activityAt } = summary;
+        hints[project.id] = { ...hints[project.id]!, open: openCount, feedback: activityAt > project.createdAt || undefined };
+        return { ...project, openCount, activityAt };
+    });
+    return (
+        <SidebarCommentUpdateContext.Provider value={publish}>
+            <SidebarProjectsContext.Provider value={listed}>
+                <ShellInfoContext.Provider value={{ ...value, projects: hints }}>{children}</ShellInfoContext.Provider>
+            </SidebarProjectsContext.Provider>
+        </SidebarCommentUpdateContext.Provider>
+    );
+}
+
+export function useSidebarProjects() {
+    return useContext(SidebarProjectsContext);
+}
+
+export function usePublishSidebarCommentSummary() {
+    return useContext(SidebarCommentUpdateContext);
 }
 
 /** `null` outside the signed-in shell (and in the shell's own loading state) */

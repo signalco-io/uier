@@ -20,7 +20,8 @@ How the page looks when its link is shared or shown in search results.
   the fallback, a note; tags with different text are a warning, the same text twice a note). Shared image (none on an indexable page, or only
   `twitter:image`, is a warning; a relative or non-http address is a warning; `og:image:secure_url` is used
   for an `http` `og:image`). `og:url` (no different ones, a full address, the same page as the canonical link, else as this
-  page; origin and path, a trailing slash ignored, like the Page section). X card (`summary`,
+  page; origin and path, a trailing slash ignored, like the Page section); none is a note, not a warning: ogp.me lists it as required, but Facebook falls back to the shared
+  address and other platforms to the canonical link, and the note says so). X card (`summary`,
   `summary_large_image`, `app`, `player`; another value is a warning; none is a note, which repeats only what
   X's markup page documents: a summary card may show from `og:type`, `og:title` and `og:description`).
 - **noindex.** On a page whose `robots`/`googlebot` meta asks not to be indexed, missing tags are notes.

@@ -479,7 +479,8 @@ export const en = {
         pageScreenshot: 'A screenshot of the visible page will be attached.',
         regionScreenshot: 'A screenshot of this part of the page will be attached.',
         attachScreenshot: 'No screenshot will be attached. Select to attach one.',
-        textOnly: (status: string) => `${status} Select to omit the screenshot.`,
+        removeScreenshot: 'Remove screenshot',
+        previewScreenshot: 'Preview screenshot',
         screenshotToggle: 'Attach screenshot',
         attachedToReply: 'Attached to your reply.',
         sentInstead: 'Sent instead of the screenshot.',
@@ -637,6 +638,11 @@ export const en = {
         proposed: 'Proposed',
         preparing: 'Preparing preview…',
         values: 'Exact values',
+        changes: 'Changes',
+        noTextChanges: 'No text changes. The suggestion matches the original text.',
+        onlySpacingChanges: 'Only spacing changes. The words match the original text.',
+        removedText: 'Removed:',
+        addedText: 'Added:',
         stale: 'The page no longer matches the saved original. The saved values are available below.',
         unavailable: 'This target cannot be previewed here.',
         invalid: 'Enter a supported CSS value for each changed field.',
@@ -662,6 +668,8 @@ export const en = {
     },
     selection: {
         label: 'Selected text',
+        /** Comment on the selected text: short, so it stays on one line beside Rewrite */
+        comment: 'Comment',
         rewrite: 'Rewrite'
     },
     canvas: {
@@ -732,6 +740,7 @@ export const en = {
         assignedToMe: 'Assigned to me',
         reviewBrief: 'Review brief',
         close: 'Close sidebar',
+        openInApp: 'Open in app',
         filters: {
             archived: "Archive",
             unresolved: 'Active',
@@ -1112,6 +1121,9 @@ export const en = {
             showOrder: 'Show tab order',
             focusNote: "Moves the focus through the page's controls, running their focus handlers, and lists the ones that show no visible change.",
             checkFocus: 'Check focus indicators',
+            /** The Focus indicators row before its check ran, and why */
+            indicators: 'Focus indicators',
+            notRun: 'Not checked yet: it moves the focus, so it runs only on request.',
             moving: 'Moving the focus through the page…',
             focusFailed: 'The focus check could not run.'
         },

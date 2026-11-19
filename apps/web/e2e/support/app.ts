@@ -332,6 +332,26 @@ export async function openCommentFilters(page: Page) {
 /** Every comment's row link on the page, in the list or on the board */
 export const allCommentRowLinks = (page: Page) => page.getByRole('link', { name: /^Comment(?: #\d+|:) / });
 
+/**
+ * The Filter popover's Only archived checkbox (uier #485), its name ending in the archive's count ("Only archived 3").
+ * Opens the popover; the caller closes it with Escape.
+ */
+export async function archiveFilter(page: Page) {
+    return (await openCommentFilters(page)).getByRole('checkbox', { name: /^Only archived/ });
+}
+
+/** Turns the project's Archive on or off from the Filter popover */
+export async function toggleArchive(page: Page) {
+    await (await archiveFilter(page)).click();
+    await page.keyboard.press('Escape');
+}
+
+/** Expects the Filter popover's Archive count, then closes the popover */
+export async function expectArchiveCount(page: Page, count: number) {
+    await expect(await archiveFilter(page)).toHaveAccessibleName(new RegExp(`^Only archived\\s*${count}$`));
+    await page.keyboard.press('Escape');
+}
+
 /** Back to the list where the open thread took its place (a phone); nothing to do beside the list */
 export async function backToComments(page: Page) {
     const back = page.getByRole('button', { name: 'Back to comments', exact: true });

@@ -1,5 +1,6 @@
 import { isLocalRuntime } from './comments/environment';
 import { commentsViewCookieNames } from './app/commentsViewPreference';
+import { boardCollapseCookieLifetime, boardCollapseCookieNames } from './app/boardCollapseCookie';
 
 const day = 24 * 60 * 60;
 // Fixed rollout boundary, never reset by subsequent builds. Allow in-flight old cookies through
@@ -23,7 +24,8 @@ export const cookieNames = {
     passkeyChallenge: { name: '__Host-uier_passkey_challenge', legacy: 'uier_passkey_challenge', lifetime: 5 * 60 },
     lastSignIn: { name: '__Host-uier_last_sign_in', legacy: 'uier_last_sign_in', lifetime: 365 * day },
     projectOrder: { name: '__Host-uier_project_order', legacy: 'uier_project_order', lifetime: 365 * day },
-    commentsView: { name: commentsViewCookieNames.secure, legacy: commentsViewCookieNames.local, lifetime: 365 * day }
+    commentsView: { name: commentsViewCookieNames.secure, legacy: commentsViewCookieNames.local, lifetime: 365 * day },
+    boardCollapse: { name: boardCollapseCookieNames.secure, legacy: boardCollapseCookieNames.local, lifetime: boardCollapseCookieLifetime }
 } as const;
 type CookieName = typeof cookieNames[keyof typeof cookieNames];
 type CookieReader = { get(name: string): { value: string } | undefined };

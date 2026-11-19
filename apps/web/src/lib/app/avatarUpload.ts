@@ -42,8 +42,8 @@ async function readBody(request: Request) {
     return Buffer.concat(chunks);
 }
 
-/** Shared upload validation for profile pictures and client logos. */
-export async function readAvatarUpload(request: Request) {
+/** Reads a bounded multipart picture. Each caller validates and re-encodes the image bytes. */
+export async function readPictureUpload(request: Request) {
     const contentType = request.headers.get('content-type') ?? '';
     if (contentType.split(';')[0]?.trim().toLowerCase() !== 'multipart/form-data')
         throw new ApiError(415, 'unsupported_media_type', 'Send the picture as multipart/form-data.');
@@ -56,11 +56,16 @@ export async function readAvatarUpload(request: Request) {
     }
     if (!(file instanceof Blob))
         throw apiErrors.invalidRequest(avatarErrors.empty);
-    const image = await normalizeAvatar(Buffer.from(await file.arrayBuffer()));
+    if (file.size > MAX_AVATAR_UPLOAD_BYTES)
+        throw new ApiError(413, 'too_large', avatarErrors.tooLarge(MAX_AVATAR_UPLOAD_BYTES));
+    return Buffer.from(await file.arrayBuffer());
+}
+
+/** Shared upload validation for profile pictures and client logos. */
+export async function readAvatarUpload(request: Request) {
+    const image = await normalizeAvatar(await readPictureUpload(request));
     if (image === avatarErrors.type)
         throw new ApiError(415, 'unsupported_media_type', image);
-    if (image === avatarErrors.tooLarge(MAX_AVATAR_UPLOAD_BYTES))
-        throw new ApiError(413, 'too_large', image);
     if (typeof image === 'string')
         throw apiErrors.invalidRequest(image);
     return image;

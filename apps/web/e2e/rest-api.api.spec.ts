@@ -130,6 +130,19 @@ test('retries commit one named reply and preserve subsequent workflow changes', 
     await update(open, randomUUID());
     await update(done, statusKey);
     expect(responses.getFeedback.parse(await (await api.getFeedback(request(f.token), input)).json()).statusId).toBe(open);
+    const archive = statuses.items.find(status => status.category === 'archive')!.id;
+    const archiveKey = randomUUID();
+    expect(responses.updateStatus.parse(await (await update(archive, archiveKey)).json())).toMatchObject({
+        statusId: open, archivedAt: expect.any(String), archiveStatusId: archive
+    });
+    const listed = responses.listFeedback.parse(await (await api.listFeedback(request(f.token), params(f.project.id))).json());
+    expect(listed.items).toContainEqual(expect.objectContaining({ id: comment.id, statusId: open, archivedAt: expect.any(String) }));
+    const archiveChange = (body: object) => api.updateStatus(request(f.token, { method: 'PATCH', body, key: randomUUID() }), input);
+    expect((await archiveChange({ archived: false, statusId: done })).status).toBe(400);
+    expect(responses.updateStatus.parse(await (await archiveChange({ archived: false })).json())).toMatchObject({ statusId: open, archivedAt: null });
+    await update(archive, archiveKey);
+    expect(responses.getFeedback.parse(await (await api.getFeedback(request(f.token), input)).json())).toMatchObject({ statusId: open, archivedAt: null });
+    expect(responses.updateStatus.parse(await (await archiveChange({ archived: true })).json())).toMatchObject({ statusId: open, archivedAt: expect.any(String) });
     await revokeMcpCredential(f.context.user.id, f.credential.id, 'rest');
     expect((await reply('Revoked', randomUUID())).status).toBe(401);
 });

@@ -1,7 +1,10 @@
 'use client';
 
 import { useEffect, useEffectEvent, useId, useRef, useState, useTransition, type FormEvent } from 'react';
-import { Check, ChevronRight, MapPin } from 'lucide-react';
+import { ArchiveIcon, Check, ChevronRight, MapPin } from 'lucide-react';
+import { feedbackStage, feedbackStageLabels } from '@uier/toolbar/verification';
+import { Badge } from '@/src/components/ui/badge';
+import { StateDot } from '../comments/CommentStatus';
 import { Checkbox } from '@/src/components/ui/checkbox';
 import { Button, buttonVariants } from '@/src/components/ui/button';
 import { Field, FieldDescription, FieldGroup, FieldLabel, FieldTitle } from '@/src/components/ui/field';
@@ -79,6 +82,11 @@ export function ProofThreads({ projectId, assetId, versionId, currentVersionId, 
     const page = listed?.key === key ? listed.page : undefined;
     const pending = queue?.key === key ? queue.page : noPending;
     const selected = detail?.id === open ? detail : undefined;
+    const statuses = page?.statuses.filter(status => status.category !== 'archive') ?? [];
+    function statusLabel(thread: ProofThread) {
+        const status = statuses.find(option => option.id === thread.statusId);
+        return status ? workflowStatusLabel(status, t) : t(feedbackStageLabels[feedbackStage(thread)]);
+    }
     const replacement = copyDraft && copyDraft.anchor === draftAnchor ? copyDraft.replacement : undefined;
     const threadEndpoint = (thread: string) => `${base}/threads/${encodeURIComponent(thread)}`;
     const notifyThreads = useEffectEvent((threads: ProofThread[]) => onThreadsChange?.(threads));
@@ -333,6 +341,9 @@ export function ProofThreads({ projectId, assetId, versionId, currentVersionId, 
                     <MapPin data-icon="inline-start" />
                     {thread.number && <span className="tabular-nums">#{thread.number}</span>}
                     <span className="min-w-0 truncate">{thread.thread.items[0] && !('deleted' in thread.thread.items[0]) ? thread.thread.items[0].text : t('Deleted feedback')}</span>
+                    <span className="ml-auto flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
+                        <StateDot status={feedbackStage(thread)} />{statusLabel(thread)}
+                    </span>
                 </Button>
             </li>)}
         </ul>}
@@ -369,20 +380,26 @@ export function ProofThreads({ projectId, assetId, versionId, currentVersionId, 
                     onClick={() => onRequestTarget(selected.target.source)}>{t('Reconfirm video location')}</Button>}
             </div>}
             <div className="flex flex-wrap items-start gap-2">
-                {selected.permissions.resolve && !selected.archivedAt && <Select value={selected.statusId} items={(page?.statuses ?? []).map(status => ({ value: status.id, label: workflowStatusLabel(status, t) }))}
+                {selected.permissions.resolve && !selected.archivedAt && <Select value={selected.statusId} items={statuses.map(status => ({ value: status.id, label: workflowStatusLabel(status, t) }))}
                     disabled={busy} onValueChange={status => {
                         if (!status) return;
-                        const item = page?.statuses.find(option => option.id === status);
+                        const item = statuses.find(option => option.id === status);
                         if (item?.category === 'ready') {
                             if (selected.verificationPermissions.request) { setStatusId(status); setFormOpen(true); }
                         } else patch({ operation: 'status', statusId: status });
                     }}>
                     <SelectTrigger aria-label={t('Status')} className="pointer-coarse:min-h-11"><SelectValue /></SelectTrigger>
-                    <SelectContent><SelectGroup>{(page?.statuses ?? []).map(status => <SelectItem key={status.id} value={status.id}
+                    <SelectContent><SelectGroup>{statuses.map(status => <SelectItem key={status.id} value={status.id}
                         disabled={status.category === 'ready' && !selected.verificationPermissions.request}>{workflowStatusLabel(status, t)}</SelectItem>)}</SelectGroup></SelectContent>
                 </Select>}
-                {selected.permissions.resolve && selected.archivedAt && <Button variant="outline" className="pointer-coarse:min-h-11"
-                    disabled={busy} onClick={() => patch({ operation: 'archive', archived: false })}>{t('Restore')}</Button>}
+                {(!selected.permissions.resolve || selected.archivedAt) && <Badge variant="outline">
+                    <StateDot status={feedbackStage(selected)} />{statusLabel(selected)}
+                </Badge>}
+                {selected.archivedAt && <Badge variant="outline" className="text-muted-foreground">{t('Archived')}</Badge>}
+                {selected.permissions.resolve && <Button variant="outline" className="pointer-coarse:min-h-11"
+                    disabled={busy} onClick={() => patch({ operation: 'archive', archived: !selected.archivedAt })}>
+                    <ArchiveIcon data-icon="inline-start" />{selected.archivedAt ? t('Restore comment') : t('Archive comment')}
+                </Button>}
                 {selected.permissions.assign && selected.participants && <Select multiple disabled={busy} value={selected.assignees?.flatMap(person => person.id ? [person.id] : []) ?? []}
                     items={selected.participants.map(person => ({ value: person.id, label: person.name }))}
                     onValueChange={assigneeIds => patch({ operation: 'assignment', assigneeIds })}>

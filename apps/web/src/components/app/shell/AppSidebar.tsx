@@ -35,6 +35,7 @@ import { AccountMenu } from './AccountMenu';
 import { FeedbackButton } from './FeedbackButton';
 import { ProjectOrderMenu } from './ProjectOrderMenu';
 import { WorkspaceSwitcher, type WorkspaceOption } from './WorkspaceSwitcher';
+import { useSidebarProjects } from './ShellInfo';
 import { saveProjectOrderAction } from './actions';
 import { useRovingTabStop } from '../keyboard/keys';
 
@@ -110,20 +111,19 @@ const statusLabels = { active: 'Active', done: 'Done' } as const;
  * projects for quick switching (or, grouped by status, every project), then at the bottom feedback on the app and
  * the signed-in person. Collapses to icons on desktop and opens as a sheet on small screens.
  */
-export function AppSidebar({ isAdmin, user, accounts, workspaces, currentWorkspaceId, projects, projectOrder, hasClients }: {
+export function AppSidebar({ isAdmin, user, accounts, workspaces, currentWorkspaceId, projectOrder, hasClients }: {
     isAdmin: boolean;
     accounts: BrowserAccount[];
     user: { name: string; email: string; avatarUrl?: string };
     workspaces: WorkspaceOption[];
     currentWorkspaceId: string;
-    /** The projects the person can see, active and done, with their client and latest activity */
-    projects: SidebarProject[];
     /** How this browser lists them (a cookie, so the first render is already in order) */
     projectOrder: ProjectOrder;
     /** Whether a project the person can see has a client (the workspace menu opens its clients then) */
     hasClients: boolean;
 }) {
     const { t } = useAppI18n();
+    const projects = useSidebarProjects();
     const pathname = usePathname();
     const groupId = useId();
     // Applied at once. Saving sets the cookie, so Next renders the layout again: after switching to Recent activity

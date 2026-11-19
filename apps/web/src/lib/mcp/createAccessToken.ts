@@ -11,6 +11,7 @@ import { getGrant } from './oauth/grants';
 import { hasMcpReadScope, tokenScopes } from './scopes';
 import { liveProofThreadAsset } from '../proofs/threadAccess';
 import { projectId } from './schemas';
+import { userIdSchema } from '../app/validation';
 
 export const createAccessTokenSchema = z.object({
     name: z.string().trim().min(1).max(60).regex(/^[^\p{Cc}\p{Cf}]+$/u, 'Use a single-line name.'),
@@ -22,6 +23,8 @@ export const createAccessTokenSchema = z.object({
         .refine(scopes => new Set(scopes).size === scopes.length, 'Choose each operation once.'),
     proofAssetIds: z.array(z.string().uuid()).min(1).max(20).optional()
         .describe('Optional exact asset IDs for a single-project token with proofs:read and without feedback:read or screenshots:read.'),
+    accountId: userIdSchema.optional()
+        .describe('Optional: one of this connection’s selected accounts for the token to act as. Every project must be open to that account on its own; access is never combined. Defaults to the acting account list_projects shows.'),
     days: z.number().int().min(1).max(30).describe('Lifetime in days: 1–30. No automatic renewal.'),
     idempotencyKey: idempotencyKeySchema.describe('One random key per intended token. Retry with the same key and input; retries return metadata only, never the secret again.')
 }).strict().refine(input => !input.proofAssetIds || (input.projectIds.length === 1 && input.scopes.includes('proofs:read')
@@ -37,7 +40,7 @@ export async function createAccessToken(identity: McpIdentity, value: unknown) {
         throw apiErrors.forbidden('Choose only operations this connection has.');
     let actingUserId: string | undefined;
     for (const projectId of input.projectIds) {
-        const { project, user } = await mcpProject(identity, projectId, input.scopes.includes('proofs:read') ? 'proofs:read' : 'feedback:read');
+        const { project, user } = await mcpProject(identity, projectId, input.scopes.includes('proofs:read') ? 'proofs:read' : 'feedback:read', input.accountId);
         if (project.workspaceId !== input.workspaceId)
             throw apiErrors.invalidRequest('Choose projects in one workspace.');
         for (const assetId of input.proofAssetIds ?? []) {

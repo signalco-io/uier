@@ -14,12 +14,11 @@ import { fixVerificationSchema } from '../../../lib/review/fixVerificationSchema
 
 import { triageProjectComments } from '../../../lib/review/bulkTriage';
 import { loadAppCommentsSnapshot } from '../../../lib/app/appCommentsSnapshot';
-import { orderedStatuses } from '../../../lib/app/statusWorkflow';
 import { parseCommentsQuery } from './commentsQuery';
 import { bulkTriageSchema } from '../../../lib/review/bulkTriageSchema';
 import { projectIdSchema } from '../../../lib/app/validation';
-import { agentCommentActionSchema, assignCommentsPeopleActionSchema, boardArchiveActionSchema, boardColumnActionSchema, boardSortActionSchema, priorityCommentActionSchema } from './actionSchemas';
-import { saveProjectBoardArchive, saveProjectBoardSort } from '../../../lib/app/projectBoard';
+import { agentCommentActionSchema, assignCommentsPeopleActionSchema, boardGroupingActionSchema, boardColumnActionSchema, boardSortActionSchema, priorityCommentActionSchema } from './actionSchemas';
+import { saveProjectBoardSort } from '../../../lib/app/projectBoard';
 import type { BoardColumn, BoardSort } from '../../../lib/app/boardSort';
 import { setProjectCommentAgent } from '../../../lib/review/assigneeAgent';
 import type { AssigneeAgentInput } from '../../../lib/review/assigneeAgentModel';
@@ -263,15 +262,6 @@ export async function setBoardSortAction(projectId: string, status: BoardColumn,
     });
 }
 
-/** Expands or collapses the board's Archive column, saved on the project like the columns' sorts (the same people) */
-export async function setBoardArchiveAction(projectId: string, expanded: boolean) {
-    return await actionResult(async () => {
-        const input = parseActionInput(boardArchiveActionSchema, { projectId, expanded });
-        const { project, actor } = await commentContext(input.projectId);
-        await saveProjectBoardArchive(project, actor, input.expanded);
-    });
-}
-
 /** The agent working under the signed-in member on a thread assigned to them, or `null` to remove it */
 export async function setCommentAgentAction(projectId: string, commentId: string, agent: AssigneeAgentInput | null, idempotencyKey: string, agentId?: string, add?: boolean) {
     return commentAction(agentCommentActionSchema, { projectId, commentId, agent, idempotencyKey, agentId, add },
@@ -279,8 +269,7 @@ export async function setCommentAgentAction(projectId: string, commentId: string
 }
 /**
  * Every thread in one board column under the board's filters, not only the cards it has loaded (Archive all,
- * uier #357). The person archives them with `triageCommentsAction`, 50 at a time; Archive itself is not a column
- * to archive.
+ * uier #357). The person archives them with `triageCommentsAction`, 50 at a time.
  */
 export async function boardColumnThreadsAction(projectId: string, params: Record<string, string>, lane: string) {
     return actionResult(async () => {
@@ -288,9 +277,9 @@ export async function boardColumnThreadsAction(projectId: string, params: Record
         const { context, project, actor } = await commentContext(input.projectId);
         if (!canTriageProject(project, actor)) throw new UserFacingError('Only project members can archive feedback.');
         const query = parseCommentsQuery({ ...input.params, view: 'board' });
+        if (query.archive) throw new UserFacingError('These threads are archived already.');
         const data = await loadAppCommentsSnapshot(context, project, query, undefined, undefined, { lane: input.lane, allIds: true, revisionOnly: true });
         if (!data) throw new UserFacingError('This view is no longer available.');
-        if (orderedStatuses(data.workflow).find(status => status.id === input.lane.split('~')[0])?.category === 'archive') throw new UserFacingError('These threads are archived already.');
         return data.paging.lanes[input.lane]?.ids ?? [];
     });
 }
@@ -326,10 +315,10 @@ export async function changeCommentLabelsAction(projectId: string, commentId: st
         ({ project, actor }, input) => changeProjectCommentLabels(project, actor, input.commentId, input.labelIds, input.mode, input.idempotencyKey));
 }
 
-export async function setBoardGroupingAction(projectId: string, expanded: boolean, labelIds?: string[]) {
+export async function setBoardGroupingAction(projectId: string, grouped: boolean, labelIds?: string[]) {
     return actionResult(async () => {
-        const input = parseActionInput(boardArchiveActionSchema, { projectId, expanded });
+        const input = parseActionInput(boardGroupingActionSchema, { projectId, grouped });
         const { project, actor } = await commentContext(input.projectId);
-        await saveProjectBoardGrouping(project, actor, labelIds === undefined ? input.expanded : labelIds);
+        await saveProjectBoardGrouping(project, actor, labelIds === undefined ? input.grouped : labelIds);
     });
 }

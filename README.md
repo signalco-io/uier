@@ -18,7 +18,7 @@ was left from, with a screenshot when capture succeeds.
 | Bring context to a coding tool | Copy issue and an authenticated [MCP connection](docs/mcp.md) ([overview](https://uier.io/features/ai)) |
 
 For Claude Code or Codex, [install the uier plugin](docs/agent-plugins.md) from this repository's
-marketplace. It includes the MCP connector and skills to monitor a project's feedback through fixes.
+marketplace. It includes the MCP connector and skills to resolve project feedback or [start project monitors on demand](docs/uier-monitor.md#on-demand-project-monitors).
 
 ## Pricing
 

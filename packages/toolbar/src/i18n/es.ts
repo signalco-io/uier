@@ -467,7 +467,8 @@ export const es: Messages = {
         pageScreenshot: 'Se adjuntará una captura de la página visible.',
         regionScreenshot: 'Se adjuntará una captura de esta parte de la página.',
         attachScreenshot: 'No se adjuntará ninguna captura de pantalla. Selecciona para adjuntar una.',
-        textOnly: (status: string) => `${status} Selecciona para omitir la captura de pantalla.`,
+        removeScreenshot: 'Quitar captura de pantalla',
+        previewScreenshot: 'Ver captura de pantalla',
         screenshotToggle: 'Adjuntar captura de pantalla',
         attachedToReply: 'Adjunta a tu respuesta.',
         sentInstead: 'Se envía en lugar de la captura de pantalla.',
@@ -618,6 +619,11 @@ export const es: Messages = {
         proposed: 'Propuesta',
         preparing: 'Preparando la vista previa…',
         values: 'Valores exactos',
+        changes: 'Cambios',
+        noTextChanges: 'Sin cambios en el texto. La sugerencia coincide con el texto original.',
+        onlySpacingChanges: 'Solo cambian los espacios. Las palabras coinciden con el texto original.',
+        removedText: 'Eliminado:',
+        addedText: 'Añadido:',
         stale: 'La página ya no coincide con el original guardado. Los valores guardados aparecen abajo.',
         unavailable: 'No hay vista previa para este elemento.',
         invalid: 'Introduce un valor CSS válido en cada campo modificado.',
@@ -643,6 +649,7 @@ export const es: Messages = {
     },
     selection: {
         label: 'Texto seleccionado',
+        comment: 'Comentar',
         rewrite: 'Reescribir'
     },
     canvas: {
@@ -711,6 +718,7 @@ export const es: Messages = {
         assignedToMe: 'Asignados a mí',
         reviewBrief: 'Indicaciones de revisión',
         close: 'Cerrar el panel lateral',
+        openInApp: 'Abrir en la app',
         filters: {
             archived: "Archivo",
             unresolved: 'Activos',
@@ -1070,6 +1078,8 @@ export const es: Messages = {
             showOrder: 'Mostrar el orden de tabulación',
             focusNote: 'Mueve el foco por los controles de la página, ejecutando sus manejadores de foco, y lista los que no muestran ningún cambio visible.',
             checkFocus: 'Comprobar los indicadores de foco',
+            indicators: 'Indicadores de foco',
+            notRun: 'Aún sin comprobar: mueve el foco, así que solo se ejecuta a petición.',
             moving: 'Moviendo el foco por la página…',
             focusFailed: 'No se pudo ejecutar la comprobación del foco.'
         },

@@ -1,6 +1,6 @@
-import { spawn, type ChildProcess } from 'node:child_process';
+import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
 import { once } from 'node:events';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -35,14 +35,24 @@ test('the monitor dashboard loads the toolbar under its own CSP, and a member co
         const publicId = await projectPublicId(page, projectId);
 
         // One monitor with a group in progress, so the page has a card to comment on.
-        writeFileSync(join(dir, 'state.json'), JSON.stringify({
+        const state = {
             project: { id: 'fixture', name: 'Fixture monitor' }, updatedAt: new Date().toISOString(),
             items: { a: { number: 7, decision: 'accepted', stage: 'in-progress' } },
             groups: { g7: { items: ['a'], state: 'building', model: 'claude-opus-5-5', effort: 'high', startedAt: new Date().toISOString() } }
-        }));
-        writeFileSync(join(dir, 'usage.json'), JSON.stringify({ since: new Date().toISOString(), days: {
+        };
+        const usage = { since: new Date().toISOString(), days: {
             [new Date().toISOString().slice(0, 10)]: { requests: 8, responseBytes: 2048, meteredRequests: 0, idleWakes: 0 }
-        } }));
+        } };
+        const supervisor = {
+            enabled: false, harness: 'codex', projects: { fixture: { id: 'fixture', name: 'Fixture monitor', phase: 'settled', allowed: true } }
+        };
+        const seed = `import { writeState, writeRecord } from './store.mjs';
+            const [dir,state,usage,supervisor] = JSON.parse(process.argv[1]);
+            writeState(dir,state); writeRecord(dir,'usage',usage); writeRecord(null,'orchestrator',supervisor);`;
+        execFileSync(process.execPath, ['--input-type=module', '-e', seed, JSON.stringify([dir,state,usage,supervisor])], {
+            cwd: fileURLToPath(new URL('../../../plugins/uier/skills/uier-monitor/scripts/', import.meta.url)),
+            env: { ...process.env, UIER_MONITOR_HOME: join(dir, 'home') }
+        });
         let output = '';
         child = spawn(process.execPath, [dashboard, '--port', String(port), '--review', publicId, '--state', dir], {
             cwd: tmpdir(), stdio: ['ignore', 'pipe', 'pipe'],
@@ -58,6 +68,10 @@ test('the monitor dashboard loads the toolbar under its own CSP, and a member co
         await page.goto(`/app/review/${projectId}?url=${encodeURIComponent(`${origin}/`)}`);
         await expect(page).toHaveURL(`${origin}/?toolbar-code=${publicId}`);
         await expect(page.getByRole('article', { name: 'Fixture monitor' })).toContainText('Building');
+        const orchestrator = page.getByRole('region', { name: 'Orchestrator' });
+        await expect(orchestrator).toContainText('Paused');
+        await expect(orchestrator).toContainText('Fixture monitor');
+        await expect(orchestrator).toContainText('Settled');
         await expect(toolbar(page)).toBeVisible();
         const monitor = page.getByRole('article', { name: 'Fixture monitor' });
         await expect(monitor.getByText('Requests, up to 31 UTC days')).toBeVisible();

@@ -2,18 +2,18 @@
 
 import type { ReactNode } from 'react';
 import { cx } from '@signalco/ui-primitives/cx';
-import { CameraIcon, CheckIcon, PaperclipIcon, SendIcon } from 'lucide-react';
+import { PaperclipIcon, SendIcon, XIcon } from 'lucide-react';
 import { Pin } from '@uier/brand/Pin';
 import { DeviceDetails, DeviceIcon, BrowserMark, type DeviceTile } from '@uier/toolbar/device-details';
 import { floating, Message, ThreadHeader } from '../LandingSpecimens';
 import { appear, fade, FeatureCover, type CoverCaption } from './FeatureCover';
 
 // /features/screenshots: a comment left on a phone. The toolbar takes a screenshot of the spot while
-// the comment is written (Attach screenshot pressed, its status read out under the text box), the
+// the comment is written (its thumbnail beside Attach, its status read out under the text box), the
 // thread shows it as a thumbnail with the browser and screen after the time, the device details open
 // (the shared `DeviceDetails` of @uier/toolbar/device-details, as the toolbar and the app draw them),
 // then Redact screenshot covers the guest's name with an opaque box. The words are the toolbar's
-// (ComposerScreenshotToggle, CommentDevice, ScreenshotRedaction); recheck with
+// (ComposerScreenshot, CommentDevice, ScreenshotRedaction); recheck with
 // packages/toolbar/docs/screenshots.md and device-details.md.
 
 const phases = [
@@ -116,14 +116,17 @@ function Scene({ phase }: { phase: Phase }) {
                             <span className="text-[13px] leading-5">The map does not open in the maps app.</span>
                             <span className="flex items-center gap-1 text-muted-foreground">
                                 <span className="inline-flex size-6 items-center justify-center"><PaperclipIcon size={14} strokeWidth={1.75} /></span>
-                                {/* Attach screenshot, pressed: ink, with a check and a camera */}
-                                <span className="inline-flex h-6 items-center gap-0.5 rounded-md bg-primary px-1.5 text-primary-foreground">
-                                    <CheckIcon size={12} strokeWidth={2} /><CameraIcon size={14} strokeWidth={1.75} />
+                                {/* The screenshot's thumbnail, a placeholder while it is taken, then Remove screenshot */}
+                                <span className="relative h-6 w-9 overflow-hidden rounded-md border bg-muted">
+                                    <span className={cx('absolute inset-0 bg-background', appear(is('capture')))}>
+                                        <span className="block w-[312px] origin-top-left scale-[0.11] p-3"><BookingCard /></span>
+                                    </span>
                                 </span>
+                                <span className="inline-flex size-6 items-center justify-center"><XIcon size={14} strokeWidth={1.75} /></span>
                                 <SendIcon size={14} strokeWidth={1.75} className="ml-auto mr-1" />
                             </span>
                         </div>
-                        {/* The toggle's status, as it is read out */}
+                        {/* The screenshot's status, as it is read out */}
                         <span className="grid text-[11px] text-muted-foreground">
                             <span className={cx('col-start-1 row-start-1', appear(!is('capture')))}>Taking a screenshot…</span>
                             <span className={cx('col-start-1 row-start-1', appear(is('capture')))}>A screenshot of this part of the page will be attached.</span>

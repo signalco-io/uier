@@ -39,3 +39,9 @@ recording files reach Slack only after an admin allows file uploads and turns th
 in the message's thread, and are removed when replaced, deleted or made private. The recordings section
 no longer says recordings are never copied to connected services. This wording needs the same owner
 review before merge.
+
+The privacy policy's 19 November 2026 update describes the composer's screenshot thumbnail ([uier #476](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2F&comment=comment_MHq-BrZmONnqI7ugzvoOX)):
+the comment box shows the automatic screenshot as a thumbnail that can be previewed, and removing it
+(turning off Attach screenshot in browser extension 0.1.9 and earlier) omits only the automatic
+screenshot; an image or recording the person attaches is still sent. This wording needs the same owner
+review before merge.

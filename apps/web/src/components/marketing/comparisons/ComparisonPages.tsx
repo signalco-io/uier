@@ -218,7 +218,7 @@ export function AllToolsPage() {
                     <p>Named reviewers approve a whole version. Fix verification checks one thread.</p>
                 </Tile>
                 <Tile title="Run product research"><p>uier has no satisfaction surveys, public voting or roadmap. Usersnap and Userback document product-research capabilities alongside visual feedback.</p></Tile>
-                <Tile title="Organize work and deadlines"><p>uier groups up to 30 custom statuses under Open, In progress, Ready to verify, Done and Archive. You can set deadlines on file approval rounds. BugHerd supports custom board columns with task due dates.</p></Tile>
+                <Tile title="Organize work and deadlines"><p>uier groups up to 30 custom statuses under Open, In progress, Ready to verify and Done. Archive keeps the workflow status. You can set deadlines on file approval rounds. BugHerd supports custom board columns with task due dates.</p></Tile>
                 <Tile title="Publish text and style changes"><p>uier lets reviewers preview proposed text and supported styles on the page. Your team copies the exact values, implements the change in source and publishes it through your usual process.</p></Tile>
             </Panel>
         </PageSection>

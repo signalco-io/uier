@@ -70,8 +70,7 @@ condition holds; `heldForDrag` waits for a held card's `data-hold` before moving
 
 Bulk Archive (`kind: 'archive'`, ids and keys only) calls the thread's own `setProjectCommentArchived` per thread,
 so the permission (`canResolveComment`), receipt and activity match the thread menu's Archive; a thread archived
-already counts as unchanged. It only archives: Restore stays in the thread's menu. The board's Archive column
-and the list's Archive scope then show the threads. Each result carries the saved `commentSequence`, which the app
+already counts as unchanged. It only archives: Restore stays in the thread's menu. The project's Archive list then shows the threads with their workflow status. Each result carries the saved `commentSequence`, which the app
 uses to keep archived threads out until a snapshot shows them archived; on the board they leave one after another
 ([motion](comments-inbox.md#motion)).
 

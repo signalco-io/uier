@@ -1,5 +1,5 @@
 import { expect, test, type Page, type WebSocketRoute } from '@playwright/test';
-import { commentRowLink, createProject, setProjectAccess, signIn, uniqueEmail, openComment } from './support/app';
+import { appNavigation, commentRowLink, createProject, setProjectAccess, signIn, uniqueEmail, openComment } from './support/app';
 import { startReviewedSite } from './support/reviewedSite';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 import { commentBubble, openThread } from './support/toolbar';
@@ -52,6 +52,38 @@ test('app board receives another reviewer\'s comment and status change without r
     await expect(draft).toHaveText('Keep this unfinished reply', { useInnerText: true });
     await page.keyboard.press('Escape');
     await expect(page.getByRole('region', { name: 'Done comments', exact: true }).getByRole('listitem')).toHaveCount(1);
+});
+
+test('the mounted sidebar updates the open badge and recent order from a realtime snapshot', async ({ page, request }) => {
+    const sockets = await transport(page);
+    await signIn(page, uniqueEmail('realtime-sidebar'));
+    const project = await createProject(page, { urls: [site.origin()], name: 'Live feedback' });
+    await createProject(page, { urls: ['sidebar-order.example.test'], name: 'Newer project' });
+    await setProjectAccess(page, project, 'Anyone with the link');
+    const headers = await verifiedReviewHeaders(request, project, site.origin());
+    await page.goto(`/app/projects/${project}`);
+    const reads = shellRefreshes(page, project);
+    await expect.poll(() => sockets.length).toBeGreaterThan(0);
+    const navigation = await appNavigation(page);
+    const projects = navigation.locator('a[href^="/app/projects/"]:not([href="/app/projects/new"])');
+    const current = projects.filter({ hasText: 'Live feedback' });
+    await expect(projects).toHaveText([/Newer project$/, /Live feedback$/]);
+    await expect(current).toHaveAccessibleDescription('');
+
+    const posted = await request.post(`/api/review/${project}/comments`, { headers, data: {
+        path: `/${project}/pricing`, position: { type: 'page' }, kind: 'feedback', text: 'A new sidebar comment', authorName: 'Reviewer'
+    } });
+    expect(posted.status()).toBe(201);
+    const { id } = await posted.json() as { id: string };
+    sockets.at(-1)!.send('{"type":"comments.changed"}');
+    await expect(current).toHaveAccessibleDescription('1 open comment');
+    await expect(projects).toHaveText([/Live feedback$/, /Newer project$/]);
+
+    const resolved = await request.patch(`/api/review/${project}/comments/${id}`, { headers, data: { resolved: true } });
+    expect(resolved.status()).toBe(200);
+    sockets.at(-1)!.send('{"type":"comments.changed"}');
+    await expect(current).toHaveAccessibleDescription('');
+    expect(reads).toHaveLength(0);
 });
 
 test('a thread that arrives does not take the place of the one shown beside the list', async ({ page, request }, testInfo) => {

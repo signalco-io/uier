@@ -37,8 +37,8 @@ async function openPanel(page: Page, label: string) {
     const keyboard = panel.locator('[data-uier-section="keyboard"]');
     await expect(keyboard).toHaveAttribute('data-uier-section-status', 'done', { timeout: 20_000 });
     await showChecksTab(panel, 'keyboard');
-    // Show tab order and Check focus indicators, above the section
-    const tools = panel.locator('[data-uier-keyboard-tools]');
+    // Show tab order and Check focus indicators, in the rows of Tab stops and Focus indicators (uier #492, #493)
+    const tools = keyboard.locator('[data-uier-keyboard-tool]');
     return { project, panel, keyboard, tools };
 }
 
@@ -93,10 +93,9 @@ test('the Keyboard section reports the tab order and draws it on the page while 
     await expect(hidden.getByRole('listitem')).toHaveCount(1);
     await expect(hidden.getByRole('listitem')).toContainText('a#ghost-link.ghost');
 
-    // The order on the page: numbered by its elements, following the scroll. Its button is above the section's findings
-    const toggle = tools.getByRole('button', { name: 'Show tab order' });
-    expect((await tools.boundingBox())!.y).toBeLessThan((await keyboard.boundingBox())!.y);
-    await expect(tools).toContainText('Numbers each stop on the page, with a line to the next.');
+    // The order on the page: numbered by its elements, following the scroll. Its button is in the Tab stops row
+    const toggle = check(keyboard, 'tab-stops').getByRole('button', { name: 'Show tab order' });
+    await expect(check(keyboard, 'tab-stops')).toContainText('Numbers each stop on the page, with a line to the next.');
     await expect(toggle).toHaveAttribute('aria-pressed', 'false');
     // Each tool's label stays inside its button, also wrapped in a narrow card
     for (const button of await tools.getByRole('button').all()) {
@@ -188,8 +187,10 @@ test('the focus check moves the focus through the page, by keyboard or by mouse,
     const { project, panel, keyboard, tools } = await openPanel(page, 'keyboard-focus');
     const start = tools.getByRole('button', { name: 'Check focus indicators' });
     await expect(start).toHaveAccessibleDescription(/^Moves the focus through the page's controls/);
-    // Not run when the panel opened: it changes the page while it runs
-    await expect(check(keyboard, 'focus-indicator')).toHaveCount(0);
+    // Not run when the panel opened: it changes the page while it runs. Its row says so, with the button in it
+    await expect(check(keyboard, 'focus-indicator')).toHaveAttribute('data-uier-check-state', 'none');
+    await expect(check(keyboard, 'focus-indicator').getByRole('button', { name: 'Check focus indicators' })).toBeVisible();
+    await expect(check(keyboard, 'focus-indicator').getByRole('button', { name: 'About Focus indicators' })).toHaveAccessibleDescription(/Not checked yet/);
 
     // From the keyboard; the page is scrolled, and one of its focus handlers scrolls it to the top
     await page.evaluate(() => window.scrollTo(0, 150));
@@ -197,7 +198,7 @@ test('the focus check moves the focus through the page, by keyboard or by mouse,
     await page.keyboard.press('Enter');
     await expectFocusFindings(keyboard);
     // Its description stays with the findings
-    await expect(tools).toContainText("Moves the focus through the page's controls");
+    await expect(check(keyboard, 'focus-indicator')).toContainText("Moves the focus through the page's controls");
     await expect(tools.getByRole('status')).toHaveText(`1 of ${tabOrder.length} stops showed no visible change when focused.`);
     await expect(start).toBeFocused();
     expect(await page.evaluate(() => window.scrollY)).toBe(150);
@@ -215,7 +216,8 @@ test('the focus check moves the focus through the page, by keyboard or by mouse,
 
     // Check again drops it; a click starts it again, asking the browser for the keyboard's focus styles
     await panel.getByRole('button', { name: 'Check again' }).click();
-    await expect(check(keyboard, 'focus-indicator')).toHaveCount(0);
+    await expect(check(keyboard, 'focus-indicator')).toHaveAttribute('data-uier-check-state', 'none');
+    await expect(check(keyboard, 'focus-indicator').getByRole('listitem')).toHaveCount(0);
     await expect(keyboard).toHaveAttribute('data-uier-section-status', 'done');
     // Posting scrolled the element into view for its screenshot
     await page.evaluate(() => window.scrollTo(0, 150));

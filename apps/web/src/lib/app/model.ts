@@ -110,6 +110,8 @@ export type DbWorkspace = AppDoc & {
     name: string;
     createdBy: string;
     createdAt: string;
+    /** The current logo in this partition, or absent for the uier mark. */
+    logoVersion?: string;
     /** Serializes member removals through a conditional workspace/member transaction. */
     memberRemovalVersion?: number;
     /** Serializes workspace access mutations in conditional transactions. */
@@ -126,6 +128,15 @@ export type DbWorkspace = AppDoc & {
     /** The toolbar language of the workspace's projects. Missing means English: no migration for existing workspaces. */
     toolbarLanguage?: import('@uier/toolbar/languages').ToolbarLanguage;
 };
+
+export type DbWorkspaceLogo = AppDoc & {
+    type: 'workspace-logo';
+    pk: `workspace:${string}`;
+    /** Base64 WebP variants, keyed by the longest side their slot can display. */
+    variants: Record<import('./workspaceLogoSizes').WorkspaceLogoSize, string>;
+};
+
+export const workspaceLogoDocId = (version: string) => `workspace_logo_${version}`;
 
 export type MemberRole = 'admin' | 'commenter';
 export type MemberRelationship = 'internal' | 'external';
@@ -230,7 +241,7 @@ export type DbProject = AppDoc & {
      * Only columns with a choice other than their default; missing means today's order everywhere.
      */
     boardSorts?: import('./boardSort').BoardSorts;
-    /** Whether the board's Archive column, its last, is expanded for everyone who opens it; missing means collapsed */
+    /** Legacy archive column preference. Archive is now a URL scope. */
     boardArchiveExpanded?: true;
     boardGroupByLabel?: boolean;
     boardGroupLabelIds?: string[];

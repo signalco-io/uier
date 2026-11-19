@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState, useSyncExternalStore, type PropsWithChildren, type KeyboardEvent, type ReactNode } from 'react';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { cx } from '@signalco/ui-primitives/cx';
-import { Drag } from '@signalco/ui-icons';
+import { Drag, PanelRightClose } from '@signalco/ui-icons';
 import { readPreference, savePreference, useReviewDrag, useReviewViewport } from '../hooks/useReviewMovement';
 import { useAnnounce } from './Announcer';
 import { useMessages } from '../i18n';
@@ -77,6 +77,22 @@ function setPanelDock(id: string, dock: PanelDock) {
     sidesVersion += 1;
     sideListeners.forEach(listener => listener());
 }
+// Panels shown in another's place from its title menu (uier #491): they open where it was, without sliding in
+const tookPlace = new Set<string>();
+/** `to` is about to show in `from`'s place: it docks where `from` is and, opening now, does not slide in (`usePanelSlidesIn`) */
+export function takePanelPlace(from: string, to: string, opening: boolean) {
+    if (opening) {
+        tookPlace.add(to);
+        requestAnimationFrame(() => tookPlace.delete(to));
+    }
+    const dock = panelDock(from);
+    if (panelDock(to) !== dock) setPanelDock(to, dock);
+}
+/** Whether a panel mounting now slides in: not when it took another's place */
+export function usePanelSlidesIn(id: string) {
+    const [slides] = useState(() => !tookPlace.delete(id));
+    return slides;
+}
 function subscribeSides(listener: () => void) {
     sideListeners.add(listener);
     return () => { sideListeners.delete(listener); };
@@ -131,6 +147,20 @@ function dockAt(point: { x: number; y: number }, view: Box): PanelDock {
 }
 
 const PanelHandleContext = createContext<ReactNode>(null);
+const PanelSideContext = createContext<PanelSide>('right');
+
+/**
+ * A docked panel's slide in and out, toward the side it is docked on (uier #487); only a fade with reduced motion.
+ * The `-full` values: tailwindcss-animate's bare `slide-in-from-left` compiles to nothing here.
+ */
+export const panelEnter = 'animate-in fade-in duration-200 ease-out motion-safe:data-[side=left]:slide-in-from-left-full motion-safe:data-[side=right]:slide-in-from-right-full';
+export const panelExit = 'animate-out fade-out fill-mode-forwards duration-150 ease-in motion-safe:data-[side=left]:slide-out-to-left-full motion-safe:data-[side=right]:slide-out-to-right-full';
+
+/** Close's icon, pointing to the side the panel is docked on (Lucide's panel-right-close, mirrored on the left: panel-left-close) */
+export function PanelCloseIcon() {
+    const side = useContext(PanelSideContext);
+    return <PanelRightClose size={16} aria-hidden="true" data-uier-panel-close-icon={side} className={side === 'left' ? '-scale-x-100' : undefined} />;
+}
 
 /** The panel's drag handle (also the arrow keys), for the panel's own header */
 export function PanelHandle() {
@@ -213,10 +243,12 @@ export function DockablePanel({ id, label, children, className, onKeyDown }: Pro
                 </div>
             )}
             <aside id={`uier-panel-${id}`} aria-label={label} data-uier-panel={id} data-side={dockSide(dock)} data-dock={dock} onKeyDown={onKeyDown}
-                className={cx('fixed z-50 flex flex-col rounded-2xl border bg-background text-foreground shadow-[0_8px_24px_rgba(0,0,0,0.16)]', className)}
+                className={cx('fixed z-50 flex flex-col rounded-2xl border bg-background text-foreground shadow-(--brand-shadow-review)', className)}
                 style={box}>
                 <PanelHandleContext value={handle}>
-                    <div className="min-h-0 flex-1">{children}</div>
+                    <PanelSideContext value={dockSide(dock)}>
+                        <div className="min-h-0 flex-1">{children}</div>
+                    </PanelSideContext>
                 </PanelHandleContext>
             </aside>
         </>

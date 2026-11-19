@@ -2,7 +2,7 @@
 
 import { useLayoutEffect, useReducer, useSyncExternalStore } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
-import { ArchiveIcon, ChevronDownIcon, KanbanIcon, ListFilterIcon, ListIcon, SearchIcon } from 'lucide-react';
+import { ChevronDownIcon, KanbanIcon, ListFilterIcon, ListIcon, SearchIcon } from 'lucide-react';
 import { useAppI18n } from '@/src/lib/i18n/client';
 import { cn } from '@/src/lib/utils';
 import { Button } from '@/src/components/ui/button';
@@ -10,7 +10,7 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from '@/src/components/u
 import { Skeleton } from '@/src/components/ui/skeleton';
 import { useShellInfo } from '../shell/ShellInfo';
 import { parseCommentsView } from '@/src/lib/app/commentsViewPreference';
-import { isActiveStatusFilter, isDoneStatusFilter, statusFilterLabels, type CommentsView, type StatusFilter } from './commentLabels';
+import { isActiveStatusFilter, statusFilterLabels, type CommentsView, type StatusFilter } from './commentLabels';
 import { storedCommentsView } from './commentsView';
 import { commentStatuses, StateDot } from './CommentStatus';
 import { filterControls, filterIconButton, searchInput, segmentedGroup, segmentedItem, statusTabsBox } from './CommentsViewToggle';
@@ -20,15 +20,16 @@ const subscribeNothing = () => () => {};
 /** The address's status filter, as `parseCommentsQuery` reads it: Active without one */
 function addressStatus(params: URLSearchParams): StatusFilter {
     const status = params.get('status');
-    return status && Object.hasOwn(statusFilterLabels, status) ? status as StatusFilter : 'active';
+    return status && Object.hasOwn(statusFilterLabels, status) ? status as StatusFilter : archiveView(params) ? 'all' : 'active';
 }
 
-/**
- * The view a project's comments will open in: the address's, else the remembered one, else the list. Archive is
- * always a list (`ProjectComments`' rule: the board has Archive as its last column instead), Board chosen or not.
- */
+function archiveView(params: URLSearchParams) {
+    return params.get('archive') === 'only' || params.get('status') === 'archived';
+}
+
+/** The archive opens as a list. Otherwise use the address's or the remembered view. */
 function openingView(params: URLSearchParams, remembered: CommentsView | undefined): CommentsView {
-    if (params.get('status') === 'archived') return 'list';
+    if (archiveView(params)) return 'list';
     return parseCommentsView(params.get('view')) ?? remembered ?? 'list';
 }
 
@@ -111,10 +112,10 @@ const boardCards = [3, 2, 4];
  */
 function FiltersPlaceholder({ view, status }: { view: CommentsView; status: StatusFilter }) {
     const { t } = useAppI18n();
-    const activeShown = isActiveStatusFilter(status), doneShown = isDoneStatusFilter(status);
+    const activeShown = isActiveStatusFilter(status);
     const tabs = [
         { value: 'active', label: activeShown && status !== 'active' ? `${t(statusFilterLabels.active)}: ${t(statusFilterLabels[status])}` : t(statusFilterLabels.active), pressed: activeShown, menu: true },
-        { value: 'done', label: t(statusFilterLabels[doneShown ? status : 'done']), pressed: doneShown, menu: true },
+        { value: 'done', label: t(statusFilterLabels.done), pressed: status === 'done', menu: false },
         { value: 'all', label: t(statusFilterLabels.all), pressed: status === 'all', menu: false }
     ];
     return (
@@ -157,7 +158,7 @@ function FiltersPlaceholder({ view, status }: { view: CommentsView; status: Stat
  * gutters, `page-wide`, uier #363), in the view it will open in. What every project's comments have is drawn for real
  * and skeletons fill only what depends on the data (uier #439): the search row, inert (`FiltersPlaceholder`, uier
  * #362); then the count line's room where it has its own row, then the list with the thread beside it on wide screens,
- * or the board's columns every workflow has with Archive's strip, from the left. A control that only some projects or
+ * or the board's columns every workflow has, from the left. A control that only some projects or
  * people have is never drawn here: it appears with the loaded comments. Its `data-header-wide` gives the project header
  * above the same width, as the loaded comments do.
  */
@@ -190,9 +191,8 @@ function CommentsSkeleton({ title, view, status }: { title: string; view: Commen
                 // The columns every board has, as `CommentBoard` lays them out (uier #439): one per Open, In progress and Done
                 // with its status's dot, the name (a workflow can rename it) and the cards still loading. Ready to verify
                 // (verification on), a workflow's further statuses and the column actions (sort and Archive all, for
-                // those who may change the board) depend on the project and appear with the loaded board. Then Archive's
-                // collapsed strip, its default, a faint edge with no fill like the loaded strip.
-                <div style={{ gridTemplateColumns: `repeat(${boardColumns.length}, minmax(min(18rem, var(--page-wide) - 3rem), 20rem)) 3rem` }}
+                // those who may change the board) depend on the project and appear with the loaded board.
+                <div style={{ gridTemplateColumns: `repeat(${boardColumns.length}, minmax(min(18rem, var(--page-wide) - 3rem), 20rem))` }}
                     className="grid items-start justify-start gap-4 overflow-hidden py-1 page-bleed">
                     {boardColumns.map((status, column) => (
                         <div key={status} data-board-column-loading={status} className="flex min-h-24 flex-col gap-2 rounded-2xl border bg-muted/50 p-2">
@@ -201,11 +201,6 @@ function CommentsSkeleton({ title, view, status }: { title: string; view: Commen
                             {Array.from({ length: expected === 'none' && status !== 'done' ? 0 : boardCards[column]! }, (_, card) => <CardSkeleton key={card} title={rowTitles[(column + card) % rowTitles.length]!} />)}
                         </div>
                     ))}
-                    {/* Its name and count run down the strip from md; narrower the 3rem strip keeps only its icon */}
-                    <div data-board-archive-loading="" className="flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-border/50 py-2.5 md:flex-col md:self-start md:py-3">
-                        <ArchiveIcon className="size-4 shrink-0 text-muted-foreground opacity-60 md:rotate-90" />
-                        <Skeleton className="hidden h-16 w-3.5 animate-none md:block" />
-                    </div>
                 </div>
             ) : (
                 <div className="grid grid-cols-1 items-start gap-4 page-wide @3xl/comments:grid-cols-[minmax(16rem,18rem)_minmax(0,1fr)] @4xl/comments:grid-cols-[minmax(17rem,clamp(22rem,30%,28rem))_minmax(0,1fr)]">

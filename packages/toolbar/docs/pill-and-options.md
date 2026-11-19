@@ -4,6 +4,10 @@ The pill is the toolbar's black bar (`components/CommentToolbar.tsx`). Its profi
 `ToolbarProfile.tsx` and `ToolbarOptions.tsx`. `hooks/useReviewMovement.ts` and `components/DockablePanel.tsx`
 move the pill and dock its panels, and `useToolbarNotice` places notices by it.
 
+The pill, the docked panels, the popovers and menus, notices and toasts share the review layer's floating shadow
+(`--brand-shadow-review` from `@uier/brand`, `floatingShadowClassName`), stronger than the site's, so they stand apart
+from any page.
+
 ## The pill
 
 - A `nav` landmark. Its buttons: Add comment, Draw on the page ([canvas mode](canvas-mode.md), the optional
@@ -57,6 +61,10 @@ handle has keyboard alternatives (the move handle's arrows move the pill).
   The place is kept per panel in `uier:panel-side:v1:<panel>` (the key predates the quarters, so a saved side is
   still a whole side), and the aside says it in `data-dock` (`data-side` stays the side, for the slide animation).
   Quarters are 16 px apart; narrower than 640 px a panel still covers the page wherever it docks.
+- A panel slides in from and out to its side (`panelEnter`, `panelExit`; only a fade with reduced motion), and its
+  Close shows panel-right-close on the right and the mirrored panel-left-close on the left (`PanelCloseIcon`,
+  `data-uier-panel-close-icon`; [uier #487](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000003&comment=comment_17QAsGT-bCVY03vOOHlui)).
+  The slides use tailwindcss-animate's `-full` values: the bare `slide-in-from-left` compiles to nothing in this build.
 
 ## Notices by the pill
 

@@ -168,7 +168,7 @@ test('members request and cancel from the toolbar using the existing participant
     const ready = inbox.getByRole('button', { name: 'Status: Ready to verify. Change status', exact: true });
     await ready.click();
     const statusMenu = page.getByRole('dialog', { name: 'Status', exact: true });
-    await expect(statusMenu.getByRole('button')).toHaveText(['Open', 'In progress', 'Ready to verify', 'Done without verification', 'Archive']);
+    await expect(statusMenu.getByRole('button')).toHaveText(['Open', 'In progress', 'Ready to verify', 'Done without verification']);
     await page.keyboard.press('Escape');
     await expect(ready).toBeFocused();
     await setThreadStatus(page, inbox.getByRole('article'), 'In progress');

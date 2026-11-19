@@ -25,7 +25,7 @@ export type CommentsView = 'list' | 'board';
  * `active` (the default): every status but Done, so Open, In progress and Ready to verify; the others
  * are one status each, and `all` adds Done. Deleted threads are never listed.
  */
-export type StatusFilter = 'active' | 'open' | 'in-progress' | 'ready' | 'done' | 'all' | 'archived';
+export type StatusFilter = 'active' | 'open' | 'in-progress' | 'ready' | 'done' | 'all';
 
 /** The list's status filter, in order: Active first, then the board's columns, then All */
 export const statusFilterLabels: Record<StatusFilter, string> = {
@@ -34,8 +34,7 @@ export const statusFilterLabels: Record<StatusFilter, string> = {
     'in-progress': 'In progress',
     ready: 'Ready to verify',
     done: 'Done',
-    all: 'All',
-    archived: 'Archive'
+    all: 'All'
 };
 
 /** The statuses folded under Active in the list's status filter, each one also a choice of its own */
@@ -45,9 +44,6 @@ export const activeStatusFilters = ['open', 'in-progress', 'ready'] as const sat
 export function isActiveStatusFilter(filter: StatusFilter) {
     return filter === 'active' || (activeStatusFilters as readonly StatusFilter[]).includes(filter);
 }
-
-/** Done's tab also holds Archive in the list's status filter: its menu picks one or the other (uier #302) */
-export const doneStatusFilters = ['done', 'archived'] as const satisfies readonly StatusFilter[];
 
 /**
  * The board's status filter (uier #335): one of its columns, or none (every column). The board shares the list's
@@ -59,15 +55,8 @@ export function boardStatusFilter(status: StatusFilter): BoardStatusFilter | und
     return (boardStatusFilters as readonly StatusFilter[]).includes(status) ? status as BoardStatusFilter : undefined;
 }
 
-/** Whether the status filter shows Done or Archive */
-export function isDoneStatusFilter(filter: StatusFilter) {
-    return (doneStatusFilters as readonly StatusFilter[]).includes(filter);
-}
-
 /** Whether a thread in `status` is listed under the status filter */
-export function statusMatches(filter: StatusFilter, status: import('@uier/toolbar/verification').FeedbackStage, archivedAt?: string) {
-    if (filter === 'archived') return Boolean(archivedAt);
-    if (archivedAt) return false;
+export function statusMatches(filter: StatusFilter, status: import('@uier/toolbar/verification').FeedbackStage) {
     return filter === 'all' || (filter === 'active' ? status !== 'done' : status === filter);
 }
 

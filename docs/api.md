@@ -37,7 +37,9 @@ Inaccessible resources return 404. Token revocation takes effect on subsequent c
 
 For writes, send `Content-Type: application/json` and a fresh `Idempotency-Key` (a UUID works).
 A reply takes `{"text":"Fixed in the latest build."}`. A status update takes `{"statusId":"…"}`
-using an ID from the project's statuses endpoint. Retry the same input with the same token, project
+using an ID from the project's statuses endpoint. Send `{ archived: true }` or
+`{ archived: false }` to archive or restore while keeping the workflow status. Responses carry both
+`statusId` and `archivedAt`, with an optional `archiveStatusId` for a saved archive destination. Retry the same input with the same token, project
 and key. For 30 days the server can recognize the write and return the current thread. Reusing a key
 with different input returns 409. Each token allows 120 requests per minute. Replies also count
 toward the project's reply limits. On 429, wait for the `Retry-After` interval in seconds.

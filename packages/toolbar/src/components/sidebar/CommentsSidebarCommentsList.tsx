@@ -42,13 +42,13 @@ function emptyText(filter: CommentsFilter, t: Messages) {
         return t.inbox.noMatches(where);
     }
     if (filter.unread) return t.inbox.noUnread(where);
+    if (filter.archived && filter.status === 'all') return t.inbox.noArchived(where);
     switch (filter.status) {
         case 'open': return t.inbox.noOpen(where);
         case 'in-progress': return t.inbox.noInProgress(where);
         case 'ready': return t.inbox.noReady(where);
         case 'resolved': return t.inbox.noDone(where);
         case 'all': return t.inbox.noComments(where);
-        case 'archived': return t.inbox.noArchived(where);
         default: return t.inbox.noActive(where);
     }
 }

@@ -112,6 +112,15 @@
   use time: workspace edits affect inheriting/appending projects immediately, including after transfer.
   Do not store computed effective values or put private settings into reviewer DTOs.
 
+### Workspace logo
+
+Workspace → Settings → Workspace logo lets admins upload, replace or remove the logo. Changes
+save immediately. PNG, JPEG, WebP and GIF uploads are limited to 4 MB and 4096 pixels per side.
+The server checks the bytes, keeps the first frame and fits it into 32 px and 64 px WebP images
+without cropping or upscaling. The original and its metadata are discarded. Each replacement
+changes the URL and deletes the old variants in the same transaction. Removal restores the
+uier mark. See [logo access](access-and-membership.md#workspace-logo).
+
 ### Toolbar language
 
 The review toolbar's language ([toolbar note](../../../packages/toolbar/docs/localization.md)): English, German,
@@ -221,8 +230,9 @@ Project settings and installation copy use the app language from the account pre
 
 ## Custom statuses
 
-Workspace settings → Statuses defines up to 30 statuses across the five categories: Open,
-In progress, Ready to verify, Done and Archive. Every category keeps at least one status.
+Workspace settings → Statuses defines up to 30 entries across Open, In progress, Ready to
+verify, Done and Archive. The Archive entries are destinations for the archive action.
+Each category keeps at least one entry.
 Each status has a stable ID, a distinct name (40 characters), an optional description (500
 characters), and its position within its category. Move up/down changes that order. Categories
 retain their semantic order and colour. Names and descriptions are plain text, never instructions.
@@ -248,8 +258,8 @@ comments may start only in Open or In progress, keeping them in active lists. Re
 requires a real request and reviewer. Creation retries retain their original saved status. Done, Archive and verification
 confirmation resolve current settings, including when an older client sends the existing category
 write. No migration changes historical comment categories. Removed/foreign IDs fall back to the
-first status in that same category (the configured default for Done/Archive). Archive retains a
-separate ordinary ID, so restore preserves the thread's prior custom status.
+first status in that same category (the configured default for Done/Archive). Archive writes preserve the ordinary workflow ID. Board columns and status menus use
+the ordinary status. The Archive list shows that status after archiving.
 
 Custom workflows apply to app settings, board columns, app and toolbar status/archive menus, and MCP reads and writes.
 My work keeps its category columns across projects, while its thread menus use each project's

@@ -86,6 +86,6 @@ export function createProjectFeedbackExportReader(project: DbProject, actor: Pro
                 ? KnownPageLinks.projectReplyScreenshot(project.id, comment.id, itemId)
                 : `/api/review/${encodeURIComponent(project.publicId ?? project.id)}/comments/${encodeURIComponent(comment.id)}/replies/${encodeURIComponent(itemId)}/screenshot`, baseUrl).href)
         });
-        return actor.kind === 'member' ? { ...packet, labels: labelsForComment(effectiveThreadLabels(await loadWorkspace(), project), comment), workflowStatus: statusForComment(await (workflow ??= loadWorkspace().then(workspace => effectiveStatusWorkflow(workspace, project))), comment) } : packet;
+        return actor.kind === 'member' ? { ...packet, labels: labelsForComment(effectiveThreadLabels(await loadWorkspace(), project), comment), workflowStatus: statusForComment(await (workflow ??= loadWorkspace().then(workspace => effectiveStatusWorkflow(workspace, project))), comment), ...(comment.archivedAt && comment.archiveStatusId ? { archiveStatusId: comment.archiveStatusId } : {}) } : packet;
     };
 }

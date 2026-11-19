@@ -160,8 +160,12 @@ test('the Accessibility panel audits the page in the background without the tool
     await expect(panel).toBeHidden();
     await expect(pageChecksButton(page)).toBeFocused();
 
-    // The title is a menu of the panels: SEO shows in this one's place, its Close focused (uier #299)
+    // The title is a menu of the panels: SEO shows in this one's place, its Close focused (uier #299),
+    // where this one is docked and without sliding in: only the contents change (uier #491)
     await openPageCheck(page, /^Accessibility/);
+    await animationsFinished(panel);
+    await panel.getByRole('button', { name: 'Move accessibility panel' }).press('ArrowLeft');
+    await expect(panel).toHaveAttribute('data-dock', 'left');
     await panel.getByRole('heading', { name: 'Accessibility' }).getByRole('button').click();
     const panels = page.getByRole('dialog', { name: 'Switch panel' });
     await expect(panels.getByRole('button')).toHaveText(['Comments', 'Accessibility', 'SEO', 'Security and compliance']);
@@ -170,12 +174,16 @@ test('the Accessibility panel audits the page in the background without the tool
     await page.keyboard.press('Enter');
     await expect(panel).toBeHidden();
     const seoPanel = page.getByRole('complementary', { name: 'SEO' });
+    await expect(seoPanel).toHaveAttribute('data-dock', 'left');
+    expect(await seoPanel.evaluate(element => element.getAnimations().length)).toBe(0);
     await expect(seoPanel.getByRole('button', { name: 'Close SEO panel' })).toBeFocused();
     await expectPageCheckExpanded(page, /^SEO/, true);
     await seoPanel.getByRole('heading', { name: 'SEO' }).getByRole('button').click();
     await page.getByRole('dialog', { name: 'Switch panel' }).getByRole('button', { name: 'Comments' }).click();
     await expect(seoPanel).toBeHidden();
-    await expect(page.getByRole('complementary', { name: 'Comments' }).getByRole('button', { name: 'Close sidebar' })).toBeFocused();
+    const inboxPanel = page.getByRole('complementary', { name: 'Comments' });
+    await expect(inboxPanel).toHaveAttribute('data-dock', 'left');
+    await expect(inboxPanel.getByRole('button', { name: 'Close sidebar' })).toBeFocused();
 });
 
 test('the Accessibility panel\'s Issues tab has a placeholder on a page without issues', async ({ page }, testInfo) => {
@@ -528,6 +536,7 @@ test('panels docked in the top and bottom quarters of a side stay open together,
     await expect(seo).toBeVisible();
     await expect(accessibility).toBeVisible();
     // Each panel takes its quarter as it docks: measured once they have settled there
+    await animationsFinished(seo);
     await expect.poll(async () => {
         const [seoBox, accessibilityBox] = [await seo.boundingBox(), await accessibility.boundingBox()];
         return seoBox!.y + seoBox!.height < accessibilityBox!.y;
@@ -737,6 +746,8 @@ test('on a phone the panels open from Options, keep the pill as wide as before, 
     await options.getByRole('button', { name: /^SEO/ }).tap();
     const seo = page.getByRole('complementary', { name: 'SEO' });
     await expect(seo.locator('[data-uier-check="alt"]')).toContainText('img#plan-chart');
+    // It slides in from its side: measured once there
+    await animationsFinished(seo);
     const box = (await seo.boundingBox())!;
     const viewport = page.viewportSize()!;
     expect(box.x).toBeGreaterThanOrEqual(0);

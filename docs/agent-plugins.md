@@ -5,7 +5,7 @@ For the setup journey, client choices and a first authorized read, start with th
 
 The repository publishes one **uier** plugin through its Claude Code and Codex marketplaces.
 It bundles the remote MCP connector at `https://uier.io/api/mcp`, `uier-monitor` and
-`uier-monitor-script`. The catalogs become available from `signalco-io/uier` when this change
+`uier-monitor-script`, plus [uier-orchestrator](uier-monitor.md#on-demand-project-monitors). The catalogs become available from `signalco-io/uier` when this change
 reaches `main`; a repository marketplace is separate from a public directory listing.
 
 A client that supports the MCP Skills extension does not need the plugin for the skills: the
@@ -83,7 +83,7 @@ servers. The MCP connection itself can be used without running the monitor.
 ## Maintain and validate
 
 `plugins/uier/` is a self-contained installed package. Skills live only in its `skills/`
-directory. `.claude/skills/uier-monitor*` links there; `.agents/skills/uier-monitor*` resolves
+directory. Repository-local uier skills in `.claude/skills` link there; `.agents/skills` resolves
 through those aliases. Existing repository invocations keep working. Never add an outbound
 symlink inside the plugin: hosts copy only the plugin directory into their cache.
 

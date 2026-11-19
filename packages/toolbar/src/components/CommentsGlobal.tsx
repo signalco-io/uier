@@ -1,7 +1,7 @@
 import { useToolbarFeatures } from '../hooks/useToolbarFeatures';
 import { ReattachContext, describeAnchor } from './CommentAnchorDetails';
 import { messages, useMessages, useToolbarLanguage } from '../i18n';
-import { DockablePanel, panelRoomNow, usePanelRoom, usePanelSidesVersion } from './DockablePanel';
+import { DockablePanel, panelRoomNow, takePanelPlace, usePanelRoom, usePanelSidesVersion } from './DockablePanel';
 import { CommentsApiError } from '../hooks/api';
 import { useCallback, useEffect, useEffectEvent, useId, useMemo, useRef, useState } from 'react';
 import { anchorSelector } from '../anchorSelector';
@@ -746,8 +746,8 @@ export function CommentsGlobal({
     };
 
     /** Opens the inbox on the status of a comment it should show (and without a search that could hide it) */
-    const showInSidebar = (status: CommentsStatusFilter) => {
-        setSidebarFilter({ status });
+    const showInSidebar = (status: CommentsStatusFilter, archived = false) => {
+        setSidebarFilter({ status, archived });
         setSidebarOpen(true);
     };
 
@@ -823,13 +823,13 @@ export function CommentsGlobal({
         linkHandledRef.current = true;
         if (linked.path !== path) {
             // Not this page's (any more): all pages, narrowed to its public id
-            setSidebarFilter({ status: linked.archivedAt ? 'archived' : linked.resolved ? 'resolved' : 'unresolved', page: 'all', keywords: linked.number !== undefined ? `#${linked.number}` : undefined });
+            setSidebarFilter({ status: linked.archivedAt ? 'all' : linked.resolved ? 'resolved' : 'unresolved', archived: Boolean(linked.archivedAt), page: 'all', keywords: linked.number !== undefined ? `#${linked.number}` : undefined });
             setSidebarOpen(true);
             announce(messages().page.earlierPageState);
             return;
         }
         if (linked.archivedAt || linked.resolved || linked.position.type === 'page') {
-            showInSidebar(linked.archivedAt ? 'archived' : linked.resolved ? 'resolved' : 'unresolved');
+            showInSidebar(linked.archivedAt ? 'all' : linked.resolved ? 'resolved' : 'unresolved', Boolean(linked.archivedAt));
         } else {
             setOpenComment({ id: linked.id });
         }
@@ -898,6 +898,8 @@ export function CommentsGlobal({
         ],
         switchTo: (from: DockPanelId, to: DockPanelId) => {
             const shown = openPanels.includes(to);
+            // It shows where this one is: only the contents change (uier #491); the toolbar opens panels elsewhere
+            takePanelPlace(from, to, !shown);
             setHintOpen(false);
             showPanel(from, false);
             showPanel(to, true);

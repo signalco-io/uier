@@ -1,26 +1,24 @@
 #!/usr/bin/env node
 // uier monitor dashboard: a local, read-only page that shows what every uier monitor on this
-// machine is doing, working on and waiting on. No dependencies; Node 18.15 or later.
+// machine is doing, working on and waiting on. No dependencies; Node 24 or later.
 //
 //   node dashboard.mjs                 serve http://127.0.0.1:4780
 //   node dashboard.mjs --json          print one snapshot of every monitor and exit
 //   node dashboard.mjs help            every option
 //
-// It only reads. Monitors announce themselves in ~/.uier-monitor/monitors (monitor.mjs writes one
-// small file per state folder); the dashboard reads each monitor's state.json, watch.json,
-// watch.pid, inbox.json, notification.json and events.jsonl and sends the browser a fixed set of
-// fields, never the files themselves. Feedback text is untrusted: the page renders it as text.
-//
+// Reads project state and activity from SQLite and process health from watch.pid.
+// Only a fixed set of fields reaches the browser. Feedback is rendered as text.
+
 // Source of truth: plugins/uier/skills/uier-monitor/scripts/dashboard.mjs in the uier repository.
 
 import { spawn, spawnSync } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
 import { lookup as dnsLookup } from 'node:dns';
-import { closeSync, existsSync, mkdirSync, openSync, readFileSync, readSync, readdirSync, realpathSync, renameSync, rmSync, statSync, statfsSync, unwatchFile, watchFile, writeFileSync } from 'node:fs';
+import { closeSync, existsSync, mkdirSync, openSync, readFileSync, readSync, realpathSync, renameSync, rmSync, statSync, statfsSync, unwatchFile, watchFile, writeFileSync } from 'node:fs';
 import { createServer, request as httpRequest } from 'node:http';
 import { request as httpsRequest } from 'node:https';
 import { BlockList, isIP } from 'node:net';
-import { homedir } from 'node:os';
+import { activity, canonical, monitorHome, readEntities, readInbox, readRecord, readSlots, stateSnapshot, registrations } from './store.mjs';
 import { join, resolve } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -37,11 +35,15 @@ const SLOT_STATES = new Set(['building', 'fixing', 'reviewing']);
 const FINISHED = new Set(['closed', 'cancelled', 'done', 'closed-out']);
 const MINUTE = 60_000;
 const DAY = 86_400_000;
+// The same default limit and claim lifetime as the monitor helper.
+const MACHINE_MAX = 12;
+const CLAIM_MS = 15 * MINUTE;
 
 const HELP = `uier monitor dashboard ${VERSION}
 
 Usage: node dashboard.mjs [serve] [options]
        node dashboard.mjs stop
+       node dashboard.mjs review [ID|off]
 
   --port N        Port to serve on (default ${DEFAULT_PORT}; the next free one is used when it is taken).
   --host HOST     Address to bind (default 127.0.0.1, this machine only).
@@ -53,22 +55,25 @@ Usage: node dashboard.mjs [serve] [options]
                   dashboard otherwise fetches from the project's site (its page and favicon).
   --review ID     Load the uier review toolbar on the page for the uier project with this id, so
                   people can leave feedback on the dashboard itself. The project's addresses must
-                  include the dashboard's (http://127.0.0.1:${DEFAULT_PORT}). Off unless you pass it.
+                  include the dashboard's (http://127.0.0.1:${DEFAULT_PORT}). Off unless you pass it or
+                  saved a default. A dashboard already running without it is restarted with it, on
+                  the same port.
   --dev           For work on the dashboard itself: when this file changes, the new code takes over
                   on the same port and open pages reload, keeping their open cards and scroll position.
 
-Monitors are found in ~/.uier-monitor/monitors (UIER_MONITOR_HOME overrides the folder), where the
-watcher announces itself, and in <git common dir>/uier-monitor of the checkout you run this in.
+  review ID       Save ID as the default --review: every start without --review on this machine
+                  loads the toolbar for that project, also the one the uier-monitor skill starts.
+  review off      Forget the default. review on its own prints it.
+
+Monitors are registered in ~/.uier-monitor/monitor.sqlite (UIER_MONITOR_HOME overrides the folder).
 The dashboard is read-only: it never changes a monitor, uier or the repository. It loads nothing
 from the internet, except each project's site icon (not with --no-icons) and the uier toolbar when
-you start it with --review.
+you start it with --review or saved a default with review ID.
 `;
 
 // ---------------------------------------------------------------- reading files
 
-export function monitorHome() {
-    return process.env.UIER_MONITOR_HOME || join(homedir(), '.uier-monitor');
-}
+export { monitorHome };
 
 const cache = new Map();
 /** A file's parsed content, read again only when its size or modification time changed. */
@@ -97,12 +102,6 @@ function tail(file, info, bytes) {
     return lines.filter(Boolean);
 }
 
-function journal(dir) {
-    const parse = (file, info) => tail(file, info, 512_000).flatMap(line => { try { return [JSON.parse(line)]; } catch { return []; } });
-    const current = cached(join(dir, 'events.jsonl'), parse, []);
-    // Right after a rotation the current file is short; the previous one fills the history in.
-    return current.length < 400 ? [...cached(join(dir, 'events.jsonl.1'), parse, []), ...current] : current;
-}
 
 function logLines(dir) {
     // Lease renewals fill the log; they say nothing about what the monitor is doing.
@@ -143,34 +142,11 @@ function watcherAlive(pid) {
 
 // ---------------------------------------------------------------- discovery
 
-const commonDirs = new Map();
-function gitCommonDir(cwd) {
-    if (!commonDirs.has(cwd)) {
-        const git = spawnSync('git', ['rev-parse', '--path-format=absolute', '--git-common-dir'], { cwd, encoding: 'utf8' });
-        commonDirs.set(cwd, git.status === 0 ? git.stdout.trim() : null);
-    }
-    return commonDirs.get(cwd);
-}
-
-/** Every state folder to show: announced ones, the current checkout's, and the ones passed in. */
-export function discover({ states = [], cwd = process.cwd() } = {}) {
-    const found = new Map();
-    const add = dir => {
-        if (typeof dir !== 'string' || !existsSync(join(dir, 'state.json'))) return;
-        try { found.set(realpathSync(dir), true); } catch { /* removed meanwhile */ }
-    };
-    const registry = join(monitorHome(), 'monitors');
-    let entries = [];
-    try { entries = readdirSync(registry).filter(name => name.endsWith('.json')); } catch { /* nothing announced yet */ }
-    for (const name of entries) add(json(join(registry, name), null)?.stateDir);
-    const common = gitCommonDir(cwd);
-    if (common) {
-        const root = join(common, 'uier-monitor');
-        try { for (const entry of readdirSync(root, { withFileTypes: true })) if (entry.isDirectory()) add(join(root, entry.name)); }
-        catch { /* no monitor in this checkout */ }
-    }
-    for (const dir of states) add(resolve(dir));
-    return [...found.keys()];
+/** All registered monitors use the same database, including explicit --state directories. */
+export function discover({ states = [] } = {}) {
+    const dirs = new Set(registrations().map(entry => entry.stateDir));
+    for (const dir of states) if (existsSync(dir)) dirs.add(canonical(dir));
+    return [...dirs];
 }
 
 // ---------------------------------------------------------------- snapshot
@@ -316,13 +292,13 @@ export function levels(current, events, now) {
 
 /** One monitor, as the fixed set of fields the page shows. */
 export function snapshot(dir, now = Date.now()) {
-    const state = json(join(dir, 'state.json'), null);
+    const state = stateSnapshot(dir, null);
     if (!state || typeof state !== 'object') return null;
-    const seen = json(join(dir, 'watch.json'), {}) ?? {};
+    const seen = readRecord(dir, 'watch', {}) ?? {};
     const pidFile = json(join(dir, 'watch.pid'), null);
-    const inbox = list(json(join(dir, 'inbox.json'), []));
-    const notification = json(join(dir, 'notification.json'), {}) ?? {};
-    const savedUsage = json(join(dir, 'usage.json'), {}) ?? {};
+    const inbox = readInbox(dir);
+    const notification = readRecord(dir, 'notification', {}) ?? {};
+    const savedUsage = readRecord(dir, 'usage', {}) ?? {};
     const usage = { requests: 0, responseBytes: 0, errors: 0, meteredRequests: 0, databaseRu: 0, idleWakes: 0 };
     const usageCutoff = new Date(now - 30 * DAY).toISOString().slice(0, 10);
     const usageToday = new Date(now).toISOString().slice(0, 10);
@@ -330,11 +306,13 @@ export function snapshot(dir, now = Date.now()) {
         if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || day < usageCutoff || day > usageToday) continue;
         for (const key of Object.keys(usage)) if (Number.isFinite(values?.[key]) && values[key] >= 0) usage[key] += values[key];
     }
-    const events = journal(dir);
+    const events = activity(dir, 10_000);
     const items = state.items && typeof state.items === 'object' ? state.items : {};
     const groups = Object.entries(state.groups && typeof state.groups === 'object' ? state.groups : {}).filter(([, group]) => group && typeof group === 'object');
     const prs = state.prs && typeof state.prs === 'object' ? state.prs : {};
     const settings = state.watch && typeof state.watch === 'object' ? state.watch : {};
+    // Waiting for a slot under the machine's limit; a monitor woken for one that never claimed it lost its place.
+    const place = Object.values(readSlots().waiting).find(entry => entry?.dir === dir && !(entry.notifiedAt && now - entry.notifiedAt >= 15 * MINUTE));
     const gitlab = state.repo?.provider === 'gitlab';
     const slugPattern = gitlab ? /^[\w.-]+(?:\/[\w.-]+)+$/ : /^[\w.-]+\/[\w.-]+$/;
     const slug = slugPattern.test(state.repo?.slug ?? '') && state.repo.slug.split('/').every(part => !['.', '..'].includes(part)) ? state.repo.slug : undefined;
@@ -362,7 +340,7 @@ export function snapshot(dir, now = Date.now()) {
     else if (lastStart && lastStart.persistent === false && now - Date.parse(lastWake?.at ?? '') < 15 * MINUTE) status = 'handling';
     // Nothing has touched this monitor for a day: it was left behind, not interrupted.
     let touched = Math.max(Date.parse(state.updatedAt ?? '') || 0, Date.parse(state.watcherUpdatedAt ?? '') || 0, heartbeat || 0);
-    if (!touched) try { touched = statSync(join(dir, 'state.json')).mtimeMs; } catch { /* removed meanwhile */ }
+    if (!touched) try { touched = registrations().find(entry => entry.stateDir === dir)?.touched; } catch { /* removed meanwhile */ }
     if (status === 'down' && now - touched > DAY) status = 'inactive';
 
     // Pipeline
@@ -432,6 +410,7 @@ export function snapshot(dir, now = Date.now()) {
     else {
         if (loud.length) waiting.push({ key: 'orchestrator', text: `The orchestrator, to handle ${plural(loud.length, 'event')}`, since: time(Math.min(...loud.map(event => Date.parse(event.foundAt ?? '') || now))) });
         if (used) waiting.push({ key: 'sessions', text: `${plural(used, 'session')} working` });
+        if (place && Number(place.since) > 0) waiting.push({ key: 'capacity', text: 'A free session slot on this machine', since: time(Number(place.since)) });
         if (count('pr')) waiting.push({ key: 'prs', text: `${plural(count('pr'), 'pull request')} to merge` });
         if (count('deploying')) waiting.push({ key: 'deploys', text: `${plural(count('deploying'), 'deploy')} to finish` });
         if (attention.length) waiting.push({ key: 'you', text: `You, on ${plural(attention.length, 'comment')}` });
@@ -496,13 +475,44 @@ export function snapshot(dir, now = Date.now()) {
 
 const ORDER = { running: 0, handling: 0, waiting: 1, stale: 2, down: 3, stopped: 4, inactive: 5 };
 
-/** Every monitor on this machine, most active first. */
+/**
+ * Sessions working on this machine against the limit every monitor shares: the groups in a slot
+ * state of every monitor that isn't inactive, and the slots claimed for sessions about to start.
+ */
+export function machineCapacity(monitors, now = Date.now()) {
+    const settings = readRecord(null, 'settings', {});
+    const max = Number.isInteger(settings?.maxSessions) && settings.maxSessions > 0 ? settings.maxSessions : MACHINE_MAX;
+    // A claim counts until its group's state changes (the session was recorded) or it expires.
+    const claims = Object.values(readSlots().claims).filter(claim => {
+        if (!claim || typeof claim.dir !== 'string' || !(now - Number(claim.at) < CLAIM_MS)) return false;
+        const current = readEntities(claim.dir, 'groups', [claim.group])[claim.group]?.state ?? null;
+        return current === (claim.from ?? null) && !SLOT_STATES.has(current);
+    }).length;
+    const used = monitors.reduce((total, entry) => total + (entry.status === 'inactive' ? 0 : entry.slots.used), 0) + claims;
+    return { max, used, waiting: monitors.filter(entry => entry.waiting.some(item => item.key === 'capacity')).length };
+}
+
+const projectPhases = { waiting: 'Waiting for feedback', starting: 'Starting worker', monitoring: 'Monitoring', parking: 'Stopping worker', settled: 'Settled', external: 'Independent monitor', stopped: 'Stopped' };
+function orchestratorStatus(now) {
+    const s = readRecord(null, 'orchestrator', null);
+    if (!s) return null;
+    const heartbeat = time(s.heartbeatAt);
+    const status = !s.enabled ? 'Paused' : !alive(s.pid) ? 'Offline' : !heartbeat ? 'Starting'
+        : now - Date.parse(heartbeat) > 5 * MINUTE ? 'Stale heartbeat' : 'Running';
+    return { status, harness: ['t3', 'claude', 'codex'].includes(s.harness) ? s.harness : undefined, heartbeat,
+        projects: Object.values(s.projects ?? {}).filter(p => p?.allowed).map(p => ({
+            id: text(p.id, 32), name: text(p.name, 100), phase: projectPhases[p.phase] ?? 'Unknown',
+            checkedAt: time(p.checkedAt), attention: Boolean(p.error || p.needsRetry)
+        })) };
+}
+
+/** Every monitor on this machine, most active first, and the machine's session capacity. */
 export function collect(options = {}) {
     const now = options.now ?? Date.now();
     const monitors = discover(options).map(dir => { try { return snapshot(dir, now); } catch { return null; } }).filter(Boolean)
         .sort((a, b) => (ORDER[a.status] - ORDER[b.status]) || String(b.updatedAt ?? '').localeCompare(String(a.updatedAt ?? '')));
     if (options.icons) for (const entry of monitors) entry.project.icon = projectIcon(entry.project.site);
-    return { app: APP, version: VERSION, build: BUILD, monitors };
+    return { app: APP, version: VERSION, build: BUILD, capacity: machineCapacity(monitors, now), orchestrator: orchestratorStatus(now), monitors };
 }
 
 // ---------------------------------------------------------------- project icons
@@ -698,6 +708,40 @@ export function reviewOf(project, base = process.env.UIER_REVIEW_URL || 'https:/
     return { project, origin: url.origin };
 }
 
+const settingsFile = () => join(monitorHome(), 'dashboard-settings.json');
+
+/** The dashboard's saved settings on this machine (`review <id>`), or {}. */
+function readSettings() {
+    try { const value = JSON.parse(readFileSync(settingsFile(), 'utf8')); return value && typeof value === 'object' && !Array.isArray(value) ? value : {}; }
+    catch { return {}; }
+}
+
+/** The `--review` of a start without one: the project saved with `review <id>`, or null. */
+export function savedReview() {
+    const { review } = readSettings();
+    if (review === undefined || review === null) return null;
+    try { return reviewOf(review); }
+    catch (error) { console.error(`Ignoring the saved review project in ${settingsFile()}: ${error.message}`); return null; }
+}
+
+/** `review [id|off]`: save, forget or print the default review project. */
+function saveReview(value) {
+    const settings = readSettings();
+    if (value === undefined) {
+        console.log(settings.review ? `Dashboards started without --review load the toolbar for project ${settings.review}. Turn it off with: node dashboard.mjs review off`
+            : 'No default review project. Save one with: node dashboard.mjs review <project id>');
+        return;
+    }
+    if (value === 'off') delete settings.review;
+    else settings.review = reviewOf(value).project;
+    mkdirSync(monitorHome(), { recursive: true });
+    const temporary = `${settingsFile()}.${process.pid}.tmp`;
+    writeFileSync(temporary, `${JSON.stringify(settings)}\n`);
+    renameSync(temporary, settingsFile());
+    console.log(value === 'off' ? 'Dashboards load the review toolbar only when started with --review.'
+        : `Saved: dashboards started without --review load the toolbar for project ${value}. Start it, or restart a running one with it: node dashboard.mjs --detach --open`);
+}
+
 /** The page's Content-Security-Policy: nothing from elsewhere, or exactly what the uier toolbar needs. */
 function contentSecurityPolicy(nonce, review) {
     const uier = review ? ` ${review.origin}` : '';
@@ -822,6 +866,7 @@ function parseArgs(argv) {
         else if (arg === '--no-icons') options.icons = false;
         else if (arg === '--help' || arg === '-h' || arg === 'help') options.command = 'help';
         else if (arg === 'stop' || arg === 'serve') options.command = arg;
+        else if (arg === 'review') { options.command = 'review'; if (argv[index + 1] !== undefined && !argv[index + 1].startsWith('-')) options.saved = argv[++index]; }
         else throw new Error(`Unknown option "${arg}". Run: node dashboard.mjs help`);
     }
     if (options.port !== undefined && !(Number.isInteger(options.port) && options.port >= 0 && options.port < 65536)) throw new Error('--port needs a port number.');
@@ -836,23 +881,52 @@ async function ping(url) {
 }
 
 const recordFile = () => join(monitorHome(), 'dashboard.json');
-const readRecord = () => { try { return JSON.parse(readFileSync(recordFile(), 'utf8')); } catch { return null; } };
+const readServerRecord = () => { try { return JSON.parse(readFileSync(recordFile(), 'utf8')); } catch { return null; } };
 
 function openBrowser(url) {
     const [command, args] = process.platform === 'darwin' ? ['open', [url]] : process.platform === 'win32' ? ['cmd', ['/c', 'start', '', url]] : ['xdg-open', [url]];
     try { spawn(command, args, { detached: true, stdio: 'ignore' }).on('error', () => {}).unref(); } catch { /* no browser to open */ }
 }
 
+/** The address to open: a review link when the page loads the uier toolbar, so the review starts. */
+const pageUrl = (url, review) => review ? `${url}/?review=true` : url;
+
+/**
+ * What this start asks for that the running dashboard (its record) wasn't started with, as the
+ * options to name, or null. A record without them is from a start without `--review` and `--dev`.
+ */
+export function missingFrom(record, options) {
+    const missing = [];
+    const review = record?.review;
+    if (options.review && (review?.project !== options.review.project || review?.origin !== options.review.origin)) missing.push(`--review ${options.review.project}`);
+    if (options.dev && !record?.dev) missing.push('--dev');
+    return missing.length ? missing.join(' ') : null;
+}
+
+async function stopDashboard(pid) {
+    try { process.kill(pid, 'SIGTERM'); } catch { /* already gone */ }
+    for (let wait = 0; wait < 50 && alive(pid); wait++) await sleep(100);
+    if (alive(pid)) throw new Error(`The running dashboard (pid ${pid}) did not stop. Stop it with: node dashboard.mjs stop`);
+}
+
 async function serve(options) {
     const host = options.host ?? '127.0.0.1';
     const shown = host.includes(':') ? `[${host}]` : host;
     const first = options.port ?? DEFAULT_PORT;
-    const record = readRecord();
+    const record = readServerRecord();
+    const running = record?.url && alive(record.pid) && await ping(record.url) ? record : null;
     // One dashboard shows every monitor, so a second one would only take another port.
-    if (options.port === undefined && record?.url && alive(record.pid) && await ping(record.url)) {
-        console.log(`The dashboard is already running: ${record.url}`);
-        if (options.open) openBrowser(record.url);
-        return;
+    if (running && (options.port === undefined || new URL(running.url).port === String(options.port))) {
+        const missing = missingFrom(running, options);
+        if (!missing) {
+            console.log(`The dashboard is already running: ${running.url}`);
+            if (options.open) openBrowser(pageUrl(running.url, options.review));
+            return;
+        }
+        // Reusing it would drop what was asked for (the toolbar only works on the project's address),
+        // so this start takes its place on the same port.
+        console.log(`The dashboard at ${running.url} was started without ${missing}; restarting it on the same port.`);
+        await stopDashboard(running.pid);
     }
     if (options.detach) {
         const args = [fileURLToPath(import.meta.url), 'serve', '--host', host, ...(options.port === undefined ? [] : ['--port', String(options.port)]),
@@ -861,10 +935,11 @@ async function serve(options) {
         child.unref();
         for (let wait = 0; wait < 40; wait++) {
             await sleep(100);
-            const started = readRecord();
+            const started = readServerRecord();
             if (started?.pid === child.pid) {
                 console.log(`uier monitor dashboard: ${started.url} (pid ${child.pid}). Stop it with: node dashboard.mjs stop`);
-                if (options.open) openBrowser(started.url);
+                if (options.review) console.log(`Review: open ${pageUrl(started.url, options.review)} to leave feedback.`);
+                if (options.open) openBrowser(pageUrl(started.url, options.review));
                 return;
             }
         }
@@ -882,21 +957,23 @@ async function serve(options) {
     const url = `http://${shown}:${server.address().port}`;
     mkdirSync(monitorHome(), { recursive: true });
     const temporary = `${recordFile()}.${process.pid}.tmp`;
-    writeFileSync(temporary, `${JSON.stringify({ pid: process.pid, url, startedAt: new Date().toISOString() })}\n`);
+    // What it was started with, so a later start that asks for more can tell (`missingFrom`).
+    const entry = { pid: process.pid, url, startedAt: new Date().toISOString(), ...(options.review ? { review: options.review } : {}), ...(options.dev ? { dev: true } : {}) };
+    writeFileSync(temporary, `${JSON.stringify(entry)}\n`);
     renameSync(temporary, recordFile());
-    const release = () => { if (readRecord()?.pid === process.pid) rmSync(recordFile(), { force: true }); };
+    const release = () => { if (readServerRecord()?.pid === process.pid) rmSync(recordFile(), { force: true }); };
     for (const signal of ['SIGTERM', 'SIGINT', 'SIGHUP']) process.on(signal, () => { release(); process.exit(0); });
     process.on('exit', release);
     const total = collect(options).monitors.length;
     console.log(`uier monitor dashboard: ${url} (${plural(total, 'monitor')}). Read-only; press Ctrl+C to stop.`);
     if (!['127.0.0.1', 'localhost', '::1'].includes(host)) console.log(`Bound to ${host}: everyone who can reach this address can read the page.`);
     if (options.dev) console.log('Watching dashboard.mjs: an edit swaps in the new code and reloads open pages.');
-    if (options.review) console.log(`Review: the page loads the uier toolbar from ${options.review.origin} for project ${options.review.project}. Open ${url}/?review=true to leave feedback.`);
-    if (options.open) openBrowser(options.review ? `${url}/?review=true` : url);
+    if (options.review) console.log(`Review: the page loads the uier toolbar from ${options.review.origin} for project ${options.review.project}. Open ${pageUrl(url, options.review)} to leave feedback.`);
+    if (options.open) openBrowser(pageUrl(url, options.review));
 }
 
 function stop() {
-    const record = readRecord();
+    const record = readServerRecord();
     if (!record?.pid || !alive(record.pid)) { rmSync(recordFile(), { force: true }); console.log('not running'); return; }
     process.kill(record.pid, 'SIGTERM');
     console.log(`stopped ${record.pid}`);
@@ -906,8 +983,12 @@ async function main(argv) {
     const options = parseArgs(argv);
     if (options.command === 'help') console.log(HELP);
     else if (options.command === 'stop') stop();
+    else if (options.command === 'review') saveReview(options.saved);
     else if (options.json) console.log(JSON.stringify(collect(options), null, 1));
-    else await serve(options);
+    else {
+        if (options.review === undefined) options.review = savedReview();
+        await serve(options);
+    }
 }
 
 // ---------------------------------------------------------------- the page
@@ -1094,6 +1175,7 @@ code { font: 12px/1.4 "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospa
         <span class="badge right" id="live"><i class="dot ring"></i><span>Connecting</span></span>
     </header>
     <div class="machine" id="machine" data-list></div>
+    <section class="machine" id="orchestrator" data-list aria-label="Orchestrator"></section>
     <section class="tiles" id="tiles" data-list aria-label="All monitors"></section>
     <main class="grid" id="monitors" data-list></main>
 </div>
@@ -1674,6 +1756,18 @@ function animated(change) {
     moving = false;
 }
 
+function orchestrator(view) {
+    if (!view) return h('div');
+    return h('div', null, h('div', { class: 'card', 'data-key': 'orchestrator' },
+        h('div', { class: 'head' }, h('h2', { text: 'Orchestrator' }), h('span', { class: 'badge', text: view.status })),
+        h('div', { class: 'meta' }, joined([view.harness, plural(view.projects.length, 'allowed project'),
+            view.heartbeat ? h('span', null, 'Heartbeat ', ago(view.heartbeat)) : null], ' · ')),
+        view.projects.map(function (project) {
+            return h('div', { class: 'line', 'data-key': project.id }, h('span', { text: project.name || project.id }),
+                h('span', { class: 'muted', text: project.phase }), project.attention ? h('span', { class: 'badge', text: 'Needs attention' }) : null);
+        })));
+}
+
 function render() {
     if (!data) return;
     var monitors = data.monitors;
@@ -1682,7 +1776,10 @@ function render() {
     var count = function (stage) { return function (entry) { return entry.pipeline.filter(function (item) { return item.stage === stage; }).length; }; };
     var needs = sum(monitors, function (entry) { return entry.attention.length; });
     var attention = [].concat.apply([], monitors.map(function (entry) { return entry.attention; }));
-    var used = sum(busy, function (entry) { return entry.slots.used; }), slots = sum(busy, function (entry) { return entry.slots.max; });
+    // Sessions count against the machine's limit when it is lower than the monitors' own maximums.
+    var capacity = data.capacity || { used: sum(busy, function (entry) { return entry.slots.used; }), max: Infinity, waiting: 0 };
+    var own = sum(busy, function (entry) { return entry.slots.max; }), used = capacity.used, slots = Math.min(own, capacity.max);
+    var limited = capacity.max < own;
     var working = monitors.filter(active).length, waiting = monitors.filter(function (entry) { return entry.status === 'waiting'; }).length;
     var pill = function (key, dot, words) { return h('span', { class: 'badge', 'data-key': key }, dot ? h('i', { class: 'dot ' + dot }) : null, h('span', { class: 'num', 'data-flash': true, text: words })); };
     var summary = h('span', null, monitors.length ? [pill('monitors', null, plural(monitors.length, 'monitor')), pill('working', working ? 'work' : 'ring', working + ' working'),
@@ -1690,12 +1787,13 @@ function render() {
     var shared = {};
     animated(function () {
         reconcile(document.getElementById('summary'), summary);
+        reconcile(document.getElementById('orchestrator'), orchestrator(data.orchestrator));
         document.title = (needs ? '(' + needs + ') ' : '') + 'uier monitor';
         reconcile(document.getElementById('machine'), h('div', null, busy.map(function (entry) {
             return entry.health.map(function (item) { if (!item.machine || shared[item.text]) return null; shared[item.text] = true; return alert(item); });
         })));
         reconcile(document.getElementById('tiles'), h('div', null, monitors.length ? [
-            tile('Sessions working', used, 'of ' + slots + ' slots', slots ? meter(used, slots) : null),
+            tile('Sessions working', used, 'of ' + slots + (limited ? ' slots on this machine' : ' slots') + (capacity.waiting ? ' · ' + plural(capacity.waiting, 'monitor') + ' waiting' : ''), slots ? meter(used, slots) : null),
             tile('Queued', sum(busy, count('queued')), 'groups waiting for a slot', trend(addLevels(busy, 'queued'), 'Queued')),
             tile('Pull requests', sum(busy, count('pr')), 'open, waiting to merge', trend(addLevels(busy, 'pr'), 'Open pull requests')),
             tile('Needs you', needs, needWords(attention), needPips(attention)),

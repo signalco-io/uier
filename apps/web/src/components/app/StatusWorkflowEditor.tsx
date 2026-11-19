@@ -22,7 +22,7 @@ const MAX_STATUSES = 30;
 const rowColumns = 'grid-cols-[0.875rem_minmax(0,1fr)_2rem] pointer-coarse:grid-cols-[0.875rem_minmax(0,1fr)_2.75rem] '
     + '@lg/statuses:grid-cols-[0.875rem_minmax(0,2fr)_minmax(0,3fr)_2rem] @lg/statuses:pointer-coarse:grid-cols-[0.875rem_minmax(0,2fr)_minmax(0,3fr)_2.75rem]';
 
-/** A status's category beside its name (BRAND.md, "Status"): the category's dot, or Archive's icon as on the board */
+/** A status's category beside its name (BRAND.md, "Status"): the category's dot, or the archive destination icon */
 function CategoryMark({ category }: { category: StatusCategory }) {
     return <span aria-hidden="true" className="flex w-3.5 shrink-0 items-center justify-center">
         {category === 'archive' ? <ArchiveIcon className="size-3.5 text-muted-foreground" /> : <StateDot status={category} />}

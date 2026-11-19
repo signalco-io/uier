@@ -60,7 +60,7 @@ a key keeps it), while the toolbar is expanded and the shortcuts are on. `toolba
 | ? | Options on the keyboard shortcuts, the heading focused, with the switch |
 
 C in point mode ends it. Add comment names C in its tooltip (a mono `kbd`, `IconTooltip`'s `shortcut`) and in
-`aria-keyshortcuts`, and so does the selection toolbar's Add comment ([selected text](point-mode.md#selected-text)).
+`aria-keyshortcuts`, and so does the selection toolbar's Comment ([selected text](point-mode.md#selected-text)).
 Options shows the list and the switch where a keyboard is likely, and always while the shortcuts are off
 ([Options](pill-and-options.md#profile-and-options)).
 

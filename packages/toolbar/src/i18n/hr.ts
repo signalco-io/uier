@@ -467,7 +467,8 @@ export const hr: Messages = {
         pageScreenshot: 'Bit će priložena snimka vidljivog dijela stranice.',
         regionScreenshot: 'Bit će priložena snimka ovog dijela stranice.',
         attachScreenshot: 'Snimka zaslona neće biti priložena. Odaberite kako biste je priložili.',
-        textOnly: (status: string) => `${status} Odaberite kako biste izostavili snimku zaslona.`,
+        removeScreenshot: 'Ukloni snimku zaslona',
+        previewScreenshot: 'Pregledaj snimku zaslona',
         screenshotToggle: 'Priloži snimku zaslona',
         attachedToReply: 'Priloženo vašem odgovoru.',
         sentInstead: 'Šalje se umjesto snimke zaslona.',
@@ -618,6 +619,11 @@ export const hr: Messages = {
         proposed: 'Predloženo',
         preparing: 'Priprema pretpregleda…',
         values: 'Točne vrijednosti',
+        changes: 'Promjene',
+        noTextChanges: 'Nema promjena teksta. Prijedlog je jednak izvornom tekstu.',
+        onlySpacingChanges: 'Mijenjaju se samo razmaci. Riječi su jednake izvornom tekstu.',
+        removedText: 'Uklonjeno:',
+        addedText: 'Dodano:',
         stale: 'Stranica više ne odgovara spremljenom izvorniku. Spremljene vrijednosti možete vidjeti u nastavku.',
         unavailable: 'Pretpregled ovog cilja ovdje nije dostupan.',
         invalid: 'Unesite podržanu CSS vrijednost za svako izmijenjeno polje.',
@@ -643,6 +649,7 @@ export const hr: Messages = {
     },
     selection: {
         label: 'Označeni tekst',
+        comment: 'Komentiraj',
         rewrite: 'Preoblikuj'
     },
     canvas: {
@@ -711,6 +718,7 @@ export const hr: Messages = {
         assignedToMe: 'Dodijeljeno meni',
         reviewBrief: 'Upute za pregled',
         close: 'Zatvori bočnu ploču',
+        openInApp: 'Otvori u aplikaciji',
         filters: {
             archived: "Arhiva",
             unresolved: 'Aktivno',
@@ -1070,6 +1078,8 @@ export const hr: Messages = {
             showOrder: 'Prikaži redoslijed tabulatora',
             focusNote: 'Pomiče fokus kroz kontrole stranice, pokreće njihove rukovatelje fokusom i navodi one koji ne pokazuju vidljivu promjenu.',
             checkFocus: 'Provjeri pokazatelje fokusa',
+            indicators: 'Pokazatelji fokusa',
+            notRun: 'Još nije provjereno: provjera pomiče fokus pa se pokreće samo na zahtjev.',
             moving: 'Pomicanje fokusa kroz stranicu…',
             focusFailed: 'Provjera fokusa nije pokrenuta.'
         },

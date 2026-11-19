@@ -6,7 +6,7 @@ import { memberId, userPk, type DbUser, type DbMember } from '../src/lib/app/mod
 import { randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
 import { feedbackStage } from '@uier/toolbar/verification';
-import { matchesStatus } from '../../../packages/toolbar/src/components/sidebar/CommentsFilter';
+import { matchesFilter, matchesStatus } from '../../../packages/toolbar/src/components/sidebar/CommentsFilter';
 import type { CommentItem } from '../../../packages/toolbar/src/components/@types/Comments';
 import type { DbComment } from '../src/lib/db/schema';
 import type { DbProject } from '../src/lib/app/model';
@@ -132,7 +132,7 @@ test('archive receipts replay safely and concurrent replies survive restoration'
     expect(mcpEventData('feedback.archive_changed', f.project, await f.read(), event, new Map(), 'https://uier.io')).toMatchObject({ archived: true });
 });
 
-test('archive filtering precedes limits and both UI filters exclude it from All and Done', async () => {
+test('archive filtering precedes limits and composes with workflow status', async () => {
     const f = await fixture();
     await f.store.create({ ...f.comment, id: 'comment_newer', createdAt: '2026-11-10', archivedAt: '2026-11-10' });
     for (const list of [() => f.store.listAll(f.comment.domain, 1, undefined, undefined, 'exclude'),
@@ -141,12 +141,17 @@ test('archive filtering precedes limits and both UI filters exclude it from All 
     expect(archiveSql('exclude')).toContain('NOT IS_STRING(c.archivedAt)');
     expect(archiveSql('only')).toContain('AND IS_STRING(c.archivedAt)');
     for (const stage of ['open', 'in-progress', 'ready', 'done'] as const) {
-        const comment = { archivedAt: '2026-11-10', resolved: stage === 'done', inProgress: stage === 'in-progress' } as CommentItem;
-        expect(statusMatches('all', stage, comment.archivedAt)).toBe(false);
-        expect(statusMatches('done', stage, comment.archivedAt)).toBe(false);
-        expect(statusMatches('archived', stage, comment.archivedAt)).toBe(true);
-        for (const status of ['all', 'unresolved', 'resolved'] as const) expect(matchesStatus(comment, status)).toBe(false);
-        expect(matchesStatus(comment, 'archived')).toBe(true);
+        const comment: CommentItem = { id: 'test', isMine: false, position: { type: 'page' }, kind: 'feedback',
+            archivedAt: '2026-11-10', resolved: stage === 'done', inProgress: stage === 'in-progress', verificationEnabled: true,
+            verification: stage === 'ready' ? { id: 'check', revision: 'v1', outcome: 'pending', requestedAt: '2026-11-01', requester: 'One', reviewer: 'Two' } : undefined,
+            path: '/checkout', thread: { items: [] } };
+        expect(statusMatches('all', stage)).toBe(true);
+        expect(statusMatches('done', stage)).toBe(stage === 'done');
+        const status = stage === 'done' ? 'resolved' : stage;
+        expect(matchesStatus(comment, status)).toBe(true);
+        expect(matchesFilter(comment, { status })).toBe(false);
+        expect(matchesFilter(comment, { status, archived: true })).toBe(true);
+        expect(matchesFilter(comment, { status: stage === 'done' ? 'open' : 'resolved', archived: true })).toBe(false);
     }
 });
 

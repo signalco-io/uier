@@ -177,12 +177,11 @@ test('A project\'s Comments and Page checks tabs load as wide as they will be, s
             await expect(page.getByRole('searchbox')).toHaveCount(0);
             // Only what every board has (uier #439): no Group by (it needs labels); one column per Open, In progress and
             // Done with its status's dot, without the column actions (sort and Archive all depend on who may change the
-            // board) or Ready to verify (verification is off); Archive's collapsed strip
+            // board) or Ready to verify (verification is off).
             await expect(skeleton.locator('button[aria-label="Group by"]')).toHaveCount(0);
             await expect(skeleton.locator('[data-board-column-loading]')).toHaveCount(3);
             await expect(skeleton.locator('[data-board-column-loading] [data-status-dot]')).toHaveCount(3);
             await expect(skeleton.locator('[data-board-column-loading] button')).toHaveCount(0);
-            await expect(skeleton.locator('[data-board-archive-loading]')).toBeVisible();
             await capture(page, info, 'board-loading');
             loading = await width();
         });

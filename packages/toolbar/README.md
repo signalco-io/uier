@@ -367,9 +367,9 @@ error boundary, so one bad comment never breaks the toolbar.
   original quoted. Suggestions are offered for selections of up to 1000 characters (what a comment holds). When
   the model declines, the toolbar says "No suggestions for this text."; when suggestions are not available (no
   API key, `503`) or limited (`429`), it says so, and your own version still works. Closing an unchanged rewrite
-  leaves nothing behind. The selected text toolbar (Add comment, Rewrite) is one Tab stop; the arrow keys, Home
+  leaves nothing behind. The selected text toolbar (Comment, Rewrite) is one Tab stop; the arrow keys, Home
   and End move between its buttons.
-- Text comments: select text, then **Add comment** in the toolbar that appears next to the selection. The
+- Text comments: select text, then **Comment** in the toolbar that appears next to the selection. The
   comment stores the selected text and where it is: the start and end elements and character offsets in
   all of their text (so text after a link or bold words inside a paragraph is found again).
 - Restoring: pins are placed at their elements and commented text is tinted; clicking the tint opens the
@@ -388,10 +388,9 @@ error boundary, so one bad comment never breaks the toolbar.
   Revision checks reject stale choices; access/selector/page/project/origin checks run on the server.
   Cross-page migration and automatic AI relocation are not supported.
 - Screenshots are captured automatically when a new element/text comment, rewrite, feedback or bug report starts.
-  There is no preview while writing. The text box's corner has **Attach** (a menu: Attach image, Record screen,
-  Upload recording) and the **Attach screenshot** toggle, pressed (ink, with a check) while a screenshot will be
-  attached: its tooltip says so (or that it is being taken, or could not be taken), and turning it off (a crossed-out
-  camera) posts only the text: no image is sent for that comment. **Attach image**, or pasting an image into the
+  The text box's corner has **Attach** (a menu: Attach image, Record screen, Upload recording) and the screenshot's
+  small thumbnail (a placeholder while it is taken), which opens a larger preview, with **Remove screenshot**: removed,
+  only the text is posted and no image is sent for that comment; **Attach screenshot** (a camera) takes a new one. **Attach image**, or pasting an image into the
   form, sends the reviewer's own PNG, JPEG or WebP (up to 512 KB and 4096 pixels on each side) instead of the
   screenshot; the corner names the file and removes it again. Posting waits for that capture attempt (up to 15 seconds);
   a failed capture still saves the text. Reopening or restoring a draft refreshes its capture and viewport from the current page, and

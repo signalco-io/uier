@@ -39,6 +39,8 @@ the separately bundled review toolbar owns its own query cache.
   side by side breaks out of it with the `page-wide` utility (`app/global.css`: the panel's width less the gutters, centred
   on the column; its parent must span the column) and `data-page-width="wide"`, which makes the panel's content a container
   (CSS `:has()`, so it follows a client-side view switch at once) for the registered `--page-wide` length the column sets.
+  The desktop panel reserves its classic scrollbar gutter in the loading frame and loaded shell. A board that
+  crosses the overflow threshold while loading or filtering keeps the same usable width (uier #484).
   The container is a wrapper inside the scrolling panel, not the panel: a scroller's `cqw` takes in its own scrollbar where
   scrollbars take room (shown always, as on macOS with a mouse), and the board would then be that much wider than the panel
   and scroll it sideways when its columns fit.
@@ -88,15 +90,15 @@ the separately bundled review toolbar owns its own query cache.
   skeleton carries the loaded page's `data-page-width="wide"` and `data-header-wide`, which widen the shell's column
   and the project header. `CommentsLoading` (comments/) draws the search row (search, the list's status tabs, Filter,
   List/Board), the count line's own row where it has one, then the list with the first thread beside it, or the board's
-  columns every workflow has (Open, In progress and Done, each with its status's dot) and Archive's collapsed strip
-  (a faint edge, no fill), from the left. The search row needs no data, so it is drawn for real but
+  columns every workflow has (Open, In progress and Done, each with its status's dot), from the left. The header has no
+  Archive: it is in the Filter popover (uier #485). The search row needs no data, so it is drawn for real but
   `inert` and `aria-hidden` (search, the status tabs with the address's tab pressed and their counts loading, Filter,
   List/Board with the opening view pressed; [uier #362](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_Wg-1DSXTyPI9bQLuSCxHj)).
   A loading state shows only what every project has; what only some projects or people have appears with the loaded
   page, never as a placeholder that can go away ([uier #439](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_K_yAq5Ee4WzEjnCBNx_2z)): Group by (it needs labels), the count line,
   a column's sort and Archive all (for those who may change the board), Ready to verify (verification on), a workflow's
   further statuses, and the Install tab. It picks the view the comments will open in from the address
-  (`?view=board`), else the remembered one, and the list for Archive (`?status=archived`) as `ProjectComments` does.
+  (`?view=board`), else the remembered one, and the list for Archive (`?archive=only`, with `?status=archived` accepted) as `ProjectComments` does.
   `ProjectCommentsLoading` (a server component, the page's and `ProjectLoading`'s fallback) holds two answers: the
   prefetched shell's guess from this browser (`CommentsLoading`: the address, read again as the skeleton commits so a
   navigation does not draw the page being left, and the remembered view; the server draws the list), then, under its
@@ -137,13 +139,17 @@ the separately bundled review toolbar owns its own query cache.
   Sort and Group (`recent`, `alphabetical`, `recent.client`, `alphabetical.client`) are the same strings and read
   back as the same choice; anything else is the default. The shell layout reads it, so the first render is already
   in order. The shell layout
-  renders on every refresh (`RealtimeComments` too): keep its reads point reads or bounded aggregates, and list them in
+  uses point reads or bounded aggregates when it renders: list them in
   [Cosmos query costs](../../../docs/cosmos-query-costs.md#shell-layout-sidebar-project-order).
 - **Sidebar open counts (uier #463).** Each listed project has a quiet `SidebarMenuBadge` for unfinished,
   unarchived comments visible to the current member. Zero and unavailable counts render no badge; the link
   describes the count to screen readers. Counts refresh with the shell, in every sort/group, using
   partition-scoped `COUNT(1)` with at most four count queries in flight. Only authorized projects from
   `listVisibleProjects` reach this loader.
+  When the comments page receives a newer full snapshot (uier #488), it also updates that project's
+  open count and recent-activity position in the mounted sidebar and the shell's loading hints.
+  The shell keeps these values across navigation within the same account and workspace and prefers
+  a newer shell read over an older page snapshot.
 - **Workspace area** (`workspace/`): the workspace's name above `LinkTabs` (`workspace/(tabs)/layout.tsx`,
   `WorkspaceHeader`, `workspaceTabs`): Users, Teams, Clients, Usage, Activity and Settings for admins, Clients and Usage for everyone
   else and in the uier workspace ([Usage](usage.md)). `/app/workspace` opens the first tab. A team's and a person's own pages (`workspace/teams/[teamId]`,
@@ -163,7 +169,10 @@ the separately bundled review toolbar owns its own query cache.
   drawn while loading. The old addresses
   (`/app/users`, `/app/teams`, `/app/clients`, `/app/settings` and the team and person pages) redirect there
   (`next.config.ts`). Each page keeps its own authorization: Users, Teams, Activity and Settings are admin-only.
-  Settings has General (the name) and Email domains ([access and membership](access-and-membership.md#email-domains)).
+  Settings has General (the name), a [Workspace logo](project-settings.md#workspace-logo) and Email domains
+  ([access and membership](access-and-membership.md#email-domains)).
+  The uploaded logo replaces the 32 px uier icon in the current workspace's switcher, including the collapsed
+  sidebar and mobile sheet. The uier icon shows while the image loads, on failure and without a logo.
   Activity renders access events as sentences (`teams/activityText.ts`, pure, with names from
   `teams/activityNames.ts`, which also looks up people who left, archived teams and who accepted an
   invitation); never show raw actions, ids or before/after JSON. Users shows its filters only past
@@ -297,7 +306,7 @@ board policy and the current project's navigation fields. The route is `private,
 by Cookie and rejects cross-site browser requests. The live project-members load is shared only
 within that snapshot request; there is no positive authorization cache between requests.
 
-Other projects' names, client grouping and recent-activity order update on navigation. The five-minute
+Other projects' names, client grouping and activity still come from their shell or page reads. The five-minute
 safety check now refreshes only project comment data and metadata (uier #410), keeping the mounted
 shell intact during background loads. `realtime.spec.ts` checks the cadence, read/render races and
 late hidden-tab responses; `app-comments-snapshot.api.spec.ts` checks revision privacy, read-state,

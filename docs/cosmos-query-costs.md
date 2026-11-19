@@ -72,7 +72,7 @@ their existing conditional/transactional semantics and TTLs.
 | AI thread titles (`titles/threadTitles`, `review/feedbackContext`, MCP `list_feedback`) | After the response only: P workspace (the setting, unless the caller knows it) and P comment per thread, then one conditional replace per written title; no queries. Exports and `list_feedback` add P workspace only when a thread has a stored title | A new or changed thread, and at most 10 threads per comments list render or My work project; each title once per first-message version ([AI title costs](ai-title-costs.md)) |
 | Usage pages (`app/usage`, account and workspace Usage) | Q projects and access per listed workspace (the account page: every workspace of the person; the workspace page: the open one, P project per other workspace only for a `?project=` link elsewhere); then only P counter reads in each project's partition (3–4 per project on the account page, 2 on the workspace page) and one in the `app` counters partition; never a counter write | Only when someone opens a Usage page; scales with the person's visible projects, not with threads |
 | Page checks (`pageChecks/store`, `POST /api/review/<code>/page-checks`, the project's Page checks page) | Write: P the page's document, then a conditional replace; a new page adds an exact COUNT in its `page-checks:<projectId>` partition and, only at the 200-page cap, a Q of that partition (at most 200 small documents) before deleting the oldest; two counter writes in the project's comment partition. Read: one Q of the partition (at most 200 documents, no TOP needed) | A member's toolbar sends at most one summary per page and change (an unchanged page once a day), limited to 120 per member per hour and 2,000 per project per day; the read only when someone opens the page |
-| Sidebar project order (`app/sidebarProjects`, shell layout) | Recent activity only: one comments Q per listed project (the active ones; every project when grouped by status) in its own partition, `SELECT VALUE MAX(c.updatedAt)` with the member's visibility (`commentVisibilityFilter`, the rule of `canSeeComment`), one scalar and no documents; Q clients in the workspace only when an active project has a client. Every sort also reads one partition-scoped `COUNT(1)` per listed project for unfinished, unarchived visible threads (count fanout four); no thread documents. Name and Recently created skip activity | Every shell render: page loads, changed comments, five-minute idle safety refresh, `revalidatePath('/app', 'layout')` and the order cookie action. Unchanged 30–60 s revision checks skip the shell; query count scales with listed projects, while aggregate RU depends on the dataset |
+| Sidebar project order (`app/sidebarProjects`, shell layout) | Recent activity only: one comments Q per listed project (the active ones; every project when grouped by status) in its own partition, `SELECT VALUE MAX(c.updatedAt)` with the member's visibility (`commentVisibilityFilter`, the rule of `canSeeComment`), one scalar and no documents; Q clients in the workspace only when an active project has a client. Every sort also reads one partition-scoped `COUNT(1)` per listed project for unfinished, unarchived visible threads (count fanout four); no thread documents. Name and Recently created skip activity | Query count on shell renders scales with listed projects. Project comments refreshes reuse their candidate scan for the project's sidebar summary. Full snapshots scoped to an environment or author use one `COUNT` and one `MAX` for that project |
 
 All call sites use the shared store contract. SQL parameter values and partition suffixes must
 never become operation labels. Global membership, access erasure and identifier-only recovery
@@ -163,21 +163,22 @@ integration suites cover rotating discovery, provider budgets, leases, retries a
 ## Shell layout: sidebar project order
 
 Added for [uier #32](https://uier.io/app/review/uier00000001?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2F3fl699l0cyy4&comment=comment_qTbpxxD9cuFlnq-HH_fip), operation label
-`comments.latest-activity`. The shell layout renders on every refresh, so it never lists threads:
+`comments.latest-activity`. The shell uses aggregates for activity and open counts:
 ordered by recent activity, each listed project (the active ones, or every project when grouped by status,
 [uier #49](https://uier.io/app/review/uier00000001?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects&comment=comment_vjxI41ZKCkMwmcpDVWTis))
 costs one single-partition aggregate whose filters
 (partition, `IS_STRING` type checks, `private`, `STARTSWITH` on `path`, `authorId`) are automatically
-indexed paths. Admins' queries carry no visibility clause. Ordered by name or by creation, the layout reads no comments
-at all; choosing a new order sets the cookie in a server action, and that render reads the activity.
+indexed paths. Admins' queries carry no visibility clause. Ordered by name or by creation, the layout
+reads only the open counts. Choosing Recent activity sets the cookie in a server action and that
+render reads the activity.
 Every comment write sets `updatedAt`; only threads untouched since before it existed are left out, and
 a project without counted threads uses its creation time. The cost is **not measured** on Cosmos yet.
 The comparable scalar aggregate measured above (the exact blocked count) cost 3.29 RU at 20 and at
-1,200 history rows, so expect about **3 RU × listed projects per render**. For example, ten active projects in a tab
-left open on an unchanged project page (`RealtimeComments`, one full safety refresh every five minutes)
-come to about 360 RU/hour (8,640 RU/day), around €0.0024/day at the rate below. This models only sidebar
-aggregates; revision checks still load the authorized comment snapshot. Measure with
-`UIER_COSMOS_DIAGNOSTICS_SAMPLE_RATE` and the operation label before assuming either figure.
+1,200 history rows, so the activity estimate is **3 RU × listed projects per shell render**.
+Project comment refreshes update the sidebar through the paged snapshot. Unscoped snapshots derive
+the sidebar summary from their candidate scan, and environment- or author-scoped full snapshots use
+two aggregates for the current project. Idle revision checks and lane continuations skip these
+aggregates. Measure with `UIER_COSMOS_DIAGNOSTICS_SAMPLE_RATE` and the operation labels.
 
 The account menu additionally validates at most five signed browser credentials and point-reads
 one live user per unique account (`browserAccounts.ts`), without listing workspaces or projects

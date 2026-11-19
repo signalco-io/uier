@@ -210,6 +210,17 @@ test('private threads, disabled verification, and cross-asset evidence do not le
     const ordinaryDone = await changeProofThread(f.make(reviewer, { operation: 'status', statusId: 'done', idempotencyKey: key() }, 'PATCH'), f.ctx(memberThread.id));
     expect(ordinaryDone.status).toBe(200);
     expect(await threadFrom(ordinaryDone)).toMatchObject({ resolved: true, verification: { outcome: 'unconfirmed' } });
+    const setArchive = (archived: boolean) => changeProofThread(f.make(reviewer, { operation: 'archive', archived, idempotencyKey: key() }, 'PATCH'), f.ctx(memberThread.id));
+    const archived = await setArchive(true);
+    expect(archived.status).toBe(200);
+    expect(await threadFrom(archived)).toMatchObject({ statusId: 'done', archivedAt: expect.any(String), archiveStatusId: 'archive' });
+    const detail = await getProofThread(f.make(reviewer), f.ctx(memberThread.id));
+    expect(await threadFrom(detail)).toMatchObject({ statusId: 'done', archivedAt: expect.any(String) });
+    const restored = await setArchive(false);
+    expect(restored.status).toBe(200);
+    const thread = await threadFrom(restored);
+    expect(thread.statusId).toBe('done');
+    expect(thread.archivedAt).toBeUndefined();
 });
 
 test('proof export links both immutable editions without copying the private grant or guest identity', async () => {
