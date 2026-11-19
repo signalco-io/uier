@@ -2,7 +2,7 @@
 
 import { useAppI18n } from '@/src/lib/i18n/client';
 
-import { useActionState, useId, useState, useTransition } from 'react';
+import { useActionState, useContext, useEffect, useId, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { Building2Icon, CheckIcon, ChevronsUpDownIcon, PlusIcon, SettingsIcon } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
@@ -25,6 +25,8 @@ import { MAX_WORKSPACE_NAME_LENGTH } from '@/src/lib/app/limits';
 import { FormMessage } from '../FormMessage';
 import { WorkspaceMark } from '../workspace/WorkspaceMark';
 import { createWorkspaceAction, switchWorkspaceAction } from './actions';
+import { beginShellSwitch, endShellSwitch, liveShell } from '@/src/lib/app/shellCache';
+import { CachedShellContext } from './cachedShellContext';
 
 export type WorkspaceOption = {
     id: string;
@@ -37,6 +39,8 @@ export type WorkspaceOption = {
      * person works in, so the menu leaves it out (their sent feedback is in Give feedback's toolbar)
      */
     feedback?: boolean;
+    /** The person's own workspace, where the app opens when the selected one is not theirs (`getAppContext`) */
+    home?: boolean;
 };
 
 function WorkspaceLabel({ workspace }: { workspace: WorkspaceOption }) {
@@ -102,13 +106,26 @@ export function WorkspaceSwitcher({ workspaces, currentWorkspaceId, canManage = 
     const { isMobile } = useSidebar();
     const [pending, startTransition] = useTransition();
     const [creating, setCreating] = useState(false);
+    const copy = useContext(CachedShellContext);
+    // A switch that ended without opening the workspace (it failed) shows the live shell again; one that opened
+    // it ends when the new shell renders. The copy's own switcher (drawn during the switch) never ends it
+    useEffect(() => {
+        if (!pending && !copy)
+            endShellSwitch();
+    }, [pending, copy]);
     const current = workspaces.find(workspace => workspace.id === currentWorkspaceId) ?? workspaces[0];
     if (!current)
         return null;
 
     // The current workspace is always listed; uier's feedback workspace only while it is current
     const listed = workspaces.filter(workspace => !workspace.feedback || workspace.id === current.id);
-    const switchTo = (workspaceId: string) => startTransition(() => switchWorkspaceAction(workspaceId));
+    const switchTo = (workspaceId: string) => {
+        // The destination's sidebar from this browser's copy at once, while the server opens it (`shellCache`)
+        const live = liveShell();
+        if (live)
+            void beginShellSwitch({ userId: live.userId, workspaceId });
+        startTransition(() => switchWorkspaceAction(workspaceId));
+    };
     return (
         <SidebarMenu>
             <SidebarMenuItem>

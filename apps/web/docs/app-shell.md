@@ -172,7 +172,8 @@ the separately bundled review toolbar owns its own query cache.
   Settings has General (the name), a [Workspace logo](project-settings.md#workspace-logo) and Email domains
   ([access and membership](access-and-membership.md#email-domains)).
   The uploaded logo replaces the 32 px uier icon in the current workspace's switcher, including the collapsed
-  sidebar and mobile sheet. The uier icon shows while the image loads, on failure and without a logo.
+  sidebar and mobile sheet. The uier icon shows while the image loads, on failure and without a logo, unless this
+  browser has a copy of that version ([local shell cache](#local-shell-cache)).
   Activity renders access events as sentences (`teams/activityText.ts`, pure, with names from
   `teams/activityNames.ts`, which also looks up people who left, archived teams and who accepted an
   invitation); never show raw actions, ids or before/after JSON. Users shows its filters only past
@@ -200,7 +201,8 @@ the separately bundled review toolbar owns its own query cache.
   runs as a uier.io page. Tests set `UIER_SITE_ICONS_TEST_UPSTREAM` (local runtime only) to send every icon
   request to `e2e/support/siteIconsStub.ts`; `e2e/site-icons.api.spec.ts` covers the resolver. The icon keeps
   2 px of padding inside the 16 px tile (larger tiles set their own with `[&>img]:p-*`), so icons drawn
-  edge to edge stay clear of the border and the rounded corners. The image fills the tile inside its 1 px
+  edge to edge stay clear of the border and the rounded corners. This browser keeps a copy of each icon, drawn until
+  the image loads ([local shell cache](#local-shell-cache)). The image fills the tile inside its 1 px
   border, so the 16 px tile draws a favicon at 10 px. The sidebar's active projects use a 20 px tile with
   the same 2 px padding (uier #87: with 1 px the favicon filled the tile edge to edge), so the favicon shows
   at 14 px clear of the border, like the project header and the projects list; a negative margin keeps
@@ -338,6 +340,48 @@ state and redirect to the provider), coding-tool return URLs, review links (sing
 new tab on the reviewed site), external sites and downloads. Sign-out keeps its session-ending
 server action and redirect. Crossing between marketing and `/app` keeps the document-policy
 boundary: CSP and COOP belong to a document and must change together.
+
+### Local shell cache
+
+The shell keeps a copy of what its sidebar shows in this browser's IndexedDB (`uier-app`,
+`src/lib/app/browserCache.ts`), so opening the app and switching accounts or workspaces draw the workspace, its
+projects and the account at once instead of after the server's reads. The server's render then replaces the copy and
+saves the new version, so a copy is never more than one load behind.
+
+- **What is kept.** `AppSidebar` saves its props and the projects it lists per account and workspace (`shellCache.ts`,
+  `shell:<user>:<workspace>`, `CachedSidebar`): the switcher's workspaces (names, logo URLs, roles, which one is the
+  person's own), the projects with their client, first address and open count (newer counts the comments publish
+  included), the order, the signed-in accounts, and the person's name, email and avatar URL. The cached shell passes
+  its projects to `AppSidebar` in place of `useSidebarProjects`. Also the language's catalog (`catalog:<language>`, once per document) and `shell-current`, the
+  copy the next load draws. Project favicons and workspace logos are kept as blobs by URL (`imageCache.ts`,
+  `image:<url>`): their responses are private and vary by Cookie, so the new cookie of every switch misses the HTTP
+  cache. No comments, page data or credentials. A save is skipped when nothing changed.
+- **Loads.** `CachedShell` sits beside the shell layout's Suspense boundary, not in its fallback: a streamed fallback is
+  never hydrated, so nothing in it could read the database. Once hydrated it reads `shell-current` and, while the live
+  shell has not arrived, draws the copy with the real `AppSidebar`, `AppBreadcrumbs` and the frame's top bar and title
+  outline, inert and `aria-hidden` like `ShellFrame` (whose status stays). `global.css` hides the frame while the copy
+  draws and hides the copy as soon as `[data-app-shell]` (the live `SidebarProvider`) is in the document; a
+  `MutationObserver` then unmounts it, so the two are never in the document together for long. Without its language's
+  catalog the copy is not drawn, rather than speaking English first. Its words come from `CachedAppI18nProvider`,
+  which leaves the document's language and `[data-app-language]` to the live app.
+- **Switches.** Choosing a workspace (`WorkspaceSwitcher`) or an account (`changeAccount`) draws the destination's copy
+  over the live shell (`data-switching` hides the live one, which stays mounted) when this browser has one, while the
+  server opens it. A workspace switch ends when the live shell renders another workspace, or when its transition ends
+  without one (it failed). An account switch predicts the workspace the way `getAppContext` picks it (the selected one
+  when the account is in it, else its own, from the account's last copy) and points the next document's
+  `shell-current` at it; a failed switch points it back. A 20-second guard ends any switch that neither renders nor fails.
+- **Images.** A mark keeps one `<img>` with its usual `src` and `srcset`; until that image loads, the copy draws as a
+  background in the letter's place (`ProjectMark`) or the uier icon's (`WorkspaceMark`), and stays there offline. Larger
+  tiles pad both layers with `[&>[data-mark-icon]]:p-*`. A copy older than a day is refetched in the background; marks
+  inside the cached shell (`CachedShellContext`) draw their copy and request nothing.
+- **Privacy.** Signing out removes the account's copies; signing out of the last or of every account removes every
+  copy and image. The sign-in page forgets `shell-current` (and every copy when no account is left), so someone signing
+  in never sees another account's copy. The first save in each document removes the copies of accounts no longer signed
+  in to this browser, and copies older than 30 days are never drawn. The cookie policy lists the database.
+- **Never a source of truth.** The copy is inert; pages and actions read and authorize for themselves.
+
+`e2e/shell-cache.spec.ts` covers both switches with the server held, a load into the shell with the server's render
+held (in Croatian, favicon included) and the removal on sign-out.
 
 ### Account selection
 

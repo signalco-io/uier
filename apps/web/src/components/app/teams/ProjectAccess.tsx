@@ -19,7 +19,7 @@ import { InviteButton } from '../users/InviteDialog';
 
 // The tile stays centred on the row (Item tops it when there is a description), as on the users list
 const centeredMedia = 'group-has-data-[slot=item-description]/item:translate-y-0 group-has-data-[slot=item-description]/item:self-center';
-const tile = 'size-8 rounded-lg text-sm [&>img]:p-1.5';
+const tile = 'size-8 rounded-lg text-sm [&>[data-mark-icon]]:p-1.5';
 
 function ListHeading({ id, icon: Icon, title, count }: { id: string; icon: LucideIcon; title: string; count: number }) {
     return (
