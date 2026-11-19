@@ -90,7 +90,9 @@ async function rejectAppDomain(host, dedicated) {
 }
 
 function isVercelSsoRedirect(location, root) {
-    if (!location?.startsWith('https://vercel.com/sso-api?') || location.includes('#')) return false;
+    const endpoint = 'https://vercel.com/sso-api';
+    if (location === endpoint) return true;
+    if (!location?.startsWith(endpoint + '?') || location.includes('#')) return false;
     const { searchParams } = new URL(location);
     const nonce = searchParams.get('nonce');
     return searchParams.size === 2 && searchParams.get('url') === root.href

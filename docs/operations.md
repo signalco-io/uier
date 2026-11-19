@@ -148,9 +148,10 @@ aliases alone. Use the manual `html` dispatch to select the preview deployment f
 
 The workflow reads back the alias and probes the isolated app root without following redirects.
 A 401 indicates Deployment Protection. On the dedicated Vercel hostname, a 302 to
-`https://vercel.com/sso-api` also indicates protection when its `url` points to that exact root
-and it includes a `nonce`. For the dedicated preview hostname, the workflow can retry that
-request on the same hostname with the environment's `UIER_PROOF_VERCEL_BYPASS` secret.
+`https://vercel.com/sso-api` also indicates protection. The redirect can use the bare endpoint
+or include only a `url` pointing to the exact probe root and a `nonce`. For the dedicated preview
+hostname, the workflow can retry that request on the same hostname with the environment's
+`UIER_PROOF_VERCEL_BYPASS` secret.
 If it reports alias verification only, verify the app root returns 404 with authorized preview access.
 Then load a real signed prototype through the guest review iframe.
 [Vercel automation protection bypass](https://vercel.com/docs/deployment-protection/methods-to-bypass-deployment-protection/protection-bypass-automation)

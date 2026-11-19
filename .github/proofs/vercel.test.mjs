@@ -17,7 +17,13 @@ const ssoLocation = (host = preview, nonce = 'fixture-nonce') =>
 const binding = (url, deployment = wanted) => ({ alias: new URL(url).hostname, deploymentId: deployment.id, projectId });
 const absent = () => Response.json({ error: { code: 'not_found' } }, { status: 404 });
 const ssoRedirect = ({ host } = {}) => new Response(null, { status: 302, headers: { Location: ssoLocation(host) } });
+const bareSsoRedirect = () => new Response(null, { status: 302, headers: { Location: sso } });
 const deploymentNotFound = () => new Response(null, { status: 404, headers: { 'x-vercel-error': 'DEPLOYMENT_NOT_FOUND' } });
+const protectionResponses = [
+    ['401', () => new Response(null, { status: 401 })],
+    ['302 to Vercel SSO with parameters', ssoRedirect],
+    ['302 to bare Vercel SSO endpoint', bareSsoRedirect]
+];
 
 function fixture(t, {
     current, prior = old, next = wanted, domains = [], status = 404, settings = {},
@@ -80,7 +86,7 @@ function fixture(t, {
 }
 
 test('assigns the dedicated preview hostname and retries its protected root on the same host', async t => {
-    for (const [name, protection] of [['401', () => new Response(null, { status: 401 })], ['302 to Vercel SSO', ssoRedirect]]) {
+    for (const [name, protection] of protectionResponses) {
         await t.test(name, async t => {
             const { writes, probes } = fixture(t, {
                 settings: { UIER_PROOF_VERCEL_BYPASS: 'fixture-bypass' },
@@ -193,7 +199,7 @@ test('limits production propagation retries to the new, unchanged binding and th
 
 test('rejects protected production even when a bypass could reach the app', async t => {
     const next = { ...wanted, target: 'production' };
-    for (const [name, protection] of [['401', () => new Response(null, { status: 401 })], ['302 to Vercel SSO', ssoRedirect]]) {
+    for (const [name, protection] of protectionResponses) {
         await t.test(name, async t => {
             const { probes } = fixture(t, {
                 next, current: binding(production, next), settings: { UIER_PROOF_VERCEL_BYPASS: 'fixture-bypass' },
@@ -240,7 +246,9 @@ test('rejects unexpected redirects and Vercel edge errors without using the bypa
         ['ordinary redirect', 302, { Location: ssoLocation().replace('/sso-api?', '/login?') }],
         ['foreign origin', 302, { Location: ssoLocation().replace('vercel.com/', 'vercel.com.example.net/') }],
         ['relative destination', 302, { Location: '/sso-api' }],
-        ['missing parameters', 302, { Location: sso }],
+        ['empty query', 302, { Location: sso + '?' }],
+        ['bare endpoint with fragment', 302, { Location: sso + '#fragment' }],
+        ['SSO path suffix', 302, { Location: ssoLocation().replace('/sso-api?', '/sso-api/other?') }],
         ['additional parameter', 302, { Location: ssoLocation() + '&redirect=https://example.net' }],
         ['duplicate parameter', 302, { Location: ssoLocation() + '&nonce=another' }],
         ['wrong return host', 302, { Location: ssoLocation(production) }],
@@ -251,6 +259,7 @@ test('rejects unexpected redirects and Vercel edge errors without using the bypa
         ['SSO destination explicit port', 302, { Location: ssoLocation().replace('vercel.com/', 'vercel.com:443/') }],
         ['different redirect status', 307, { Location: ssoLocation() }],
         ['custom hostname', 302, { Location: ssoLocation(custom) }, custom],
+        ['custom hostname with bare SSO Location', 302, { Location: sso }, custom],
         ['edge error with SSO Location', 302, { Location: ssoLocation(), 'x-vercel-error': 'DEPLOYMENT_NOT_FOUND' }],
         ['edge error with 401', 401, { 'x-vercel-error': 'DEPLOYMENT_NOT_FOUND' }]
     ]) {
