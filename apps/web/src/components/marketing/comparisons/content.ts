@@ -43,7 +43,8 @@ export type Product = {
 const fact = (support: Support, label: string, detail: string, source?: string): Fact => ({ support, label, detail, source });
 const unverified = (source: string) => fact('unknown', 'Not verified', 'The sources checked do not establish support or absence.', source);
 
-export const uierProofFormats = 'Images, searchable PDFs, selected Figma frames, MP4, ProRes MOV and WebM video, uploaded EML, and interactive HTML from ZIP uploads.';
+export const uierHtmlGuestReview = 'Guest review of HTML ZIP uploads is in preview.';
+export const uierProofFormats = `Images, searchable PDFs, selected Figma frames, MP4, ProRes MOV and WebM video, uploaded EML, and interactive HTML from ZIP uploads. ${uierHtmlGuestReview}`;
 export const uierProofSources = {
     viewer: `${brand.repository}/blob/main/apps/web/docs/proof-viewer.md`,
     formats: `${brand.repository}/blob/main/apps/web/docs/proof-api.md#format-settings-and-processing`,

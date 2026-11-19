@@ -43,7 +43,8 @@ Change these entries with the product.
 
 The hub, overview and tables describe six file format families. Each project enables the families
 it needs. The proofing row uses “Has limits” for project settings and input scope, including
-upload-only EML. Inbound SMTP is unavailable.
+upload-only EML. Inbound SMTP is unavailable. The public comparisons mark guest review of
+interactive HTML ZIP uploads as preview.
 
 - Images cover member and guest review. Selected Figma frames can be resynced after a rename.
   The review link stays stable, and the existing thread keeps its original version and location.
@@ -53,9 +54,13 @@ upload-only EML. Inbound SMTP is unavailable.
   and WebM. The browser could play and seek all six versions. Authorized original downloads
   matched their source digests.
 - Hosted EML qualification covered two uploaded versions.
-- Two HTML ZIP revisions opened and ran interactively on the isolated preview host. Historical
-  HTML evidence is still in final hosted acceptance. The public copy covers opening interactive
-  ZIP uploads.
+- Two HTML ZIP revisions opened and ran interactively on the isolated preview host. Hosted
+  acceptance at `47235b6e` reopened historical native controls and showed a captured reference for
+  the custom menu state. A scoped MCP client published a second version, and revoking the share
+  blocked guest access. [Hosted acceptance run](https://github.com/signalco-io/uier/actions/runs/44520142945)
+- On production `24040d3c`, the dedicated renderer returned the expected anonymous 404 at its root.
+  A signed production guest review with an interactive render is still pending.
+  [Production deployment run](https://github.com/signalco-io/uier/actions/runs/44522256999)
 
 Preview recorded two independent whole-version approvals and a separate fix verification on an
 existing thread. The matrix has separate rows for
@@ -65,8 +70,9 @@ request on the thread. An approval round may have a deadline, while tasks have n
 A new file version starts with fresh approval decisions. The [file viewer](proof-viewer.md) and
 [format settings](proof-api.md#format-settings-and-processing) document the review workflows.
 
-Publish the comparison draft after production verification of the workflows it describes, following
-the [release plan](../../../docs/design/file-design-proofing.md#release-and-verification).
+Follow the [release plan](../../../docs/design/file-design-proofing.md#release-and-verification)
+for the workflows the comparisons describe. Remove the HTML guest review preview label after
+the signed guest journey passes in production.
 
 The approval row points to official sources that distinguish actual decisions from version history
 and task status. BugHerd documents asset versions in beta. Marker.io documents an issue review status.

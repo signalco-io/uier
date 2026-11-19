@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { assertAccessibility } from './accessibility';
 
-const proofFormats = 'Images, searchable PDFs, selected Figma frames, MP4, ProRes MOV and WebM video, uploaded EML, and interactive HTML from ZIP uploads.';
+const proofFormats = 'Images, searchable PDFs, selected Figma frames, MP4, ProRes MOV and WebM video, uploaded EML, and interactive HTML from ZIP uploads. Guest review of HTML ZIP uploads is in preview.';
 
 const pairs = [
     { slug: 'bugherd', name: 'BugHerd', advantage: 'Custom Kanban columns', checked: '2026-11-11', logo: '/compare/bugherd.png' },
@@ -162,7 +162,7 @@ test('the Pastel tradeoffs cover Figma revisions and separate approval decisions
     await expect(tradeoffs).toContainText('Resync a Figma frame under the same review link, even after a rename. Existing threads keep their original version and location.');
     await expect(tradeoffs).toContainText('Named reviewers decide on the whole version in a separate approval round.');
     await expect(tradeoffs).toContainText('An agent can send HTML prototypes to Pastel through its CLI or MCP, then reuse the canvas link for revisions.');
-    await expect(tradeoffs).toContainText('Search text in sanitized PDF previews. Open interactive HTML ZIP uploads on an isolated host. Email review accepts EML uploads.');
+    await expect(tradeoffs).toContainText('Search text in sanitized PDF previews. Interactive HTML ZIP uploads run on an isolated host. Guest review of HTML ZIP uploads is in preview. Email review accepts EML uploads.');
     await expect(tradeoffs).toContainText('Share an EML upload with a client');
 });
 

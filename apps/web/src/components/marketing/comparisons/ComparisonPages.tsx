@@ -4,7 +4,7 @@ import { KnownPageLinks, KnownPages } from '@/src/knownPages';
 import { InlineLink, PageHeader, PageSection, Panel, Tile } from '../ContentPage';
 import { ComparisonCover } from './ComparisonCover';
 import { WorkflowPicture } from './WorkflowPicture';
-import { competitors, competitorSlugs, dimensions, uier, uierProofFormats, uierProofSources, type CompetitorSlug, type Fact, type Product, type Support } from './content';
+import { competitors, competitorSlugs, dimensions, uier, uierHtmlGuestReview, uierProofFormats, uierProofSources, type CompetitorSlug, type Fact, type Product, type Support } from './content';
 
 const statusIcons = { yes: Check, limited: Info, no: CircleMinus, unknown: CircleHelp };
 const statusLabels: Record<Support, string> = { yes: 'Available', limited: 'Has limits', no: 'Not supported', unknown: 'Not verified' };
@@ -124,7 +124,7 @@ const tradeoffs: Record<CompetitorSlug, { keep: string; withUier: string; test: 
     },
     pastel: {
         keep: 'An agent can send HTML prototypes to Pastel through its CLI or MCP, then reuse the canvas link for revisions. Pastel also documents PDFs, images, video, marketing emails and version approval.',
-        withUier: 'Search text in sanitized PDF previews. Open interactive HTML ZIP uploads on an isolated host. Email review accepts EML uploads. Resync a Figma frame under the same review link, even after a rename. Existing threads keep their original version and location. Named reviewers decide on the whole version in a separate approval round.',
+        withUier: `Search text in sanitized PDF previews. Interactive HTML ZIP uploads run on an isolated host. ${uierHtmlGuestReview} Email review accepts EML uploads. Resync a Figma frame under the same review link, even after a rename. Existing threads keep their original version and location. Named reviewers decide on the whole version in a separate approval round.`,
         test: 'Share an EML upload with a client, then upload a revision and ask your reviewers to decide on the new version. If you also review live websites, test the installation and login there.'
     },
     userback: {

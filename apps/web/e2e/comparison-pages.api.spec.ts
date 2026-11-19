@@ -26,6 +26,7 @@ test('comparison HTML links the scoped file proof and approval claims', async ({
         const html = await response.text();
         expect(html).toContain('Six format families, enabled per project');
         expect(html).toContain('Images, searchable PDFs, selected Figma frames, MP4, ProRes MOV and WebM video, uploaded EML, and interactive HTML from ZIP uploads.');
+        expect(html).toContain('Guest review of HTML ZIP uploads is in preview.');
         expect(html).toContain('PDF previews are sanitized. Authorized reviewers can download the original separately.');
         expect(html).toContain('HTML runs on an isolated host. Email is upload-only. Inbound SMTP is unavailable.');
         expect(html).toContain('Reviewing a finished fix');
