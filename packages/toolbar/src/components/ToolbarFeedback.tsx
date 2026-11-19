@@ -80,14 +80,12 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
         }
     };
 
-    // Omitted while it is taken: its work stops. Attached after all: a new one is taken.
+    // Removed: the capture is dropped (one still being taken stops). Attached again: always a new one, of the page as
+    // it is now, never the one removed (uier #476).
     const handleOmittedChange = (omitted: boolean) => {
         setOmitScreenshot(omitted);
-        if (omitted && cancelCommentScreenshot(screenshot)) {
-            setScreenshot(undefined);
-        } else if (!omitted && !screenshot) {
-            setScreenshot(captureCommentScreenshot({ type: 'page' }, rootElement));
-        }
+        cancelCommentScreenshot(screenshot);
+        setScreenshot(omitted ? undefined : captureCommentScreenshot({ type: 'page' }, rootElement));
     };
 
     const openOnRequest = useEffectEvent(() => {

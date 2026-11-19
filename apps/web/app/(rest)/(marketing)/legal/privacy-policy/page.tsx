@@ -14,7 +14,7 @@ export const metadata = publicPageMetadata('/legal/privacy-policy', {
 
 export default function PrivacyPolicyPage() {
     return (
-        <LegalDocument href={KnownPages.LegalPrivacyPolicy} title="Privacy policy" effective="16 November 2026">
+        <LegalDocument href={KnownPages.LegalPrivacyPolicy} title="Privacy policy" effective="19 November 2026">
             <p>
                 This policy explains what {brand.domain} collects, why, where it is stored and for how long.
                 {' '}{brand.name} is a {brand.parent.name} project: {brand.parent.name} runs {brand.domain} and is
@@ -102,7 +102,9 @@ export default function PrivacyPolicyPage() {
                     a screenshot of the part of the page the comment is about, when capture succeeds. Capture starts
                     automatically in your browser when you start a comment, rewrite, feedback or bug report. It can
                     include what is visible in that part of the page. The comment box shows the screenshot as a thumbnail
-                    that you can preview; remove it before posting to send only the text, and no image is sent. The
+                    that you can preview; remove it before posting (in browser extension version 0.1.9 and earlier,
+                    turn off Attach screenshot) and the automatic screenshot is not sent. An image or recording you
+                    attach yourself is still sent. The
                     image is sent only when you post the feedback; discarding an unsent comment saves no image. Replies can also include images you attach. On saved feedback,
                     its author or a workspace admin can supply an uploaded or pasted image, or save a redacted replacement.
                     We read clipboard images only when you choose Paste image or paste an image into saved feedback.

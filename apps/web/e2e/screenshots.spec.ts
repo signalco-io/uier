@@ -323,6 +323,59 @@ test('screenshots: Remove screenshot stops one being taken, and Attach screensho
     await context.close();
 });
 
+/** Whether a screenshot has pure red pixels in it (the heading turned red after the first capture) */
+function hasRed(page: Page, dataUrl: string) {
+    return page.evaluate(async (data) => {
+        const image = new Image();
+        image.src = data;
+        await image.decode();
+        const canvas = document.createElement('canvas');
+        canvas.width = image.width;
+        canvas.height = image.height;
+        const context = canvas.getContext('2d')!;
+        context.drawImage(image, 0, 0);
+        const pixels = context.getImageData(0, 0, image.width, image.height).data;
+        for (let i = 0; i < pixels.length; i += 4) if (pixels[i]! > 200 && pixels[i + 1]! < 60 && pixels[i + 2]! < 60) return true;
+        return false;
+    }, dataUrl);
+}
+
+test('screenshots: Attach screenshot after removing a finished one takes the page as it is now', async ({ browser }, testInfo) => {
+    const { context, page } = await newVisitor(browser, testInfo);
+    await openLanding(page, isolatedOrigin(testInfo), { dismissHint: true });
+    const heading = page.getByRole('heading', { level: 1 });
+    const thumbnailOf = (form: Locator) => form.locator('[data-uier-screenshot-preview] img');
+    const forms = [
+        { name: 'New comment', open: () => startComment(page, 'The heading changed colour.', heading), send: 'Post comment' },
+        { name: 'Send feedback', open: async () => {
+            await page.getByRole('button', { name: 'Send feedback' }).click();
+            const dialog = page.getByRole('dialog', { name: 'Send feedback' });
+            await dialog.getByRole('textbox').fill('The heading changed colour.');
+            return dialog;
+        }, send: 'Send feedback' }
+    ];
+    for (const form of forms) {
+        await heading.evaluate(element => { (element as HTMLElement).style.color = ''; });
+        const draft = await form.open();
+        const first = await thumbnailOf(draft).getAttribute('src');
+        expect(first).toMatch(/^data:image\//);
+        expect(await hasRed(page, first!)).toBe(false);
+        await draft.getByRole('button', { name: 'Remove screenshot' }).click();
+        // The page changes while the screenshot is removed
+        await heading.evaluate(element => { (element as HTMLElement).style.color = 'rgb(255, 0, 0)'; });
+        await draft.getByRole('button', { name: 'Attach screenshot' }).click();
+        await expect(thumbnailOf(draft)).toHaveAttribute('src', /^data:image\//);
+        const second = (await thumbnailOf(draft).getAttribute('src'))!;
+        expect(second).not.toBe(first);
+        expect(await hasRed(page, second)).toBe(true);
+        const body = nextCreatedComment(page);
+        await draft.getByRole('button', { name: form.send }).click();
+        expect((await body).screenshot).toBe(second);
+        await page.keyboard.press('Escape');
+    }
+    await context.close();
+});
+
 test('screenshots: feedback can be sent without the screenshot of the visible page', async ({ browser }, testInfo) => {
     const { context, page } = await newVisitor(browser, testInfo);
     if (testInfo.project.use.isMobile) await page.setViewportSize({ width: 390, height: 844 });

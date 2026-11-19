@@ -38,7 +38,8 @@ box's bottom-left corner after Attach ([uier #391](https://uier.io/app/review/ui
 - While it is being taken, a placeholder of the thumbnail's size (`data-image-placeholder`, still with reduced motion)
   holds its place.
 - **Remove screenshot**, an X after it in the same outlined chip, so it does not read as Discard (28 px, 44 px on touch screens), also while it is being taken: `screenshot` is
-  left out of the request. **Attach screenshot**, a camera, then takes the thumbnail's place and takes a new one.
+  left out of the request. **Attach screenshot**, a camera, then takes the thumbnail's place and always takes a new one of the page as it is
+  now, never the removed one; a removal drops the capture, finished or not.
   Each takes the focus from the other.
 - Nothing shows while a capture that failed is not removed, nor while an image is attached.
 

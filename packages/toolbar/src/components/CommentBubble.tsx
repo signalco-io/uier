@@ -348,13 +348,15 @@ export function CommentBubble(props: CommentBubbleProps) {
     // A draft pin that starts closed (restored, or one of several on the page) is captured when its form opens or it
     // is sent, not for being on the page
     const startsClosed = Boolean(props.initiallyClosed) && !props.draft?.screenshot;
+    const [omitScreenshot, setOmitScreenshot] = useState(props.draft?.omitScreenshot ?? false);
+    // Read by the effect below without re-running it: a removed screenshot is not taken again until it is attached
+    const omittedRef = useRef(omitScreenshot);
     useEffect(() => {
         if (creating && !startsClosed) setCapture({
             device: props.draft.device ?? getDeviceInfo(),
-            screenshot: props.draft.screenshot ?? captureCommentScreenshot(position, rootElement, props.draft.drawing)
+            screenshot: omittedRef.current ? undefined : props.draft.screenshot ?? captureCommentScreenshot(position, rootElement, props.draft.drawing)
         });
     }, [creating, startsClosed, position, rootElement, props.draft]);
-    const [omitScreenshot, setOmitScreenshot] = useState(props.draft?.omitScreenshot ?? false);
     // The reviewer's own image, sent instead of the automatic screenshot
     const attachment = useAttachedImage(props.draft?.image, { pastedName: t.attachments.pastedImage });
     const recording = useRecording(props.draft?.recording);
@@ -362,12 +364,15 @@ export function CommentBubble(props: CommentBubbleProps) {
     const evidenceRecording = useRecording();
     const sheet = narrowTouch && (rewriting || suggesting || Boolean(saved))
         && !isCapturing(recording) && !isCapturing(evidenceRecording);
-    // Omitted while it is taken: its work stops. Attached after all: a new one is taken.
+    // Removed: the capture is dropped (one still being taken stops). Attached again: always a new one, of the page as
+    // it is now, never the one removed (uier #476); it supersedes any capture started meanwhile.
     const handleOmittedChange = (omitted: boolean) => {
         setOmitScreenshot(omitted);
-        if (omitted && cancelCommentScreenshot(capture?.screenshot)) {
+        omittedRef.current = omitted;
+        cancelCommentScreenshot(capture?.screenshot);
+        if (omitted) {
             setCapture(current => current && { ...current, screenshot: undefined });
-        } else if (!omitted && capture && !capture.screenshot) {
+        } else if (capture) {
             setCapture({ ...capture, screenshot: captureCommentScreenshot(position, rootElement, drawing) });
         }
     };

@@ -274,6 +274,12 @@ cookie policy and security page's extension sections together; changed legal wor
 review and a new effective date. The setup guide lives with the other guides until the docs hub
 (#293) exists.
 
+The extension bundles its own toolbar, so a toolbar change reaches it only with a release. Until the
+store builds have the composer's screenshot thumbnail ([uier #476](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2F&comment=comment_MHq-BrZmONnqI7ugzvoOX)), the setup guide gives both controls:
+**Attach screenshot** up to `extensionRelease.screenshotToggle.lastVersion` (0.1.9), and the thumbnail
+with **Remove screenshot** in newer versions; its screenshot specimen draws the store's toggle. Once a
+release with the thumbnail is in both stores, keep only the thumbnail's instructions and redraw the specimen.
+
 Native Edge Add-ons distribution, Firefox approval and signed-store rollout, mobile and anonymous
 extension access remain separate follow-ups. Safari has no extension target; Safari and mobile
 reviewers use the script.

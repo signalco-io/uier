@@ -22,7 +22,12 @@ export const extensionRelease = {
         setup: 'Open project setup',
         retry: 'Try again'
     },
-    /** The button beside the composer's screenshot thumbnail that sends one comment without it (ComposerScreenshot) */
+    /**
+     * The composer's screenshot toggle in the store builds up to `lastVersion`: turned off, one comment is sent
+     * without its automatic screenshot. The extension bundles its own toolbar, so it changes only with a release.
+     */
+    screenshotToggle: { label: 'Attach screenshot', lastVersion: '0.1.9' },
+    /** In later builds (ComposerScreenshot, uier #476): the button beside the screenshot's thumbnail that sends one comment without it */
     removeScreenshot: 'Remove screenshot',
     /** The suggested shortcut that opens the popup (`commands` in apps/extension/scripts/build.mjs) */
     shortcut: 'Alt+Shift+U',

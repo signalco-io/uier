@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { ArrowRightIcon, CheckIcon, ChevronDownIcon, CopyIcon, ExternalLinkIcon, FileCodeIcon, GlobeIcon, LogOutIcon, MaximizeIcon, PaperclipIcon, PlusIcon, PuzzleIcon, RotateCcwIcon, SendIcon, XIcon } from 'lucide-react';
+import { ArrowRightIcon, CameraIcon, CheckIcon, ChevronDownIcon, CopyIcon, ExternalLinkIcon, FileCodeIcon, GlobeIcon, LogOutIcon, MaximizeIcon, PaperclipIcon, PlusIcon, PuzzleIcon, RotateCcwIcon, SendIcon } from 'lucide-react';
 import { cx } from '@signalco/ui-primitives/cx';
 import { brand } from '@uier/brand';
 import { Logo } from '@uier/brand/Logo';
@@ -18,8 +18,9 @@ import { Avatar, floating, StatusBadge, type Stage } from '../LandingSpecimens';
 // - the app: Site addresses (ProjectSettingsForms), the install guide's tabs and Copy the script
 //   (InstallGuide), Who can comment (projectLabels), a review link (GuestReviewLinks) and Check
 //   installation (InstallationCheck);
-// - the toolbar: the pill (ToolbarIllustration), New comment with Attach and its screenshot thumbnail
-//   (CommentBubble, ComposerAttachMenu, ComposerScreenshot);
+// - the toolbar: the pill (ToolbarIllustration), New comment with Attach and its screenshot toggle
+//   (CommentBubble, ComposerAttachMenu; the toggle as the store's extension still has it,
+//   `extensionRelease.screenshotToggle`, until that release has the thumbnail);
 // - the extension's popup (packages/extension/src/popup.tsx) in its signed-out, "Review this site"
 //   and reviewing states.
 
@@ -400,7 +401,8 @@ export function ExtensionReviewSpecimen() {
 
 /**
  * A new comment on the example site: the part of the page its screenshot shows, marked, and the
- * comment box with the screenshot's thumbnail and Remove screenshot's tooltip
+ * comment box with the screenshot toggle's tooltip, as the extension in the stores draws it
+ * (`extensionRelease.screenshotToggle`)
  */
 export function ScreenshotSpecimen() {
     const hours = [['Monday to Friday', '12–23'], ['Saturday', '12–24'], ['Sunday', 'Closed']];
@@ -427,9 +429,9 @@ export function ScreenshotSpecimen() {
                 </div>
             </div>
             <div className="flex w-full max-w-[280px] shrink-0 flex-col gap-2">
-                {/* Remove screenshot's tooltip */}
-                <span className="ml-[74px] self-start rounded-md bg-foreground px-2.5 py-1.5 text-[11px] leading-4 text-background">
-                    {extensionRelease.removeScreenshot}
+                {/* The screenshot toggle's tooltip */}
+                <span className="self-start rounded-md bg-foreground px-2.5 py-1.5 text-[11px] leading-4 text-background">
+                    A screenshot of this part of the page will be attached. Select to send only the text.
                 </span>
                 <div className={cx('flex flex-col gap-2 rounded-xl border bg-popover p-3 text-popover-foreground', floating)}>
                     <span className="flex items-center justify-between gap-2">
@@ -441,12 +443,8 @@ export function ScreenshotSpecimen() {
                         <span className="flex items-center justify-between text-muted-foreground">
                             <span className="flex items-center gap-1">
                                 <PaperclipIcon {...icon} />
-                                {/* The screenshot's thumbnail (the Sunday row, small) and Remove screenshot */}
-                                <span className="flex h-7 w-10 flex-col justify-center gap-1 rounded-md border bg-background px-1.5">
-                                    <span className="h-0.5 w-full rounded-full bg-muted-foreground/60" />
-                                    <span className="h-0.5 w-2/3 rounded-full bg-muted-foreground/30" />
-                                </span>
-                                <span className="inline-flex size-7 items-center justify-center"><XIcon {...icon} /></span>
+                                {/* Attach screenshot, pressed: ink with a check */}
+                                <span className="inline-flex h-7 items-center gap-0.5 rounded-md bg-primary px-1.5 text-primary-foreground"><CheckIcon {...icon} /><CameraIcon {...icon} size={16} /></span>
                             </span>
                             <SendIcon {...icon} />
                         </span>
