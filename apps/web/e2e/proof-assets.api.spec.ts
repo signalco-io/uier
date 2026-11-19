@@ -53,7 +53,7 @@ async function fixture() {
     const member = await ensureOwnWorkspace(user);
     const workspace = (await getWorkspace(member.workspaceId))!;
     const context: AppContext = { user, member, workspace, isAdmin: true, memberships: [{ member, workspace }] };
-    const project = await createProject(context, { name: 'Private proof fixture', urls: [] });
+    const project = await createProject(context, { name: 'Private proof fixture', mode: 'files', urls: [] });
     await updateProject(workspace.id, project.id, { access: 'guests' });
     const projectId = project.publicId;
     const cookies = `${cookieName(cookieNames.session)}=${sessionToken(user.id).token}`;
