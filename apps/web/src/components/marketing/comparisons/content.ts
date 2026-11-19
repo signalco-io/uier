@@ -3,8 +3,11 @@ import type { WorkflowKind } from './WorkflowPicture';
 
 const originalReview = { date: '2026-11-11', label: '11 November 2026' };
 const currentReview = { date: '2026-11-15', label: '15 November 2026' };
+const editingReview = { date: '2026-11-19', label: '19 November 2026' };
+type Review = { date: string; label: string };
+type Source = { label: string; url: string; reviewed?: Review };
 export type Support = 'yes' | 'limited' | 'no' | 'unknown';
-export type Fact = { support: Support; label: string; detail: string; source?: string };
+export type Fact = { support: Support; label: string; detail: string; source?: string; additionalSource?: Source };
 export const dimensions = [
     { id: 'website', name: 'Comments on a live website' },
     { id: 'editing', name: 'Demonstrating CSS and text changes' },
@@ -22,7 +25,7 @@ export const dimensions = [
 export type Dimension = typeof dimensions[number]['id'];
 export type Product = {
     name: string;
-    reviewed: { date: string; label: string };
+    reviewed: Review;
     kind: WorkflowKind;
     focus: string;
     bestFor: string;
@@ -32,7 +35,7 @@ export type Product = {
     pricingUrl: string;
     integrations: string;
     integrationUrl: string;
-    sources: { label: string; url: string }[];
+    sources: Source[];
 };
 
 const fact = (support: Support, label: string, detail: string, source?: string): Fact => ({ support, label, detail, source });
@@ -40,10 +43,10 @@ const unverified = (source: string) => fact('unknown', 'Not verified', 'The sour
 
 export const uier: Product = {
     name: brand.name, reviewed: currentReview, kind: 'review', focus: 'Live-page review → a checked fix',
-    bestFor: 'Review a live site, assign the feedback and ask a named reviewer to check the fix.',
+    bestFor: 'Preview proposed text and style changes on the page, assign the feedback and ask a named reviewer to check the fix.',
     facts: {
         website: fact('yes', 'Element, text, area and drawing', 'Review the actual page with anchored comments or draw a change on the page.', '/features/pinned-comments'),
-        editing: fact('no', 'No live site editing', 'Comments and drawings explain the change. The toolbar does not edit or publish your site’s CSS or text.', '/features/pinned-comments'),
+        editing: fact('yes', 'On-page text and style previews', 'With Text rewrites available, propose replacement text, text and background colors, text size and weight, padding and corner radius on one eligible element. Switch between Original and Proposed on the page while the target matches. Copy the exact values from the thread for your team to implement in the site’s source.', '/features/pinned-comments#preview-a-change'),
         context: fact('limited', 'Screenshot and device details', 'Capture is attempted and can be omitted. Saved images can accompany original messages and replies; device details depend on browser support and are visible to project members.', '/features/screenshots'),
         recording: fact('yes', 'Short screen recordings', 'Attach a recording up to 60 seconds and 25 MiB. Browser capture needs permission and a secure context; upload MP4 or WebM when capture is unavailable. Built-in capture has no audio and ends on full-page navigation.', `${brand.repository}/blob/main/docs/recordings.md`),
         replay: fact('no', 'Not supported', 'No timeline of what happened before a report.'),
@@ -66,28 +69,32 @@ export const uier: Product = {
         { label: 'Custom statuses and labels', url: `${brand.repository}/blob/main/apps/web/docs/project-settings.md#custom-statuses` },
         { label: 'Paged project search and bulk selection', url: `${brand.repository}/blob/main/apps/web/docs/comments-inbox.md#paged-project-comments` },
         { label: 'Drawings and protected reply images', url: `${brand.repository}/blob/main/docs/feedback-context.md` },
-        { label: 'uier features and pricing', url: '/#features' }
+        { label: 'uier features and pricing', url: '/#features' },
+        { label: 'On-page text and style previews', url: '/features/pinned-comments#preview-a-change', reviewed: editingReview }
     ]
 };
 
 const bugherdSources = {
     features: 'https://bugherd.com/features', pricing: 'https://bugherd.com/pricing',
     video: 'https://bugherd.com/video-feedback-tool', board: 'https://bugherd.com/use-case/website-qa-tool',
-    mcp: 'https://bugherd.com/feature/mcp',
+    mcp: 'https://bugherd.com/feature/mcp', editing: 'https://bugherd.com/feature/suggest-text-edits',
     setup: 'https://support.bugherd.com/en/articles/11424313-get-feedback-from-clients-on-websites-and-files'
 };
 const markerSources = {
     pricing: 'https://marker.io/pricing', integrations: 'https://marker.io/integrations',
+    annotation: 'https://marker.io/website-design-feedback',
     replay: 'https://help.marker.io/en/articles/6673880-session-replay-videos',
     handoff: 'https://help.marker.io/en/articles/14430683-why-are-console-logs-network-requests-and-replays-linked-instead-of-attached'
 };
 const usersnapSources = {
     features: 'https://usersnap.com/features', pricing: 'https://usersnap.com/pricing', integrations: 'https://usersnap.com/integrations',
     recording: 'https://help.usersnap.com/docs/feedback-with-a-screen-recording',
+    annotation: 'https://help.usersnap.com/docs/feedback-with-a-screenshot',
     diagnostics: 'https://help.usersnap.com/docs/console-recorder-feature', mcp: 'https://usersnap.com/integrations/mcp'
 };
 const pastelSources = {
     faq: 'https://usepastel.com/faq', pricing: 'https://usepastel.com/plans',
+    editing: 'https://help.usepastel.com/en/articles/5063677-editing-text-in-a-canvas',
     website: 'https://help.usepastel.com/en/articles/1996011-reviewing-websites-in-pastel',
     files: 'https://help.usepastel.com/en/articles/5395323-review-pdfs-and-image-files-in-pastel',
     html: 'https://help.usepastel.com/en/articles/17629923-get-feedback-on-html-files-upload-directly-from-your-ai-agent',
@@ -97,6 +104,7 @@ const pastelSources = {
 const userbackSources = {
     features: 'https://userback.io/features/', pricing: 'https://userback.io/pricing/',
     recording: 'https://userback.io/feature/video-feedback/',
+    annotation: 'https://userback.io/feature/screen-annotation/',
     replay: 'https://support.userback.io/en/articles/17212348-feedback-session-replay-vs-full-session-replay-what-s-the-difference',
     workflow: 'https://support.userback.io/en/articles/5209239-configure-your-feedback-settings',
     setup: 'https://userback.io/feature/browser-extension/',
@@ -116,7 +124,7 @@ export const competitors = {
         bestFor: 'Website and design feedback that needs recorded explanations and a customizable Kanban workflow.',
         facts: {
             website: fact('yes', 'Element-pinned feedback', 'Website comments and suggested text replacements.', bugherdSources.features),
-            editing: unverified(bugherdSources.features),
+            editing: fact('limited', 'Text replacement in a pinned task', 'Select text on the page and propose a replacement. The pinned task saves both the original and the replacement. On-page previews of the new text or CSS are unverified.', bugherdSources.editing),
             context: fact('yes', 'Screenshot and metadata', 'Browser, OS, resolution and element context.', bugherdSources.features),
             recording: fact('yes', 'Video with audio', 'Short screen recordings; the video guide describes a one-minute timer.', bugherdSources.video),
             replay: unverified(bugherdSources.features),
@@ -136,7 +144,8 @@ export const competitors = {
         sources: [
             { label: 'Features and capture', url: bugherdSources.features }, { label: 'Video recording', url: bugherdSources.video },
             { label: 'Kanban workflow', url: bugherdSources.board }, { label: 'Plans, files and integrations', url: bugherdSources.pricing },
-            { label: 'Client access and setup', url: bugherdSources.setup }, { label: 'BugHerd MCP', url: bugherdSources.mcp }
+            { label: 'Client access and setup', url: bugherdSources.setup }, { label: 'BugHerd MCP', url: bugherdSources.mcp },
+            { label: 'Text replacement suggestions', url: bugherdSources.editing, reviewed: editingReview }
         ]
     },
     'marker-io': {
@@ -144,7 +153,7 @@ export const competitors = {
         bestFor: 'Developer bug reports that need session replay, console and network evidence, or a wider choice of issue trackers.',
         facts: {
             website: fact('yes', 'Visual website reports', 'Annotated screenshots with an embedded widget or extension.', markerSources.pricing),
-            editing: unverified(markerSources.pricing),
+            editing: fact('unknown', 'On-page edits not verified', 'Marker.io documents annotating a captured screenshot to explain design or copy feedback. On-page text and CSS previews are unverified.', markerSources.annotation),
             context: fact('yes', 'Screenshot and metadata', 'Browser, OS, viewport and page URL.', markerSources.pricing),
             recording: fact('unknown', 'Recording not verified', 'The replay guide distinguishes replay from video recording, described as under development.', markerSources.replay),
             replay: fact('limited', 'Selected paid plans', 'Up to 2.5 minutes before submission; canvas, WebGL and Shadow DOM have limitations. Team, Business and eligible Agency plans include replay.', markerSources.replay),
@@ -165,7 +174,8 @@ export const competitors = {
             { label: 'Current plans, capture, MCP and monitoring', url: markerSources.pricing },
             { label: 'Session replay and recording limitations', url: markerSources.replay },
             { label: 'Integration marketplace', url: markerSources.integrations },
-            { label: 'What stays linked in Marker.io', url: markerSources.handoff }
+            { label: 'What stays linked in Marker.io', url: markerSources.handoff },
+            { label: 'Screenshot annotations for website design feedback', url: markerSources.annotation, reviewed: editingReview }
         ]
     },
     usersnap: {
@@ -173,7 +183,7 @@ export const competitors = {
         bestFor: 'A product feedback program combining visual bug reports, video, satisfaction surveys and public request voting.',
         facts: {
             website: fact('yes', 'Annotated website feedback', 'Widget and browser extension capture routes.', usersnapSources.features),
-            editing: unverified(usersnapSources.features),
+            editing: fact('unknown', 'On-page edits not verified', 'Usersnap documents highlight, pen, arrow, comment and hide tools on a captured screenshot. On-page text and CSS previews are unverified.', usersnapSources.annotation),
             context: fact('yes', 'Screenshot and metadata', 'Annotation tools, browser context and attachments.', usersnapSources.features),
             recording: fact('limited', 'Video and optional audio', 'Up to three minutes. Not supported in mobile web browsers or desktop Safari; permission and a secure context are required.', usersnapSources.recording),
             replay: unverified(usersnapSources.features),
@@ -195,7 +205,8 @@ export const competitors = {
             { label: 'Recording support and restrictions', url: usersnapSources.recording },
             { label: 'Console and network recorder', url: usersnapSources.diagnostics },
             { label: 'Usersnap integrations', url: usersnapSources.integrations }, { label: 'Usersnap MCP', url: usersnapSources.mcp },
-            { label: 'Plans and entitlements', url: usersnapSources.pricing }
+            { label: 'Plans and entitlements', url: usersnapSources.pricing },
+            { label: 'Feedback with a screenshot', url: usersnapSources.annotation, reviewed: editingReview }
         ]
     },
     pastel: {
@@ -203,7 +214,7 @@ export const competitors = {
         bestFor: 'Reviewing live sites, uploaded HTML prototypes, PDFs, images, videos and marketing emails, with approval per version.',
         facts: {
             website: fact('yes', 'Live website canvas', 'A proxy overlays comments on the live site. Website changes appear in the canvas.', pastelSources.website),
-            editing: unverified(pastelSources.faq),
+            editing: fact('limited', 'Text previews in a website canvas', 'Suggest replacement text, switch between Before and After on the canvas and copy the edited text. CSS previews are unverified.', pastelSources.editing),
             context: fact('yes', 'Screenshot and device details', 'Website comments retain browser and viewport context.', pastelSources.faq),
             recording: fact('unknown', 'Recording not verified', 'Uploaded-video proofing is supported, but it is a different capability from recording a bug reproduction.', pastelSources.faq),
             replay: unverified(pastelSources.faq),
@@ -221,6 +232,7 @@ export const competitors = {
         integrations: 'Team includes project-management integrations and webhooks. Listed destinations include Trello, Asana, Jira, ClickUp, Monday and Zapier.',
         integrationUrl: pastelSources.pricing,
         sources: [
+            { label: 'Editing text in a canvas', url: pastelSources.editing, reviewed: editingReview },
             { label: 'Formats, reviewers and context', url: pastelSources.faq }, { label: 'Live websites and private-site access', url: pastelSources.website },
             { label: 'PDF and image review', url: pastelSources.files }, { label: 'Version approvals', url: pastelSources.approvals },
             { label: 'HTML uploads and prototype revisions', url: pastelSources.html }, { label: 'MCP tools and permissions', url: pastelSources.mcp },
@@ -232,7 +244,7 @@ export const competitors = {
         bestFor: 'Product teams combining visual bug reports with replay, diagnostics, surveys and an agent-assisted feedback inbox.',
         facts: {
             website: fact('yes', 'Widget and extension reports', 'Collect screenshot annotations from a site widget or browser extension.', userbackSources.features),
-            editing: unverified(userbackSources.features),
+            editing: fact('unknown', 'On-page edits not verified', 'Userback documents annotating screenshots with boxes, arrows, text and pinned comments. On-page text and CSS previews are unverified.', userbackSources.annotation),
             context: fact('yes', 'Visual and technical context', 'Screenshots and browser context accompany reports. Technical diagnostics have separate plan and capture requirements.', userbackSources.features),
             recording: fact('yes', 'Video feedback', 'Users can record a bug explanation. Video recording is separate from a reconstructed session replay.', userbackSources.recording),
             replay: fact('limited', 'Feedback and full-session replay', 'Feedback replay needs the installed widget and replay enabled. Full-session recording is a separate offering; iframes, audio, video and canvas are not replayed.', userbackSources.replay),
@@ -257,15 +269,19 @@ export const competitors = {
             { label: 'Browser extension', url: userbackSources.setup },
             { label: 'Integrations', url: userbackSources.integrations },
             { label: 'MCP permissions and available tools', url: userbackSources.mcp },
-            { label: 'Current plans and entitlements', url: userbackSources.pricing }
+            { label: 'Current plans and entitlements', url: userbackSources.pricing },
+            { label: 'Screenshot annotation tools', url: userbackSources.annotation, reviewed: editingReview }
         ]
     },
     ruttl: {
         name: 'ruttl', reviewed: currentReview, kind: 'board', focus: 'Visual change → an assigned task',
-        bestFor: 'Agency reviews that demonstrate CSS or copy changes, collect guest comments and include PDF or image feedback.',
+        bestFor: 'Agency reviews that demonstrate CSS or copy changes in website projects, collect guest comments and include PDF or image feedback.',
         facts: {
             website: fact('yes', 'Pixel-pinned live-page comments', 'Create a website project from its URL and share a guest-commenting link without reviewer sign-up.', ruttlSources.comments),
-            editing: fact('yes', 'Live CSS and text demonstrations', 'Show a proposed visual or copy change on the reviewed page, then hand the change to a developer. This does not establish automatic publication to the site’s source.', ruttlSources.editing),
+            editing: {
+                ...fact('yes', 'CSS and text in website projects', 'Demonstrate CSS and text changes on the page in a website project. The web application FAQ says edit mode is unavailable in web app projects.', ruttlSources.editing),
+                additionalSource: { label: 'Web application FAQ', url: ruttlSources.webApps }
+            },
             context: fact('limited', 'Page comments and device previews', 'Responsive previews are documented. Browser/OS metadata capture is not established by the sources checked.', ruttlSources.comments),
             recording: fact('limited', 'Video comments', 'The product page lists recordings as visual comments. Browser, audio and recording-length limits were not established by the sources checked.', ruttlSources.features),
             replay: unverified(ruttlSources.features),
@@ -284,8 +300,8 @@ export const competitors = {
         integrationUrl: ruttlSources.integrations,
         sources: [
             { label: 'Live comments, guests and task organization', url: ruttlSources.comments },
-            { label: 'Web-application script setup', url: ruttlSources.webApps },
-            { label: 'CSS and text demonstrations', url: ruttlSources.editing },
+            { label: 'Website project CSS and text demonstrations', url: ruttlSources.editing, reviewed: editingReview },
+            { label: 'Web application edit mode FAQ', url: ruttlSources.webApps, reviewed: editingReview },
             { label: 'Images, PDFs, video and announced checks', url: ruttlSources.features },
             { label: 'Integration catalog', url: ruttlSources.integrations },
             { label: 'MCP setup and feedback actions', url: ruttlSources.mcp },

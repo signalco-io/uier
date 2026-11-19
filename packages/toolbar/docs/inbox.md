@@ -32,6 +32,8 @@ From the top:
 
 This page's unsent drafts come before the list (`InboxDrafts.tsx`): resume, post or discard each
 ([several drafts on a page](composer-popovers.md#several-drafts-on-a-page)).
+An unfinished element suggestion shows its validation message. Post suggestion opens its editor so the
+reviewer can correct the marked fields.
 
 ## The list
 

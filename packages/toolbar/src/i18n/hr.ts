@@ -580,6 +580,41 @@ export const hr: Messages = {
         limited: (retry: string) => `Zasad nema više prijedloga. Pokušajte ponovno ${retry}. I dalje možete napisati svoj.`,
         suggestions: 'Prijedlozi'
     },
+    proposal: {
+        suggest: 'Predložite izmjenu',
+        suggestion: 'Predložena izmjena',
+        draft: 'Skica prijedloga',
+        remove: 'Ukloni prijedlog',
+        note: 'Napomena (neobavezno)',
+        text: 'Zamjenski tekst',
+        preview: 'Pretpregled na stranici',
+        original: 'Izvorno',
+        proposed: 'Predloženo',
+        preparing: 'Priprema pretpregleda…',
+        values: 'Točne vrijednosti',
+        stale: 'Stranica više ne odgovara spremljenom izvorniku. Spremljene vrijednosti možete vidjeti u nastavku.',
+        unavailable: 'Pretpregled ovog cilja ovdje nije dostupan.',
+        invalid: 'Unesite podržanu CSS vrijednost za svako izmijenjeno polje.',
+        empty: 'Prazan tekst',
+        copied: 'Kopirano u međuspremnik.',
+        copyText: (side: string) => `Kopiraj tekst (${side})`,
+        copyCss: (side: string) => `Kopiraj CSS (${side})`,
+        sidePadding: 'Bočni unutarnji razmak',
+        paddingDetails: 'Pojedinosti o unutarnjem razmaku',
+        mixedValues: 'Različite vrijednosti',
+        chooseColor: (property: string) => `Odaberite ${property}`,
+        properties: {
+            'color': 'Boja teksta',
+            'background-color': 'Boja pozadine',
+            'font-size': 'Veličina teksta',
+            'font-weight': 'Debljina teksta',
+            'padding-top': 'Gornji unutarnji razmak',
+            'padding-right': 'Desni unutarnji razmak',
+            'padding-bottom': 'Donji unutarnji razmak',
+            'padding-left': 'Lijevi unutarnji razmak',
+            'border-radius': 'Polumjer kutova'
+        }
+    },
     selection: {
         label: 'Označeni tekst',
         rewrite: 'Preoblikuj'

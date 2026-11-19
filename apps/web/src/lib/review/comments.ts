@@ -25,6 +25,7 @@ import { moveMentions } from '@uier/toolbar/mentions';
 import { withNotificationEvent } from '../notifications/events';
 import { commitChangeSubmission, commitNewSubmission, commitReplySubmission, recoverSubmission, submission, type Submission } from '../comments/submissions';
 import { withEditedThreadItem } from '../comments/editing';
+import { withEditedRewriteProposal, withoutCommentProposal } from '../comments/proposal';
 import type { EditThreadItemInput } from '../comments/validation';
 import type { DbComment, DbCommentDevice, DbThreadItem, DbMention } from '../db/schema';
 import { messageAgentClaimSchema, messageAgentFor, type MessageAgentClaim } from './messageAgent';
@@ -36,7 +37,7 @@ import { availableScreenshot, commentTtlSeconds, createWithScreenshot, forgetScr
 import { attachRecording, prepareCommentRecording, cleanupRemovedRecordings } from '../recordings/service';
 import { KnownPages } from '../../knownPages';
 import { isPrivateAppFeedback, isUierFeedbackProject, PUBLIC_PROJECT_PARTITION, USER_FEEDBACK_PROJECT_ID } from '../comments/publicProject';
-import { isValidId, type CreateCommentInput } from '../comments/validation';
+import { createCommentMessage, isValidId, type CreateCommentInput } from '../comments/validation';
 import type { DbProject } from '../app/model';
 import { actorAuthorId, memberActor, refreshMutationActor, assertCanUseComments, assertWriter, type ProjectActor } from './actor';
 import { assertEligibleParticipant, assertParticipantEditor, validateMentions } from './participants';
@@ -242,9 +243,11 @@ export async function createProjectComment(request: Request, project: DbProject,
     if (actor.proofThread) await refreshMutationActor(project, actor, true);
     const store = getCommentsStore();
     const partition = projectPartition(project.id);
+    const message = createCommentMessage(input);
     const attempt = submission(partition, authorId, input.idempotencyKey ?? input.recordingId, {
-        operation: 'create', path: input.path, position: input.position, kind: input.kind, text: input.text, mentions: input.mentions ?? [],
-        quotedText: input.quotedText, ...(input.assetTarget ? { assetTarget: input.assetTarget, private: input.private === true } : {}), authorName: actor.kind === 'guest' ? input.authorName : undefined, origin: input.origin,
+        operation: 'create', path: input.path, position: input.position, kind: input.kind, ...message, mentions: input.mentions ?? [],
+        proposal: input.proposal, ...(input.assetTarget ? { assetTarget: input.assetTarget, private: input.private === true } : {}),
+        authorName: actor.kind === 'guest' ? input.authorName : undefined, origin: input.origin,
         ...(input.drawing ? { drawing: input.drawing } : {}), ...(input.recordingId ? { recordingId: input.recordingId } : {})
     });
     const recovered = await recoverSubmission(store, attempt);
@@ -280,11 +283,11 @@ export async function createProjectComment(request: Request, project: DbProject,
         ...(feedbackType ? { feedbackType } : {}),
         ...(input.check ? { check: input.check } : {}),
         ...(input.drawing ? { drawing: input.drawing } : {}),
+        ...(input.proposal ? { proposal: input.proposal } : {}),
         thread: {
             items: [{
                 id: `item_${nanoid()}`,
-                text: input.text,
-                quotedText: input.quotedText,
+                ...message,
                 authorId,
                 authorName,
                 createdAt: now
@@ -300,7 +303,7 @@ export async function createProjectComment(request: Request, project: DbProject,
         createdAt: now,
         updatedAt: now
     };
-    comment.thread.items[0]!.mentions = await validateMentions(project, actor, comment, input.text, input.mentions);
+    comment.thread.items[0]!.mentions = await validateMentions(project, actor, comment, message.text, input.mentions);
     if (screenshot)
         comment.screenshot = screenshotInfo(screenshot);
     if (recording) comment.recording = recording.doc.metadata;
@@ -636,7 +639,7 @@ export async function editProjectCommentText(project: DbProject, actor: ProjectA
             const edited: DbComment = { ...comment, thread: { ...comment.thread, items: [{ ...first, text, mentions: moveMentions(first.text, text, first.mentions ?? []), editedAt: nowIso() }, ...replies] } };
             // The title described the old text: it goes with it, and a new one is made after the save
             delete edited.aiTitle;
-            return edited;
+            return withEditedRewriteProposal(edited, first.id);
         });
 }
 
@@ -647,7 +650,10 @@ export async function editProjectCommentItem(project: DbProject, actor: ProjectA
             const edited = withEditedThreadItem(comment, itemId, input, item => canEditItem(item, actor));
             const previous = comment.thread.items.find(item => item.id === itemId);
             const mentions = await validateMentions(project, actor, comment, input.text, input.mentions, previous);
-            const updated: DbComment = { ...edited, thread: { ...edited.thread, items: edited.thread.items.map(item => item.id === itemId ? { ...item, mentions } : item) } };
+            const updated = withEditedRewriteProposal({
+                ...edited,
+                thread: { ...edited.thread, items: edited.thread.items.map(item => item.id === itemId ? { ...item, mentions } : item) }
+            }, itemId);
             // An edit of the first message drops the title made from it; a new one is made after the save
             if (edited.thread.items[0]?.id === itemId) delete updated.aiTitle;
             const existing = new Set(previous?.mentions?.map(mention => mention.userId));
@@ -727,7 +733,7 @@ export async function deleteProjectCommentItem(project: DbProject, actor: Projec
             delete kept.device;
             delete kept.screenshot;
             delete kept.recording;
-            return withSyncMark(project, comment, withThreadHistory(comment, kept, actorAuthorId(actor)!));
+            return withSyncMark(project, comment, withThreadHistory(comment, withoutCommentProposal(kept), actorAuthorId(actor)!));
         }
 
         const remaining = items.filter(other => other !== item);

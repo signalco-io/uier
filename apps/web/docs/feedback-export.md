@@ -16,6 +16,10 @@ missing images omit it. Member, guest review and public exports use their existi
 A comment's drawing ([canvas mode](../../../packages/toolbar/docs/canvas-mode.md)) is projected from the
 filtered DTO (`feedbackDrawing`) only when the feedback itself is available; deleted evidence drops it with the
 anchor details.
+The optional `proposal` also comes from the filtered DTO and follows first-message visibility. The
+app and toolbar use the same Markdown, with separate literal fences for original and proposed text
+and CSS declarations. The proposal records the values captured at submission independently of later
+message edits. Deleting the first message removes the proposal from storage and exports, even if replies remain.
 Exports of uier's own feedback include `identity.projectId` (`uier00000001` or `uier00000002`), derived from the resolved
 partition even for legacy records. Isolated local host partitions have no project id. Never infer
 the owning project from the reviewed page path: `/app/projects/<id>` feedback belongs to uier.

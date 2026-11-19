@@ -15,7 +15,8 @@ import { threadHistoryView, type ThreadHistoryEntry } from '../comments/history'
 import { MAX_THREAD_ITEMS } from '../comments/limits';
 import { commentAnchor, type CommentAnchorView } from './commentAnchor';
 import { projectCommentRouting } from './projectCommentRouting';
-import { commentSourcePath } from '../comments/dto';
+import { commentProposal, commentSourcePath } from '../comments/dto';
+import type { ChangeProposal } from '@uier/toolbar/change-proposal';
 import { reactionViews } from '../comments/reactions';
 import { getReadSequence, loadReadSequences } from '../comments/readState';
 import { ApiError } from '../comments/http';
@@ -148,6 +149,7 @@ export type ProjectCommentView = {
     /** A pinned comment, general feedback or a bug report (about the whole page) */
     kind: DbCommentKind;
     feedbackType?: import('@uier/toolbar/feedback-types').FeedbackTypeSnapshot;
+    proposal?: ChangeProposal;
     /** What it was left on: an element, selected text (empty once the comment is deleted) or the whole page */
     anchor: CommentAnchorView;
     device?: DbDeviceSize;
@@ -280,6 +282,7 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
     const size = comment.device?.size;
     const firstText = mentionText(first, participants);
     const title = threadTitle(comment, titles);
+    const proposal = commentProposal(comment);
     return {
         verificationEnabled: project.verificationEnabled === true,
         verification: verificationDetails(comment, project, actor, participants),
@@ -299,6 +302,7 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
         ...(!first.deletedAt && comment.recording ? { recording: recordingView(comment.recording) } : {}),
         kind: isCommentKind(comment.kind) ? comment.kind : 'comment',
         ...(feedbackTypeSnapshot(comment.feedbackType, comment.kind) ? { feedbackType: feedbackTypeSnapshot(comment.feedbackType, comment.kind) } : {}),
+        ...(proposal ? { proposal } : {}),
         anchor: anchorView(comment, first, t),
         device: size && deviceSizes.includes(size) ? size : undefined,
         reproduction: toReproductionContext(comment, projectOrigins(project)),

@@ -1,12 +1,12 @@
 import { ScreenshotImage } from '../screenshotImage';
 'use client';
 
-import { useContext, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Popper } from '@signalco/ui-primitives/Popper';
 import { Button } from '@signalco/ui-primitives/Button';
 import { Upload } from '@signalco/ui-icons';
 import { Input } from '@signalco/ui-primitives/Input';
-import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
+import { useToolbarPortalContainer } from './CommentsBootstrapperContext';
 import { useQuery } from '@tanstack/react-query';
 import { getCommentScreenshot } from '../hooks/useComments';
 import { screenshotQueryKey } from '../hooks/api';
@@ -70,7 +70,7 @@ export function CommentScreenshot({ comment, itemId }: { comment: CommentItem; i
     const imageLimits = t.screenshot.limits;
     const label = itemId ? t.screenshot.replyImageAlt : t.screenshot.alt;
     const alt = itemId ? t.screenshot.replyImageAlt : t.screenshot.imageAlt;
-    const { rootElement } = useContext(CommentsBootstrapperContext);
+    const container = useToolbarPortalContainer();
     const [open, setOpen] = useState(false);
     const [editing, setEditing] = useState(false);
     const [working, setWorking] = useState(false);
@@ -153,7 +153,7 @@ export function CommentScreenshot({ comment, itemId }: { comment: CommentItem; i
             : data
         ? (
             <Popper
-                container={rootElement}
+                container={container}
                 open={open}
                 onOpenChange={value => { if (!busy) { setOpen(value); if (!value) setEditing(false); } }}
                 aria-label={t.screenshot.label}

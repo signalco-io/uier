@@ -81,7 +81,7 @@ function summary(view: ProjectCommentView): ProjectCommentView {
         .map(link => ({ url: link.url, canRemove: view.pullRequests?.find(saved => saved.url === link.url)?.canRemove ?? false }));
     return { ...view, pullRequests, workflow: undefined, availableLabels: undefined, summary: true, text: view.text.slice(0, 500), displayText: view.displayText.slice(0, 500),
         displayMentions: view.displayMentions?.filter(mention => mention.end <= 500), replies: [], history: undefined,
-        screenshot: undefined, anchor: { type: 'page', label: '' }, reproduction: { text: '' }, quotedText: undefined, reactions: undefined,
+        screenshot: undefined, anchor: { type: 'page', label: '' }, reproduction: { text: '' }, quotedText: undefined, proposal: undefined, reactions: undefined,
         verification: view.verification ? { ...view.verification, fixUrl: undefined } : undefined,
         outline: outline(view) };
 }

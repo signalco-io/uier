@@ -68,17 +68,22 @@ test('rewrite: pick a suggestion and post it', async ({ browser }, testInfo) => 
     await expectNoAxeViolations(page);
     await page.screenshot({ path: testInfo.outputPath('rewrite-form.png') });
 
-    // Expanded to a modal like the other forms: the instruction and the suggestions go on, and back
-    await draft.getByRole('button', { name: 'Expand' }).click();
-    await expect.poll(() => isModal(draft)).toBe(true);
-    await expect(suggested).toBeFocused();
-    await expect(suggested).toHaveText(selected, { useInnerText: true });
-    await expect(instruction).toHaveValue('Shorter');
-    await expect(suggestions.getByRole('button')).toHaveCount(3);
-    await draft.getByRole('button', { name: 'Collapse' }).click();
-    await expect.poll(() => isModal(draft)).toBe(false);
-    await expect(instruction).toHaveValue('Shorter');
-    await expect(suggestions.getByRole('button')).toHaveCount(3);
+    if (testInfo.project.use.hasTouch) {
+        await expect(draft).toHaveAttribute('data-uier-proposal-sheet', '');
+        await expect.poll(() => isModal(draft)).toBe(true);
+    } else {
+        // Expanding and collapsing the desktop composer retains its instruction and suggestions.
+        await draft.getByRole('button', { name: 'Expand' }).click();
+        await expect.poll(() => isModal(draft)).toBe(true);
+        await expect(suggested).toBeFocused();
+        await expect(suggested).toHaveText(selected, { useInnerText: true });
+        await expect(instruction).toHaveValue('Shorter');
+        await expect(suggestions.getByRole('button')).toHaveCount(3);
+        await draft.getByRole('button', { name: 'Collapse' }).click();
+        await expect.poll(() => isModal(draft)).toBe(false);
+        await expect(instruction).toHaveValue('Shorter');
+        await expect(suggestions.getByRole('button')).toHaveCount(3);
+    }
 
     // A picked suggestion becomes the text, to post as it is or to edit
     await suggestions.getByRole('button', { name: 'Comment on any live website, right on the page.' }).click();

@@ -59,6 +59,7 @@ import { ThreadLabelsControl } from './ThreadLabelsControl';
 import { ThreadTitle } from './ThreadTitle';
 import { ThreadPullRequests } from './ThreadPullRequests';
 import { ThreadIntegrationLinks } from './ThreadIntegrationLinks';
+import { CommentChangeProposal } from './CommentChangeProposal';
 import type { MessageMentionRange, ProjectCommentMessage, ProjectCommentView } from '../../../lib/app/projectComments';
 import { MessageMarkdown } from './MessageMarkdown';
 import { MessageAvatar } from './MessageAvatar';
@@ -730,6 +731,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                                     ? <MessageEditor drafts={drafts} draftKey="edit" label={t("Edit comment")} text={comment.text} error={editError} pending={pending}
                                         onCancel={closeEdit} onSave={text => saveEdit(text)} />
                                     : <MessageText text={comment.displayText} mentions={comment.displayMentions} edited={comment.edited} />}
+                            {!comment.deleted && comment.proposal ? <CommentChangeProposal key={comment.id} proposal={comment.proposal} /> : null}
                             {comment.screenshot && <MessageImage image={comment.screenshot} />}
                             {!comment.deleted && comment.recording && <MessageRecording recording={comment.recording} projectId={projectId} commentId={comment.id} />}
                             {firstTarget && !editing && <ReactionList target={firstTarget} canReact={Boolean(permissions.react)} />}

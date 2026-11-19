@@ -426,6 +426,51 @@ test('packaged isolated runtime uses real sign-in, helper and worker under stric
     await expect(commentBubble(reviewed, 2)).toBeVisible();
     // Credentials stay out of page storage and DOM attributes.
     expect(await reviewed.evaluate(() => [localStorage.length, sessionStorage.length])).toEqual([0, 0]);
+    await test.step('save and replay a combined change suggestion under strict CSP', async () => {
+        const path = '/change-suggestion';
+        const response = await reviewed.goto(`${origin}${path}`);
+        expect(response?.headers()['content-security-policy']).toContain("script-src 'none'; connect-src 'none'");
+        expect(response?.headers()['content-security-policy']).toContain("style-src 'none'");
+        const target = reviewed.getByRole('heading', { level: 1 });
+        const expectTarget = async (text: string, padding: string) => {
+            await expect(target).toHaveText(text);
+            await expect(target).toHaveCSS('padding-left', padding);
+            await expect(target).toHaveCSS('padding-right', padding);
+        };
+        const original = 'Review this page';
+        const proposed = 'Review these changes';
+        await expectTarget(original, '0px');
+        await reviewed.getByRole('button', { name: 'Add comment', exact: true }).click();
+        const targetBox = (await target.boundingBox())!;
+        await reviewed.mouse.click(targetBox.x + 10, targetBox.y + 10);
+        await reviewed.getByRole('button', { name: 'Suggest a change', exact: true }).click();
+        await reviewed.getByRole('textbox', { name: /^Replacement text/ }).fill(proposed);
+        await reviewed.getByRole('textbox', { name: 'Side padding', exact: true }).fill('24px');
+        const proxiedBeforePost = proxy?.requests.length ?? 0;
+        await reviewed.getByRole('button', { name: 'Post suggestion', exact: true }).click();
+        await expect(reviewed.getByRole('status').filter({ hasText: 'Suggestion posted' })).toBeVisible();
+        if (proxy) expect(proxy.requests.slice(proxiedBeforePost)).toContainEqual({ path: '/api/extension/review/comments', hasCookie: false });
+
+        await reviewed.reload();
+        await commentBubble(reviewed, 1).click();
+        const saved = openThread(reviewed).getByRole('region', { name: 'Suggested change', exact: true });
+        const originalButton = saved.getByRole('button', { name: 'Original', exact: true });
+        const proposedButton = saved.getByRole('button', { name: 'Proposed', exact: true });
+        await expect(originalButton).toHaveAttribute('aria-pressed', 'true');
+        await expectTarget(original, '0px');
+        await proposedButton.click();
+        await expect(proposedButton).toHaveAttribute('aria-pressed', 'true');
+        await expectTarget(proposed, '24px');
+        await originalButton.click();
+        await expectTarget(original, '0px');
+        await proposedButton.click();
+        await expectTarget(proposed, '24px');
+        await reviewed.keyboard.press('Escape');
+        await expect(saved).toBeHidden();
+        await expectTarget(original, '0px');
+        expect(await target.getAttribute('style')).toBeNull();
+        expect(await reviewed.evaluate(() => document.scripts.length)).toBe(0);
+    });
     // The Accessibility panel and the on-demand checks run the packaged audit asset (audit.js): the
     // worker runs it in the toolbar's isolated world when a check runs, never as a page script or from
     // the network. Over 1,500 elements nothing checks the page unasked, so only the panel loads it.

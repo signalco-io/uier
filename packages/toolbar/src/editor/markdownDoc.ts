@@ -1,5 +1,5 @@
 import { Fragment, Mark, Slice, type Node } from 'prosemirror-model';
-import { parseMarkdown, safeHref, type MarkdownBlock, type MarkdownInline } from '../markdown';
+import { markdownPlainText, parseMarkdown, safeHref, type MarkdownBlock, type MarkdownInline } from '../markdown';
 import { editorSchema as schema } from './schema';
 
 /**
@@ -536,6 +536,14 @@ function blocksLines(parent: Node): Line[] {
 export function docToMarkdown(doc: Node | Fragment): { text: string; mentions: EditorMention[] } {
     const parent = doc instanceof Fragment ? nodes.doc.create(null, doc) : doc;
     return linesText(blocksLines(parent));
+}
+
+/** Page copy and AI suggestions enter the rich editor as literal wording. */
+export function literalTextToMarkdown(value: string): string {
+    const text = value.replace(/\r\n?/g, '\n');
+    const inline = docToMarkdown(nodes.doc.create(null, paragraph(textNodes(text, [])))).text;
+    if (!text || markdownPlainText(inline) === text) return inline;
+    return docToMarkdown(nodes.doc.create(null, nodes.code_block.create(null, schema.text(text)))).text;
 }
 
 /** Copied content as Markdown text (for other apps; the editor itself pastes its own HTML) */

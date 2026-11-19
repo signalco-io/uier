@@ -2,7 +2,7 @@
 
 import { useMessages } from '../i18n';
 
-import { useContext, useRef, useState, type Ref } from 'react';
+import { useRef, useState, type Ref } from 'react';
 import { useIconTooltip } from './IconTooltip';
 import { Popper } from '@signalco/ui-primitives/Popper';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
@@ -11,7 +11,7 @@ import { Stack } from '@signalco/ui-primitives/Stack';
 import { Row } from '@signalco/ui-primitives/Row';
 import { cx } from '@signalco/ui-primitives/cx';
 import { Delete, MoreHorizontal } from '@signalco/ui-icons';
-import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
+import { useToolbarPortalContainer } from './CommentsBootstrapperContext';
 import { destructiveTextClassName, floatingShadowClassName } from './@types/Comments';
 import { toolbarSurface } from '../toolbarReview';
 import { moveFocusInMenu } from '../focusKeys';
@@ -37,7 +37,7 @@ type CommentThreadItemMenuProps = {
  * Deleting asks first, with `confirmText`: it can take the visitor's replies or the whole thread with it.
  */
 export function CommentThreadItemMenu({ kind, own = true, confirmText, disabled, onDelete, onEdit, onReattach, triggerRef }: CommentThreadItemMenuProps) {
-    const { rootElement } = useContext(CommentsBootstrapperContext);
+    const container = useToolbarPortalContainer();
     const t = useMessages();
     const [open, setOpen] = useState(false);
     const [confirming, setConfirming] = useState(false);
@@ -75,7 +75,7 @@ export function CommentThreadItemMenu({ kind, own = true, confirmText, disabled,
     const tip = useIconTooltip(t.thread.moreOptions);
     return (
         <>{tip.tooltip}<Popper
-            container={rootElement}
+            container={container}
             open={open}
             onOpenChange={handleOpenChange}
             align="end"

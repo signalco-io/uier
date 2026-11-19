@@ -48,6 +48,13 @@ assignee card, with Open in T3 Code or another desktop session link, at the top 
   text; the toolbar shows the same icons and details. The browser icon is the browser's own mark and the
   popover puts a mark beside the operating system too (`BrowserMark`, `OsMark`). Its content is the toolbar's
   `DeviceDetails` (`@uier/toolbar/device-details`, read by Tailwind through `@source`), so both look the same (uier #428). Pending actions show `Spinner`.
+- `CommentChangeProposal` shows the saved original and proposed text and CSS with explicit labels below
+  the first message. Copy proposed text and Copy CSS use those literal values, with a read-only field when
+  clipboard access fails. The detail view receives the proposal only while the first message is visible.
+  Inbox and board summaries omit its values. The shared [feedback packet](../../../docs/feedback-context.md)
+  includes them for Copy issue and coding tools. Editing the first message of a structured rewrite updates
+  the replacement from the message's visible wording in the same write, retaining its original and CSS.
+  Editing an element proposal's note or any reply keeps the saved proposal.
 - While an opened thread's detail loads (`PagedCommentCard`: List, Board and the inbox open threads from the row's
   summary), `comments/CommentCardShell.tsx` stands in its place, shaped like `CommentCard` so nothing moves when the
   detail arrives (uier #385). What the summary holds is drawn as the card draws it: the status, `#number`, unread dot

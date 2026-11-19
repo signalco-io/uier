@@ -1,4 +1,4 @@
-import { useContext, useRef } from 'react';
+import { useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@signalco/ui-primitives/Button';
 import { Popper } from '@signalco/ui-primitives/Popper';
@@ -7,7 +7,7 @@ import { useProjectViewer } from '../project/ProjectGate';
 import { apiRequest, required, currentReviewerRevision, commentsQueryKeyPrefix } from '../hooks/api';
 import { commentUrl, newLocalId, updateCachedComment } from '../hooks/useComments';
 import { useMessages } from '../i18n';
-import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
+import { useToolbarPortalContainer } from './CommentsBootstrapperContext';
 import type { CommentItem } from './@types/Comments';
 import { CommentsErrorMessage } from './CommentsErrorMessage';
 
@@ -16,7 +16,7 @@ type Label = { id: string; name: string; description: string; color: string };
 export function CommentLabels({ comment }: { comment: CommentItem }) {
     const t = useMessages();
     const { isMember } = useProjectViewer();
-    const { rootElement } = useContext(CommentsBootstrapperContext);
+    const container = useToolbarPortalContainer();
     const client = useQueryClient(), saving = useRef(false);
     const catalog = useQuery({ queryKey: ['review-labels', toolbarConfig.project, currentReviewerRevision()], enabled: Boolean(toolbarConfig.project && isMember),
         queryFn: () => apiRequest<Label[]>(`${toolbarConfig.apiUrl}/api/review/${encodeURIComponent(toolbarConfig.project!)}/labels`).then(required), staleTime: 30_000 });
@@ -32,7 +32,7 @@ export function CommentLabels({ comment }: { comment: CommentItem }) {
     const selected = labels.filter(label => comment.labelIds?.includes(label.id));
     return <div className="flex flex-wrap items-center gap-2 text-xs">
         {selected.map(label => <span key={label.id} data-thread-label={label.id} title={label.description} className="rounded-full border px-2 py-0.5" style={{ color: `hsl(var(${colors[label.color] ?? colors.ink}))` }}>{label.name}</span>)}
-        {comment.permissions?.priority && labels.length > 0 && <Popper container={rootElement} aria-label={t.thread.labels.title}
+        {comment.permissions?.priority && labels.length > 0 && <Popper container={container} aria-label={t.thread.labels.title}
             onKeyDown={event => { if (event.key === 'Escape') event.stopPropagation(); }}
             className="z-[70] max-h-[60vh] w-64 overflow-y-auto rounded-xl p-2"
             trigger={<Button variant="outlined" size="xs" aria-label={t.thread.labels.edit}>{t.thread.labels.title}</Button>}>

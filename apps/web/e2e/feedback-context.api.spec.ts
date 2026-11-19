@@ -2,13 +2,211 @@ import { persistProjectAccess } from './support/projectAccess';
 import { randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
 import { feedbackMarkdown } from '@uier/toolbar/feedback-context';
+import { docToMarkdown, markdownToDoc } from '@uier/toolbar/editor';
+import { markdownPlainText } from '@uier/toolbar/markdown';
 import { screenshotDocumentId, type DbComment } from '../src/lib/db/schema';
 import { memberId, userPk, workspacePk, type DbMember, type DbProject, type DbUser } from '../src/lib/app/model';
 import { getAppStore, updateDoc } from '../src/lib/app/store';
 import { getMemoryCommentsStore } from '../src/lib/repo/memoryCommentsStore';
 import { projectFeedbackExport } from '../src/lib/review/feedbackContext';
+import { editProjectCommentItem, editProjectCommentText } from '../src/lib/review/comments';
 import { PUBLIC_PROJECT_ID } from '../src/lib/comments/publicProject';
 import { pngImage } from './support/images';
+
+test('public change proposals persist without a note, participate in retries, and are removed with the first message', async ({ request, playwright, baseURL }) => {
+    const proposal = { styles: { 'padding-left': { original: '4px', proposed: '12px' }, color: { original: 'rgb(0, 0, 0)', proposed: '#123' } } };
+    const position = { type: 'point', selector: '#hero>li:nth-of-type(1)', xNormal: 0.5, yNormal: 0.5, proposalLabelHash: 'v1-0123456789abcdef' };
+    const input = { path: `/change-${randomUUID()}`, position, proposal, idempotencyKey: randomUUID() };
+    const response = await request.post('/api/comments', { data: input });
+    expect(response.status(), await response.text()).toBe(201);
+    const saved = await response.json();
+    expect(saved.proposal).toEqual(proposal);
+    expect(saved.position).toEqual(position);
+    expect(saved.thread.items[0].text).toBe('Suggested change');
+    const retry = await request.post('/api/comments', { data: { ...input, text: '' } });
+    expect(retry.status()).toBe(201);
+    expect((await retry.json()).id).toBe(saved.id);
+    const conflict = await request.post('/api/comments', { data: { ...input, proposal: { styles: { color: { original: '#123', proposed: '#234' } } } } });
+    expect(conflict.status()).toBe(409);
+
+    const url = `/api/comments/${saved.id}`;
+    expect(await (await request.get(url)).json()).toMatchObject({ proposal, position });
+    expect(await (await request.get(`/api/comments?path=${input.path}`)).json()).toEqual([expect.objectContaining({ id: saved.id, proposal })]);
+    const packet = await (await request.get(`${url}/context`)).json();
+    expect(packet.context.proposal).toEqual(proposal);
+    expect(JSON.stringify(packet)).not.toContain(position.proposalLabelHash);
+    expect(packet.markdown).toContain('Original CSS:\n\n```text\ncolor: rgb(0, 0, 0);\npadding-left: 4px;\n```');
+    expect(packet.markdown).toContain('Proposed CSS:\n\n```text\ncolor: #123;\npadding-left: 12px;\n```');
+    const message = saved.thread.items[0];
+    const note = await request.patch(`${url}/replies/${message.id}`, { data: { text: 'Leave room for the label.', expectedText: message.text } });
+    expect(note.status()).toBe(200);
+    expect((await note.json()).proposal).toEqual(proposal);
+    const moved = await request.patch(`${url}/anchor`, { data: { path: input.path, expectedRevision: null,
+        position: { ...position, selector: '#hero>li:nth-of-type(2)' } } });
+    expect(moved.status(), await moved.text()).toBe(200);
+
+    const stranger = await playwright.request.newContext({ baseURL });
+    try {
+        expect((await stranger.post(`${url}/replies`, { data: { text: 'I will make the change.' } })).status()).toBe(201);
+        const deleted = await request.delete(url);
+        expect(deleted.status()).toBe(200);
+        const remaining = await deleted.json();
+        expect(remaining).not.toHaveProperty('proposal');
+        expect(remaining.position.selector).toBe('#hero>li:nth-of-type(2)');
+        expect(JSON.stringify(remaining)).not.toContain(position.proposalLabelHash);
+        const redacted = await (await stranger.get(`${url}/context`)).json();
+        expect(redacted.context.feedback.deleted).toBe(true);
+        expect(redacted.context).not.toHaveProperty('proposal');
+        expect(redacted.markdown).not.toContain('12px');
+    } finally { await stranger.dispose(); }
+});
+
+test('public proposal validation rejects unsafe or empty changes and preserves literal text in rewrites', async ({ request }) => {
+    const point = { type: 'point', selector: '#title', xNormal: 0.5, yNormal: 0.5 };
+    const input = { path: `/proposal-validation-${randomUUID()}`, position: point, text: 'Change this' };
+    const pair = (proposed: string) => ({ original: '#111', proposed });
+    const invalid = [
+        { styles: {} },
+        { styles: { 'background-image': pair('none') } },
+        { styles: { color: pair('url(https://example.test/pixel)') } },
+        { styles: { color: pair('var(--secret)') } },
+        { styles: { color: pair('#FFF; display: none') } },
+        { styles: { color: pair('#111') } },
+        { styles: { 'font-weight': { original: '400', proposed: '1001' } } },
+        { styles: { 'font-size': { original: '16px', proposed: '9'.repeat(129) } } },
+        { text: { original: 'Original', proposed: 'X'.repeat(1001) }, styles: {} },
+        { text: { original: 'Original', proposed: '\u202eReordered' }, styles: {} },
+        { text: { original: 'Original', proposed: 'Changed', html: '<p>Changed</p>' }, styles: {} },
+        JSON.parse('{"styles":{"__proto__":{"original":"4px","proposed":"8px"}}}')
+    ];
+    for (const proposal of invalid) {
+        const response = await request.post('/api/comments', { data: { ...input, proposal } });
+        expect(response.status(), JSON.stringify(proposal)).toBe(400);
+        expect((await response.json()).error).toBe('invalid_request');
+    }
+    const text = { original: 'Original text', proposed: 'Keep this literal\n````\n<x> @team' };
+    const proposal = { text, styles: {} };
+    for (const body of [
+        { ...input, position: { ...point, widthNormal: 0.1, heightNormal: 0.1 }, proposal },
+        { ...input, kind: 'feedback', position: { type: 'page' }, proposal },
+        { ...input, text: '' }
+    ]) expect((await request.post('/api/comments', { data: body })).status()).toBe(400);
+
+    // The editor displays a code block with the fence inside it still visible as text.
+    const markdown = docToMarkdown(markdownToDoc('`````text\n' + text.proposed + '\n`````')).text;
+    expect(markdownPlainText(markdown)).toBe(text.proposed);
+    const rewrite = {
+        ...input, kind: 'rewrite', text: markdown, proposal,
+        position: { type: 'text', text: text.original, startSelector: '#title', startOffset: 0, startType: 'text', endOffset: 13, endType: 'text' }
+    };
+    for (const data of [
+        { ...rewrite, text: 'A different replacement' },
+        { ...rewrite, quotedText: 'A different quoted original' },
+        { ...rewrite, position: { ...rewrite.position, text: 'A different selection' } }
+    ]) expect((await request.post('/api/comments', { data })).status()).toBe(400);
+    const response = await request.post('/api/comments', { data: rewrite });
+    expect(response.status(), await response.text()).toBe(201);
+    const saved = await response.json();
+    expect(saved.proposal).toEqual(proposal);
+    expect(saved.thread.items[0]).toMatchObject({ text: markdown, quotedText: text.original });
+    const packet = await (await request.get(`/api/comments/${saved.id}/context`)).json();
+    expect(packet.context.proposal).toEqual(proposal);
+    expect(packet.markdown).toContain('Proposed text:\n\n`````text\n' + text.proposed + '\n`````');
+    const editedLiteral = 'Keep **stars** and [link](https://example.test) literally\n```';
+    const editedMarkdown = docToMarkdown(markdownToDoc('````text\n' + editedLiteral + '\n````')).text;
+    const edit = await request.patch(`/api/comments/${saved.id}/replies/${saved.thread.items[0].id}`, {
+        data: { text: editedMarkdown, expectedText: markdown }
+    });
+    expect(edit.status(), await edit.text()).toBe(200);
+    expect((await edit.json()).proposal.text).toEqual({ original: text.original, proposed: editedLiteral });
+    expect((await (await request.get(`/api/comments/${saved.id}/context`)).json()).context.proposal.text.proposed).toBe(editedLiteral);
+});
+
+test('public rewrite edits keep the proposal and exported copy in sync', async ({ request, playwright, baseURL }) => {
+    const original = 'Book a table';
+    const styles = { 'padding-left': { original: '4px', proposed: '12px' } };
+    const position = { type: 'text', text: original, startSelector: '#title', startOffset: 0, startType: 'text', endOffset: original.length, endType: 'text' };
+    const firstMarkdown = '**Reserve** a table';
+    const input = { path: `/edit-rewrite-${randomUUID()}`, kind: 'rewrite', text: firstMarkdown, position };
+    const proposal = { text: { original, proposed: 'Reserve a table' }, styles };
+    const created = await request.post('/api/comments', { data: { ...input, proposal } });
+    expect(created.status(), await created.text()).toBe(201);
+    const saved = await created.json();
+    const url = `/api/comments/${saved.id}`;
+    const editUrl = `${url}/replies/${saved.thread.items[0].id}`;
+    const nextText = 'Find a **seat** [today](https://example.test)';
+    const stranger = await playwright.request.newContext({ baseURL });
+    try {
+        expect((await stranger.patch(editUrl, { data: { text: nextText, expectedText: firstMarkdown } })).status()).toBe(403);
+        for (const invalid of [original, '---']) {
+            expect((await request.patch(editUrl, { data: { text: invalid, expectedText: firstMarkdown } })).status()).toBe(400);
+        }
+        const edit = await request.patch(editUrl, { data: { text: nextText, expectedText: firstMarkdown } });
+        expect(edit.status(), await edit.text()).toBe(200);
+        const updated = { text: { original, proposed: 'Find a seat today' }, styles };
+        const body = await edit.json();
+        expect(body.proposal).toEqual(updated);
+        expect(body.thread.items[0]).toMatchObject({ text: nextText, quotedText: original });
+        expect((await request.patch(editUrl, { data: { text: 'Stale change', expectedText: firstMarkdown } })).status()).toBe(409);
+        const reply = await request.post(`${url}/replies`, { data: { text: 'A reply' } });
+        const replyItem = (await reply.json()).thread.items[1];
+        expect((await (await request.patch(`${url}/replies/${replyItem.id}`, { data: { text: 'Edited reply', expectedText: replyItem.text } })).json()).proposal).toEqual(updated);
+        const formatOnly = await request.patch(editUrl, { data: { text: 'Find a *seat* today', expectedText: nextText } });
+        expect(formatOnly.status(), await formatOnly.text()).toBe(200);
+        expect((await formatOnly.json()).proposal).toEqual(updated);
+        expect((await (await request.get(url)).json()).proposal).toEqual(updated);
+        const packet = await (await request.get(`${url}/context`)).json();
+        expect(packet.context.proposal).toEqual(updated);
+        expect(packet.markdown).toContain('Proposed text:\n\n```text\nFind a seat today\n```');
+        expect(packet.markdown).not.toContain('Reserve a table');
+        const legacy = await (await request.post('/api/comments', { data: { ...input, quotedText: original } })).json();
+        const legacyEdit = await request.patch(`/api/comments/${legacy.id}/replies/${legacy.thread.items[0].id}`, {
+            data: { text: original, expectedText: firstMarkdown }
+        });
+        expect(legacyEdit.status()).toBe(200);
+        expect(await legacyEdit.json()).not.toHaveProperty('proposal');
+    } finally {
+        await stranger.dispose();
+    }
+});
+
+test('project toolbar and app edits update saved rewrites and authorized exports', async () => {
+    const previous = process.env.UIER_LOCAL;
+    process.env.UIER_LOCAL = '1';
+    try {
+        const origin = 'https://preview.example';
+        const project = { id: `proposal-edit-${randomUUID()}`, urls: [origin] } as DbProject;
+        await persistProjectAccess(project);
+        const store = getMemoryCommentsStore();
+        const original = 'Book a table';
+        const styles = { 'font-weight': { original: '400', proposed: '600' } };
+        const comment: DbComment = {
+            id: 'comment_rewrite', domain: `project:${project.id}`, path: '/pricing', origin,
+            authorId: 'guest-owner', kind: 'rewrite', private: true,
+            position: { type: 'text', text: original, startSelector: '#title', startOffset: 0, startType: 'text', endOffset: original.length, endType: 'text' },
+            proposal: { text: { original, proposed: 'Outdated projection' }, styles },
+            thread: { items: [{ id: 'item_first', text: '**Reserve** a table', quotedText: original, authorId: 'guest-owner' }] }
+        };
+        await store.create(comment);
+        const guest = { kind: 'guest', visitorId: 'guest-owner' } as const;
+        const admin = { kind: 'member', userId: 'admin', name: 'Admin', isAdmin: true } as const;
+        const outsider = { kind: 'guest', visitorId: 'outsider' } as const;
+        const base = 'https://uier.example';
+        const packet = () => projectFeedbackExport(project, guest, comment.id, origin, base);
+        expect((await packet()).context.proposal).toEqual({ text: { original, proposed: 'Reserve a table' }, styles });
+        await expect(projectFeedbackExport(project, outsider, comment.id, origin, base)).rejects.toMatchObject({ code: 'not_found' });
+        const edited = await editProjectCommentItem(project, guest, comment.id, 'item_first', { text: '**Choose** a table', expectedText: '**Reserve** a table' });
+        expect(edited.proposal).toEqual({ text: { original, proposed: 'Choose a table' }, styles });
+        await expect(editProjectCommentItem(project, guest, comment.id, 'item_first', { text: 'Stale edit', expectedText: '**Reserve** a table' })).rejects.toMatchObject({ code: 'conflict' });
+        const appEdit = await editProjectCommentText(project, admin, comment.id, 'Pick a `table`');
+        expect(appEdit.proposal).toEqual({ text: { original, proposed: 'Pick a table' }, styles });
+        expect((await packet()).context.proposal).toEqual(appEdit.proposal);
+        expect((await packet()).markdown).toContain('Proposed text:\n\n```text\nPick a table\n```');
+    } finally {
+        if (previous === undefined) delete process.env.UIER_LOCAL;
+        else process.env.UIER_LOCAL = previous;
+    }
+});
 
 test('public exports include protected reply images when the original comment has no screenshot', async ({ request }) => {
     const response = await request.post('/api/comments', { data: { path: `/reply-image-${randomUUID()}`, kind: 'feedback', position: { type: 'page' }, text: 'See the redesign in my reply' } });

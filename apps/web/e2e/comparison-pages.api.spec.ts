@@ -28,6 +28,10 @@ test('comparison caveats and official evidence are present in crawler HTML', asy
         expect(html).toContain(`href="https://${domain}/`);
     expect(/<time\b[^>]*datetime="2026-11-11"/i.test(html)).toBe(true);
     expect(/<time\b[^>]*datetime="2026-11-15"/i.test(html)).toBe(true);
+    expect(/<time\b[^>]*datetime="2026-11-19"/i.test(html)).toBe(true);
+    expect(html).toContain('href="/features/pinned-comments#preview-a-change"');
+    expect(html).toContain('edit mode is unavailable in web app projects');
+    expect(html).not.toContain('No live site editing');
     expect(html).toContain('Custom statuses and labels');
     expect(html).not.toContain('no custom statuses');
     expect(html).not.toContain('1,000 recent threads');

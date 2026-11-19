@@ -16,6 +16,8 @@ export async function reattachAnchor(store: CommentsStore, domain: string, id: s
         await authorize(comment);
         if (!comment.thread.items[0] || comment.thread.items[0].deletedAt) throw apiErrors.notFound();
         if (comment.position.type === 'page') throw apiErrors.invalidRequest('Page feedback has no anchor.');
+        if (input.position.type === 'point' && input.position.proposalLabelHash !== undefined && !comment.proposal)
+            throw apiErrors.invalidRequest('A proposal label belongs to a change proposal.');
         if (commentPath(comment) !== input.path) throw apiErrors.invalidRequest('Choose a target on the same reviewed page.');
         if ((comment.anchorContext?.revision ?? null) !== input.expectedRevision)
             throw new ApiError(409, 'conflict', 'The anchor changed. Choose it again before saving.');

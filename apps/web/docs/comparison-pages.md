@@ -30,7 +30,7 @@ allowlist and screenshot/recording policies. Short screen recordings have explic
 permission, size and duration limits; built-in capture has no audio and ends on full-page navigation.
 The ledger marks them available and keeps those limits in the detail text.
 Keep its absent replay, console/network capture,
-file proofing, surveys, due dates, live CSS/text editing and release-wide approval visible. Custom statuses and
+file proofing, surveys, due dates and release-wide approval visible. Custom statuses and
 labels are shipped: up to 30 workspace statuses, with project overrides, refine the five categories
 Open, In progress, Ready to verify, Done and Archive, while guest actions
 retain their category permissions. Project search covers the authorized scope with paged results;
@@ -40,8 +40,16 @@ asset proofing, in-browser checks do not imply scheduled site crawling, and per-
 confirmation does not approve an entire asset version or release. No competitor-history importer
 is provided. Change these entries with the product.
 
-The ledger includes a separate CSS/text demonstration row, so a drawing or text comment cannot be
-mistaken for editing the reviewed site's source. Current uier context states capture attempts,
+The CSS and text demonstration row describes a single-element preview and exact original and proposed
+values for implementation in source. The linked pinned-comments page explains how to use it. ruttl's
+website projects support edit mode, and the current web app project FAQ excludes it. Pastel documents
+on-canvas text previews and copying edited text. BugHerd documents replacement text in a pinned task.
+Keep CSS previews for Pastel, on-page previews for BugHerd, and on-page editing for Marker.io, Usersnap
+and Userback unverified based on the linked sources. These editing and annotation sources were checked
+on 19 November 2026. For a review of one capability, set `reviewed` on its individual source entries
+and retain the general product review dates.
+
+Current uier context states capture attempts,
 optional omission and member-only device details; saved original/reply images do not imply automatic
 masking before upload. Drawings and recordings follow their current export and permission rules.
 
@@ -86,8 +94,8 @@ competitor account or a performance benchmark.
   permissions and explicit read/comment/assignment/workflow tools. Keep plan claims tied to the pricing
   source, with no copied currency amount or assumption that all destinations sync every field.
 - ruttl documents URL-based site reviews and guest links separately from script-installed web-app
-  review. Live CSS/text demonstrations, image/PDF feedback and task organization are distinct from uier's
-  anchored discussion and drawings. Its MCP page documents reading/resolving feedback and client setup.
+  review. Its product pages also cover image/PDF feedback and task organization. Its MCP page documents
+  reading/resolving feedback and client setup.
   Accessibility/SEO entries are marked coming soon, so the ledger does not count them as available.
   Pricing cards and the detailed table disagree on some free user/guest allowances; the copy states
   that conflict and links the current source instead of choosing an unsupported exact entitlement.
@@ -98,5 +106,6 @@ competitor account or a performance benchmark.
 `e2e/comparison-pages.spec.ts` covers disclosure interactions, sources, honest gaps, navigation,
 responsive width and accessibility. The shared SEO and social-card API suites cover generated
 HTML, sitemap inclusion and actual card PNGs. The public-footer suite includes all eight pages.
-Focused comparison coverage also guards individual source-review dates, current custom-status/paging
-claims, distinct examples, ruttl's announced checks and pricing conflicts, and the shared MCP limits.
+Focused comparison coverage also guards general and scope-specific source-review dates, CSS and text
+claims, current custom-status/paging claims, distinct examples, ruttl's announced checks and pricing
+conflicts, and the shared MCP limits.

@@ -9,6 +9,7 @@ import { closeToolbarLayers, toolbarReviewTarget, watchToolbarPresses } from '..
 import { Button } from '@signalco/ui-primitives/Button';
 import { commentKey, useComments, useSiteComments, useCommentsRefresh, useActivitySummary } from '../hooks/useComments';
 import { isPageDraftKey, newDraftKey, newDrawingDraftKey, useDrafts } from '../hooks/useDrafts';
+import { hasDraftContent, hasDraftProposal } from '../hooks/draftStorage';
 import { CanvasMode } from './canvas/CanvasMode';
 import { finishDrawing, frameOf, shapesInFrame, type CanvasFrame } from '../canvas/finish';
 import type { CommentDrawing, DrawingShape } from '../drawing';
@@ -38,6 +39,9 @@ import { PanelSwitchContext } from './PanelTitle';
 import { fitPanels, readInboxFilter, readOpenPanels, rememberInboxFilter, rememberOpenPanels, RestoredPanelContext, type DockPanelId } from '../openPanel';
 import { openFeedbackEvent, startCommentEvent, takeToolbarRequest } from '../openFeedback';
 import { captureCommentScreenshot } from '../screenshot';
+import { literalTextToMarkdown } from '../editor/markdownDoc';
+import { withProposalTargetIdentity } from '../proposalPreview';
+import { stopProposalSession } from '../proposalSession';
 import { activeModalDialog, isInActiveModal, listenToWindowKeydown } from '../modalLayer';
 import { withLayer } from '../layerAnchor';
 import { getDeviceInfo } from './info/getDeviceInfo';
@@ -135,7 +139,7 @@ export function CommentsGlobal({
     const restorePageDrafts = (): CommentDraftState[] => drafts.keys().filter(isPageDraftKey)
         .flatMap(draftKey => {
             const saved = drafts.details(draftKey);
-            return saved?.text.trim() && saved.anchor && saved.anchor.kind !== 'drawing' ? [{ draftKey, saved }] : [];
+            return saved && hasDraftContent(saved) && saved.anchor && saved.anchor.kind !== 'drawing' ? [{ draftKey, saved }] : [];
         })
         .sort((a, b) => b.saved.updatedAt - a.saved.updatedAt)
         .slice(0, maxPageDrafts)
@@ -153,7 +157,7 @@ export function CommentsGlobal({
     useEffect(() => {
         for (const draftKey of drafts.keys().filter(isPageDraftKey)) {
             const saved = drafts.details(draftKey);
-            if (saved && !saved.text.trim() && !saved.sending?.length && !saved.recoveries?.length) drafts.delete(draftKey);
+            if (saved && !hasDraftContent(saved) && !saved.sending?.length && !saved.recoveries?.length) drafts.delete(draftKey);
         }
     }, [drafts]);
     // Each draft pin's actions, for the inbox's drafts (Send)
@@ -245,18 +249,19 @@ export function CommentsGlobal({
     const lastPageFocusRef = useRef<Element | null>(null);
 
     const { path, query: commentItems, reattach } = useComments(true);
-    // A send the page never saw settle (it was reloaded or left meanwhile) comes back as a draft, as it may not have been
-    // saved. Once the page's comments show it was (one of yours with its text), its draft goes: it is not listed as unsent.
+    // Keep the existing message recovery check. Element suggestions are retried through the API's submission receipt.
     const loadedComments = commentItems.data;
     useEffect(() => {
         if (!loadedComments) return;
         for (const draftKey of drafts.keys().filter(isPageDraftKey)) {
             const saved = drafts.details(draftKey);
-            const text = saved?.text.trim();
-            if (!text || !saved?.unsettled?.includes(text)) continue;
+            if (!saved || hasDraftProposal(saved)) continue;
+            const text = saved.text.trim();
+            if (!text || !saved.unsettled?.includes(text)) continue;
             const sent = loadedComments.some(comment => {
                 const first = comment.thread.items[0];
-                return comment.isMine && first && 'text' in first && first.text.trim() === text;
+                return comment.isMine && first && !first.deleted && first.text.trim() === text
+                    && (!comment.proposal || comment.kind === 'rewrite');
             });
             if (sent) drafts.delete(draftKey);
         }
@@ -264,6 +269,7 @@ export function CommentsGlobal({
     const [reattaching, setReattaching] = useState<{ comment: CommentItem; candidate?: CommentAnchor; mode?: 'point' | 'text' }>();
     const requestReattach = (comment: CommentItem) => {
         if (comment.path !== path || !(comment.permissions?.edit ?? comment.isMine)) return;
+        stopProposalSession();
         handleCollapsedChange(false);
         reattach.reset();
         setCreatingCommentPoint(false);
@@ -279,7 +285,8 @@ export function CommentsGlobal({
     };
     // While the menu, popover or dialog it is in is open: its opener is saved with it (layerAnchor.ts)
     const chooseAnchor = (anchor: CommentAnchor, element?: Element) => {
-        const candidate = withLayer(anchor, element);
+        const position = withLayer(anchor, element);
+        const candidate = reattaching?.comment.proposal ? withProposalTargetIdentity(position, element) : position;
         setReattaching(current => current ? { ...current, candidate, mode: undefined } : current);
     };
     const saveAnchor = async () => {
@@ -326,15 +333,22 @@ export function CommentsGlobal({
         if (kind === 'rewrite' && !features.includes('rewrite')) return;
         if (kind === 'drawing' && (!features.includes('draw') || !drawing)) return;
         // While the menu, popover or dialog it is in is open: its opener is saved with it (layerAnchor.ts)
-        const position = withLayer(anchor, element);
+        let position = withLayer(anchor, element);
+        if (kind === 'comment' && position.type === 'point' && features.includes('rewrite')) {
+            stopProposalSession();
+            position = withProposalTargetIdentity(position, element);
+        }
         // On uier's own pages the toolbar's popovers stayed open while pointing: those the comment is not on close
         closeToolbarLayers(element ?? resolveAnchorElement(position));
         closeHintForUse();
         draftKeyRef.current += 1;
         // A comment or rewrite on the very same spot as an unsent one goes on with it (C on the same focused element,
         // the same text selected again); elsewhere it is a draft of its own, and the others wait as pins
-        const same = kind === 'drawing' ? undefined : creatingComments.find(draft => draft.kind === kind && !draft.sentAs
-            && JSON.stringify(draft.position) === JSON.stringify(position) && drafts.get(draft.draftKey)?.trim());
+        const same = kind === 'drawing' ? undefined : creatingComments.find(draft => {
+            const saved = drafts.details(draft.draftKey);
+            return draft.kind === kind && !draft.sentAs && JSON.stringify(draft.position) === JSON.stringify(position)
+                && hasDraftContent(saved) && (!hasDraftProposal(saved) || features.includes('rewrite'));
+        });
         if (same) {
             setCreatingComment({ kind: same.kind, position: same.position, draftKey: same.draftKey, key: draftKeyRef.current });
             return;
@@ -344,7 +358,8 @@ export function CommentsGlobal({
         drafts.setDetails(draftKey, { anchor: { kind, position } });
         // A rewrite starts from the selected text (when it fits a comment's length)
         if (kind === 'rewrite' && position.type === 'text') {
-            drafts.set(draftKey, position.text.length <= commentTextMaxLength ? position.text : '');
+            const initial = position.text.length <= commentTextMaxLength ? literalTextToMarkdown(position.text) : '';
+            drafts.set(draftKey, initial.length <= commentTextMaxLength ? initial : '');
         }
         setCreatingComment({
             key: draftKeyRef.current,
@@ -734,7 +749,12 @@ export function CommentsGlobal({
 
     // The latest closed draft pin with text (a closed draft pin always has text)
     const resumableDraft = creatingComments
-        .filter(draft => !draft.sentAs && (draft.kind !== 'rewrite' || features.includes('rewrite')) && (draft.kind !== 'drawing' || features.includes('draw')) && !openDrafts.has(draft.draftKey) && drafts.get(draft.draftKey)?.trim())
+        .filter(draft => {
+            const saved = drafts.details(draft.draftKey);
+            return !draft.sentAs && !openDrafts.has(draft.draftKey)
+                && (draft.kind !== 'rewrite' && !hasDraftProposal(saved) || features.includes('rewrite'))
+                && (draft.kind !== 'drawing' || features.includes('draw')) && hasDraftContent(saved);
+        })
         .sort((a, b) => (drafts.details(b.draftKey)?.updatedAt ?? 0) - (drafts.details(a.draftKey)?.updatedAt ?? 0))[0];
     const resumeDraft = (draft: CommentDraftState) => {
         closeHintForUse();
@@ -774,7 +794,7 @@ export function CommentsGlobal({
         // The draft it was sent from has nothing to show any more
         setCreatingComments(current => current.filter(other => other.key !== sent.key));
         const saved = drafts.details(sent.draftKey);
-        if (!saved?.text.trim() || !saved.anchor) return;
+        if (!saved?.anchor || !hasDraftContent(saved)) return;
         draftKeyRef.current += 1;
         const restored = { ...saved.anchor, draftKey: sent.draftKey, key: draftKeyRef.current, sendError, ...choice, ...(quiet ? { initiallyClosed: true } : {}) };
         setCreatingComments(current => current.some(other => other.draftKey === sent.draftKey) ? current : [...current, restored]);
@@ -929,7 +949,7 @@ export function CommentsGlobal({
         : undefined;
 
     // A sent draft until its comment's pin is in the list (`handleCreated`)
-    const shownCreatingComments = creatingComments.filter(draft => (draft.kind !== 'rewrite' || features.includes('rewrite')) &&
+    const shownCreatingComments = creatingComments.filter(draft => (draft.kind !== 'rewrite' && !hasDraftProposal(drafts.details(draft.draftKey)) || features.includes('rewrite')) &&
         (draft.kind !== 'drawing' || features.includes('draw')) &&
         (!draft.sentAs || !pinnedComments.some(comment => commentKey(comment) === draft.sentAs)));
     // Listed in the inbox (with text), each to resume or send, while its form is closed (one being written is not

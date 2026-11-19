@@ -40,6 +40,8 @@ export type CommentPoint = {
     widthNormal?: number;
     heightNormal?: number;
     layer?: CommentLayer;
+    /** Bounded visible-label fingerprint for previewing a proposal on a structural anchor. */
+    proposalLabelHash?: string;
 };
 
 /**
@@ -198,6 +200,8 @@ export type CommentItem = {
     check?: import('../../feedbackTypes').CommentCheck;
     /** Shapes drawn on the page with it (canvas mode), from its area's top-left corner; only on an area */
     drawing?: import('../../drawing').CommentDrawing;
+    /** Saved original and proposed text or CSS for this anchor. */
+    proposal?: import('../../changeProposal').ChangeProposal;
     thread: CommentItemThread;
     /** The coarse device size and the viewport (width, height) it was left from */
     device?: { size?: CommentDeviceSize; windowSize?: [number, number] };

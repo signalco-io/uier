@@ -5,6 +5,7 @@ import { deviceSettings } from './userAgent';
 import { toolbarPartLabel } from './toolbarParts';
 import { drawingSummary, type CommentDrawing } from './drawing';
 import { reactionEmoji, reactionNames } from './reactions';
+import { proposalCss, type ChangeProposal } from './changeProposal';
 
 export { toolbarPartLabel } from './toolbarParts';
 /** Versioned handoff contract shared by copy/export and future authenticated integrations.
@@ -62,6 +63,8 @@ export type FeedbackContext = {
      * Older packets and threads without a drawing omit it.
      */
     drawing?: FeedbackDrawing;
+    /** The saved original and proposed values, untrusted like the first message. */
+    proposal?: ChangeProposal;
     source: { path: string; origin?: string; environment?: string };
     links: { page?: string; comment?: string };
     reproduction: {
@@ -99,6 +102,16 @@ function drawingText(drawing: FeedbackDrawing | undefined) {
     return [
         `Drawing on the page: ${drawing.shapes} ${drawing.shapes === 1 ? 'shape' : 'shapes'} (${drawing.summary}) in ${drawing.width}×${drawing.height} CSS px, drawn over the area. The saved screenshot includes it.`,
         drawing.notes.length ? `Text notes in the drawing:\n\n${drawing.notes.map(literal).join('\n\n')}` : ''
+    ].filter(Boolean).join('\n\n');
+}
+
+function changeProposalText(proposal: ChangeProposal | undefined) {
+    if (!proposal) return '';
+    const css = proposalCss(proposal);
+    return [
+        '## Suggested change',
+        proposal.text ? `Original text:\n\n${literal(proposal.text.original)}\n\nProposed text:\n\n${literal(proposal.text.proposed)}` : '',
+        css ? `Original CSS:\n\n${literal(proposalCss(proposal, 'original'))}\n\nProposed CSS:\n\n${literal(css)}` : ''
     ].filter(Boolean).join('\n\n');
 }
 
@@ -206,6 +219,7 @@ export function feedbackMarkdown(context: FeedbackContext): string {
         toolbarPartLabel(anchor.selector) ? 'This is a part of uier\'s own review toolbar, on uier\'s own pages: the selector after #uier-toolbar>>> is inside the toolbar\'s shadow root.' : '',
         anchor.area ? `Area within the element: ${areaText(anchor.area)}` : '',
         drawingText(context.drawing),
+        changeProposalText(context.feedback && !context.feedback.deleted ? context.proposal : undefined),
         anchor.text !== undefined ? `Original selected text:\n\n${literal(anchor.text)}` : '',
         anchor.startOffset !== undefined ? `Text offsets: ${anchor.startOffset}–${anchor.endOffset ?? 'unknown'}` : '',
         anchor.endSelector ? `End selector:\n\n${literal(anchor.endSelector)}` : '',
