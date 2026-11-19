@@ -5,6 +5,8 @@ import { inspectRecording, startRecordingUpload, completeRecordingUpload, prepar
 import { getRecordingBlobs, localRecordingFile, recordingNames } from '../src/lib/recordings/blobStore';
 import { getMemoryCommentsStore } from '../src/lib/repo/memoryCommentsStore';
 import { commitNewSubmission, submission } from '../src/lib/comments/submissions';
+import { attachSavedRecording } from '../src/lib/comments/attachRecording';
+import { attachProjectRecording } from '../src/lib/review/comments';
 import { recordingUploadDocumentId, type DbComment } from '../src/lib/db/schema';
 import { persistProjectAccess } from './support/projectAccess';
 import { ensureProjectPublicId } from '../src/lib/app/projectPublicIds';
@@ -170,4 +172,101 @@ test('project recording routes enforce private visibility, project identity, sit
     expect(denied.status).toBe(403);
     expect((await denied.json() as { error: string }).error).toBe('comments_disabled');
     expect((await reviewComplete(write(), completeParams)).status).toBe(403);
+});
+
+test('a saved comment takes one recording afterwards: its author only, replayable, and never an upload used elsewhere', async ({ request, playwright, baseURL }) => {
+    const create = async (text: string) => {
+        const response = await request.post('/api/comments', { data: { path: `/recordings-${randomUUID()}`, position: { type: 'page' }, kind: 'feedback', text } });
+        expect(response.status(), await response.text()).toBe(201);
+        return await response.json() as { id: string; recording?: unknown };
+    };
+    const comment = await create('Evidence follows');
+    expect(comment.recording).toBeUndefined();
+    const url = `/api/comments/${comment.id}/recording`;
+    expect((await request.get(url)).status()).toBe(404);
+    // Only a finalized upload id is accepted: never bytes, a type or a location from the request
+    for (const data of [{}, { recordingId: 'a b' }, { recordingId: '../session' }])
+        expect((await request.post(url, { data })).status()).toBe(400);
+    expect((await request.post(url, { data: { recordingId: 'recording_missing' } })).status()).toBe(404);
+    const pending = await (await request.post('/api/comments/recordings', { data: init() })).json();
+    expect((await request.post(url, { data: { recordingId: pending.id } })).status()).toBe(404);
+
+    const { upload, metadata } = await httpUpload(request);
+    const other = await playwright.request.newContext({ baseURL });
+    try {
+        // Another visitor can neither use the author's upload nor add their own to the author's comment
+        expect((await other.post(url, { data: { recordingId: upload.id } })).status()).toBe(403);
+        const theirs = await httpUpload(other);
+        expect((await other.post(url, { data: { recordingId: theirs.upload.id } })).status()).toBe(403);
+    } finally { await other.dispose(); }
+    expect((await request.get(url)).status()).toBe(404);
+
+    const attached = await request.post(url, { data: { recordingId: upload.id } });
+    expect(attached.status(), await attached.text()).toBe(200);
+    expect((await attached.json()).recording).toEqual(metadata);
+    const replayed = await request.post(url, { data: { recordingId: upload.id } });
+    expect(replayed.status()).toBe(200);
+    expect(await replayed.json()).toMatchObject({ id: comment.id, recording: metadata });
+    const playback = await (await request.get(url)).json();
+    expect(await (await request.get(playback.url)).body()).toEqual(bytes);
+
+    // One recording per message, and one message per upload
+    const second = await httpUpload(request);
+    expect((await request.post(url, { data: { recordingId: second.upload.id } })).status()).toBe(409);
+    const elsewhere = await create('Another comment');
+    expect((await request.post(`/api/comments/${elsewhere.id}/recording`, { data: { recordingId: upload.id } })).status()).toBe(409);
+    expect((await request.get(`/api/comments/${elsewhere.id}/recording`)).status()).toBe(404);
+    const reply = await request.post(`/api/comments/${elsewhere.id}/replies`, { data: { text: 'Reuse', recordingId: upload.id } });
+    expect(reply.status()).toBe(409);
+
+    expect((await request.delete(`/api/comments/${comment.id}`)).ok()).toBe(true);
+    expect((await request.get(playback.url)).status()).toBe(404);
+    expect((await request.post(url, { data: { recordingId: second.upload.id } })).status()).toBe(404);
+    await request.delete(`/api/comments/${elsewhere.id}`);
+});
+
+test('project comments take a recording from their author or an admin, with their own upload, and recover a lost acknowledgement', async () => {
+    const project = await persistProjectAccess({ id: `recording-${randomUUID()}`, urls: ['https://reviewed.example'] } as DbProject);
+    const domain = `project:${project.id}`, store = getMemoryCommentsStore();
+    const save = async (authorId: string, extra: Partial<DbComment> = {}) => {
+        const comment: DbComment = { id: `comment_${randomUUID()}`, domain, projectId: project.id, path: '/', position: { type: 'page' }, authorId,
+            thread: { items: [{ id: 'first', text: 'Evidence follows', authorId }] }, ...extra };
+        await store.create(comment);
+        return comment;
+    };
+    const owner = { kind: 'guest', visitorId: 'owner' } as const;
+    const stranger = { kind: 'guest', visitorId: 'other' } as const;
+    const member = { kind: 'member', userId: 'member', name: 'Member', isAdmin: false } as const;
+    const admin = { ...member, userId: 'admin', isAdmin: true };
+    const comment = await save('owner');
+    const own = await serviceUpload(domain, 'owner');
+    await expect(attachProjectRecording(project, { kind: 'anonymous' }, comment.id, own.upload.id)).rejects.toMatchObject({ code: 'invalid_request' });
+    for (const [actor, author] of [[stranger, 'other'], [member, 'user:member']] as const) {
+        const theirs = await serviceUpload(domain, author);
+        await expect(attachProjectRecording(project, actor, comment.id, theirs.upload.id)).rejects.toMatchObject({ code: 'forbidden' });
+    }
+    // An admin may add evidence, but only an upload they made themselves
+    await expect(attachProjectRecording(project, admin, comment.id, own.upload.id)).rejects.toMatchObject({ code: 'not_found' });
+    expect((await store.get(domain, comment.id))!.comment.recording).toBeUndefined();
+
+    const original = store.commitSubmission.bind(store);
+    store.commitSubmission = async (...args) => { const result = await original(...args); if (result === 'ok') throw new Error('Acknowledgement lost'); return result; };
+    try { expect((await attachProjectRecording(project, owner, comment.id, own.upload.id)).recording).toEqual(own.metadata); }
+    finally { store.commitSubmission = original; }
+    expect((await store.getRecordingUpload(domain, recordingUploadDocumentId(own.upload.id)))!.doc.attached).toEqual({ commentId: comment.id });
+    expect((await attachProjectRecording(project, owner, comment.id, own.upload.id)).recording).toEqual(own.metadata);
+    const saved = (await store.get(domain, comment.id))!.comment;
+    expect(new URL((await commentRecordingUrl(sourceRequest(), saved, undefined, store, own.blobs)).url).pathname).toContain('/api/recording-files/');
+    const adminUpload = await serviceUpload(domain, 'user:admin');
+    await expect(attachProjectRecording(project, admin, comment.id, adminUpload.upload.id)).rejects.toMatchObject({ code: 'conflict' });
+
+    const others = await save('owner', { private: true });
+    await expect(attachProjectRecording(project, member, others.id, (await serviceUpload(domain, 'user:member')).upload.id)).rejects.toMatchObject({ code: 'not_found' });
+    expect((await attachProjectRecording(project, admin, others.id, adminUpload.upload.id)).recording).toEqual(adminUpload.metadata);
+
+    // A first message its author deleted while others replied takes nothing more
+    const kept = await save('owner', { thread: { items: [{ id: 'first', text: '', authorId: 'owner', deletedAt: new Date().toISOString() }, { id: 'reply', text: 'Still here', authorId: 'other' }] } });
+    const late = await serviceUpload(domain, 'user:admin');
+    await expect(attachSavedRecording(store, domain, 'user:admin', kept.id, late.upload.id, () => {})).rejects.toMatchObject({ code: 'not_found' });
+    expect((await store.getRecordingUpload(domain, recordingUploadDocumentId(late.upload.id)))!.doc.attached).toBeUndefined();
 });

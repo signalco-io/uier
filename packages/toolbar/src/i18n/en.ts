@@ -425,6 +425,10 @@ export const en = {
     recording: {
         "record": "Record screen",
         "upload": "Upload recording",
+        "attach": "Attach recording",
+        "attaching": "Attaching recording…",
+        "attached": "Recording attached.",
+        "notAttached": "The recording could not be attached. It is kept, so you can try again.",
         "stop": "Stop recording",
         "stopShort": "Stop",
         "discard": "Discard recording",
@@ -470,6 +474,8 @@ export const en = {
         attachInstead: 'Attach your own image instead of the screenshot.',
         attachImage: 'Attach image',
         attach: 'Attach',
+        /** The first message's paperclip in a saved thread: what its comment does not have yet */
+        attachToComment: 'Attach to comment',
         /** The name of an image pasted from the clipboard */
         pastedImage: 'Pasted image'
     },
@@ -562,9 +568,14 @@ export const en = {
         upload: 'Upload image',
         pasteTip: (limits: string) => `Paste image. ${limits}`,
         paste: 'Paste image',
+        take: 'Take screenshot',
+        saving: 'Saving image…',
+        attached: 'Screenshot attached.',
+        imageAttached: 'Image attached.',
+        notAttached: (reason: string) => `${reason} The image was not attached. Try again.`,
+        notTaken: 'The screenshot could not be taken. Try again.',
         savingReplacement: 'Saving replacement…',
         evidence: 'Screenshot evidence',
-        none: 'No screenshot',
         unavailable: 'The screenshot is no longer available.',
         label: 'Screenshot',
         expand: 'Expand screenshot',

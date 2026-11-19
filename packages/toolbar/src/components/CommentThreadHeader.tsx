@@ -236,8 +236,8 @@ function PriorityBadge({ comment }: { comment: CommentItem }) {
  */
 export function CommentThreadHeader({ comment, message, onMarkedUnread, onRequestVerification, optionsRef }: {
     comment: CommentItem;
-    /** The first message's part of the line: its author line, Add reaction and its options for Thread options */
-    message?: { author?: ReactNode; device?: ReactNode; reaction?: ReactNode; actions?: FirstMessageActions };
+    /** The first message's part of the line: its author line, Add reaction, Attach to comment and its options for Thread options */
+    message?: { author?: ReactNode; device?: ReactNode; reaction?: ReactNode; attach?: ReactNode; actions?: FirstMessageActions };
     onMarkedUnread?: () => void;
     /** Thread options' Request verification and the status menu's Ready to verify: the form opens in the thread */
     onRequestVerification?: (statusId?: string) => void;
@@ -402,6 +402,7 @@ export function CommentThreadHeader({ comment, message, onMarkedUnread, onReques
                     {/* A comment on its way has no reactions, link, issue or options yet */}
                     {!comment.pending && <>
                         {message?.reaction}
+                        {message?.attach}
                         <CopyMenu state={issue} className={compactThreadActionClassName} iconSize={14} linkAvailable={comment.source?.available !== false} onCopyLink={handleCopyLink} />
                         <CommentThreadMenu className={compactThreadActionClassName} triggerRef={optionsRef} actions={{
                             message: message?.actions,

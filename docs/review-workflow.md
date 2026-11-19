@@ -515,9 +515,12 @@ Images, fonts and stylesheets from other sites that don't allow it (CORS, or the
 images that haven't loaded within a second (lazy ones below the window), `<canvas>`, video, iframes and
 `backdrop-filter` come out empty or plain.
 
-For missing or unsuitable captures, the author (or a workspace admin) can choose **Upload image** or
-**Paste image** on saved feedback in the toolbar: beside "No screenshot", or in the expanded screenshot next
-to Redact screenshot. Keyboard image paste also works while a saved image control has focus. PNG, JPEG and WebP images use the same 512 KB / 4096 px limits as automatic evidence;
+For missing or unsuitable captures, the author (or a workspace admin) can add evidence to saved feedback in
+the toolbar. Without a screenshot, **Attach to comment** (a paperclip among the first message's actions) offers
+**Take screenshot** (the commented part of the page as it is now, on the comment's own page), **Attach image**
+and **Paste image**, and a screen recording while the comment has none. With a screenshot, **Upload image** and
+**Paste image** are in the expanded screenshot next to Redact screenshot. Keyboard image paste also works while
+one of these controls has focus. PNG, JPEG and WebP images use the same 512 KB / 4096 px limits as automatic evidence;
 invalid images and denied clipboard access show an error and keep the saved feedback. Nothing is previewed
 in a composer. Images are not persisted with drafts or in browser storage.
 

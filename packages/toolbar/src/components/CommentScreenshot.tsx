@@ -12,15 +12,16 @@ import { getCommentScreenshot } from '../hooks/useComments';
 import { screenshotQueryKey } from '../hooks/api';
 import type { CommentItem } from './@types/Comments';
 import { destructiveTextClassName } from './@types/Comments';
-import { useMessages } from '../i18n';
+import { useMessages, type Messages } from '../i18n';
 import { SuppliedImageError, suppliedScreenshot } from '../suppliedScreenshot';
+import { screenshotContentTypes } from '../screenshotPolicy';
 import { useReplaceScreenshot } from '../hooks/useReplaceScreenshot';
 import { ScreenshotRedaction } from './ScreenshotRedaction';
 import { toolbarSurface } from '../toolbarReview';
 
 
 /** Lucide's clipboard-paste (the UI kit has no clipboard icon), drawn like the kit's icons next to it */
-function PasteIcon({ size = 16 }: { size?: number }) {
+export function PasteIcon({ size = 16 }: { size?: number }) {
     return (
         <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
             strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -31,6 +32,19 @@ function PasteIcon({ size = 16 }: { size?: number }) {
             <rect x="8" y="2" width="8" height="4" rx="1" />
         </svg>
     );
+}
+
+/** An image from the clipboard, asked from the browser; its errors are in the reviewer's language */
+export async function readClipboardImage(t: Messages) {
+    if (!navigator.clipboard?.read) throw new Error(t.screenshot.clipboardUnavailable);
+    let items: ClipboardItem[];
+    try { items = await navigator.clipboard.read(); }
+    catch { throw new Error(t.screenshot.clipboardDenied); }
+    for (const item of items) {
+        const type = item.types.find(type => screenshotContentTypes.some(allowed => allowed === type));
+        if (type) return item.getType(type);
+    }
+    throw new Error(t.screenshot.clipboardEmpty);
 }
 
 /** Whether the element is in (or near) the window, once; scrolled containers count (the inbox) */
@@ -56,10 +70,10 @@ function useSeen<T extends Element>() {
 
 /**
  * The screenshot under a thread's first message. Its author replaces it from the expanded view
- * (Redact, Upload image, Paste image; the limits are in their tooltips), or adds one from the
- * thread while there is none. Pasting with the keyboard works in both. The image is fetched when it comes into view
- * (the inbox lists many threads), once per image revision; until then a placeholder of its size
- * keeps the thread from jumping. Without a screenshot and nothing to do, it renders nothing.
+ * (Redact, Upload image, Paste image; the limits are in their tooltips), also by pasting with the
+ * keyboard. The image is fetched when it comes into view (the inbox lists many threads), once per
+ * image revision; until then a placeholder of its size keeps the thread from jumping. Without a
+ * screenshot it renders nothing: the first message's Attach adds one (`CommentAttach`).
  */
 export function CommentScreenshot({ comment, itemId }: { comment: CommentItem; itemId?: string }) {
     const item = itemId ? comment.thread.items.find(item => item.id === itemId) : undefined;
@@ -107,23 +121,13 @@ export function CommentScreenshot({ comment, itemId }: { comment: CommentItem; i
             setFailure(t.screenshot.notConfirmed(reason));
         } finally { workingRef.current = false; setWorking(false); }
     };
-    const clipboard = async () => {
-        if (!navigator.clipboard?.read) throw new Error(t.screenshot.clipboardUnavailable);
-        let items: ClipboardItem[];
-        try { items = await navigator.clipboard.read(); }
-        catch { throw new Error(t.screenshot.clipboardDenied); }
-        for (const item of items) {
-            const type = item.types.find(type => ['image/png', 'image/jpeg', 'image/webp'].includes(type));
-            if (type) return item.getType(type);
-        }
-        throw new Error(t.screenshot.clipboardEmpty);
-    };
 
-    if (!size && !canReplace) {
+    // Without one there is nothing to show: its author adds one from the first message's Attach (`CommentAttach`)
+    if (!size) {
         return null;
     }
 
-    // Upload and paste: small labelled buttons beside "No screenshot", or in the expanded view
+    // Upload and paste: small labelled buttons in the expanded view
     const replaceActions = canReplace && <>
         <Button size="xs" variant="plain" className="text-muted-foreground hover:text-foreground"
             title={t.screenshot.uploadTip(imageLimits)} startDecorator={<Upload size={14} />}
@@ -132,7 +136,7 @@ export function CommentScreenshot({ comment, itemId }: { comment: CommentItem; i
         </Button>
         <Button size="xs" variant="plain" className="text-muted-foreground hover:text-foreground"
             title={t.screenshot.pasteTip(imageLimits)} startDecorator={<PasteIcon size={14} />}
-            disabled={busy || editing} onClick={() => { void supply(clipboard); }}>
+            disabled={busy || editing} onClick={() => { void supply(() => readClipboardImage(t)); }}>
             {t.screenshot.paste}
         </Button>
     </>;
@@ -143,13 +147,12 @@ export function CommentScreenshot({ comment, itemId }: { comment: CommentItem; i
         {failure && <p role="alert" className={`m-0 basis-full text-xs ${destructiveTextClassName}`}>{failure}</p>}
     </>;
 
-    return <section ref={sectionRef} aria-label={t.screenshot.evidence} className="flex flex-wrap items-center gap-1" onPaste={event => {
+    return <section ref={sectionRef} aria-label={t.screenshot.evidence} data-uier-evidence="screenshot" className="flex flex-wrap items-center gap-1" onPaste={event => {
         if (!canReplace || busy || editing) return;
         const file = [...event.clipboardData.files][0];
         if (file) { event.preventDefault(); void supply(async () => file); }
     }}>
-        {!size ? <span className="mr-1 text-xs text-muted-foreground">{t.screenshot.none}</span>
-            : isError ? <span className="mr-1 text-xs text-muted-foreground">{t.screenshot.unavailable}</span>
+        {isError ? <span className="mr-1 text-xs text-muted-foreground">{t.screenshot.unavailable}</span>
             : data
         ? (
             <Popper
@@ -188,14 +191,13 @@ export function CommentScreenshot({ comment, itemId }: { comment: CommentItem; i
                 style={size.width && size.height ? { aspectRatio: `${size.width} / ${size.height}` } : undefined} />
         )}
         {canReplace && (
-            <Input type="file" accept="image/png,image/jpeg,image/webp" aria-label={t.screenshot.uploadInput} className="hidden"
+            <Input type="file" accept={screenshotContentTypes.join(',')} aria-label={t.screenshot.uploadInput} className="hidden"
                 disabled={busy} onChange={event => {
                     const file = event.target.files?.[0];
                     event.target.value = '';
                     if (file) void supply(async () => file);
                 }} />
         )}
-        {!size && replaceActions}
         {!open && notices}
     </section>;
 }

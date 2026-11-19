@@ -6,7 +6,7 @@ import { apiErrors, parseJsonBody } from '@/src/lib/comments/http';
 import { assertCanUseComments } from '@/src/lib/review/actor';
 import { assertVerifiedWrite } from '@/src/lib/review/verification';
 import * as review from '@/src/lib/review/routes';
-import { startReviewRecording, completeReviewRecording, readReviewRecording } from '@/src/lib/recordings/routes';
+import { startReviewRecording, completeReviewRecording, readReviewRecording, attachReviewRecording } from '@/src/lib/recordings/routes';
 import { readReviewComments, reviewActivitySummary } from '@/src/lib/review/readRoutes';
 import { reattachReviewAnchor } from '@/src/lib/review/anchorRoutes';
 import { reactToReviewComment } from '@/src/lib/review/reactions';
@@ -27,7 +27,7 @@ const handler = extensionHandler(async request => {
     const [, id, suffix, itemId, itemResource] = path.split('/');
     if (path === 'recordings') return startReviewRecording(context);
     if (path.startsWith('recordings/') && id && suffix === 'complete') return completeReviewRecording(context, { id });
-    if (id && suffix === 'recording') return readReviewRecording(context, { id });
+    if (id && suffix === 'recording') return request.method === 'POST' ? attachReviewRecording(context, { id }) : readReviewRecording(context, { id });
     if (id && suffix === 'replies' && itemId && itemResource === 'recording') return readReviewRecording(context, { id, itemId });
     if (!operation) return review.getReviewInfo(context);
     if (path === 'comments') return request.method === 'GET' ? review.listReviewComments(context) : review.createReviewComment(context);

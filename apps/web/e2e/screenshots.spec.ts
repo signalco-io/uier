@@ -101,7 +101,9 @@ test('screenshots: cancellation saves nothing and failed capture still saves the
     await draft.getByRole('button', { name: 'Post comment' }).click();
     const thread = page.getByRole('dialog', { name: 'Comment thread' });
     await expect(thread.getByText('Keep the feedback if capture fails.')).toBeVisible();
-    await expect(thread.getByText('No screenshot', { exact: true })).toBeVisible();
+    // No row for a screenshot that is not there; the author can add one from Attach (uier #473)
+    await expect(thread.getByRole('region', { name: 'Screenshot evidence' })).toHaveCount(0);
+    await expect(thread.getByRole('button', { name: 'Attach to comment', exact: true })).toBeVisible();
     expect((await savedComment(page, 'Keep the feedback if capture fails.')).screenshot).toBeUndefined();
     await context.close();
 });
@@ -247,7 +249,9 @@ test('screenshots: the composer says while one is taken, and turning off Attach 
     await draft.getByRole('button', { name: 'Post comment' }).click();
     expect(await body).not.toHaveProperty('screenshot');
     const thread = page.getByRole('dialog', { name: 'Comment thread' });
-    await expect(thread.getByText('No screenshot', { exact: true })).toBeVisible();
+    // No row for a screenshot that is not there; the author can add one from Attach (uier #473)
+    await expect(thread.getByRole('region', { name: 'Screenshot evidence' })).toHaveCount(0);
+    await expect(thread.getByRole('button', { name: 'Attach to comment', exact: true })).toBeVisible();
     expect((await savedComment(page, 'Send this without an image.')).screenshot).toBeUndefined();
     await page.keyboard.press('Escape');
 
