@@ -75,8 +75,10 @@ separate provider decisions.
 ## Public materials
 
 The public [integration index](https://uier.io/integrations) shows each provider's logo and optional
-features, the rules every integration shares, and a suggestion form that opens the showcase toolbar's
-feedback dialog. It links to features, configurable settings, setup, permissions, limitations,
+features, the shared project sync rules, and a suggestion form that opens the showcase toolbar's
+feedback dialog. It also lists [MCP for coding tools](https://uier.io/guides/mcp) and the
+[REST API for custom integrations](https://uier.io/developers/api). Both use project access granted by the account owner.
+The project guides cover features, configurable settings, setup, permissions, limitations,
 privacy/disconnect and support details for [Notion](https://uier.io/integrations/notion),
 [GitHub](https://uier.io/integrations/github), [Linear](https://uier.io/integrations/linear),
 [Azure DevOps](https://uier.io/integrations/azure-devops) and [Slack](https://uier.io/integrations/slack).

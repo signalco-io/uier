@@ -110,7 +110,7 @@ const tradeoffs: Record<CompetitorSlug, { keep: string; lose: string; test: stri
     bugherd: {
         keep: 'Use BugHerd if your team depends on audio explanations, Figma or file review, due dates or custom Kanban columns.',
         lose: 'In uier, you would use live-page comments, short screen recordings and custom statuses grouped under five fixed stages. File proofing and due dates do not carry over; custom statuses do not add release-wide approval.',
-        test: 'Try one client review from first comment to reviewer confirmation. Check that uier’s five integrations cover the destinations you need; it does not provide BugHerd’s full integration catalog.'
+        test: 'Try one client review from first comment to reviewer confirmation. Check whether uier can send feedback to your team’s project tool or let you read it in your coding tool through MCP.'
     },
     'marker-io': {
         keep: 'Use Marker.io if replay, console/network evidence and scheduled monitoring are requirements.',

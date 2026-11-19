@@ -20,6 +20,7 @@ features from documentation silence or turn an unverified entry into a negative.
 browser and capture-mode caveats. Do not count coming-soon features as available or claim MCP
 is exclusive to uier. Link current pricing matrices instead of copying volatile price amounts.
 
+uier’s integration summary covers its five project destinations, MCP access for coding tools and the REST API for custom integrations.
 uier's claims follow the shipped feature pages, `docs/review-workflow.md`, the reproduction
 allowlist and screenshot/recording policies. Short screen recordings have explicit browser,
 permission, size and duration limits; built-in capture has no audio and ends on full-page navigation.

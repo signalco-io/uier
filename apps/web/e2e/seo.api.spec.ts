@@ -3,6 +3,7 @@ import { brand } from '@uier/brand';
 import { integrationCatalog } from '../src/lib/integrations/catalog';
 
 const publicPaths = [
+    '/developers/api',
     '/compare/userback', '/compare/ruttl', '/guides/wordpress', '/guides/html', '/guides/react', '/guides/webflow', '/guides/shopify', '/guides/mcp', '/use-cases/client-feedback', '/use-cases/bug-reporting', '/use-cases/user-acceptance-testing',
     '/compare', '/compare/website-feedback-tools', '/compare/bugherd', '/compare/marker-io', '/compare/usersnap', '/compare/pastel',
     '/guides', '/guides/browser-extension', '/guides/client-website-reviews', '/guides/nextjs', '/guides/website-review-checklist', '/guides/website-bug-report-template',

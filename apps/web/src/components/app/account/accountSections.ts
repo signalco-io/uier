@@ -10,7 +10,8 @@ export const accountSections: SettingsSection<AccountSection>[] = [
     { section: 'sign-in', label: 'Sign-in' },
     { section: 'notifications', label: 'Notifications' },
     { section: 'usage', label: 'Usage' },
-    { section: 'coding-agents', label: 'Coding agents' }
+    { section: 'coding-agents', label: 'Coding agents' },
+    { section: 'api-tokens', label: 'API tokens' }
 ];
 
 /**
