@@ -5,7 +5,7 @@ import { loadSkills } from '@modelcontextprotocol/server/ext/skills/node';
 /*
  * The MCP Skills extension (SEP-2640): the connector serves the skills of the uier plugin
  * (`plugins/uier/skills`, the same files the Claude Code and Codex plugin installs), so a client
- * that supports the extension gets `uier-monitor` and `uier-monitor-script` from the connection it
+ * that supports the extension gets the project monitor and orchestrator from the connection it
  * already has, with their scripts, without installing anything. The SDK builds the catalog once
  * per process and checks every read against it; the files are public and the same for everyone.
  */

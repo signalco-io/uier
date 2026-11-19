@@ -32,7 +32,7 @@ The design record, the decisions behind it and where the code differs from the p
 ## Agent plugins
 
 For Claude Code or Codex, [install the uier plugin](agent-plugins.md) from this repository's
-marketplace to get the connector with the `uier-monitor` and `uier-monitor-script` skills.
+marketplace to get the connector with the monitor and orchestrator skills.
 Account → Coding agents includes both install commands and the standalone connection options
 below. Installing the plugin starts no monitor; invoking uier-monitor approves its documented
 workflow for comments in scope. Public directory listings are separate from repository installation;
@@ -541,6 +541,8 @@ the same, including the unread filter when supplied. Whole rows stop at the resp
 always follow `nextCursor`, even when a page has fewer than the requested rows. Offsets can shift
 when threads change. Keep the event cursor between reconciliations instead of repeatedly listing
 all state. The default `view: 'summary'` retains its 1–25 limit and full summaries.
+Use `monitorScope: "mine"` to select the acting member’s own threads that are unassigned or assigned to them.
+Use `"assigned"` to include other authors’ threads assigned to that member. These filters apply inside the same visible window.
 
 `get_feedback_batch` takes `{ projectId, commentIds }` and returns
 `{ actingAs, contentTrust, items, remainingIds }`. Each item contains `commentId` and either the
@@ -643,7 +645,7 @@ retrieval. Prompts contain instructions and validated identifiers, never feedbac
 feedback read still goes through an authorized tool.
 
 **Skills over the connection.** The connector also serves the skills of the
-[uier plugin](agent-plugins.md), `uier-monitor` and `uier-monitor-script`, through the MCP Skills
+[uier plugin](agent-plugins.md), `uier-monitor`, `uier-monitor-script` and `uier-orchestrator`, through the MCP Skills
 extension (`capabilities.extensions["io.modelcontextprotocol/skills"]`): `skills/list` and
 `skills/get` describe them, and each file, scripts included, is a `skill://` resource
 (`resources/read`) with its size and SHA-256 digest. A client that supports the extension gets them

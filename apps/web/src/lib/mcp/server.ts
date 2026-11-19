@@ -95,6 +95,7 @@ const feedbackFilters = z.object({
     path: reviewPathSchema.optional(),
     environment: z.string().min(1).max(512).optional(),
     anchorType: z.enum(['point', 'text', 'page']).optional(),
+    monitorScope: z.enum(['mine', 'assigned']).optional().describe('mine: threads I authored that are unassigned or assigned to me. assigned: also include other authors’ threads assigned to me.'),
     assignee: z.union([z.enum(['me', 'unassigned']), userIdSchema]).optional(),
     authorKind: z.enum(['member', 'guest']).optional(),
     unread: z.boolean().optional(),
@@ -275,7 +276,10 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
         let matching = comments.filter(comment => {
             const first = comment.thread.items[0];
             const authorKind = first && !first.deletedAt ? first.authorId?.startsWith('user:') ? 'member' : 'guest' : undefined;
-            const assignees = input.assignee === undefined ? [] : assignedUserIds(comment);
+            const assignees = input.assignee === undefined && !input.monitorScope ? [] : assignedUserIds(comment);
+            const mine = authorKind === 'member' && first?.authorId === authorId;
+            if (input.monitorScope && !(mine && (!assignees.length || assignees.includes(user.id)))
+                && !(input.monitorScope === 'assigned' && assignees.includes(user.id))) return false;
             return (input.labelId === undefined || labelsForComment(labels, comment).some(label => label.id === input.labelId))
                 && (input.priority === undefined || commentPriority(comment.priority) === input.priority)
                 && (input.status === 'all' || (input.status === 'open' ? !comment.resolved

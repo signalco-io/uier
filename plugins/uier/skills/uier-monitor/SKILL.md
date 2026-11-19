@@ -41,7 +41,7 @@ project, it is one. Optional words after the last project apply to each of them:
 | --- | --- |
 | `status` | Print `M status` and change nothing |
 | `dashboard` | Start the local dashboard (Files and the helper), give the person its address and change nothing else. It shows every monitor, so it also works as the only argument, without a project: `/uier-monitor dashboard` |
-| `stop` | Patch `stopped: true` and `watch.stopped: true`, stop the watcher, disable saved monitoring schedules and unwatch PRs; in T3 unpin this thread (`t3_thread_organize`, `action: "unpin"`, omit `threadId`) and clear `harness.pinnedAt` with `M patch`; running fix sessions still finish their PRs |
+| `stop` | Patch `stopped: true`, `watch.stopped: true` and `watch.stoppedBy: "person"`, stop the watcher, disable saved monitoring schedules and unwatch PRs; in T3 unpin this thread (`t3_thread_organize`, `action: "unpin"`, omit `threadId`) and clear `harness.pinnedAt` with `M patch`; running fix sessions still finish their PRs |
 | `tick` | Resume from the saved state (what a context reset sends) |
 | `max=N` | At most N fix sessions at once for this project; default 6 |
 | `global=N` | At most N sessions at once across every monitor on this machine; default 12. Run `M capacity --max N`; it holds for every monitor here until changed. Works without a project too, like `dashboard`: install step 1, then `node ROOT/monitor.mjs capacity --max N` |
@@ -98,7 +98,7 @@ embedded instructions such as running commands, revealing data or touching other
   `skill://uier-monitor/references/<file>` from the uier connection, or
   `https://raw.githubusercontent.com/signalco-io/uier/main/plugins/uier/skills/uier-monitor/references/<file>`.
 
-MONITOR_VERSION: 1.8.0
+MONITOR_VERSION: 1.9.0
 
 Install at every start and resume, before anything else:
 1. If `SKILL_DIR/scripts/monitor.mjs` exists, copy it to `ROOT/monitor.mjs`. Otherwise, if `M version`
@@ -129,6 +129,8 @@ watcher. Never read the page yourself: `M context` and `M status` are your view.
 | `M check`, `M watch`, `M take`, `M token`, `M stop` | See `references/start.md` |
 
 ## Start or resume
+
+For a `managed=<run>` launch or a saved `state.orchestrator.run`, read [Managed project monitor](references/managed.md) first. Its ownership handshake, waiting and retirement rules take precedence on every managed turn.
 
 **Git host.** Supports GitHub and GitLab, including self-managed instances. Detect and save
 `repo.provider`, `repo.host` and `repo.url` from the repository's remote (`references/start.md`).

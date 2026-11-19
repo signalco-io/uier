@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 export const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 export const pluginPath = 'plugins/uier';
-const skillNames = ['uier-monitor', 'uier-monitor-script'];
+const skillNames = ['uier-monitor', 'uier-monitor-script', 'uier-orchestrator'];
 
 export async function syncAgentPlugin(root = repoRoot, { check = false } = {}) {
     const plugin = join(root, pluginPath);

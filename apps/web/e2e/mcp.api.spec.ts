@@ -337,7 +337,9 @@ test('the connector serves the plugin skills with their files to clients that re
         expect(client.getServerCapabilities()).toMatchObject({ extensions: { 'io.modelcontextprotocol/skills': { directoryRead: true }, 'io.modelcontextprotocol/events': {} },
             resources: { listChanged: false } });
         const listed = await client.request({ method: 'skills/list' as never } as never, loose) as { skills: { uri: string; frontmatter: { name: string; description: string }; resources: { uri: string; digest: string; size: number }[] }[] };
-        expect(listed.skills.map(skill => skill.frontmatter.name).sort()).toEqual(['uier-monitor', 'uier-monitor-script']);
+        expect(listed.skills.map(skill => skill.frontmatter.name).sort()).toEqual(['uier-monitor', 'uier-monitor-script', 'uier-orchestrator']);
+        const orchestrator = listed.skills.find(skill => skill.frontmatter.name === 'uier-orchestrator')!;
+        expect(orchestrator.resources.map(resource => resource.uri)).toContain('skill://uier-orchestrator/scripts/orchestrator.mjs');
         const monitor = listed.skills.find(skill => skill.frontmatter.name === 'uier-monitor')!;
         expect(monitor.uri).toBe('skill://uier-monitor/SKILL.md');
         expect(monitor.resources.map(resource => resource.uri)).toEqual(expect.arrayContaining(['skill://uier-monitor/SKILL.md', 'skill://uier-monitor/scripts/monitor.mjs']));
@@ -462,6 +464,8 @@ test('listing returns shared routing and combines every filter without exposing 
         expect(await ids({ assignee: context.user.id })).toEqual([assigned.id]);
         expect(await ids({ assignee: 'unassigned' })).toEqual(all.items.filter((item: { assignee: unknown }) => !item.assignee).map((item: { id: string }) => item.id).sort());
         expect(await ids({ authorKind: 'guest' })).toEqual([text.id, assigned.id].sort());
+        expect(await ids({ monitorScope: 'mine', view: 'state' })).toEqual([point.id, ownPrivate.id].sort());
+        expect(await ids({ monitorScope: 'assigned', view: 'state' })).toEqual([point.id, ownPrivate.id, assigned.id].sort());
         expect((await ids({ authorKind: 'member' }))).toContain(point.id);
         expect((await ids({ authorKind: 'member' }))).not.toContain(redacted.id);
         expect(await ids({ unread: false })).toEqual([point.id, text.id, ownPrivate.id, redacted.id].sort());
