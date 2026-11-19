@@ -1,11 +1,11 @@
 import { test, expect } from '@playwright/test';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { issueExtensionCode, exchangeExtensionCode, extensionSession, readScope, validateAuthorization } from '../src/lib/extension/auth';
-import { createScope, createSiteProject, extensionReviewContext, matchingProjects, projectsForSite } from '../src/lib/extension/review';
+import { createScope, createSiteProject, extensionReviewContext, matchingProjects, projectsForSite, siteProjectsLimit } from '../src/lib/extension/review';
 import { extensionHandler } from '../src/lib/extension/http';
 import { findOrCreateUser } from '../src/lib/app/users';
 import { ensureOwnWorkspace, createWorkspace } from '../src/lib/app/workspaces';
-import { createProject, findProject, updateProject } from '../src/lib/app/projects';
+import { createProject, findProject, listProjects, updateProject } from '../src/lib/app/projects';
 import { getAppStore, updateDoc } from '../src/lib/app/store';
 import type { AppContext } from '../src/lib/app/context';
 import { assertVerifiedWrite } from '../src/lib/review/verification';
@@ -26,14 +26,14 @@ const original = { UIER_LOCAL: process.env.UIER_LOCAL, UIER_EXTENSION_CLIENT_IDS
 test.beforeAll(() => { process.env.UIER_LOCAL = '1'; process.env.UIER_EXTENSION_CLIENT_IDS = clientId; process.env.UIER_EXTENSION_CLIENTS = ''; });
 test.afterAll(() => { for (const [key, value] of Object.entries(original)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } });
 const random = () => randomBytes(32).toString('base64url');
-async function fixture(renewable = false, registration: { clientId: string; redirectUri: string; extensionOrigin?: string } = { clientId, redirectUri }) {
+async function fixture(renewable = false, registration: { clientId: string; redirectUri: string; extensionOrigin?: string } = { clientId, redirectUri }, capability?: 'create-projects') {
     const user = await findOrCreateUser(`${randomUUID()}@example.test`);
     const member = await ensureOwnWorkspace(user);
     const context = { user, member, workspace: { id: member.workspaceId }, isAdmin: true } as AppContext;
     const project = await createProject(context, { name: 'Extension project', urls: ['https://reviewed.example'] });
     const verifier = random(), state = random();
     const challenge = createHash('sha256').update(verifier).digest('base64url');
-    const authorization = { ...registration, state, challenge, ...(renewable ? { renewable: 'true' as const } : {}) };
+    const authorization = { ...registration, state, challenge, ...(renewable ? { renewable: 'true' as const } : {}), ...(capability ? { capability } : {}) };
     const callback = new URL(await issueExtensionCode(user.id, authorization));
     const exchange = { clientId: registration.clientId, redirectUri: registration.redirectUri, code: callback.searchParams.get('code'), verifier };
     return { user, project, authorization, callback, exchange };
@@ -41,8 +41,8 @@ async function fixture(renewable = false, registration: { clientId: string; redi
 const request = (path: string, token?: string, body?: unknown) => new Request(`https://uier.io/api/extension/${path}`, {
     method: body === undefined ? 'GET' : 'POST', headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), 'Content-Type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body)
 });
-async function renewableFixture() {
-    const f = await fixture(true);
+async function renewableFixture(capability?: 'create-projects') {
+    const f = await fixture(true, undefined, capability);
     const credentials = await exchangeExtensionCode({ ...f.exchange, renewable: true });
     if (!('refreshToken' in credentials)) throw new Error('Expected renewable extension credentials');
     return { ...f, credentials };
@@ -198,7 +198,7 @@ test('site discovery distinguishes workspaces and never includes another account
 });
 
 test('an unlisted site gets a project only in a workspace its person administers, by the app\'s creation rules', async () => {
-    const f = await renewableFixture();
+    const f = await renewableFixture('create-projects');
     const token = f.credentials.token;
     const site = `https://new-${randomUUID().slice(0, 8)}.example`;
     const own = f.project.workspaceId;
@@ -213,7 +213,8 @@ test('an unlisted site gets a project only in a workspace its person administers
     const before = await discover();
     expect(before.projects).toEqual([]);
     expect(before.workspaces).toEqual([{ id: own, name: 'Personal' }]);
-    const create = (body: unknown, bearer: string | null = token) => createSiteProject(request('projects', bearer ?? undefined, body));
+    // Every call is a new submission unless it names its attempt
+    const create = (body: object, bearer: string | null = token) => createSiteProject(request('projects', bearer ?? undefined, { attempt: random(), ...body }));
 
     // Identity: an access token of a live session, never the refresh credential or no credential
     await expect(create({ origin: site, name: 'Site', workspaceId: own }, null)).rejects.toMatchObject({ status: 401 });
@@ -225,12 +226,14 @@ test('an unlisted site gets a project only in a workspace its person administers
     for (const origin of [`${site}/path`, 'ftp://files.example', 'https://intranet', 'not an address'])
         await expect(create({ origin, name: 'Site', workspaceId: own })).rejects.toMatchObject({ status: 400 });
     await expect(create({ origin: site, name: 'n'.repeat(MAX_PROJECT_NAME_LENGTH + 1), workspaceId: own })).rejects.toMatchObject({ status: 400, message: `Use at most ${MAX_PROJECT_NAME_LENGTH} characters.` });
+    for (const attempt of [undefined, '', 'short', 'a'.repeat(44)])
+        await expect(create({ origin: site, name: 'Site', workspaceId: own, attempt })).rejects.toMatchObject({ status: 400 });
     expect((await discover()).projects).toEqual([]);
 
     // Through the route, as the worker sends it from the extension's origin
     const response = await extensionWrite(new Request('https://uier.io/api/extension/projects', { method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Origin: `chrome-extension://${clientId}` },
-        body: JSON.stringify({ origin: site, name: '  New site  ', workspaceId: own }) }));
+        body: JSON.stringify({ origin: site, name: '  New site  ', workspaceId: own, attempt: random() }) }));
     expect(response.status).toBe(201);
     const created = await response.json() as { id: string; projectId: string; name: string; access: string; workspaceId: string; workspaceName: string };
     expect(created).toEqual({ id: expect.stringMatching(/^[\w-]{21}$/), projectId: expect.stringMatching(/^[0-9a-z]{12}$/), name: 'New site', access: 'invited', workspaceId: own, workspaceName: 'Personal' });
@@ -249,6 +252,116 @@ test('an unlisted site gets a project only in a workspace its person administers
     await expect(create({ origin: site, name: 'Site', workspaceId: own })).rejects.toMatchObject({ status: 403 });
     await getAppStore().delete(workspacePk(own), memberId(f.user.id));
     await expect(create({ origin: site, name: 'Site', workspaceId: own })).rejects.toMatchObject({ status: 403 });
+});
+
+test('a sign-in that approved reviewing alone keeps reviewing and cannot create a project', async () => {
+    const site = `https://new-${randomUUID().slice(0, 8)}.example`;
+    // Sessions as they were issued before the extension could create projects: the eight-hour one and the renewable one
+    const legacy = await fixture();
+    const renewable = await renewableFixture();
+    // An exchange cannot add what consent did not name
+    const upgraded = await fixture(true);
+    const sessions = [
+        { f: legacy, credentials: await exchangeExtensionCode(legacy.exchange) },
+        { f: renewable, credentials: renewable.credentials },
+        { f: upgraded, credentials: await exchangeExtensionCode({ ...upgraded.exchange, renewable: true, capability: 'create-projects' }) }
+    ];
+    for (const { f, credentials } of sessions) {
+        const body = { origin: site, name: 'Site', workspaceId: f.project.workspaceId, attempt: random() };
+        await expect(createSiteProject(request('projects', credentials.token, body))).rejects.toMatchObject({ status: 403, code: 'forbidden', message: 'Sign in to the extension again to create projects.' });
+        const refused = await extensionWrite(request('projects', credentials.token, body));
+        expect(refused.status).toBe(403);
+        // Reviewing is unchanged: discovery, a scope for a project's own address and its review context
+        const found = await (await matchingProjects(request(`projects?origin=${site}`, credentials.token))).json() as { projects: unknown[]; workspaces: unknown[]; approveCreate?: boolean; canSetUp: boolean };
+        expect(found).toMatchObject({ projects: [], workspaces: [], approveCreate: true, canSetUp: true });
+        const scoped = await (await createScope(request('scope', credentials.token, { projectId: f.project.id, origin: 'https://reviewed.example' }))).json() as { token: string };
+        expect((await extensionReviewContext(request('review/info', scoped.token))).project.id).toBe(f.project.id);
+        expect((await listProjects(f.project.workspaceId)).map(project => project.id)).toEqual([f.project.id]);
+    }
+    // Renewal keeps a session as it was approved: it neither adds the capability nor drops it
+    const renewed = await refreshExtensionSession({ clientId, refreshToken: renewable.credentials.refreshToken, attempt: random() });
+    await expect(createSiteProject(request('projects', renewed.token, { origin: site, name: 'Site', workspaceId: renewable.project.workspaceId, attempt: random() }))).rejects.toMatchObject({ status: 403 });
+    const approved = await renewableFixture('create-projects');
+    expect((await extensionSession(request('projects', approved.credentials.token))).capabilities).toEqual(['create-projects']);
+    const later = await refreshExtensionSession({ clientId, refreshToken: approved.credentials.refreshToken, attempt: random() });
+    const found = await (await matchingProjects(request(`projects?origin=${site}`, later.token))).json() as { workspaces: unknown[]; approveCreate?: boolean };
+    expect(found.workspaces).toEqual([{ id: approved.project.workspaceId, name: 'Personal' }]);
+    expect(found.approveCreate).toBeUndefined();
+    expect((await createSiteProject(request('projects', later.token, { origin: site, name: 'Site', workspaceId: approved.project.workspaceId, attempt: random() }))).status).toBe(201);
+    // Consent asks for a capability it knows, and nothing else
+    expect(() => validateAuthorization({ ...approved.authorization, capability: 'manage-workspace' })).toThrow();
+});
+
+test('a repeated or concurrent create with one attempt gives one project', async () => {
+    const f = await renewableFixture('create-projects');
+    const token = f.credentials.token, own = f.project.workspaceId;
+    const site = `https://new-${randomUUID().slice(0, 8)}.example`;
+    const create = async (body: object, bearer = token) => await (await createSiteProject(request('projects', bearer, { origin: site, name: 'Site', workspaceId: own, ...body }))).json() as { id: string; projectId: string };
+    const created = async () => (await listProjects(own)).filter(project => project.id !== f.project.id).map(project => project.id).sort();
+
+    // The answer was lost: the worker sends the attempt it saved again
+    const attempt = random();
+    const first = await create({ attempt });
+    expect(await create({ attempt })).toEqual(first);
+    expect(await created()).toEqual([first.projectId]);
+    // Renamed in the app since: the replay still answers with that project, as it is now
+    await updateProject(own, first.projectId, { name: 'Renamed' });
+    expect(await (await createSiteProject(request('projects', token, { origin: site, name: 'Site', workspaceId: own, attempt }))).json()).toMatchObject({ projectId: first.projectId, name: 'Renamed' });
+
+    // Two popups, a second press: at once, with one attempt
+    const together = random();
+    const answers = await Promise.all(Array.from({ length: 6 }, () => create({ attempt: together, name: 'Together' })));
+    expect(new Set(answers.map(answer => answer.projectId)).size).toBe(1);
+    expect(new Set(answers.map(answer => answer.id)).size).toBe(1);
+    expect(await created()).toEqual([first.projectId, answers[0]!.projectId].sort());
+    expect((await findProject(answers[0]!.projectId))).toMatchObject({ name: 'Together', urls: [site], createdBy: f.user.id });
+
+    // An attempt belongs to its account, workspace and input: anything else is another submission
+    const other = await create({ attempt, name: 'Another name' });
+    expect(other.projectId).not.toBe(first.projectId);
+    const elsewhere = await create({ attempt, origin: 'https://elsewhere.example' });
+    expect([first.projectId, other.projectId]).not.toContain(elsewhere.projectId);
+    const stranger = await renewableFixture('create-projects');
+    const theirs = await (await createSiteProject(request('projects', stranger.credentials.token, { origin: site, name: 'Site', workspaceId: stranger.project.workspaceId, attempt }))).json() as { projectId: string };
+    expect(theirs.projectId).not.toBe(first.projectId);
+    await expect(createSiteProject(request('projects', stranger.credentials.token, { origin: site, name: 'Site', workspaceId: own, attempt }))).rejects.toMatchObject({ status: 403 });
+    expect(await created()).toHaveLength(4);
+});
+
+test('project creation from the extension is limited per account and a refusal creates nothing', async () => {
+    const f = await renewableFixture('create-projects');
+    const own = f.project.workspaceId;
+    const limit = siteProjectsLimit(f.user.id);
+    const post = (body: object) => extensionWrite(new Request('https://uier.io/api/extension/projects', { method: 'POST',
+        headers: { Authorization: `Bearer ${f.credentials.token}`, 'Content-Type': 'application/json', Origin: `chrome-extension://${clientId}` },
+        body: JSON.stringify({ name: 'Site', workspaceId: own, attempt: random(), ...body }) }));
+    const now = Date.now;
+    // One fixed moment: the whole budget and the refusal fall in the same hour
+    const moment = now();
+    try {
+        Date.now = () => moment;
+        const attempts: string[] = [];
+        for (let index = 0; index < limit.limit; index++) {
+            attempts.push(random());
+            expect((await post({ origin: `https://site-${index}.example`, attempt: attempts[index] })).status).toBe(201);
+        }
+        expect(await listProjects(own)).toHaveLength(limit.limit + 1);
+        const refused = await post({ origin: 'https://one-too-many.example' });
+        expect(refused.status).toBe(429);
+        expect(await refused.json()).toMatchObject({ error: 'rate_limited', reason: 'too_fast', message: 'Too many new projects. Try again later.' });
+        expect(Number(refused.headers.get('Retry-After'))).toBe(limit.windowSeconds - Math.floor(moment / 1000) % limit.windowSeconds);
+        expect(refused.headers.get('Access-Control-Expose-Headers')).toContain('Retry-After');
+        // Nothing was created, and no code was claimed for the refused attempt
+        expect(await listProjects(own)).toHaveLength(limit.limit + 1);
+        expect((await projectsForSite(f.user.id, 'https://one-too-many.example')).projects).toEqual([]);
+        // An answer lost before the budget ran out is still given: a replay is not a new project
+        const replay = await post({ origin: 'https://site-0.example', attempt: attempts[0] });
+        expect(replay.status).toBe(201);
+        expect(await listProjects(own)).toHaveLength(limit.limit + 1);
+        // The budget is the account's own
+        const other = await renewableFixture('create-projects');
+        expect((await createSiteProject(request('projects', other.credentials.token, { origin: 'https://theirs.example', name: 'Site', workspaceId: other.project.workspaceId, attempt: random() }))).status).toBe(201);
+    } finally { Date.now = now; }
 });
 
 test('scoped access derives the origin and rechecks address removal, comments off and revocation', async () => {

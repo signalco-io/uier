@@ -480,6 +480,7 @@ const messages = {
     "Only channels where the uier app is a member are available. Direct messages and Slack Connect channels are excluded.": "Only channels where the uier app is a member are available. Direct messages and Slack Connect channels are excluded.",
     "Only continue if you just started this from a coding tool on this computer. Any program on this computer can use this name.": "Only continue if you just started this from a coding tool on this computer. Any program on this computer can use this name.",
     "Only sites where you choose Start review are activated.": "Only sites where you choose Start review are activated.",
+    "The extension can create projects for sites you open, in workspaces where you are an admin.": "The extension can create projects for sites you open, in workspaces where you are an admin.",
     "Only the first 500 choices in each list are shown. Missing choices cannot be saved here.": "Only the first 500 choices in each list are shown. Missing choices cannot be saved here.",
     "Only the first 500 databases are shown.": "Only the first 500 databases are shown.",
     "Only the first 500 organizations are shown.": "Only the first 500 organizations are shown.",

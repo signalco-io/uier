@@ -100,15 +100,30 @@ gates; local browser builds do not announce new store availability.
 
 `POST /api/extension/projects` (`createSiteProject` in `src/lib/extension/review.ts`) creates a project for a
 site no project includes, from the popup. It takes the worker's access token (never a review scope or a refresh
-credential), an exact origin, a name and a workspace id. The person must be a stored admin of that workspace, and
-uier's own workspace is never accepted (`mayCreateProjects`): the same rule as the app's Create project. It calls
-the app's `createProject`, so address and name validation, the invited-only default, the public id and the client
-record are the app's; keep new creation rules in `createProject` so both paths get them. A missing workspace, a
-removed member and a commenter get the same 403. One account creates at most 30 projects an hour this way.
+credential), an exact origin, a name, a workspace id and an attempt. In order:
+
+- **Capability.** The session must hold `create-projects` (`sessions.ts`, `hasExtensionCapability`). Authorization
+  asks for it with `capability=create-projects`, `/app/extension` names it in its own list item, the one-use handoff
+  stores it and the exchange copies it to the session from the handoff alone, never from the exchange body. Refresh
+  keeps the session record, so it neither adds nor drops it. Sessions issued before the capability existed have none:
+  they review as before and get 403 here. A new capability needs its consent line, in every app language.
+- **Permission.** The person must be a stored admin of that workspace, and uier's own workspace is never accepted
+  (`mayCreateProjects`): the same rule as the app's Create project. A missing workspace, a removed member and a
+  commenter get the same 403.
+- **Replay.** `attemptedProject` finds the project an earlier request with this attempt created; it is returned
+  without counting against the budget.
+- **Budget.** `siteProjectsLimit`: 30 new projects an hour per account, 429 with `Retry-After` beyond it.
+- **Creation.** The app's `createProject` with the attempt ([projects](projects.md)), so address and name
+  validation, the invited-only default, the public id and the client record are the app's. Keep new creation rules
+  in `createProject` so both paths get them.
+
 `GET projects` adds `workspaces` (id and name of each workspace the account may create in, oldest membership
-first) beside `canSetUp`, which installed packages still read; the list is a label and grants nothing.
-`extension.api.spec.ts` covers the roles, stale and removed memberships, credentials, validation and the route; the
-packaged runtime suite creates a project from the popup and reviews with it.
+first) beside `canSetUp`, which installed packages still read; the list is a label and grants nothing. A session
+without the capability gets an empty list and `approveCreate: true` when the account has such a workspace.
+`extension.api.spec.ts` covers the capability (legacy, renewable and renewed sessions, an exchange that asks for
+it), the roles, stale and removed memberships, credentials, validation, replay and concurrent requests of one
+attempt, the budget and the route; the packaged runtime suite reads the consent line, moves the tab between the form
+and its submit, sends one submission twice and reviews with the created project.
 
 Workflow discovery uses the allowlisted `GET statuses` operation and the same member-only handler as the embed review API. Guests cannot retrieve workflow names, descriptions or defaults.
 

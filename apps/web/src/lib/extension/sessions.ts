@@ -13,9 +13,19 @@ export const extensionAccessSeconds = 15 * 60;
 export const extensionIdleSeconds = 30 * 24 * 60 * 60;
 export const extensionAbsoluteSeconds = 365 * 24 * 60 * 60;
 export type SessionToken = { id: string; clientId: string; userId: string; extensionOrigin?: string };
+/**
+ * What a sign-in approved beyond reviewing, named on the consent page it was approved on. Kept on the session
+ * record, so a refresh keeps it and never adds it; a session from before a capability existed has none.
+ */
+export const extensionCapabilities = ['create-projects'] as const;
+export type ExtensionCapability = typeof extensionCapabilities[number];
+export function hasExtensionCapability(session: Pick<ExtensionSession, 'capabilities'>, capability: ExtensionCapability) {
+    return session.capabilities?.includes(capability) === true;
+}
 export type ExtensionSession = AppDoc & {
     type: 'extension-session'; userId: string; clientId: string; expiresAt: number; ttl: number;
     extensionOrigin?: string;
+    capabilities?: ExtensionCapability[];
     // Absent on legacy eight-hour sessions, which cannot be refreshed.
     absoluteExpiresAt?: number; refreshHash?: string;
 };
@@ -39,11 +49,11 @@ function credentials(session: ExtensionSession, refresh: string) {
     };
 }
 
-export async function createExtensionSession(userId: string, clientId: string, extensionOrigin?: string) {
+export async function createExtensionSession(userId: string, clientId: string, extensionOrigin?: string, capabilities?: ExtensionCapability[]) {
     const id = sha256Hex(randomToken()), now = Date.now();
     const token = refreshToken(id);
     const session: ExtensionSession = {
-        type: 'extension-session', id, pk: `extension-session:${id}`, userId, clientId, extensionOrigin,
+        type: 'extension-session', id, pk: `extension-session:${id}`, userId, clientId, extensionOrigin, capabilities,
         expiresAt: now + extensionIdleSeconds * 1000, absoluteExpiresAt: now + extensionAbsoluteSeconds * 1000,
         refreshHash: sha256Hex(token), ttl: extensionIdleSeconds
     };

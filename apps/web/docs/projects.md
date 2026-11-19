@@ -48,7 +48,12 @@
   cannot overwrite an address another admin has already added.
 - `createProject` is the one way a person creates a project: the app's form (`createProjectAction`) and the
   browser extension's popup (`createSiteProject`, [browser extension](browser-extension.md)) both call it after
-  their own admin check. It needs only the user and the workspace of the context.
+  their own admin check. It needs only the user and the workspace of the context. With `attempt` (a random value
+  its caller keeps for retries) the creation is repeatable: the project's code is a keyed hash of the person, the
+  workspace, the attempt and the validated input (`attemptProjectId`), so a repeated or concurrent request claims
+  the same `project-ref`, finds the project or finishes creating it, and every request returns the one project.
+  No receipt record is stored. A changed input is another project; a code retired by deletion or moved by a
+  transfer is refused, never created again. `attemptedProject` reads it for callers that count new projects.
 - Project addresses use `normalizeSiteUrl` in `src/lib/app/projects.ts`: schemeless localhost,
   `.localhost` subdomains and loopback IPs default to HTTP, other hosts to HTTPS. Explicit schemes
   and ports are preserved. Review CORS and redirects still require an exact configured origin.

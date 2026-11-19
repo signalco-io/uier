@@ -1,10 +1,11 @@
 import { z } from 'zod';
-import { createProject, projectOrigins, findProject, listProjects } from '../app/projects';
+import { attemptedProject, createProject, projectOrigins, findProject, listProjects } from '../app/projects';
+import { hasExtensionCapability } from './sessions';
 import { getMember, getWorkspace, listUserMemberships } from '../app/workspaces';
 import type { DbMember } from '../app/model';
 import { UserFacingError } from '../app/actionErrors';
 import { PUBLIC_WORKSPACE_ID } from '../comments/publicProjectPolicy';
-import { consume, APP_COUNTERS_PARTITION } from '../comments/rateLimits';
+import { consume, APP_COUNTERS_PARTITION, type Limit } from '../comments/rateLimits';
 import { getCommentsStore } from '../repo/commentsStore';
 import { getUser } from '../app/users';
 import { ensureProjectPublicId } from '../app/projectPublicIds';
@@ -21,7 +22,11 @@ export async function matchingProjects(request: Request) {
     const origin = originSchema.safeParse(new URL(request.url).searchParams.get('origin'));
     if (!origin.success) throw apiErrors.invalidRequest('An exact HTTP(S) origin is required.');
     const user = await getUser(session.userId);
-    return Response.json({ ...await projectsForSite(session.userId, origin.data), account: user && { name: user.name, email: user.email } });
+    const { workspaces, ...site } = await projectsForSite(session.userId, origin.data);
+    // A sign-in from before creating was offered approved reviewing alone: the popup asks for a new one instead
+    const approved = hasExtensionCapability(session, 'create-projects');
+    return Response.json({ ...site, workspaces: approved ? workspaces : [], ...(!approved && workspaces.length > 0 ? { approveCreate: true } : {}),
+        account: user && { name: user.name, email: user.email } });
 }
 /**
  * Who may create a project in a workspace: its admins, as on the app's Create project (`createProjectAction`),
@@ -30,6 +35,8 @@ export async function matchingProjects(request: Request) {
 function mayCreateProjects(member: Pick<DbMember, 'role' | 'workspaceId'>) {
     return member.role === 'admin' && member.workspaceId !== PUBLIC_WORKSPACE_ID;
 }
+/** Projects one account creates from the extension in an hour */
+export const siteProjectsLimit = (userId: string): Limit => ({ key: `extension-project:${userId}`, limit: 30, windowSeconds: 3600, reason: 'too_fast', message: 'Too many new projects. Try again later.' });
 /** Discovery is also used by first-party consent, after validating each browser account. */
 export async function projectsForSite(userId: string, origin: string) {
     const memberships = await listUserMemberships(userId);
@@ -57,20 +64,31 @@ export async function projectsForSite(userId: string, origin: string) {
 }
 /**
  * A project for the site the extension is on, in a workspace the person chose: the app's own `createProject`, so
- * the same address and name rules apply and it starts invited-only. The stored admin membership is read here for
- * every request; the list `projectsForSite` gave the popup grants nothing.
+ * the same address and name rules apply and it starts invited-only. Three things are checked for every request:
+ * the sign-in approved creating projects (a session that approved reviewing alone keeps reviewing and gets no
+ * more), the stored admin membership (the list `projectsForSite` gave the popup grants nothing), and the hourly
+ * budget. `attempt` is the worker's random value for this submission: its retries and concurrent copies return the
+ * one project and count once.
  */
 export async function createSiteProject(request: Request) {
     const session = await extensionSession(request);
-    const { origin, name, workspaceId } = await parseJsonBody(request, z.object({
-        origin: originSchema, name: z.string().max(1000).default(''), workspaceId: z.string().min(1).max(128)
+    if (!hasExtensionCapability(session, 'create-projects'))
+        throw apiErrors.forbidden('Sign in to the extension again to create projects.');
+    const { origin, name, workspaceId, attempt } = await parseJsonBody(request, z.object({
+        origin: originSchema, name: z.string().max(1000).default(''), workspaceId: z.string().min(1).max(128),
+        attempt: z.string().regex(/^[A-Za-z0-9_-]{43}$/)
     }));
     const [user, member, workspace] = await Promise.all([getUser(session.userId), getMember(workspaceId, session.userId), getWorkspace(workspaceId)]);
     // One answer for a missing workspace, a removed member and a commenter: none says which workspaces exist
     if (!user || !workspace || !member || !mayCreateProjects(member)) throw apiErrors.forbidden('Only admins of this workspace can create projects.');
-    await consume(getCommentsStore(), APP_COUNTERS_PARTITION, { key: `extension-project:${user.id}`, limit: 30, windowSeconds: 3600, reason: 'too_fast', message: 'Too many new projects. Try again later.' });
+    const creator = { user, workspace }, input = { mode: 'website' as const, name, urls: [origin] };
     try {
-        const project = await createProject({ user, workspace }, { mode: 'website', name, urls: [origin] });
+        // An answer that was lost is asked for again: the same project, outside the budget it already used
+        let project = await attemptedProject(creator, input, attempt);
+        if (!project) {
+            await consume(getCommentsStore(), APP_COUNTERS_PARTITION, siteProjectsLimit(user.id));
+            project = await createProject(creator, input, { attempt });
+        }
         return Response.json({ id: project.publicId, projectId: project.id, name: project.name, access: project.access,
             workspaceId: workspace.id, workspaceName: workspace.name }, { status: 201 });
     } catch (error) {

@@ -6,7 +6,7 @@ import { getAppStore } from '../app/store';
 import type { AppDoc } from '../app/model';
 import { getUser } from '../app/users';
 import { randomToken, sha256Hex, signToken, verifyToken } from '../app/tokens';
-import { createExtensionSession, type ExtensionSession, type SessionToken } from './sessions';
+import { createExtensionSession, extensionCapabilities, type ExtensionSession, type SessionToken } from './sessions';
 export { extensionSession, loadExtensionSession } from './sessions';
 
 export const extensionSessionSeconds = 8 * 60 * 60;
@@ -19,7 +19,9 @@ export const authorizeSchema = z.object({
     extensionOrigin: z.string().max(256).optional(),
     state: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
     challenge: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
-    renewable: z.literal('true').optional()
+    renewable: z.literal('true').optional(),
+    /** Asked for by packages that can create projects; the consent page names it and the handoff binds it */
+    capability: z.enum(extensionCapabilities).optional()
 });
 export type Authorization = z.infer<typeof authorizeSchema>;
 export function validateAuthorization(input: unknown) {
@@ -44,7 +46,8 @@ export async function issueExtensionCode(userId: string, input: unknown) {
     target.searchParams.set('code', code);
     return target.href;
 }
-const exchangeSchema = authorizeSchema.omit({ state: true, challenge: true, renewable: true }).extend({
+// What was approved comes from the stored handoff alone: an exchange cannot ask for a capability
+const exchangeSchema = authorizeSchema.omit({ state: true, challenge: true, renewable: true, capability: true }).extend({
     code: z.string().regex(/^[A-Za-z0-9_-]{43}$/), verifier: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
     renewable: z.literal(true).optional()
 });
@@ -62,12 +65,13 @@ export async function exchangeExtensionCode(input: unknown) {
         || !client || client.redirectUri !== redirectUri || !extensionClientOrigin(client, entry.extensionOrigin)
         || !await getUser(entry.userId) || !await getAppStore().delete(entry.pk, entry.id))
         throw apiErrors.forbidden('This extension handoff has expired or was already used.');
-    if (renewable) return createExtensionSession(entry.userId, clientId, entry.extensionOrigin);
+    const capabilities = entry.capability ? [entry.capability] : undefined;
+    if (renewable) return createExtensionSession(entry.userId, clientId, entry.extensionOrigin, capabilities);
     // Preserve the existing v1 response/lifetime for older extension packages.
     const id = sha256Hex(randomToken());
     const expiresAt = Date.now() + extensionSessionSeconds * 1000;
     await getAppStore().create<ExtensionSession>({ type: 'extension-session', id, pk: `extension-session:${id}`, userId: entry.userId, clientId,
-        extensionOrigin: entry.extensionOrigin, expiresAt, ttl: extensionSessionSeconds });
+        extensionOrigin: entry.extensionOrigin, capabilities, expiresAt, ttl: extensionSessionSeconds });
     return { token: signToken<SessionToken>('extension-session', { id, userId: entry.userId, clientId, extensionOrigin: entry.extensionOrigin }, extensionSessionSeconds), expiresAt };
 }
 function bearer(request: Request) { return request.headers.get('authorization')?.match(/^Bearer (\S+)$/)?.[1]; }

@@ -23,9 +23,10 @@ type Workspace = { id: string; name: string };
 /**
  * The full answer (`state`): the frame as uier confirms it, with the site's projects and the account. `workspaces`
  * are those the person may create a project in (their admin memberships); an earlier uier sends none, and uier
- * checks the membership again when a project is created.
+ * checks the membership again when a project is created. `approveCreate` stands in for them when this sign-in
+ * approved reviewing alone (it is from before the extension could create projects): a new sign-in names creating.
  */
-type State = Tab & { canSetUp?: boolean; projects?: Project[]; workspaces?: Workspace[]; account?: { name: string; email: string } };
+type State = Tab & { canSetUp?: boolean; projects?: Project[]; workspaces?: Workspace[]; approveCreate?: boolean; account?: { name: string; email: string } };
 type Action = 'refresh' | 'sign-in' | 'sign-out' | 'start' | 'create' | 'exit' | 'install-update';
 /** The worker's answer to `create-project`: the project exists; `error` is why its review did not start */
 type Created = { project: Project; error?: string };
@@ -170,7 +171,8 @@ function Popup() {
         finally { setBusy(undefined); }
     };
     const create = (name: string, workspaceId: string) => run('create', async () => {
-        const created = await message<Created>({ type: 'create-project', tabId: view.tabId!, name, workspaceId });
+        // The address this form showed: the worker creates nothing when the tab has moved on from it
+        const created = await message<Created>({ type: 'create-project', tabId: view.tabId!, origin: view.origin!, name, workspaceId });
         setSelected(created.project.projectId);
         // The project is there, its review is not: the list that follows offers Start review under the reason
         if (created.error) throw new Error(created.error);
@@ -282,11 +284,17 @@ function Popup() {
             <div className="flex flex-col items-start gap-3 rounded-lg bg-muted p-4">
                 <div className="flex flex-col gap-1">
                     <p className="m-0 text-sm font-medium">No project includes this address</p>
-                    <p className="m-0 text-sm text-muted-foreground">{view.canSetUp
-                        ? 'Add this exact address to a project, then open this again.'
-                        : 'Ask a project admin to add this exact address or to invite you.'}</p>
+                    <p className="m-0 text-sm text-muted-foreground">{view.approveCreate
+                        ? 'To create a project for it here, sign in again and approve creating projects. Signing in ends active reviews in all tabs.'
+                        : view.canSetUp
+                            ? 'Add this exact address to a project, then open this again.'
+                            : 'Ask a project admin to add this exact address or to invite you.'}</p>
                 </div>
-                {view.canSetUp && setup}
+                {(view.approveCreate || view.canSetUp) && <div className="flex flex-wrap gap-2">
+                    {view.approveCreate && <Button variant="outlined" size="sm" className="bg-background" loading={busy === 'sign-in'} disabled={Boolean(busy)}
+                        onClick={() => run('sign-in', () => message({ type: 'sign-in' }))}>Sign in again</Button>}
+                    {view.canSetUp && setup}
+                </div>}
             </div>
             {errorNotice}
         </>;

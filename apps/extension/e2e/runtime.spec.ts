@@ -194,14 +194,18 @@ test('an admin creates a project for an unlisted site in the popup and its revie
     await popup.reload();
     const login = context.waitForEvent('page');
     await popup.getByRole('button', { name: 'Sign in to uier', exact: true }).click();
-    await (await login).getByRole('button', { name: 'Sign in to uier', exact: true }).click();
+    // Creating projects is named on the consent this sign-in approves
+    const auth = await login;
+    await expect(auth.getByText('The extension can create projects for sites you open, in workspaces where you are an admin.', { exact: true })).toBeVisible();
+    await auth.getByRole('button', { name: 'Sign in to uier', exact: true }).click();
     await expect(popup.getByRole('button', { name: 'Switch account', exact: true })).toBeVisible();
     const reviewed = await context.newPage();
     await reviewed.goto(`${origin}/private?secret=not-for-uier#anchor`);
     await reviewed.bringToFront();
     const cdp = await context.browser()!.newBrowserCDPSession();
     const { targetInfos } = await cdp.send('Target.getTargets', { filter: [{ type: 'tab', exclude: false }] });
-    await cdp.send('Extensions.triggerAction', { id: clientId, targetId: targetInfos.find(target => target.url.startsWith(origin))!.targetId });
+    const targetId = targetInfos.find(target => target.url.startsWith(origin))!.targetId;
+    await cdp.send('Extensions.triggerAction', { id: clientId, targetId });
     const actionPopup = context.pages().find(page => page !== popup && page.url() === `chrome-extension://${clientId}/popup.html`) ?? popup;
     await actionPopup.reload();
 
@@ -234,14 +238,39 @@ test('an admin creates a project for an unlisted site in the popup and its revie
     await expect(submit).toBeDisabled();
     await expect(form.getByText('Enter a project name.', { exact: true })).toBeVisible();
 
-    // uier decides who may create where: the popup's own messages cannot name another workspace or address
+    // uier decides who may create where, and the worker which address: the popup's own messages cannot name another
     const tabId = (await actionPopup.evaluate(() => chrome.runtime.sendMessage({ type: 'tab' }))).value.tabId as number;
     const send = (message: object) => actionPopup.evaluate(message => chrome.runtime.sendMessage(message), message);
-    expect(await send({ type: 'create-project', tabId, name: 'Forged', workspaceId: 'w_uier_public' })).toEqual({ ok: false, error: 'Only admins of this workspace can create projects.' });
-    expect((await send({ type: 'create-project', tabId, name: 'Forged', workspaceId: 'w_uier_public', origin: 'https://elsewhere.example' })).ok).toBe(false);
+    const projects = async () => (await send({ type: 'state' })).value.projects as { name: string }[];
+    const clientWork = ((await send({ type: 'state' })).value.workspaces as { id: string; name: string }[]).find(workspace => workspace.name === 'Client work')!.id;
+    const moved = 'This tab moved to another address. Check the address and try again.';
+    expect(await send({ type: 'create-project', tabId, origin, name: 'Forged', workspaceId: 'w_uier_public' })).toEqual({ ok: false, error: 'Only admins of this workspace can create projects.' });
+    expect(await send({ type: 'create-project', tabId, origin: 'https://elsewhere.example', name: 'Forged', workspaceId: clientWork })).toEqual({ ok: false, error: moved });
+    expect((await send({ type: 'create-project', tabId, name: 'Forged', workspaceId: clientWork })).ok).toBe(false);
     expect((await reviewed.evaluate(() => 'chrome' in window && Boolean((window as any).chrome?.runtime?.sendMessage)))).toBe(false);
 
+    // The tab moves on between the form and its submit, to a site the worker can always read (uier's own): the
+    // form's address is the one the person confirmed, so nothing is created and the popup shows the tab as it is now.
     await name.fill('Created in the popup');
+    await expect(submit).toBeEnabled();
+    await reviewed.goto(`${apiBase}/extension-demo.html`);
+    await submit.click();
+    await expect(actionPopup.getByRole('alert')).toHaveText(moved);
+    await expect(actionPopup.getByText(apiBase.startsWith('http://') ? apiBase : new URL(apiBase).host, { exact: true })).toBeVisible();
+    await expect(actionPopup.getByText(origin, { exact: true })).toHaveCount(0);
+    expect((await projects()).map(project => project.name)).not.toContain('Created in the popup');
+    expect(await worker.evaluate(async () => Object.keys(await chrome.storage.session.get('project-attempt-v1')))).toEqual([]);
+    await reviewed.goto(`${origin}/private?secret=not-for-uier#anchor`);
+    await reviewed.bringToFront();
+    await cdp.send('Extensions.triggerAction', { id: clientId, targetId });
+    await actionPopup.reload();
+    await expect(form).toBeVisible();
+    expect(await projects()).toEqual([]);
+
+    // The same submission sent twice at once (a second popup, a second press) is one request and one project
+    await client.click();
+    await name.fill('Created in the popup');
+    const twin = send({ type: 'create-project', tabId, origin, name: 'Created in the popup', workspaceId: clientWork });
     await name.press('Enter');
     await expect(toolbar(reviewed)).toBeVisible({ timeout: 30_000 });
     await expect(actionPopup.getByText('Reviewing Created in the popup', { exact: true })).toBeVisible();
@@ -251,6 +280,9 @@ test('an admin creates a project for an unlisted site in the popup and its revie
     // One project, in the chosen workspace, with the tab's origin alone as its address
     const binding = await worker.evaluate(async () => Object.values(await chrome.storage.session.get(null)).find((value: any) => value?.projectId && value?.activation) as { projectId: string; origin: string });
     expect(binding.origin).toBe(origin);
+    expect(await twin).toMatchObject({ ok: true, value: { project: { projectId: binding.projectId, name: 'Created in the popup' } } });
+    // A definite answer ends the saved attempt: the next submission is a new one
+    expect(await worker.evaluate(async () => Object.keys(await chrome.storage.session.get('project-attempt-v1')))).toEqual([]);
     await app.goto('/app/projects');
     await expect(app.getByRole('button', { name: 'Workspace: Client work', exact: false })).toBeVisible();
     await expect(app.getByRole('main').getByRole('link', { name: /Created in the popup/ })).toHaveCount(1);

@@ -19,6 +19,7 @@ import { defaultProjectName, normalizeSiteUrl } from './siteUrl';
 import { normalizeProjectLinkUrl } from './projectLinks';
 import { projectRewriteInstructionsSchema } from '../rewrite/settings';
 import { UserFacingError } from './actionErrors';
+import { keyedHash } from '../comments/environment';
 
 export { projectClientNameSchema } from './clients';
 export { defaultProjectName, normalizeSiteUrl } from './siteUrl';
@@ -169,18 +170,56 @@ function projectSetup(input: { mode: z.infer<typeof projectSetupSchema>; name: s
     return { name, urls };
 }
 
-/** A new project; `clientName` (`projectClientNameSchema`) picks the client with that name or creates one */
-export async function createProject(context: Pick<AppContext, 'user' | 'workspace'>, input: { mode?: z.infer<typeof projectSetupSchema>; name: string; urls: string[]; clientName?: string }) {
+type NewProjectInput = { mode?: z.infer<typeof projectSetupSchema>; name: string; urls: string[]; clientName?: string };
+type ProjectCreator = Pick<AppContext, 'user' | 'workspace'>;
+
+/**
+ * The code of the project one creation attempt makes: the same person, workspace, attempt and validated input
+ * always give the same code, so a repeated or concurrent request claims the code the first one claimed and finds
+ * its project. Keyed with the server secret: nobody can aim an attempt at a code of their choosing.
+ */
+function attemptProjectId(context: ProjectCreator, attempt: string, setup: { name: string; urls: string[]; clientName?: string }) {
+    const hash = keyedHash('project-attempt', JSON.stringify([context.user.id, context.workspace.id, attempt, setup.name, setup.urls, setup.clientName ?? '']));
+    return BigInt(`0x${hash.slice(0, 16)}`).toString(36).padStart(12, '0').slice(-12);
+}
+
+/**
+ * The project an earlier request with this attempt and input created, or `null` when none has. For a caller that
+ * must know before it counts the request against a limit; `createProject` with the attempt looks itself.
+ */
+export async function attemptedProject(context: ProjectCreator, input: NewProjectInput, attempt: string) {
+    const setup = projectSetup({ ...input, mode: input.mode ?? 'website' });
+    return await getProject(context.workspace.id, attemptProjectId(context, attempt, { ...setup, clientName: input.clientName }));
+}
+
+/**
+ * A new project; `clientName` (`projectClientNameSchema`) picks the client with that name or creates one.
+ * With `attempt` (a random value the caller keeps for its retries) the creation can be repeated: a request whose
+ * answer was lost, or two at once, give one project, and every one of them returns it. A changed input is another
+ * project, and a project deleted or transferred since is not created again.
+ */
+export async function createProject(context: ProjectCreator, input: NewProjectInput, { attempt }: { attempt?: string } = {}) {
     assertMutableWorkspace(context.workspace.id);
     const { name, urls } = projectSetup({ ...input, mode: input.mode ?? 'website' });
     const { clientName } = input;
     const store = getAppStore();
     const now = new Date().toISOString();
-    for (let attempt = 0; attempt < 3; attempt++) {
-        const id = newProjectId();
+    const fixedId = attempt === undefined ? undefined : attemptProjectId(context, attempt, { name, urls, clientName });
+    for (let round = 0; round < 3; round++) {
+        const id = fixedId ?? newProjectId();
         // The code is unique across workspaces: claim it first
-        if (!await store.create<DbProjectRef>({ type: 'project-ref', id, pk: projectRefPk(id), workspaceId: context.workspace.id }))
-            continue;
+        if (!await store.create<DbProjectRef>({ type: 'project-ref', id, pk: projectRefPk(id), workspaceId: context.workspace.id })) {
+            if (!fixedId)
+                continue;
+            // The attempt's code is taken: by this attempt's earlier request, or retired with its project
+            const ref = (await store.get<DbProjectRef>(projectRefPk(id), id))?.doc;
+            if (ref?.type !== 'project-ref' || ref.workspaceId !== context.workspace.id)
+                throw new UserFacingError('This project no longer exists.');
+            const existing = await getProject(context.workspace.id, id);
+            if (existing)
+                return existing;
+            // Claimed and not created yet (a request that stopped, or one still running): create it here
+        }
 
         const project: DbProject = {
             type: 'project',
@@ -195,7 +234,16 @@ export async function createProject(context: Pick<AppContext, 'user' | 'workspac
             createdAt: now,
             updatedAt: now
         };
-        return await ensureProjectPublicId(await createProjectWithClient(project, clientName, store), store);
+        if (!fixedId)
+            return await ensureProjectPublicId(await createProjectWithClient(project, clientName, store), store);
+        // Another request of this attempt may create the same document first: whoever does, all return the stored one
+        let failure: unknown;
+        await createProjectWithClient(project, clientName, store).catch(error => { failure = error; });
+        const stored = await getProject(context.workspace.id, id);
+        if (stored)
+            return stored;
+        if (failure)
+            throw failure;
     }
     throw new Error('Could not create a unique project code');
 }

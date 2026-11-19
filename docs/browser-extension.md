@@ -176,13 +176,26 @@ again when starting a review. This behavior requires a new extension store relea
 On a site no project of the account includes, the popup offers admins a new project in place: the
 tab's address (shown, not editable), a name that starts as the site's host, and the workspace it goes
 in. uier lists only workspaces the account administers, never its own feedback workspace; one needs
-no choice, several need one made before **Create project and start review** is available. The popup
-sends only the name and the workspace (`create-project`). The worker reads the origin from the
-active tab, never from the popup or the page, and sends no path or query. uier checks the stored
-admin membership again and creates the project with the app's own creation service, so it is
-invited-only with that one address ([server rules](../apps/web/docs/browser-extension.md)). The
-worker then starts the review as **Start review** does. When the review cannot start (a closed
-verification window, a tab that moved on), the project stays and the popup lists it with the reason.
+no choice, several need one made before **Create project and start review** is available.
+
+- **Approval.** Sign-in asks for the `create-projects` capability. The consent page names it, the
+  handoff binds it and the session record keeps it; a renewal neither adds nor drops it. A sign-in
+  from before this (approved for reviewing alone) keeps reviewing and cannot create: uier refuses the
+  request, and the popup offers **Sign in again**, which ends active reviews like any sign-in.
+- **Address.** The popup sends the address its form showed with the name and the workspace
+  (`create-project`). The worker reads the tab's own origin from the browser, before and after
+  renewing access, and creates nothing unless it is still the address shown; it never takes one from
+  the page and sends no path or query. A tab that moved on shows its new state with the reason.
+- **One project per submission.** The worker saves a random attempt in session storage before it
+  sends, as it does for refresh. A lost answer, a suspended worker or a second press sends the same
+  attempt, and uier answers with the one project. A definite answer ends the attempt; a server error
+  keeps it. The same form sent twice at once is one request.
+- **Creation.** uier checks the stored admin membership again and creates the project with the app's
+  own creation service, so it is invited-only with that one address
+  ([server rules](../apps/web/docs/browser-extension.md)). The worker then starts the review as
+  **Start review** does. When the review cannot start (a closed verification window, a tab that moved
+  on), the project stays and the popup lists it with the reason.
+
 Commenters, and admins on an older uier, keep the previous message; **Open project setup** stays for
 adding the address to an existing project. This also requires a new extension store release.
 

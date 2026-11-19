@@ -129,7 +129,8 @@ async function signIn() {
     const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
     const challenge = btoa(String.fromCharCode(...new Uint8Array(digest))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     const redirectUri = redirectURL();
-    const query = new URLSearchParams({ clientId, redirectUri, state, challenge, renewable: 'true', ...(browserKind === 'chrome' ? {} : { extensionOrigin: extensionOrigin() }) });
+    // `capability` asks consent to name creating projects; only a sign-in approved with it may create one
+    const query = new URLSearchParams({ clientId, redirectUri, state, challenge, renewable: 'true', capability: 'create-projects', ...(browserKind === 'chrome' ? {} : { extensionOrigin: extensionOrigin() }) });
     const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
     // Discovery hint only: never send a private page path, query or fragment to consent.
     if (reviewable(tab?.url)) query.set('siteOrigin', new URL(tab!.url!).origin);
@@ -275,17 +276,58 @@ async function start(tabId: number, projectId: string, publicId: string) {
     } catch (error) { if ((await getBinding(tabId))?.activation === binding.activation) await clearBinding(tabId); throw error; }
 }
 type CreatedProject = { id: string; projectId: string; name: string; access: string; workspaceId: string; workspaceName: string };
+type ProjectAttempt = { attempt: string; origin: string; name: string; workspaceId: string };
+const projectAttemptKey = 'project-attempt-v1';
+const tabMoved = 'This tab moved to another address. Check the address and try again.';
+/** The site the tab is on now, as the browser reports it; none while it leaves for another site or cannot be reviewed */
+async function liveOrigin(tabId: number) {
+    const tab = await browser.tabs.get(tabId).catch(() => undefined);
+    if (!tab?.active || !reviewable(tab.url)) return undefined;
+    const origin = new URL(tab.url!).origin;
+    return tab.pendingUrl && (!reviewable(tab.pendingUrl) || new URL(tab.pendingUrl).origin !== origin) ? undefined : origin;
+}
 /**
- * A project for the active tab's site, then its review. The address is the tab's own origin, read here; uier checks
- * the person's admin membership of the workspace and creates it as the app does. A review that cannot start (a
- * closed helper, a tab that moved on) leaves the project: the popup lists it with the reason, ready for Start review.
+ * A project for the active tab's site, then its review. `shown` is the address the popup's form displayed. The
+ * project is written for the tab's own origin, read here from the browser, and only while that is still the address
+ * the person saw: a tab that moved on since gets no project, and the popup shows its new state. uier checks that
+ * this sign-in approved creating projects and the person's admin membership of the workspace, and creates it as the
+ * app does.
+ *
+ * The attempt is saved before the request, as the refresh attempt is: a lost answer, a suspended worker or a second
+ * press sends the same attempt again and uier answers with the one project. Only a definite answer ends it.
+ * A review that cannot start (a closed helper, a tab that moved on) leaves the project: the popup lists it with the
+ * reason, ready for Start review.
  */
-async function createProject(tabId: number, name: string, workspaceId: string) {
-    const tab = await browser.tabs.get(tabId);
-    if (!tab.active || !reviewable(tab.url)) throw new Error('Open a website to start a review. Browser pages and extension stores cannot be reviewed.');
-    const project = await json<CreatedProject>(await api('projects', (await session()).token, 'POST', { origin: new URL(tab.url!).origin, name, workspaceId }));
+async function createSiteProject(tabId: number, shown: string, name: string, workspaceId: string) {
+    if (await liveOrigin(tabId) !== shown) throw new Error(tabMoved);
+    const epoch = authEpoch;
+    const token = (await session()).token;
+    const saved = (await browser.storage.session.get(projectAttemptKey))[projectAttemptKey] as ProjectAttempt | undefined;
+    const attempt = saved && saved.origin === shown && saved.name === name && saved.workspaceId === workspaceId ? saved.attempt : random();
+    assertAuthEpoch(epoch);
+    await browser.storage.session.set({ [projectAttemptKey]: { attempt, origin: shown, name, workspaceId } satisfies ProjectAttempt });
+    // Read again after the waits above: what is sent is what the browser says now, and it must be what was shown
+    const origin = await liveOrigin(tabId);
+    if (origin !== shown) throw new Error(tabMoved);
+    const response = await api('projects', token, 'POST', { origin, name, workspaceId, attempt });
+    // A refusal created nothing and a success is final. A server error may have created the project: keep the attempt.
+    if (response.status < 500) await browser.storage.session.remove(projectAttemptKey);
+    const project = await json<CreatedProject>(response);
+    if (await liveOrigin(tabId) !== shown) return { project, error: 'The project was created. This tab moved to another address, so its review did not start.' };
     try { await start(tabId, project.projectId, project.id); return { project }; }
     catch (error) { return { project, error: error instanceof Error ? error.message : 'The review could not start.' }; }
+}
+/** One submission at a time: the same form sent twice (two popups, a second press) is one request and one answer */
+const creations = new Map<string, ReturnType<typeof createSiteProject>>();
+function createProject(tabId: number, shown: string, name: string, workspaceId: string) {
+    const key = JSON.stringify([tabId, shown, name, workspaceId]);
+    let pending = creations.get(key);
+    if (!pending) {
+        pending = createSiteProject(tabId, shown, name, workspaceId);
+        creations.set(key, pending);
+        void pending.finally(() => { if (creations.get(key) === pending) creations.delete(key); }).catch(() => {});
+    }
+    return pending;
 }
 async function contentBinding(sender: chrome.runtime.MessageSender) {
     const binding = sender.tab?.id !== undefined ? await getBinding(sender.tab.id) : undefined;
@@ -343,7 +385,7 @@ async function handle(input: unknown, sender: chrome.runtime.MessageSender) {
             return { ...result, ...tab, binding: Boolean(binding), reviewing: binding?.projectId };
         }
         if (msg.type === 'start' && Number.isInteger(msg.tabId) && typeof msg.projectId === 'string' && typeof msg.publicId === 'string') return start(msg.tabId, msg.projectId, msg.publicId);
-        if (msg.type === 'create-project') return createProject(msg.tabId, msg.name, msg.workspaceId);
+        if (msg.type === 'create-project') return createProject(msg.tabId, msg.origin, msg.name, msg.workspaceId);
         if (msg.type === 'exit' && msg.tabId !== undefined) { await clearBinding(msg.tabId); await browser.tabs.sendMessage(msg.tabId, { type: 'dispose' }).catch(() => {}); return; }
         throw new Error('Unsupported popup operation.');
     }
