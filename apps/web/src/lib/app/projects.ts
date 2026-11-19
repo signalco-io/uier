@@ -6,7 +6,7 @@ import { customAlphabet } from 'nanoid';
 import { cache } from 'react';
 import { z } from 'zod';
 import { isMeaningfulQueryKey, pageStatePolicy, type PageStatePolicy } from '@uier/toolbar/page-state';
-import { getAppStore, updateDoc } from './store';
+import { getAppStore, updateDoc, type AppStore } from './store';
 import { projectRefPk, workspacePk, type DbProject, type DbProjectRef, type ProjectAccess, type ProjectStatus } from './model';
 import { hasProjectAccess, loadWorkspaceAccessForRender } from './access';
 import type { AppContext } from './context';
@@ -14,11 +14,13 @@ import { MAX_PROJECT_BRIEF_LENGTH, MAX_PROJECT_LINK_LABEL_LENGTH, MAX_PROJECT_LI
 import { ensurePublicProject, isUierProvisionedProject } from '../comments/publicProject';
 import { assertMutableWorkspace, assertMutableProject } from '../comments/publicProjectPolicy';
 import { ensureProjectPublicId, isLiveProject, isProjectPublicId, projectByPublicId } from './projectPublicIds';
-import { createProjectWithClient, ensureProjectClient } from './clients';
+import { createProjectOnce, createProjectWithClient, ensureProjectClient } from './clients';
 import { defaultProjectName, normalizeSiteUrl } from './siteUrl';
 import { normalizeProjectLinkUrl } from './projectLinks';
 import { projectRewriteInstructionsSchema } from '../rewrite/settings';
 import { UserFacingError } from './actionErrors';
+import type { Limit } from '../comments/rateLimits';
+import { projectCreatedMarker, reserveProjectReceipt, type ProjectReceipt } from './projectReceipts';
 
 export { projectClientNameSchema } from './clients';
 export { defaultProjectName, normalizeSiteUrl } from './siteUrl';
@@ -169,18 +171,55 @@ function projectSetup(input: { mode: z.infer<typeof projectSetupSchema>; name: s
     return { name, urls };
 }
 
-/** A new project; `clientName` (`projectClientNameSchema`) picks the client with that name or creates one */
-export async function createProject(context: AppContext, input: { mode?: z.infer<typeof projectSetupSchema>; name: string; urls: string[]; clientName?: string }) {
+type NewProjectInput = { mode?: z.infer<typeof projectSetupSchema>; name: string; urls: string[]; clientName?: string };
+type ProjectCreator = Pick<AppContext, 'user' | 'workspace'>;
+
+/** Thrown for a receipt whose project was created and is not in its workspace any more: deleted or transferred */
+export class ProjectGoneError extends UserFacingError {
+    constructor() {
+        super('This project no longer exists.');
+        this.name = 'ProjectGoneError';
+    }
+}
+
+/**
+ * The receipt of one attempt to create a project (`projectReceipts.ts`): what a caller that may send its request
+ * again reserves first and then hands to `createProject`. `attempt` is the caller's random value for one
+ * submission; `limit` is the person's budget, of which only the request that writes the receipt takes a unit.
+ * Validates the input as `createProject` does, so nothing is reserved for a project that cannot be created.
+ */
+export async function reserveProjectCreation(context: ProjectCreator, input: NewProjectInput, attempt: string, limit: Limit) {
+    assertMutableWorkspace(context.workspace.id);
+    const setup = projectSetup({ ...input, mode: input.mode ?? 'website' });
+    return await reserveProjectReceipt({ userId: context.user.id, workspaceId: context.workspace.id, attempt,
+        setup: [setup.name, setup.urls, input.clientName ?? ''], projectId: newProjectId, limit });
+}
+
+/**
+ * A new project; `clientName` (`projectClientNameSchema`) picks the client with that name or creates one.
+ * With a `receipt` (`reserveProjectCreation` with the same input) the creation can be repeated: every request of
+ * the attempt creates or finds the one project under the receipt's code. A project that was created and has since
+ * been deleted or transferred is never created again (`ProjectGoneError`).
+ */
+export async function createProject(context: ProjectCreator, input: NewProjectInput, { receipt, store = getAppStore() }: { receipt?: ProjectReceipt; store?: AppStore } = {}) {
     assertMutableWorkspace(context.workspace.id);
     const { name, urls } = projectSetup({ ...input, mode: input.mode ?? 'website' });
     const { clientName } = input;
-    const store = getAppStore();
     const now = new Date().toISOString();
-    for (let attempt = 0; attempt < 3; attempt++) {
-        const id = newProjectId();
-        // The code is unique across workspaces: claim it first
-        if (!await store.create<DbProjectRef>({ type: 'project-ref', id, pk: projectRefPk(id), workspaceId: context.workspace.id }))
-            continue;
+    if (receipt && (receipt.userId !== context.user.id || receipt.workspaceId !== context.workspace.id))
+        throw new Error('The receipt is for another person or workspace');
+    for (let round = 0; round < 3; round++) {
+        const id = receipt?.projectId ?? newProjectId();
+        // The code is unique across workspaces: claim it first, for good. A project must never lose its code, so the
+        // claim of a receipt is as permanent as any other, also when its request stops here (`projectReceipts.ts`).
+        if (!await store.create<DbProjectRef>({ type: 'project-ref', id, pk: projectRefPk(id), workspaceId: context.workspace.id })) {
+            if (!receipt)
+                continue;
+            // An earlier request of this receipt claimed its code. Retired or pointing elsewhere, the project is gone.
+            const ref = (await store.get<DbProjectRef>(projectRefPk(id), id))?.doc;
+            if (ref?.type !== 'project-ref' || ref.workspaceId !== context.workspace.id)
+                throw new ProjectGoneError();
+        }
 
         const project: DbProject = {
             type: 'project',
@@ -195,7 +234,15 @@ export async function createProject(context: AppContext, input: { mode?: z.infer
             createdAt: now,
             updatedAt: now
         };
-        return await ensureProjectPublicId(await createProjectWithClient(project, clientName, store), store);
+        if (!receipt)
+            return await ensureProjectPublicId(await createProjectWithClient(project, clientName, store), store);
+        // The document and its marker are one transaction: it runs where no marker is, so once. A request that
+        // finds the marker reads what the first one created; no document under a marker is a removed project.
+        await createProjectOnce(project, clientName, projectCreatedMarker(receipt), store);
+        const stored = await getProject(context.workspace.id, id);
+        if (!stored)
+            throw new ProjectGoneError();
+        return stored;
     }
     throw new Error('Could not create a unique project code');
 }

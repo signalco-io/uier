@@ -81,10 +81,16 @@ test('the thread details are a properties list: even rows, values on one left ed
     // Every value still unset or at its default has the one "not set" look: muted text, its icon in the same colour
     const unset = thread.locator('dl[data-thread-details] [data-unset]');
     await expect(unset).toHaveText(['Unassigned', 'Normal', 'Link a pull request']);
-    const looks = await unset.evaluateAll(values => values.map(value => {
+    // On a phone the thread takes the list's place, which puts a value under the pointer that opened it: its hover
+    // colour is not its resting look
+    await page.mouse.move(0, 0);
+    const readLooks = () => unset.evaluateAll(values => values.map(value => {
         const icon = value.querySelector('svg')!;
         return [getComputedStyle(value).color, getComputedStyle(icon).stroke];
     }));
+    // The value the pointer left fades back to its resting colour
+    await expect.poll(async () => new Set((await readLooks()).flat()).size).toBe(1);
+    const looks = await readLooks();
     for (const look of looks) expect(look).toEqual([looks[0]![0], looks[0]![0]]);
     await thread.getByRole('button', { name: 'Unassigned. Change assignee', exact: true }).click();
     await page.getByRole('menuitemcheckbox', { name, exact: true }).click();

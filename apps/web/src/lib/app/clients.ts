@@ -6,7 +6,7 @@ import type { AppContext } from './context';
 import { UserFacingError } from './actionErrors';
 import { clientColors, clientIcons } from './clientAppearance';
 import { MAX_CLIENT_DESCRIPTION_LENGTH, MAX_CLIENT_NAME_LENGTH } from './limits';
-import { clientLogoDocId, workspacePk, memberId, type DbMember, type DbWorkspace, type DbClientLogo, type DbClient, type DbClientName, type DbProject } from './model';
+import { clientLogoDocId, workspacePk, memberId, type AppDoc, type DbMember, type DbWorkspace, type DbClientLogo, type DbClient, type DbClientName, type DbProject } from './model';
 import { getAppStore, type AppMutation, type AppStore, type StoredDoc } from './store';
 import { sha256Hex } from './tokens';
 import { assertMutableProject, assertMutableWorkspace } from '../comments/publicProjectPolicy';
@@ -166,27 +166,54 @@ async function assignProjectClient(store: AppStore, project: Pick<DbProject, 'pk
     throw new Error(`Project ${project.id} changed too often while saving its client`);
 }
 
+/**
+ * The operations that create `project` with its client (by name), for one transaction. They include the workspace
+ * as it was read: the creator is still an admin of it, no account deletion holds it, and a workspace that changes
+ * or closes meanwhile fails the transaction instead of receiving the project.
+ */
+async function projectCreation(project: DbProject, name: string | undefined, store: AppStore) {
+    const [workspace, member] = await Promise.all([
+        store.get<DbWorkspace>(project.pk, project.workspaceId),
+        store.get<DbMember>(project.pk, memberId(project.createdBy))
+    ]);
+    if (!workspace || member?.doc.role !== 'admin')
+        throw new UserFacingError('This workspace is unavailable or your access changed.');
+    await assertWorkspaceWritable(workspace.doc, store);
+    const client = name ? await clientNamed(store, project.workspaceId, name, project.createdBy) : null;
+    const created: DbProject = client ? { ...project, clientId: client.doc.id } : project;
+    const operations: AppMutation[] = [
+        { kind: 'replace', doc: workspace.doc, etag: workspace.etag },
+        { kind: 'create', doc: created }
+    ];
+    if (client) operations.push({ kind: 'replace', doc: client.doc, etag: client.etag });
+    return { created, operations };
+}
+
 /** Creates a new project together with its client (by name), in one transaction */
 export async function createProjectWithClient(project: DbProject, name: string | undefined, store: AppStore = getAppStore()) {
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-        const [workspace, member] = await Promise.all([
-            store.get<DbWorkspace>(project.pk, project.workspaceId),
-            store.get<DbMember>(project.pk, memberId(project.createdBy))
-        ]);
-        if (!workspace || member?.doc.role !== 'admin')
-            throw new UserFacingError('This workspace is unavailable or your access changed.');
-        await assertWorkspaceWritable(workspace.doc, store);
-        const client = name ? await clientNamed(store, project.workspaceId, name, project.createdBy) : null;
-        const created = client ? { ...project, clientId: client.doc.id } : project;
-        const operations: AppMutation[] = [
-            { kind: 'replace', doc: workspace.doc, etag: workspace.etag },
-            { kind: 'create', doc: created }
-        ];
-        if (client) operations.push({ kind: 'replace', doc: client.doc, etag: client.etag });
+        const { created, operations } = await projectCreation(project, name, store);
         if (await store.transact(operations)) return created;
         await backOff(attempt);
     }
     throw new Error('The workspace changed while creating the project');
+}
+
+/**
+ * `createProjectWithClient` for a creation that may be asked for more than once: the project and `marker` (a
+ * document of the project's partition) are created together or not at all. Returns `false`, creating nothing, when
+ * the marker is there already: the project was created before, whatever became of it.
+ */
+export async function createProjectOnce(project: DbProject, name: string | undefined, marker: AppDoc, store: AppStore = getAppStore()) {
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+        if (await store.get(marker.pk, marker.id))
+            return false;
+        const { operations } = await projectCreation(project, name, store);
+        if (await store.transact([...operations, { kind: 'create', doc: marker }]))
+            return true;
+        await backOff(attempt);
+    }
+    throw new Error(`The workspace changed while creating project ${project.id}`);
 }
 
 /** Sets a project's client by name (`projectClientNameSchema`); `undefined` removes it. */

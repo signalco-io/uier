@@ -484,6 +484,7 @@ const messages: Record<keyof typeof en, string> = {
     "Only channels where the uier app is a member are available. Direct messages and Slack Connect channels are excluded.": "Solo están disponibles los canales de los que es miembro la aplicación de uier. Se excluyen los mensajes directos y los canales de Slack Connect.",
     "Only continue if you just started this from a coding tool on this computer. Any program on this computer can use this name.": "Continúa solo si acabas de iniciar esto desde una herramienta de desarrollo en este ordenador. Cualquier programa de este ordenador puede usar este nombre.",
     "Only sites where you choose Start review are activated.": "Solo se activan los sitios en los que eliges Iniciar revisión.",
+    "The extension can create projects for sites you open, in workspaces where you are an admin.": "La extensión puede crear proyectos para los sitios que abres, en los espacios de trabajo donde eres administrador.",
     "Only the first 500 choices in each list are shown. Missing choices cannot be saved here.": "Solo se muestran las primeras 500 opciones de cada lista. Las opciones que faltan no se pueden guardar aquí.",
     "Only the first 500 databases are shown.": "Solo se muestran las primeras 500 bases de datos.",
     "Only the first 500 organizations are shown.": "Solo se muestran las primeras 500 organizaciones.",

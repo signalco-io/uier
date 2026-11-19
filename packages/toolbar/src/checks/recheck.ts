@@ -93,7 +93,9 @@ function recheckRule(id: string, target: Target, signal: AbortSignal): Promise<R
         const context = element && elementRules.includes(id) ? { include: [element], exclude }
             : exclude.length ? { exclude } : document;
         const { violations } = await axe.run(context, {
-            runOnly: { type: 'rule', values: [id] }, resultTypes: ['violations'], elementRef: true, iframes: false, performanceTimer: false
+            runOnly: { type: 'rule', values: [id] }, resultTypes: ['violations'], elementRef: true, iframes: false, performanceTimer: false,
+            // Media only, as in the page's audit (`auditPreload`): no `<style>` elements on a site with a strict policy
+            preload: { assets: ['media'] }
         });
         const nodes = violations.flatMap(result => result.nodes);
         if (target.several) return elementsFound(nodes.length, 'rule');

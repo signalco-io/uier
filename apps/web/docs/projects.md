@@ -46,6 +46,32 @@
   [Files](proof-viewer.md) using the project’s public ID. Add the first site in Settings → Environments.
   The save uses ordinary origin validation and the existing project record. A stale first-site form
   cannot overwrite an address another admin has already added.
+- `createProject` is the one way a person creates a project: the app's form (`createProjectAction`) and the
+  browser extension's popup (`createSiteProject`, [browser extension](browser-extension.md)) both call it after
+  their own admin check. It needs only the user and the workspace of the context.
+- **Repeatable creation** (`projectReceipts.ts`), for a caller that may send its request again. It reserves a
+  receipt first (`reserveProjectCreation`: person, workspace, attempt and validated input) and hands it to
+  `createProject`. The `project-receipt` lives in the person's partition and is written in one transaction with a
+  `project-receipt-slot`, one unit of the caller's budget in the current window: the first request takes the unit
+  and a random project code, every other request of the attempt finds the receipt. Reads can be behind another
+  instance's write (Session consistency), so no answer rests on a read that found nothing. The transaction
+  reserves; and before a request is refused (429), or after its transaction failed, a replace naming a version no
+  document has asks the store whether the receipt exists. It changes nothing and is answered where writes are, so
+  it knows every receipt committed before it, in any window.
+  The project document is created in one transaction with a `project-created` marker in the workspace's partition,
+  so only where no marker is: once. A receipt without its project is unfinished when there is no marker (the retry
+  creates it) and removed when there is one (`ProjectGoneError`; a retired or moved code says the same earlier).
+  Deletion and transfer must leave the marker: removing it would let a replay that started before them create the
+  document again under the old code.
+- **Expiry of those records.** A request is the same request for `PROJECT_RECEIPT_SECONDS` (30 days, the period
+  the privacy policy states: change both together). The marker ends a day after the receipt, whenever it is
+  written, so nothing can replay after it. Slots expire with their window. All hold identifiers and hashes only
+  ([project deletion](../../../docs/project-deletion.md), [transfer](../../../docs/project-transfer.md)).
+  The code claim (`project-ref`) of a receipt is permanent from the start, like every project's: a project must
+  never lose its code. A request that stops between the claim and the document and is never sent again leaves that
+  claim (a random code and the workspace id) for good, as the app's own creation does. Do not give it an expiry:
+  making it permanent later is a second write in another partition, and a creation that stopped before that write
+  left a real project whose code expired.
 - Project addresses use `normalizeSiteUrl` in `src/lib/app/projects.ts`: schemeless localhost,
   `.localhost` subdomains and loopback IPs default to HTTP, other hosts to HTTPS. Explicit schemes
   and ports are preserved. Review CORS and redirects still require an exact configured origin.

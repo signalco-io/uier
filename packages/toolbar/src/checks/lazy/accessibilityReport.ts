@@ -118,8 +118,12 @@ const addedRules = ['target-size'];
 
 // Frames are other documents (and maybe other sites): only this document is checked. Incomplete
 // results keep all their elements (axe-core keeps one of each rule for a type it is not asked for).
+// Only media is preloaded (`no-autoplay-audio` needs the durations). axe-core would also preload the page's
+// stylesheets, for a rule that is off (`css-orientation-lock`), by adding `<style>` elements to a document of
+// its own: a site with a strict `style-src` blocks and reports each one.
+export const auditPreload = { assets: ['media'] };
 const runOptions = {
-    resultTypes: ['violations', 'incomplete'], elementRef: true, iframes: false, performanceTimer: false,
+    resultTypes: ['violations', 'incomplete'], elementRef: true, iframes: false, performanceTimer: false, preload: auditPreload,
     rules: Object.fromEntries(addedRules.map(rule => [rule, { enabled: true }]))
 } satisfies RunOptions;
 

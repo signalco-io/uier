@@ -61,7 +61,11 @@ test('an admin of two workspaces transfers a project from the danger zone', asyn
     // Review links keep working
     expect(await projectPublicId(page, projectId)).toBe(publicId);
 
-    // The old workspace no longer has it
+    // The old workspace no longer has it (it opens on a new project), and its address opens it in the new one
     await switchWorkspace(page, /^Personal Admin$/, /\/app\/projects\/new$/);
-    expect((await page.goto(`/app/projects/${projectId}/settings`))?.status()).toBe(404);
+    await page.goto(`/app/projects/${projectId}/settings`);
+    await expect(page.getByRole('heading', { level: 1, name: 'Moving site' })).toBeVisible();
+    await expect(page).toHaveURL(new RegExp(`/app/projects/${projectId}/settings$`));
+    await appNavigation(page);
+    await expect(page.getByRole('button', { name: /^Workspace:/ })).toContainText('Agency');
 });

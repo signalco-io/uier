@@ -8,6 +8,9 @@ export type WorkerMessage =
     | { type: 'audit' }
     | { type: 'exit'; tabId?: number }
     | { type: 'start'; tabId: number; projectId: string; publicId: string }
+    // A project for the tab's site. `origin` is the address the popup showed the person: the worker writes only the
+    // tab's own address, and only while it still is this one.
+    | { type: 'create-project'; tabId: number; origin: string; name: string; workspaceId: string }
     | { type: 'draft'; key: string; value: string | null }
     | { type: 'capture'; region: CaptureRegion }
     | { type: 'request'; url: string; method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'; body?: unknown }
@@ -22,11 +25,14 @@ export function parseWorkerMessage(input: unknown): WorkerMessage {
     const keys = (...allowed: string[]) => Object.keys(msg).every(key => key === 'type' || allowed.includes(key));
     const text = (value: unknown, max: number): value is string => typeof value === 'string' && value.length > 0 && value.length <= max;
     const tab = (value: unknown) => typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
+    const exactOrigin = (value: string) => { try { const url = new URL(value); return ['https:', 'http:'].includes(url.protocol) && url.origin === value; } catch { return false; } };
     let valid = false;
     switch (msg.type) {
         case 'state': case 'tab': case 'sign-in': case 'sign-out': case 'drafts': case 'update': case 'install-update': case 'audit': valid = keys(); break;
         case 'exit': valid = keys('tabId') && (msg.tabId === undefined || tab(msg.tabId)); break;
         case 'start': valid = keys('tabId', 'projectId', 'publicId') && tab(msg.tabId) && text(msg.projectId, 128) && text(msg.publicId, 128); break;
+        case 'create-project': valid = keys('tabId', 'origin', 'name', 'workspaceId') && tab(msg.tabId) && text(msg.origin, 512) && exactOrigin(msg.origin)
+            && typeof msg.name === 'string' && msg.name.length <= 200 && text(msg.workspaceId, 128); break;
         case 'draft': valid = keys('key', 'value') && text(msg.key, 2047) && msg.key.startsWith('uier:draft:v1:') && (msg.value === null || (text(msg.value, 64_000) && !msg.value.includes('data:image/'))); break;
         case 'image': valid = keys('url') && text(msg.url, 8192); break;
         case 'request': valid = keys('url', 'method', 'body') && text(msg.url, 8192) && (msg.method === undefined || ['GET', 'POST', 'PATCH', 'DELETE'].includes(String(msg.method))) && JSON.stringify(msg.body ?? null).length <= 1_000_000; break;

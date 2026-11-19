@@ -1,21 +1,26 @@
 import { test, expect } from '@playwright/test';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { issueExtensionCode, exchangeExtensionCode, extensionSession, readScope, validateAuthorization } from '../src/lib/extension/auth';
-import { createScope, extensionReviewContext, matchingProjects, projectsForSite } from '../src/lib/extension/review';
+import { createScope, createSiteProject, extensionReviewContext, matchingProjects, projectsForSite, siteProjectsLimit } from '../src/lib/extension/review';
 import { extensionHandler } from '../src/lib/extension/http';
 import { findOrCreateUser } from '../src/lib/app/users';
-import { ensureOwnWorkspace, createWorkspace } from '../src/lib/app/workspaces';
-import { createProject, updateProject } from '../src/lib/app/projects';
-import { getAppStore } from '../src/lib/app/store';
+import { ensureOwnWorkspace, createWorkspace, getMember, getWorkspace } from '../src/lib/app/workspaces';
+import { createProject, findProject, listProjects, reserveProjectCreation, updateProject } from '../src/lib/app/projects';
+import { deleteProject } from '../src/lib/app/projectDeletion';
+import { PROJECT_RECEIPT_SECONDS, reserveProjectReceipt } from '../src/lib/app/projectReceipts';
+import { transferProject } from '../src/lib/app/projectTransfer';
+import { getAppStore, updateDoc } from '../src/lib/app/store';
 import type { AppContext } from '../src/lib/app/context';
 import { assertVerifiedWrite } from '../src/lib/review/verification';
 import { signToken } from '../src/lib/app/tokens';
-import { memberId, workspacePk } from '../src/lib/app/model';
+import { memberId, projectRefPk, workspacePk, type AppDoc, type DbMember } from '../src/lib/app/model';
+import { joinPublicProject, PUBLIC_WORKSPACE_ID } from '../src/lib/comments/publicProject';
+import { MAX_PROJECT_NAME_LENGTH } from '../src/lib/app/limits';
 import { actorAuthorId, assertCanUseComments } from '../src/lib/review/actor';
 import { refreshExtensionSession, revokeExtensionSession, extensionAccessSeconds, extensionIdleSeconds, extensionAbsoluteSeconds } from '../src/lib/extension/sessions';
 import { extensionClients, extensionFrameAncestors } from '../src/lib/extension/config';
 import { latestExtensionVersion } from '../src/lib/extension/release';
-import { GET as extensionOperation } from '../app/api/extension/[operation]/route';
+import { GET as extensionOperation, POST as extensionWrite } from '../app/api/extension/[operation]/route';
 import { readFileSync } from 'node:fs';
 
 const clientId = 'abcdefghijklmnopabcdefghijklmnop';
@@ -24,14 +29,14 @@ const original = { UIER_LOCAL: process.env.UIER_LOCAL, UIER_EXTENSION_CLIENT_IDS
 test.beforeAll(() => { process.env.UIER_LOCAL = '1'; process.env.UIER_EXTENSION_CLIENT_IDS = clientId; process.env.UIER_EXTENSION_CLIENTS = ''; });
 test.afterAll(() => { for (const [key, value] of Object.entries(original)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } });
 const random = () => randomBytes(32).toString('base64url');
-async function fixture(renewable = false, registration: { clientId: string; redirectUri: string; extensionOrigin?: string } = { clientId, redirectUri }) {
+async function fixture(renewable = false, registration: { clientId: string; redirectUri: string; extensionOrigin?: string } = { clientId, redirectUri }, capability?: 'create-projects') {
     const user = await findOrCreateUser(`${randomUUID()}@example.test`);
     const member = await ensureOwnWorkspace(user);
     const context = { user, member, workspace: { id: member.workspaceId }, isAdmin: true } as AppContext;
     const project = await createProject(context, { name: 'Extension project', urls: ['https://reviewed.example'] });
     const verifier = random(), state = random();
     const challenge = createHash('sha256').update(verifier).digest('base64url');
-    const authorization = { ...registration, state, challenge, ...(renewable ? { renewable: 'true' as const } : {}) };
+    const authorization = { ...registration, state, challenge, ...(renewable ? { renewable: 'true' as const } : {}), ...(capability ? { capability } : {}) };
     const callback = new URL(await issueExtensionCode(user.id, authorization));
     const exchange = { clientId: registration.clientId, redirectUri: registration.redirectUri, code: callback.searchParams.get('code'), verifier };
     return { user, project, authorization, callback, exchange };
@@ -39,8 +44,8 @@ async function fixture(renewable = false, registration: { clientId: string; redi
 const request = (path: string, token?: string, body?: unknown) => new Request(`https://uier.io/api/extension/${path}`, {
     method: body === undefined ? 'GET' : 'POST', headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), 'Content-Type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body)
 });
-async function renewableFixture() {
-    const f = await fixture(true);
+async function renewableFixture(capability?: 'create-projects') {
+    const f = await fixture(true, undefined, capability);
     const credentials = await exchangeExtensionCode({ ...f.exchange, renewable: true });
     if (!('refreshToken' in credentials)) throw new Error('Expected renewable extension credentials');
     return { ...f, credentials };
@@ -193,6 +198,453 @@ test('site discovery distinguishes workspaces and never includes another account
     expect((await projectsForSite(f.user.id, 'https://reviewed.example')).projects.map(project => project.projectId)).toEqual([f.project.id]);
     await expect(createScope(request('scope', credentials.token, { projectId: second.id, origin: 'https://reviewed.example' }))).rejects.toThrow();
     expect((await projectsForSite(f.user.id, 'https://reviewed.example.evil.test')).projects).toEqual([]);
+});
+
+test('an unlisted site gets a project only in a workspace its person administers, by the app\'s creation rules', async () => {
+    const f = await renewableFixture('create-projects');
+    const token = f.credentials.token;
+    const site = `https://new-${randomUUID().slice(0, 8)}.example`;
+    const own = f.project.workspaceId;
+    // Another person's workspace, where this one only comments, and uier's own workspace, with a stale admin role
+    const owner = await fixture();
+    const commenter: DbMember = { type: 'member', id: memberId(f.user.id), pk: workspacePk(owner.project.workspaceId), workspaceId: owner.project.workspaceId,
+        userId: f.user.id, email: f.user.email, role: 'commenter', projects: 'all', createdAt: new Date().toISOString() };
+    expect(await getAppStore().create(commenter)).toBeTruthy();
+    const feedback = await joinPublicProject(f.user);
+    await updateDoc<DbMember>(feedback.pk, feedback.id, member => ({ ...member, role: 'admin' }));
+    const discover = async () => await (await matchingProjects(request(`projects?origin=${site}`, token))).json() as Awaited<ReturnType<typeof projectsForSite>>;
+    const before = await discover();
+    expect(before.projects).toEqual([]);
+    expect(before.workspaces).toEqual([{ id: own, name: 'Personal' }]);
+    // Every call is a new submission unless it names its attempt
+    const create = (body: object, bearer: string | null = token) => createSiteProject(request('projects', bearer ?? undefined, { attempt: random(), ...body }));
+
+    // Identity: an access token of a live session, never the refresh credential or no credential
+    await expect(create({ origin: site, name: 'Site', workspaceId: own }, null)).rejects.toMatchObject({ status: 401 });
+    await expect(create({ origin: site, name: 'Site', workspaceId: own }, f.credentials.refreshToken)).rejects.toMatchObject({ status: 401 });
+    // Permission: the stored admin membership of the chosen workspace, whatever the popup listed
+    for (const workspaceId of [owner.project.workspaceId, PUBLIC_WORKSPACE_ID, `w_${randomUUID()}`])
+        await expect(create({ origin: site, name: 'Site', workspaceId })).rejects.toMatchObject({ status: 403, code: 'forbidden' });
+    // The app's own address and name rules
+    for (const origin of [`${site}/path`, 'ftp://files.example', 'https://intranet', 'not an address'])
+        await expect(create({ origin, name: 'Site', workspaceId: own })).rejects.toMatchObject({ status: 400 });
+    await expect(create({ origin: site, name: 'n'.repeat(MAX_PROJECT_NAME_LENGTH + 1), workspaceId: own })).rejects.toMatchObject({ status: 400, message: `Use at most ${MAX_PROJECT_NAME_LENGTH} characters.` });
+    for (const attempt of [undefined, '', 'short', 'a'.repeat(44)])
+        await expect(create({ origin: site, name: 'Site', workspaceId: own, attempt })).rejects.toMatchObject({ status: 400 });
+    expect((await discover()).projects).toEqual([]);
+
+    // Through the route, as the worker sends it from the extension's origin
+    const response = await extensionWrite(new Request('https://uier.io/api/extension/projects', { method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Origin: `chrome-extension://${clientId}` },
+        body: JSON.stringify({ origin: site, name: '  New site  ', workspaceId: own, attempt: random() }) }));
+    expect(response.status).toBe(201);
+    const created = await response.json() as { id: string; projectId: string; name: string; access: string; workspaceId: string; workspaceName: string };
+    expect(created).toEqual({ id: expect.stringMatching(/^[\w-]{21}$/), projectId: expect.stringMatching(/^[0-9a-z]{12}$/), name: 'New site', access: 'invited', workspaceId: own, workspaceName: 'Personal' });
+    const stored = await findProject(created.projectId);
+    expect(stored).toMatchObject({ workspaceId: own, urls: [site], status: 'active', access: 'invited', createdBy: f.user.id, publicId: created.id });
+    // The person can review it at once: discovery lists it and a scope for this exact address is issued
+    expect((await discover()).projects).toEqual([expect.objectContaining({ id: created.id, projectId: created.projectId, name: 'New site', workspaceId: own })]);
+    expect((await createScope(request('scope', token, { projectId: created.projectId, origin: site }))).status).toBe(200);
+    // An empty name is the site's host, as in the app's form
+    const unnamed = await (await create({ origin: 'https://www.unnamed.example', workspaceId: own })).json() as { name: string };
+    expect(unnamed.name).toBe('unnamed.example');
+
+    // A demotion or removal applies to the next request
+    await updateDoc<DbMember>(workspacePk(own), memberId(f.user.id), member => ({ ...member, role: 'commenter' }));
+    expect((await discover()).workspaces).toEqual([]);
+    await expect(create({ origin: site, name: 'Site', workspaceId: own })).rejects.toMatchObject({ status: 403 });
+    await getAppStore().delete(workspacePk(own), memberId(f.user.id));
+    await expect(create({ origin: site, name: 'Site', workspaceId: own })).rejects.toMatchObject({ status: 403 });
+});
+
+test('a sign-in that approved reviewing alone keeps reviewing and cannot create a project', async () => {
+    const site = `https://new-${randomUUID().slice(0, 8)}.example`;
+    // Sessions as they were issued before the extension could create projects: the eight-hour one and the renewable one
+    const legacy = await fixture();
+    const renewable = await renewableFixture();
+    // An exchange cannot add what consent did not name
+    const upgraded = await fixture(true);
+    const sessions = [
+        { f: legacy, credentials: await exchangeExtensionCode(legacy.exchange) },
+        { f: renewable, credentials: renewable.credentials },
+        { f: upgraded, credentials: await exchangeExtensionCode({ ...upgraded.exchange, renewable: true, capability: 'create-projects' }) }
+    ];
+    for (const { f, credentials } of sessions) {
+        const body = { origin: site, name: 'Site', workspaceId: f.project.workspaceId, attempt: random() };
+        await expect(createSiteProject(request('projects', credentials.token, body))).rejects.toMatchObject({ status: 403, code: 'forbidden', message: 'Sign in to the extension again to create projects.' });
+        const refused = await extensionWrite(request('projects', credentials.token, body));
+        expect(refused.status).toBe(403);
+        // Reviewing is unchanged: discovery, a scope for a project's own address and its review context
+        const found = await (await matchingProjects(request(`projects?origin=${site}`, credentials.token))).json() as { projects: unknown[]; workspaces: unknown[]; approveCreate?: boolean; canSetUp: boolean };
+        expect(found).toMatchObject({ projects: [], workspaces: [], approveCreate: true, canSetUp: true });
+        const scoped = await (await createScope(request('scope', credentials.token, { projectId: f.project.id, origin: 'https://reviewed.example' }))).json() as { token: string };
+        expect((await extensionReviewContext(request('review/info', scoped.token))).project.id).toBe(f.project.id);
+        expect((await listProjects(f.project.workspaceId)).map(project => project.id)).toEqual([f.project.id]);
+    }
+    // Renewal keeps a session as it was approved: it neither adds the capability nor drops it
+    const renewed = await refreshExtensionSession({ clientId, refreshToken: renewable.credentials.refreshToken, attempt: random() });
+    await expect(createSiteProject(request('projects', renewed.token, { origin: site, name: 'Site', workspaceId: renewable.project.workspaceId, attempt: random() }))).rejects.toMatchObject({ status: 403 });
+    const approved = await renewableFixture('create-projects');
+    expect((await extensionSession(request('projects', approved.credentials.token))).capabilities).toEqual(['create-projects']);
+    const later = await refreshExtensionSession({ clientId, refreshToken: approved.credentials.refreshToken, attempt: random() });
+    const found = await (await matchingProjects(request(`projects?origin=${site}`, later.token))).json() as { workspaces: unknown[]; approveCreate?: boolean };
+    expect(found.workspaces).toEqual([{ id: approved.project.workspaceId, name: 'Personal' }]);
+    expect(found.approveCreate).toBeUndefined();
+    expect((await createSiteProject(request('projects', later.token, { origin: site, name: 'Site', workspaceId: approved.project.workspaceId, attempt: random() }))).status).toBe(201);
+    // Consent asks for a capability it knows, and nothing else
+    expect(() => validateAuthorization({ ...approved.authorization, capability: 'manage-workspace' })).toThrow();
+});
+
+test('a repeated or concurrent create with one attempt gives one project', async () => {
+    const f = await renewableFixture('create-projects');
+    const token = f.credentials.token, own = f.project.workspaceId;
+    const site = `https://new-${randomUUID().slice(0, 8)}.example`;
+    const create = async (body: object, bearer = token) => await (await createSiteProject(request('projects', bearer, { origin: site, name: 'Site', workspaceId: own, ...body }))).json() as { id: string; projectId: string };
+    const created = async () => (await listProjects(own)).filter(project => project.id !== f.project.id).map(project => project.id).sort();
+
+    // The answer was lost: the worker sends the attempt it saved again
+    const attempt = random();
+    const first = await create({ attempt });
+    expect(await create({ attempt })).toEqual(first);
+    expect(await created()).toEqual([first.projectId]);
+    // Renamed in the app since: the replay still answers with that project, as it is now
+    await updateProject(own, first.projectId, { name: 'Renamed' });
+    expect(await (await createSiteProject(request('projects', token, { origin: site, name: 'Site', workspaceId: own, attempt }))).json()).toMatchObject({ projectId: first.projectId, name: 'Renamed' });
+
+    // Two popups, a second press: at once, with one attempt
+    const together = random();
+    const answers = await Promise.all(Array.from({ length: 6 }, () => create({ attempt: together, name: 'Together' })));
+    expect(new Set(answers.map(answer => answer.projectId)).size).toBe(1);
+    expect(new Set(answers.map(answer => answer.id)).size).toBe(1);
+    expect(await created()).toEqual([first.projectId, answers[0]!.projectId].sort());
+    expect((await findProject(answers[0]!.projectId))).toMatchObject({ name: 'Together', urls: [site], createdBy: f.user.id });
+
+    // An attempt belongs to its account, workspace and input: anything else is another submission
+    const other = await create({ attempt, name: 'Another name' });
+    expect(other.projectId).not.toBe(first.projectId);
+    const elsewhere = await create({ attempt, origin: 'https://elsewhere.example' });
+    expect([first.projectId, other.projectId]).not.toContain(elsewhere.projectId);
+    const stranger = await renewableFixture('create-projects');
+    const theirs = await (await createSiteProject(request('projects', stranger.credentials.token, { origin: site, name: 'Site', workspaceId: stranger.project.workspaceId, attempt }))).json() as { projectId: string };
+    expect(theirs.projectId).not.toBe(first.projectId);
+    await expect(createSiteProject(request('projects', stranger.credentials.token, { origin: site, name: 'Site', workspaceId: own, attempt }))).rejects.toMatchObject({ status: 403 });
+    expect(await created()).toHaveLength(4);
+});
+
+test('project creation from the extension is limited per account and a refusal creates nothing', async () => {
+    const f = await renewableFixture('create-projects');
+    const own = f.project.workspaceId;
+    const limit = siteProjectsLimit(f.user.id);
+    const post = (body: object) => extensionWrite(new Request('https://uier.io/api/extension/projects', { method: 'POST',
+        headers: { Authorization: `Bearer ${f.credentials.token}`, 'Content-Type': 'application/json', Origin: `chrome-extension://${clientId}` },
+        body: JSON.stringify({ name: 'Site', workspaceId: own, attempt: random(), ...body }) }));
+    const now = Date.now;
+    // One fixed moment: the whole budget and the refusal fall in the same hour
+    const moment = now();
+    try {
+        Date.now = () => moment;
+        const attempts: string[] = [];
+        for (let index = 0; index < limit.limit; index++) {
+            attempts.push(random());
+            expect((await post({ origin: `https://site-${index}.example`, attempt: attempts[index] })).status).toBe(201);
+        }
+        expect(await listProjects(own)).toHaveLength(limit.limit + 1);
+        const refused = await post({ origin: 'https://one-too-many.example' });
+        expect(refused.status).toBe(429);
+        expect(await refused.json()).toMatchObject({ error: 'rate_limited', reason: 'too_fast', message: 'Too many new projects. Try again later.' });
+        expect(Number(refused.headers.get('Retry-After'))).toBe(limit.windowSeconds - Math.floor(moment / 1000) % limit.windowSeconds);
+        expect(refused.headers.get('Access-Control-Expose-Headers')).toContain('Retry-After');
+        // Nothing was created for the refused attempt
+        expect(await listProjects(own)).toHaveLength(limit.limit + 1);
+        expect((await projectsForSite(f.user.id, 'https://one-too-many.example')).projects).toEqual([]);
+        // An answer lost before the budget ran out is still given: a replay is not a new project
+        const replay = await post({ origin: 'https://site-0.example', attempt: attempts[0] });
+        expect(replay.status).toBe(201);
+        expect(await listProjects(own)).toHaveLength(limit.limit + 1);
+        // The budget is the account's own
+        const other = await renewableFixture('create-projects');
+        expect((await createSiteProject(request('projects', other.credentials.token, { origin: 'https://theirs.example', name: 'Site', workspaceId: other.project.workspaceId, attempt: random() }))).status).toBe(201);
+    } finally { Date.now = now; }
+});
+
+test('concurrent requests of one attempt take one unit of the budget, with one unit left', async () => {
+    const f = await renewableFixture('create-projects');
+    const own = f.project.workspaceId;
+    const limit = siteProjectsLimit(f.user.id);
+    const post = (body: object) => extensionWrite(new Request('https://uier.io/api/extension/projects', { method: 'POST',
+        headers: { Authorization: `Bearer ${f.credentials.token}`, 'Content-Type': 'application/json', Origin: `chrome-extension://${clientId}` },
+        body: JSON.stringify({ name: 'Site', workspaceId: own, attempt: random(), ...body }) }));
+    const created = async () => (await listProjects(own)).length - 1;
+    const now = Date.now, moment = now();
+    try {
+        Date.now = () => moment;
+        // A request that stopped after its receipt: the unit is taken, nothing of the project exists
+        const stopped = random();
+        const owner = { user: f.user, workspace: (await getWorkspace(own))! };
+        const reserved = await reserveProjectCreation(owner, { name: 'Site', urls: ['https://stopped.example'] }, stopped, limit);
+        expect(await findProject(reserved.projectId)).toBeNull();
+        for (let index = 0; index < limit.limit - 2; index++)
+            expect((await post({ origin: `https://site-${index}.example` })).status).toBe(201);
+        expect(await created()).toBe(limit.limit - 2);
+
+        // One unit left, and one submission arrives six times at once: none is refused, all name the one project
+        const attempt = random();
+        const answers = await Promise.all(Array.from({ length: 6 }, () => post({ origin: 'https://last.example', attempt })));
+        expect(answers.map(answer => answer.status)).toEqual(Array(6).fill(201));
+        const projects = await Promise.all(answers.map(async answer => (await answer.json() as { projectId: string }).projectId));
+        expect(new Set(projects).size).toBe(1);
+        expect(await created()).toBe(limit.limit - 1);
+        // That was the last unit: another submission is refused and leaves nothing behind
+        const refused = await post({ origin: 'https://one-too-many.example' });
+        expect(refused.status).toBe(429);
+        expect(Number(refused.headers.get('Retry-After'))).toBe(limit.windowSeconds - Math.floor(moment / 1000) % limit.windowSeconds);
+        expect(await created()).toBe(limit.limit - 1);
+        // Refused again on its retry, with the same attempt: a refusal reserves nothing
+        const again = random();
+        expect((await post({ origin: 'https://one-too-many.example', attempt: again })).status).toBe(429);
+        expect((await post({ origin: 'https://one-too-many.example', attempt: again })).status).toBe(429);
+        // With the budget spent, the six get their answer again and the stopped request finishes: neither takes a unit
+        expect(await (await post({ origin: 'https://last.example', attempt })).json()).toMatchObject({ projectId: projects[0] });
+        const finished = await post({ origin: 'https://stopped.example', attempt: stopped });
+        expect(finished.status).toBe(201);
+        expect(await finished.json()).toMatchObject({ projectId: reserved.projectId, name: 'Site' });
+        expect(await created()).toBe(limit.limit);
+        expect((await post({ origin: 'https://one-too-many.example' })).status).toBe(429);
+        // The next hour has a new budget; the receipts of this one still answer
+        Date.now = () => moment + 5 * 60 * 1000;
+        const sameHour = Math.floor((moment + 5 * 60 * 1000) / 1000 / limit.windowSeconds) === Math.floor(moment / 1000 / limit.windowSeconds);
+        expect((await post({ origin: 'https://later.example' })).status).toBe(sameHour ? 429 : 201);
+    } finally { Date.now = now; }
+});
+
+test('a replay never creates a removed project again and finishes one that was not created', async () => {
+    const f = await renewableFixture('create-projects');
+    const own = f.project.workspaceId, token = f.credentials.token;
+    const workspace = (await getWorkspace(own))!;
+    const context = { user: f.user, member: (await getMember(own, f.user.id))!, workspace, isAdmin: true, memberships: [] } as AppContext;
+    const submit = (origin: string, attempt: string) => extensionWrite(request('projects', token, { origin, name: 'Site', workspaceId: own, attempt }));
+    const create = async (origin: string, attempt: string) => await (await submit(origin, attempt)).json() as { id: string; projectId: string };
+    const gone = async (origin: string, attempt: string, projectId: string) => {
+        const response = await submit(origin, attempt);
+        expect(response.status).toBe(410);
+        expect(await response.json()).toMatchObject({ error: 'not_found', message: 'This project no longer exists.' });
+        // Not under its old code, and not under a new one
+        expect(await getAppStore().get(workspacePk(own), projectId)).toBeNull();
+        expect((await projectsForSite(f.user.id, origin)).projects).toEqual([]);
+    };
+
+    // Deletion removes the document first and retires the code after: a replay in between sees a live code and no project
+    const between = random();
+    const first = await create('https://between.example', between);
+    expect(await getAppStore().delete(workspacePk(own), first.projectId)).toBe(true);
+    expect((await getAppStore().get<AppDoc>(projectRefPk(first.projectId), first.projectId))?.doc.type).toBe('project-ref');
+    await gone('https://between.example', between, first.projectId);
+    await gone('https://between.example', between, first.projectId);
+
+    // Deleted in the app
+    const deleted = random();
+    const second = await create('https://deleted.example', deleted);
+    await deleteProject(context, second.projectId, 'Site');
+    expect((await getAppStore().get<AppDoc>(projectRefPk(second.projectId), second.projectId))?.doc.type).toBe('project-ref-retired');
+    await gone('https://deleted.example', deleted, second.projectId);
+
+    // Transferred to another workspace: it lives there, and the old workspace gets no second one
+    const moved = random();
+    const third = await create('https://moved.example', moved);
+    const target = await createWorkspace(f.user, 'Client work');
+    await transferProject(context, third.projectId, target.id, 'Site');
+    const response = await submit('https://moved.example', moved);
+    expect(response.status).toBe(410);
+    expect(await getAppStore().get(workspacePk(own), third.projectId)).toBeNull();
+    expect((await findProject(third.projectId))?.workspaceId).toBe(target.id);
+    expect((await projectsForSite(f.user.id, 'https://moved.example')).projects.map(project => project.projectId)).toEqual([third.projectId]);
+
+    // The same form after a removal is a new submission, with the worker's new attempt
+    const fresh = await create('https://deleted.example', random());
+    expect(fresh.projectId).not.toBe(second.projectId);
+    expect(await findProject(fresh.projectId)).toMatchObject({ urls: ['https://deleted.example'] });
+
+    // A request that stopped after claiming its code, before the project: the retry creates it, once
+    const stopped = random();
+    const reserved = await reserveProjectCreation({ user: f.user, workspace }, { name: 'Site', urls: ['https://stopped.example'] }, stopped, siteProjectsLimit(f.user.id));
+    expect(await getAppStore().create({ type: 'project-ref', id: reserved.projectId, pk: projectRefPk(reserved.projectId), workspaceId: own })).toBe(true);
+    const finished = await Promise.all([create('https://stopped.example', stopped), create('https://stopped.example', stopped), create('https://stopped.example', stopped)]);
+    expect(finished.map(answer => answer.projectId)).toEqual(Array(3).fill(reserved.projectId));
+    expect(new Set(finished.map(answer => answer.id)).size).toBe(1);
+    expect((await projectsForSite(f.user.id, 'https://stopped.example')).projects).toHaveLength(1);
+    // The receipt belongs to its person and workspace
+    const stranger = await renewableFixture('create-projects');
+    await expect(createProject({ user: stranger.user, workspace }, { name: 'Site', urls: ['https://stopped.example'] }, { receipt: reserved })).rejects.toThrow();
+});
+
+test('a duplicate finds the receipt in every ordering with the request that took the last unit', async () => {
+    const base = getAppStore();
+    const limit = (userId: string) => ({ key: `test-receipts:${userId}`, limit: 3, windowSeconds: 3600, reason: 'too_fast' as const, message: 'Too many new projects. Try again later.' });
+    type Step = 'query' | 'get' | 'createAll';
+    /** The duplicate's store: `before` runs once ahead of the named read or write; `behind` makes its first reads miss what `before` wrote */
+    const scenario = async (step: Step, { behind = [] as Step[] } = {}) => {
+        const userId = `u_${randomUUID()}`, workspaceId = `w_${randomUUID()}`, attempt = random();
+        const request = (store = base, attemptValue = attempt) => reserveProjectReceipt({ userId, workspaceId, attempt: attemptValue, setup: ['Site', ['https://last.example'], ''],
+            projectId: () => randomUUID().replace(/-/g, '').slice(0, 12), limit: limit(userId) }, store);
+        // Two of three units are taken: one is left
+        await request(base, random());
+        await request(base, random());
+        let original: Awaited<ReturnType<typeof request>> | undefined;
+        const stale = new Map<Step, unknown>();
+        const hooked = async <T>(name: Step, read: () => Promise<T>): Promise<T> => {
+            if (!original && behind.includes(name)) stale.set(name, await read());
+            if (!original && name === step) original = await request();
+            if (stale.has(name)) { const value = stale.get(name) as T; stale.delete(name); return value; }
+            return read();
+        };
+        const store = { ...base,
+            query: ((input: Parameters<typeof base.query>[0]) => hooked('query', () => base.query(input))) as typeof base.query,
+            get: ((pk: string, id: string) => hooked('get', () => base.get(pk, id))) as typeof base.get,
+            createAll: (docs: Parameters<typeof base.createAll>[0]) => hooked('createAll', () => base.createAll(docs)) };
+        const duplicate = await request(store);
+        expect(original).toBeDefined();
+        expect({ id: duplicate.id, projectId: duplicate.projectId, workspaceId: duplicate.workspaceId, createdAt: duplicate.createdAt })
+            .toEqual({ id: original!.id, projectId: original!.projectId, workspaceId, createdAt: original!.createdAt });
+        // The window is full now, by that one request: another submission is refused, the duplicate never was
+        await expect(request(base, random())).rejects.toMatchObject({ status: 429 });
+        expect(await base.query({ type: 'project-receipt', pk: `project-receipt:${userId}` })).toHaveLength(3);
+        expect(await request(store)).toMatchObject({ projectId: original!.projectId });
+    };
+    // The original commits before the duplicate reads the slots, between its two reads, and after both
+    await scenario('query');
+    await scenario('get');
+    await scenario('createAll');
+    // Another instance's write may not be in this session's reads yet. The receipt's own read is behind while the
+    // full window shows the request; both reads are behind and only the transaction knows.
+    await scenario('query', { behind: ['get'] });
+    await scenario('query', { behind: ['query', 'get'] });
+    await scenario('get', { behind: ['get'] });
+});
+
+test('a request is the same request for the stated 30 days; its receipt and marker expire, a project\'s code never does', async () => {
+    const day = 24 * 60 * 60 * 1000;
+    expect(PROJECT_RECEIPT_SECONDS).toBe(30 * 24 * 60 * 60);
+    const f = await fixture();
+    const own = f.project.workspaceId, store = getAppStore();
+    const workspace = (await getWorkspace(own))!;
+    const owner = { user: f.user, workspace };
+    const context = { user: f.user, member: (await getMember(own, f.user.id))!, workspace, isAdmin: true, memberships: [] } as AppContext;
+    const limit = siteProjectsLimit(f.user.id);
+    const site = (name: string) => ({ name: 'Site', urls: [`https://${name}.example`] });
+    const others = async () => (await listProjects(own)).filter(project => project.id !== f.project.id).map(project => project.id).sort();
+    const records = async () => (await Promise.all(['project-receipt', 'project-receipt-slot'].map(type => store.query({ type, pk: `project-receipt:${f.user.id}` })))).flat();
+    const code = async (id: string) => (await store.get<AppDoc>(projectRefPk(id), id))?.doc;
+    const now = Date.now, start = now();
+    try {
+        Date.now = () => start;
+        // Created, then deleted in the app
+        const attempt = random();
+        const receipt = await reserveProjectCreation(owner, site('deleted'), attempt, limit);
+        const created = await createProject(owner, site('deleted'), { receipt });
+        expect(created).toMatchObject({ id: receipt.projectId, urls: ['https://deleted.example'] });
+        await deleteProject(context, created.id, 'Site');
+        // The store commits the project and its marker, and the request stops before it reads anything back
+        const committed = await reserveProjectCreation(owner, site('committed'), random(), limit);
+        await expect(createProject(owner, site('committed'), { receipt: committed, store: { ...store,
+            transact: async operations => { await store.transact(operations); throw new Error('stopped after the commit'); } } })).rejects.toThrow('stopped after the commit');
+        // A request that stopped after claiming its code: no project, no marker
+        const stopped = await reserveProjectCreation(owner, site('stopped'), random(), limit);
+        await expect(createProject(owner, site('stopped'), { receipt: stopped, store: { ...store, transact: async () => { throw new Error('stopped'); } } })).rejects.toThrow('stopped');
+        expect(await store.get(workspacePk(own), stopped.projectId)).toBeNull();
+        // Every claim is permanent from the moment it is made: none carries an expiry
+        for (const id of [committed.projectId, stopped.projectId]) {
+            expect(await code(id)).toMatchObject({ type: 'project-ref', workspaceId: own });
+            expect((await code(id))!.ttl).toBeUndefined();
+        }
+        // One that finished nineteen days later: its marker still ends a day after the receipt, not later
+        const late = await reserveProjectCreation(owner, site('late'), random(), limit);
+        Date.now = () => start + 19 * day;
+        const finished = await createProject(owner, site('late'), { receipt: late });
+        expect((await store.get<AppDoc>(workspacePk(own), `created_${finished.id}`))?.doc.ttl).toBe(12 * 24 * 60 * 60);
+
+        // Through the whole stated period the deleted project's request is that request: gone, never a new project
+        for (const elapsed of [29.5 * day, 30 * day - 1000]) {
+            Date.now = () => start + elapsed;
+            const again = await reserveProjectCreation(owner, site('deleted'), attempt, limit);
+            expect(again).toMatchObject({ id: receipt.id, projectId: receipt.projectId });
+            await expect(createProject(owner, site('deleted'), { receipt: again })).rejects.toThrow('This project no longer exists.');
+            expect(await others()).toEqual([committed.projectId, finished.id].sort());
+        }
+        // After it the receipts are gone; the markers that guard their codes outlast them by a day
+        Date.now = () => start + 30 * day + 1000;
+        expect(await records()).toEqual([]);
+        expect((await store.get<AppDoc>(workspacePk(own), `created_${created.id}`))?.doc).toMatchObject({ type: 'project-created', projectId: created.id });
+        Date.now = () => start + 31 * day + 1000;
+        expect(await store.query({ type: 'project-created', pk: workspacePk(own) })).toEqual([]);
+
+        // Long after every receipt and marker: the project whose creation stopped after its commit is found by its
+        // code, without any read having repaired it, and still moves and deletes as any project
+        Date.now = () => start + 90 * day;
+        expect(await findProject(committed.projectId)).toMatchObject({ id: committed.projectId, workspaceId: own, urls: ['https://committed.example'] });
+        expect(await findProject(finished.id)).toMatchObject({ id: finished.id });
+        const target = await createWorkspace(f.user, 'Client work');
+        await transferProject(context, committed.projectId, target.id, 'Site');
+        expect((await findProject(committed.projectId))?.workspaceId).toBe(target.id);
+        expect(await store.get(workspacePk(own), committed.projectId)).toBeNull();
+        // Deleted projects keep their retired code; the code of the request that never made a project stays claimed
+        expect((await code(created.id))?.type).toBe('project-ref-retired');
+        expect(await code(stopped.projectId)).toMatchObject({ type: 'project-ref', workspaceId: own });
+        expect(await findProject(stopped.projectId)).toBeNull();
+    } finally { Date.now = now; }
+});
+
+test('a duplicate across the hourly rollover finds the receipt its original committed to the old hour', async () => {
+    const base = getAppStore();
+    const userId = `u_${randomUUID()}`, workspaceId = `w_${randomUUID()}`, attempt = random();
+    const limit = siteProjectsLimit(userId);
+    const request = (store = base, value = attempt) => reserveProjectReceipt({ userId, workspaceId, attempt: value, setup: ['Site', ['https://rollover.example'], ''],
+        projectId: () => randomUUID().replace(/-/g, '').slice(0, 12), limit }, store);
+    const now = Date.now;
+    // Ten minutes before the hour ends
+    const start = (Math.floor(now() / 1000 / limit.windowSeconds) + 1) * limit.windowSeconds * 1000 - 10 * 60 * 1000;
+    try {
+        Date.now = () => start;
+        // The original chooses a unit of the old hour and is held before its transaction
+        let release!: () => void;
+        const held = new Promise<void>(resolve => { release = resolve; });
+        const original = request({ ...base, createAll: async docs => { await held; return base.createAll(docs); } });
+        await new Promise(resolve => setTimeout(resolve, 20));
+        // The hour turns, and thirty other submissions take every unit of the new one
+        Date.now = () => start + 15 * 60 * 1000;
+        for (let index = 0; index < limit.limit; index++) await request(base, random());
+        // Before the original commits there is no receipt: a duplicate is one more submission in a full hour
+        await expect(request()).rejects.toMatchObject({ status: 429 });
+        release();
+        const committed = await original;
+        // Another instance's session: it sees the new hour's thirty slots and not yet the receipt in the old one
+        let behind = 2;
+        const other = { ...base, get: (async (pk: string, id: string) => id === committed.id && behind-- > 0 ? null : base.get(pk, id)) as typeof base.get };
+        expect(await request(other)).toMatchObject({ id: committed.id, projectId: committed.projectId, createdAt: committed.createdAt });
+        expect(behind).toBeLessThanOrEqual(0);
+        // A session that keeps missing it never answers 429 for it either
+        const blind = { ...base, get: (async (pk: string, id: string) => id === committed.id ? null : base.get(pk, id)) as typeof base.get };
+        await expect(request(blind)).rejects.toMatchObject({ status: 409 });
+        // The new hour is full for everyone else, and nothing was reserved twice
+        await expect(request(base, random())).rejects.toMatchObject({ status: 429 });
+        expect(await base.query({ type: 'project-receipt', pk: `project-receipt:${userId}` })).toHaveLength(limit.limit + 1);
+    } finally { Date.now = now; }
+});
+
+test('a replay answers 410 for a project that lost the address, and the form sent again creates a new one', async () => {
+    const f = await renewableFixture('create-projects');
+    const own = f.project.workspaceId, token = f.credentials.token;
+    const submit = (attempt: string) => extensionWrite(request('projects', token, { origin: 'https://moved-on.example', name: 'Site', workspaceId: own, attempt }));
+    const attempt = random();
+    const first = await (await submit(attempt)).json() as { projectId: string };
+    expect((await submit(attempt)).status).toBe(201);
+    await updateProject(own, first.projectId, { urls: ['https://elsewhere.example'] });
+    const replay = await submit(attempt);
+    expect(replay.status).toBe(410);
+    expect(await replay.json()).toMatchObject({ error: 'not_found', message: 'The project created for this address no longer includes it. Try again to create a new one.' });
+    expect((await findProject(first.projectId))?.urls).toEqual(['https://elsewhere.example']);
+    const second = await (await submit(random())).json() as { projectId: string };
+    expect(second.projectId).not.toBe(first.projectId);
+    expect((await projectsForSite(f.user.id, 'https://moved-on.example')).projects.map(project => project.projectId)).toEqual([second.projectId]);
 });
 
 test('scoped access derives the origin and rechecks address removal, comments off and revocation', async () => {

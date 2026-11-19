@@ -356,14 +356,15 @@ test('the sidebar, the tabs and My work are one tab stop each; G then I, B, M or
     const myWork = nav.getByRole('link', { name: 'My work', exact: true });
     await expect(myWork).not.toHaveAttribute('tabindex', '-1');
     await myWork.focus();
-    await page.keyboard.press('ArrowUp');
-    await expect(nav.getByRole('link', { name: 'Projects', exact: true })).toBeFocused();
+    // My work is the navigation's first link, Projects the next
     await page.keyboard.press('ArrowDown');
+    await expect(nav.getByRole('link', { name: 'Projects', exact: true })).toBeFocused();
+    await page.keyboard.press('ArrowUp');
     await expect(myWork).toBeFocused();
     await page.keyboard.press('End');
     await expect(navLinks.last()).toBeFocused();
     await page.keyboard.press('Home');
-    await expect(nav.getByRole('link', { name: 'Projects', exact: true })).toBeFocused();
+    await expect(myWork).toBeFocused();
 
     // G then P: Projects. The workspace's tabs: ← and → move, Enter opens
     await blur(page);

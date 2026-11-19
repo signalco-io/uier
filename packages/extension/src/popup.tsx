@@ -2,6 +2,7 @@ import { createRoot } from 'react-dom/client';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Button } from '@signalco/ui-primitives/Button';
 import { cx } from '@signalco/ui-primitives/cx';
+import { Input } from '@signalco/ui-primitives/Input';
 import { List } from '@signalco/ui-primitives/List';
 import { ListItem } from '@signalco/ui-primitives/ListItem';
 import { Check, Disabled, ExternalLink, Globe, LoaderSpinner, LogOut, Warning } from '@signalco/ui-icons';
@@ -18,9 +19,20 @@ type Tab = {
     /** An active review in this tab, and the project it uses */
     binding?: boolean; reviewing?: string;
 };
-/** The full answer (`state`): the frame as uier confirms it, with the site's projects and the account */
-type State = Tab & { canSetUp?: boolean; projects?: Project[]; account?: { name: string; email: string } };
-type Action = 'refresh' | 'sign-in' | 'sign-out' | 'start' | 'exit' | 'install-update';
+type Workspace = { id: string; name: string };
+/**
+ * The full answer (`state`): the frame as uier confirms it, with the site's projects and the account. `workspaces`
+ * are those the person may create a project in (their admin memberships); an earlier uier sends none, and uier
+ * checks the membership again when a project is created. `approveCreate` stands in for them when this sign-in
+ * approved reviewing alone (it is from before the extension could create projects): a new sign-in names creating.
+ */
+type State = Tab & { canSetUp?: boolean; projects?: Project[]; workspaces?: Workspace[]; approveCreate?: boolean; account?: { name: string; email: string } };
+type Action = 'refresh' | 'sign-in' | 'sign-out' | 'start' | 'create' | 'exit' | 'install-update';
+/** The worker's answer to `create-project`: the project exists; `error` is why its review did not start */
+type Created = { project: Project; error?: string };
+/** The longest project name uier takes */
+const maxProjectName = 80;
+const fieldLabel = 'm-0 text-xs font-medium text-muted-foreground';
 /**
  * What the popup most often becomes: signed in, on a site with projects. Until the worker's first answer this frame
  * is laid out but hidden under "Connecting to uier.", so the popup opens at its usual height and resizes at most
@@ -71,6 +83,58 @@ function ProjectsOutline() {
     </List>;
 }
 
+/** One row of a picker (projects, workspaces): pressed when chosen, with the check that marks it. Never a form's submit. */
+function Choice({ id, selected, onSelected, disabled, children }: { id: string; selected: boolean; onSelected: (id: string) => void; disabled: boolean; children: ReactNode }) {
+    return <ListItem variant="outlined" nodeId={id} selected={selected} onSelected={onSelected}
+        disabled={disabled} className="min-h-11 pr-3 pl-3"
+        {...({ 'aria-pressed': selected, type: 'button' } as object)}
+        label={<span className="flex min-w-0 flex-col py-1 text-left">{children}</span>}
+        endDecorator={<Check size={16} strokeWidth={1.75} aria-hidden="true" className={selected ? 'shrink-0' : 'shrink-0 opacity-0'} />} />;
+}
+
+/**
+ * A new project for a site no project includes, offered to admins. Its address is the tab's, shown in the heading
+ * above: the worker reads it from the tab, so nothing here can change it. The name starts as the site's host, as in
+ * the app. Of the workspaces the person may create projects in, one needs no choice; several need one made, so a
+ * client's site never lands in another workspace by default.
+ */
+function NewProject({ origin, workspaces, busy, creating, notice, onCreate }: {
+    origin: string; workspaces: Workspace[]; busy: boolean; creating: boolean; notice: ReactNode; onCreate: (name: string, workspaceId: string) => void;
+}) {
+    const [name, setName] = useState(() => new URL(origin).hostname.replace(/^www\./, '').slice(0, maxProjectName));
+    const [chosen, setChosen] = useState('');
+    const only = workspaces.length === 1 ? workspaces[0] : undefined;
+    const workspace = only ?? workspaces.find(item => item.id === chosen);
+    return <form className="flex flex-col gap-3" aria-labelledby="new-project-heading"
+        onSubmit={event => { event.preventDefault(); if (workspace && name.trim() && !busy) onCreate(name.trim(), workspace.id); }}>
+        <p id="new-project-heading" className="m-0 text-sm font-medium">No project includes this address</p>
+        <div className="flex flex-col gap-1.5">
+            <label htmlFor="new-project-name" className={fieldLabel}>Project name</label>
+            <Input id="new-project-name" fullWidth autoComplete="off" spellCheck={false} maxLength={maxProjectName} disabled={busy}
+                className="focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background"
+                value={name} onChange={event => setName(event.target.value)} />
+        </div>
+        {!only && <div className="flex flex-col gap-2">
+            <p id="workspaces-label" className={fieldLabel}>Choose a workspace</p>
+            <List variant="outlined" className="max-h-44 overflow-y-auto" role="group" aria-labelledby="workspaces-label">
+                {workspaces.map(item => <Choice key={item.id} id={item.id} selected={chosen === item.id} onSelected={setChosen} disabled={busy}>
+                    <span className="break-words">{item.name}</span>
+                </Choice>)}
+            </List>
+        </div>}
+        {notice}
+        <div className="flex flex-col gap-2">
+            <Button type="submit" variant="solid" fullWidth loading={creating} disabled={busy || !workspace || !name.trim()}
+                aria-describedby="new-project-hint">Create project and start review</Button>
+            <p id="new-project-hint" className="m-0 break-words text-xs text-muted-foreground">{!workspace
+                ? 'Choose the workspace for the project.'
+                : !name.trim()
+                    ? 'Enter a project name.'
+                    : <>{only && <>It goes in {only.name}. </>}Only people you invite can comment.</>}</p>
+        </div>
+    </form>;
+}
+
 function Popup() {
     const [tab, setTab] = useState<Tab>();
     const [state, setState] = useState<State>();
@@ -99,9 +163,20 @@ function Popup() {
         // The frame's controls work before uier's first answer. An action waits for it, so answers never overlap.
         await opening.current;
         setError('');
-        try { await operation(); await refresh(); } catch (error) { setError(error instanceof Error ? error.message : 'The extension could not connect.'); }
+        try { await operation(); await refresh(); } catch (error) {
+            setError(error instanceof Error ? error.message : 'The extension could not connect.');
+            // An answer lost on the way can leave a project behind: show it rather than offer to create it twice
+            if (action === 'create') await refresh().catch(() => {});
+        }
         finally { setBusy(undefined); }
     };
+    const create = (name: string, workspaceId: string) => run('create', async () => {
+        // The address this form showed: the worker creates nothing when the tab has moved on from it
+        const created = await message<Created>({ type: 'create-project', tabId: view.tabId!, origin: view.origin!, name, workspaceId });
+        setSelected(created.project.projectId);
+        // The project is there, its review is not: the list that follows offers Start review under the reason
+        if (created.error) throw new Error(created.error);
+    });
     // uier's first answer failed: there is nothing to show beside the error
     const failed = !state && Boolean(error);
     const answered = state ?? tab;
@@ -191,18 +266,35 @@ function Popup() {
             </div>
         </>;
     } else if (!view.projects?.length) {
-        body = <>
+        const setup = <Button variant="outlined" size="sm" className="bg-background" href={`${apiOrigin}/app/projects`} target="_blank" rel="noopener noreferrer"
+            endDecorator={<ExternalLink size={16} strokeWidth={1.75} aria-hidden="true" />}>Open project setup</Button>;
+        // Offered where uier names a workspace the person may create projects in; an earlier uier names none
+        body = view.workspaces?.length && view.origin && view.tabId !== undefined ? <>
+            {siteHeading}
+            {reviewStatus}
+            <NewProject key={view.origin} origin={view.origin} workspaces={view.workspaces} busy={Boolean(busy)} creating={busy === 'create'}
+                notice={errorNotice} onCreate={create} />
+            <div className="flex flex-col items-start gap-2 rounded-lg bg-muted px-3 py-2.5">
+                <p className="m-0 text-xs text-muted-foreground">Or add this exact address to a project.</p>
+                {setup}
+            </div>
+        </> : <>
             {siteHeading}
             {reviewStatus}
             <div className="flex flex-col items-start gap-3 rounded-lg bg-muted p-4">
                 <div className="flex flex-col gap-1">
                     <p className="m-0 text-sm font-medium">No project includes this address</p>
-                    <p className="m-0 text-sm text-muted-foreground">{view.canSetUp
-                        ? 'Add this exact address to a project, then open this again.'
-                        : 'Ask a project admin to add this exact address or to invite you.'}</p>
+                    <p className="m-0 text-sm text-muted-foreground">{view.approveCreate
+                        ? 'To create a project for it here, sign in again and approve creating projects. Signing in ends active reviews in all tabs.'
+                        : view.canSetUp
+                            ? 'Add this exact address to a project, then open this again.'
+                            : 'Ask a project admin to add this exact address or to invite you.'}</p>
                 </div>
-                {view.canSetUp && <Button variant="outlined" size="sm" className="bg-background" href={`${apiOrigin}/app/projects`} target="_blank" rel="noopener noreferrer"
-                    endDecorator={<ExternalLink size={16} strokeWidth={1.75} aria-hidden="true" />}>Open project setup</Button>}
+                {(view.approveCreate || view.canSetUp) && <div className="flex flex-wrap gap-2">
+                    {view.approveCreate && <Button variant="outlined" size="sm" className="bg-background" loading={busy === 'sign-in'} disabled={Boolean(busy)}
+                        onClick={() => run('sign-in', () => message({ type: 'sign-in' }))}>Sign in again</Button>}
+                    {view.canSetUp && setup}
+                </div>}
             </div>
             {errorNotice}
         </>;
@@ -216,15 +308,11 @@ function Popup() {
                 <List variant="outlined" className="max-h-60 overflow-y-auto" role="group" aria-labelledby="projects-label">
                     {view.projects.map(item => {
                         const isSelected = selected === item.projectId;
-                        return <ListItem key={item.projectId} variant="outlined" nodeId={item.projectId} selected={isSelected} onSelected={setSelected}
-                            disabled={Boolean(busy)} className="min-h-11 pr-3 pl-3"
-                            {...({ 'aria-pressed': isSelected } as object)}
-                            label={<span className="flex min-w-0 flex-col py-1 text-left">
-                                <span className="break-words">{item.name}</span>
-                                {item.workspaceName && <span className={isSelected ? "break-words text-xs font-normal text-foreground" : "break-words text-xs font-normal text-muted-foreground"}>{item.workspaceName}</span>}
-                                {item.access === 'disabled' && <span className={isSelected ? "text-xs font-normal text-foreground" : "text-xs font-normal text-muted-foreground"}>Comments off</span>}
-                            </span>}
-                            endDecorator={<Check size={16} strokeWidth={1.75} aria-hidden="true" className={isSelected ? 'shrink-0' : 'shrink-0 opacity-0'} />} />;
+                        return <Choice key={item.projectId} id={item.projectId} selected={isSelected} onSelected={setSelected} disabled={Boolean(busy)}>
+                            <span className="break-words">{item.name}</span>
+                            {item.workspaceName && <span className={isSelected ? "break-words text-xs font-normal text-foreground" : "break-words text-xs font-normal text-muted-foreground"}>{item.workspaceName}</span>}
+                            {item.access === 'disabled' && <span className={isSelected ? "text-xs font-normal text-foreground" : "text-xs font-normal text-muted-foreground"}>Comments off</span>}
+                        </Choice>;
                     })}
                 </List>
             </div>

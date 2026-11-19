@@ -149,10 +149,9 @@ test('feedback on a customer project page exports its uier owner and needs a gra
     } finally { await customer.close(); }
 
     await openFeedbackWorkspace(page);
-    await appNavigation(page);
+    // The projects page's list (a phone's open sidebar would hide it)
     await expect(page.getByRole('list', { name: 'Active projects' }).getByRole('link', { name: 'uier.io user feedback', exact: true }))
         .toHaveAttribute('href', `/app/projects/${USER_FEEDBACK_PROJECT_ID}`);
-    await closeAppNavigation(page);
     const uier = await connect('uier access', 'uier.io user feedback', true);
     try {
         const args = { projectId: packet.context.identity.projectId, commentId: saved.id };

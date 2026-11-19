@@ -13,7 +13,7 @@ import { parseCommentsView } from '@/src/lib/app/commentsViewPreference';
 import { isActiveStatusFilter, statusFilterLabels, type CommentsView, type StatusFilter } from './commentLabels';
 import { storedCommentsView } from './commentsView';
 import { commentStatuses, StateDot } from './CommentStatus';
-import { filterControls, filterIconButton, searchInput, segmentedGroup, segmentedItem, statusTabsBox } from './CommentsViewToggle';
+import { filterControls, filterIconButton, filtersDivider, searchInput, segmentedGroup, segmentedItem, statusTabsBox } from './CommentsViewToggle';
 
 const subscribeNothing = () => () => {};
 
@@ -119,7 +119,7 @@ function FiltersPlaceholder({ view, status }: { view: CommentsView; status: Stat
         { value: 'all', label: t(statusFilterLabels.all), pressed: status === 'all', menu: false }
     ];
     return (
-        <div inert aria-hidden="true" className="flex min-w-0 flex-wrap items-center gap-2 sm:flex-nowrap">
+        <div inert aria-hidden="true" className={cn('flex min-w-0 flex-wrap items-center gap-2 sm:flex-nowrap', filtersDivider)}>
             {view === 'list' && (
                 <div className={cn(statusTabsBox, 'overflow-x-hidden')}>
                     <div className={cn('flex w-max min-w-full items-center sm:min-w-0', segmentedGroup)}>
@@ -169,7 +169,7 @@ function CommentsSkeleton({ title, view, status }: { title: string; view: Commen
     const board = view === 'board' && expected !== 'empty';
     if (expected === 'empty') {
         return (
-            <div role="status" aria-label={t(title)} data-comments-loading={view} data-comments-expected="empty" className="@container/comments flex flex-col gap-2">
+            <div role="status" aria-label={t(title)} data-project-comments="" data-comments-loading={view} data-comments-expected="empty" className="@container/comments flex flex-col gap-2">
                 <span className="sr-only">{t(title)}…</span>
                 <FiltersPlaceholder view={view} status={status} />
                 <EmptyOutline />
@@ -177,7 +177,7 @@ function CommentsSkeleton({ title, view, status }: { title: string; view: Commen
         );
     }
     return (
-        <div role="status" aria-label={t(title)} data-page-width="wide" data-comments-loading={view} data-comments-expected={expected} className="@container/comments flex flex-col gap-2">
+        <div role="status" aria-label={t(title)} data-project-comments="" data-page-width="wide" data-comments-loading={view} data-comments-expected={expected} className="@container/comments flex flex-col gap-2">
             <span className="sr-only">{t(title)}…</span>
             <div data-header-wide={view} className="flex min-w-0 flex-col gap-2 page-wide">
                 <FiltersPlaceholder view={view} status={status} />
