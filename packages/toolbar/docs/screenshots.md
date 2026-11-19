@@ -50,7 +50,24 @@ Record screen and Upload recording are items of the same Attach menu; a recordin
 
 - Saved evidence can be uploaded or pasted, and redacted with opaque rectangles, using the shared API limits.
 - `CommentScreenshot` keeps the thumbnail alone. Upload image and Paste image are in its expanded view beside
-  Redact screenshot (or beside "No screenshot").
+  Redact screenshot. A comment without a screenshot shows nothing for it: no "No screenshot" row.
+- **Attach to comment** (`components/CommentAttach.tsx`, [uier #473](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects&comment=comment_qLw4Rx21hSb1QWTtYlSeN)) adds what a saved
+  comment's first message does not have yet. It is one paperclip in [the thread's header line](comment-thread.md#the-header),
+  after Add reaction, for those who may edit the comment (its author, or a project's admin), and its menu is like
+  the reply box's Attach:
+  - **Take screenshot**, an after-comment screenshot: `captureCommentScreenshot` of the commented part of the page
+    as it is now (the window for page feedback), without the toolbar, with the comment's drawing. Only on the
+    document the comment was left on: its canonical page at its recorded source origin (as Reattach comment's
+    original site). Addresses that share feedback show each other's threads, but none takes a screenshot for
+    another's comment, nor does a comment whose source was removed or never recorded. Public comments are kept
+    per site, so their page is enough.
+  - **Attach image** and **Paste image**, also a keyboard paste while Attach or its menu has the focus.
+  - Record screen and Upload recording, while the comment has no [recording](recordings.md#a-recording-for-a-saved-comment).
+  Each image is saved through the same replacement request (`expectedRevision: null`), so the formats, limits,
+  re-encoding and daily image budget are the saved images' own; once saved it is redacted or replaced from the
+  expanded view. What is being saved and what failed show in a slot under the message that takes no room while
+  empty; success is announced, and the thumbnail appears. With nothing left to add, the button goes and the new
+  evidence takes the focus it had. The app's `CommentCard` has no such row or control.
 - A comment or reply that is still sending with a screenshot or image shows the thumbnail's placeholder
   (`data-image-placeholder`, the thumbnail's fixed size) at once; the image is fetched once the saved message
   replaces it ([uier #409](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_ZGmj2h7nGoa5E6mpHV0zU)).
@@ -60,5 +77,6 @@ Record screen and Upload recording are items of the same Attach menu; a recordin
 
 ## Tests
 
-`apps/web/e2e/screenshots.spec.ts`: Attach and the screenshot toggle in the text box. `screenshot-performance.spec.ts`: capture yields
+`apps/web/e2e/screenshots.spec.ts`: Attach and the screenshot toggle in the text box. `thread-attachments.spec.ts`:
+Attach to comment on a saved thread; `screenshot-replacement.spec.ts`: saved images, their errors and redaction. `screenshot-performance.spec.ts`: capture yields
 to the browser ([capture responsiveness](composer-popovers.md#capture-responsiveness)).

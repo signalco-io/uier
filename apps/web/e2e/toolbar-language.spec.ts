@@ -110,7 +110,7 @@ test('a member’s choice in the toolbar is saved to their account, shown in Acc
     // The account has it: Account → Toolbar language shows it, and Project default resets it
     await page.goto('/app/account');
     const section = page.getByRole('region', { name: 'Toolbar language', exact: true });
-    await expect(section.getByRole('combobox', { name: 'Language' })).toContainText('Italian (Italiano)');
+    await expect(section.getByRole('combobox', { name: 'Language' }).locator('[data-slot="select-value"]')).toHaveText('Italiano');
     await chooseSetting(section, page, 'Language', 'Project default');
 
     await page.goto(target);
@@ -159,7 +159,8 @@ for (const fails of [false, true]) {
             expect((await secondSaved).status()).toBe(200);
             await expect(page.getByRole('button', { name: 'Ajouter un commentaire', exact: true })).toBeVisible();
             await page.goto('/app/account');
-            await expect(page.getByRole('region', { name: 'Toolbar language', exact: true }).getByRole('combobox', { name: 'Language' })).toContainText('French (Français)');
+            const section = page.getByRole('region', { name: 'Toolbar language', exact: true });
+            await expect(section.getByRole('combobox', { name: 'Language' }).locator('[data-slot="select-value"]')).toHaveText('Français');
             expect(writes).toBe(2);
         } finally {
             release();

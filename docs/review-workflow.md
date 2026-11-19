@@ -515,9 +515,13 @@ Images, fonts and stylesheets from other sites that don't allow it (CORS, or the
 images that haven't loaded within a second (lazy ones below the window), `<canvas>`, video, iframes and
 `backdrop-filter` come out empty or plain.
 
-For missing or unsuitable captures, the author (or a workspace admin) can choose **Upload image** or
-**Paste image** on saved feedback in the toolbar: beside "No screenshot", or in the expanded screenshot next
-to Redact screenshot. Keyboard image paste also works while a saved image control has focus. PNG, JPEG and WebP images use the same 512 KB / 4096 px limits as automatic evidence;
+For missing or unsuitable captures, the author (or a workspace admin) can add evidence to saved feedback in
+the toolbar. Without a screenshot, **Attach to comment** (a paperclip among the first message's actions) offers
+**Take screenshot** (the commented part of the page as it is now, only on the comment's own page at the address it
+was left on, also when other addresses share its feedback), **Attach image**
+and **Paste image**, and a screen recording while the comment has none. With a screenshot, **Upload image** and
+**Paste image** are in the expanded screenshot next to Redact screenshot. Keyboard image paste also works while
+one of these controls has focus. PNG, JPEG and WebP images use the same 512 KB / 4096 px limits as automatic evidence;
 invalid images and denied clipboard access show an error and keep the saved feedback. Nothing is previewed
 in a composer. Images are not persisted with drafts or in browser storage.
 
@@ -711,6 +715,10 @@ showcase contexts produced these endpoint counts:
 | Previous active or idle | 8 | 8 | 16 | 8 | 32 |
 | Adaptive active | 8 | 8 | 16 | 8 | 32 |
 | Adaptive settled idle | 2 | 2 | 4 | 2 | 8 |
+
+With archiving (#599), each page and site list also reads a separate archived window.
+The current budget checks 16 ordinary and 16 archived comment GETs while active, and four of each
+while settled idle. Including identity and activity, those windows allow 48 and 12 GETs respectively.
 
 Settled idle cycles and endpoint reads fall **75%**; the healthy maximum discovery delay rises from
 15 to 60 seconds, plus round-trip time. The clock test introduces a remote update immediately

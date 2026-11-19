@@ -43,6 +43,7 @@ import { stagingForReview, stagingReference } from '../proofs/staging';
 import { actorAuthorId, memberActor, refreshMutationActor, assertCanUseComments, assertWriter, type ProjectActor } from './actor';
 import { assertEligibleParticipant, assertParticipantEditor, validateMentions } from './participants';
 import { replaceSavedScreenshot } from '../comments/replaceScreenshot';
+import { attachSavedRecording } from '../comments/attachRecording';
 import type { ParsedScreenshot } from '../comments/screenshot';
 import { queueMcpEventDelivery } from '../mcp/events/trigger';
 import { queueIntegrationDelivery } from '../integrations/immediate';
@@ -350,6 +351,16 @@ export async function replaceProjectScreenshot(project: DbProject, actor: Projec
         await refreshMutationActor(project, actor);
         visibleOrThrow(comment, actor);
         if (!canEditComment(comment, actor)) throw apiErrors.forbidden('Only the author or an admin can replace this screenshot.');
+    }, (previous, updated) => withSyncMark(project, previous, updated));
+}
+
+/** A recording for a saved comment that has none: its author or an admin, as for its screenshot */
+export async function attachProjectRecording(project: DbProject, actor: ProjectActor, id: string, recordingId: string) {
+    assertWriter(actor);
+    return attachSavedRecording(getCommentsStore(), projectPartition(project.id), actorAuthorId(actor)!, id, recordingId, async comment => {
+        await refreshMutationActor(project, actor);
+        visibleOrThrow(comment, actor);
+        if (!canEditComment(comment, actor)) throw apiErrors.forbidden('Only the author or an admin can add a recording to this comment.');
     }, (previous, updated) => withSyncMark(project, previous, updated));
 }
 

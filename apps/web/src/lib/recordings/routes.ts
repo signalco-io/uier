@@ -1,9 +1,11 @@
 import { apiErrors, commentContext, commentsApiHandler, errorResponse, parseJsonBody, writerId, type CommentsApiContext } from '../comments/http';
 import { assertNotBot } from '../comments/botProtection';
-import { getComment } from '../comments/service';
-import { isValidId } from '../comments/validation';
+import { assertCommentAuthor, getComment, toPublicCommentDto } from '../comments/service';
+import { attachRecordingSchema, isValidId } from '../comments/validation';
+import { attachSavedRecording } from '../comments/attachRecording';
 import { actorAuthorId, assertCanUseComments, assertWriter } from '../review/actor';
-import { getProjectComment, projectPartition } from '../review/comments';
+import { attachProjectRecording, getProjectComment, projectPartition } from '../review/comments';
+import { commentResponse } from '../review/response';
 import type { ReviewApiContext } from '../review/http';
 import { getCommentsStore } from '../repo/commentsStore';
 import { commentRecordingUrl, completeRecordingUpload, recordingUploadSchema, startRecordingUpload } from './service';
@@ -24,6 +26,12 @@ export async function readReviewRecording({ request, project, actor }: ReviewApi
     if (!comment) throw apiErrors.notFound();
     return Response.json(await commentRecordingUrl(request, comment, itemId));
 }
+/** A finalized recording for a saved comment that has none; the response is the updated comment. */
+export async function attachReviewRecording(context: ReviewApiContext, { id }: { id: string }) {
+    assertWriter(context.actor);
+    const { recordingId } = await parseJsonBody(context.request, attachRecordingSchema);
+    return commentResponse(context, await attachProjectRecording(context.project, context.actor, checkedId(id), recordingId));
+}
 export const startPublicRecording = commentsApiHandler(async context => {
     await assertNotBot();
     return Response.json(await startRecordingUpload(context.request, context.domain, writerId(context), await parseJsonBody(context.request, recordingUploadSchema)));
@@ -39,6 +47,14 @@ export const readPublicRecording = commentsApiHandler<{ id: string; itemId?: str
     const stored = await getCommentsStore().get(context.domain, id);
     if (!stored) throw apiErrors.notFound();
     return Response.json(await commentRecordingUrl(context.request, stored.comment, itemId));
+});
+export const attachPublicRecording = commentsApiHandler<{ id: string }>(async (source, { id }) => {
+    await assertNotBot();
+    const context: CommentsApiContext = await commentContext(source, checkedId(id));
+    const { recordingId } = await parseJsonBody(context.request, attachRecordingSchema);
+    const comment = await attachSavedRecording(getCommentsStore(), context.domain, writerId(context), id, recordingId,
+        comment => assertCommentAuthor(comment, context));
+    return Response.json(await toPublicCommentDto(comment, context));
 });
 
 /** Cookie-authenticated app routes resolve current workspace access on every request. */

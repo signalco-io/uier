@@ -196,7 +196,7 @@ function sourcePath(path: string, policy: PageStatePolicy) {
 }
 
 /** Every stage of an upload stays with the reviewer who pressed Send. */
-function uploadCommentRecording(recording: RecordingClip, revision: number) {
+export function uploadCommentRecording(recording: RecordingClip, revision: number) {
     return uploadRecording(recording, recordingsApiUrl, (url, init) => {
         if (revision !== currentReviewerRevision()) throw new CommentsApiError('sign_in_required', 'The review session changed.', 401);
         return apiRequest(url, init);

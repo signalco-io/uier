@@ -5,7 +5,7 @@ const operations: [RegExp, ExtensionMethod[]][] = [
     [/^$/, ['GET']], [/^comments$/, ['GET', 'POST']], [/^comments\/activity$/, ['GET']],
     [/^staging$/, ['GET']], [/^comments\/read$/, ['POST']], [/^participants$/, ['GET']], [/^statuses$/, ['GET']], [/^rewrite$/, ['POST']],
     [/^recordings$/, ['POST']], [new RegExp(`^recordings/${id}/complete$`), ['POST']],
-    [new RegExp(`^comments/${id}/recording$`), ['GET']],
+    [new RegExp(`^comments/${id}/recording$`), ['GET', 'POST']],
     [new RegExp(`^comments/${id}/replies/${id}/recording$`), ['GET']],
     [/^notifications$/, ['POST']], [/^language$/, ['POST']],
     [new RegExp(`^comments/${id}$`), ['PATCH', 'DELETE']],

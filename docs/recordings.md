@@ -2,7 +2,8 @@
 
 A comment or reply can include one recording alongside its image evidence. The toolbar offers
 **Record screen** where the browser supports screen capture and **Upload recording** for an
-existing MP4 or WebM file, in the text box's Attach menu. The signed-in app offers the same controls on replies. Recording starts
+existing MP4 or WebM file, in the text box's Attach menu. The signed-in app offers the same controls on replies.
+In the toolbar, a saved comment without a recording gets one from **Attach to comment** on its first message. Recording starts
 only from the reviewer's action and the browser's source picker. Built-in capture requests video
 without audio; uploaded videos can include their existing audio.
 Video files are validated without re-encoding, so uploaded file metadata is preserved. A WebM screen
@@ -47,6 +48,12 @@ review operations and retains its normal document binding, verification and cred
    author that initialized the upload. Metadata, the upload's attached target, the comment/reply
    and its idempotency receipt commit in one conditional Cosmos transaction. One finalized upload
    cannot be attached to another message. A replay recovers the original comment after a lost response.
+
+A saved comment without a recording takes one afterwards: `POST .../comments/<id>/recording` with
+`{ recordingId }`, in the public and review APIs. Its author (in a project, also a workspace admin) sends a
+finalized upload of their own; the response is the updated comment. The same transaction and one-message rule
+apply, a repeated request returns the saved comment, and a comment that already has a recording answers `409`.
+There is no replacement or removal: deleting the message removes its recording.
 
 Each initialization reserves one of **10 uploads per actor per UTC day**, **100 per partition per
 UTC day** and **100 per network bucket per UTC day**. Failed/discarded uploads do not refund the

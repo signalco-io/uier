@@ -12,6 +12,7 @@ import { newLocalId, useComments } from '../hooks/useComments';
 import { getCommentPlacement, lowestRect, resolveAnchorElement, useCommentPlacement } from '../hooks/useCommentItemRects';
 import { cancelCommentScreenshot, captureCommentScreenshot } from '../screenshot';
 import { useRecording, type RecordingClip } from '../recordings';
+import { isCapturing, ThreadRecordingContext } from './CommentAttach';
 import { newCommentDraftKey, newDrawingDraftKey, newRewriteDraftKey, useDrafts } from '../hooks/useDrafts';
 import { hasDraftContent } from '../hooks/draftStorage';
 import { CommentThread } from './CommentThread';
@@ -357,8 +358,10 @@ export function CommentBubble(props: CommentBubbleProps) {
     // The reviewer's own image, sent instead of the automatic screenshot
     const attachment = useAttachedImage(props.draft?.image, { pastedName: t.attachments.pastedImage });
     const recording = useRecording(props.draft?.recording);
+    // A recording being added to the saved first message (`CommentAttach`): kept here, so it outlives a closed thread
+    const evidenceRecording = useRecording();
     const sheet = narrowTouch && (rewriting || suggesting || Boolean(saved))
-        && recording.phase !== 'choosing' && recording.phase !== 'recording';
+        && !isCapturing(recording) && !isCapturing(evidenceRecording);
     // Omitted while it is taken: its work stops. Attached after all: a new one is taken.
     const handleOmittedChange = (omitted: boolean) => {
         setOmitScreenshot(omitted);
@@ -561,7 +564,7 @@ export function CommentBubble(props: CommentBubbleProps) {
 
     const handleOpenChange = (open: boolean) => {
         // Keep Stop reachable while the reviewer uses the page being recorded. This stays non-modal.
-        if (!open && (recording.phase === 'choosing' || recording.phase === 'recording')) return;
+        if (!open && (isCapturing(recording) || isCapturing(evidenceRecording))) return;
         if (!open) stopProposalSession();
         setContinuing(false);
         setExpanded(false);
@@ -793,7 +796,9 @@ export function CommentBubble(props: CommentBubbleProps) {
             role="group"
             {...(revealControls && { 'data-uier-controls-reveal': '' })}
             className="min-h-0 flex-1 overflow-y-auto outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
-            <CommentThread commentItem={commentItem} reading={open} onPage previewOnPage={open} allMessages={revealControls} />
+            <ThreadRecordingContext value={evidenceRecording}>
+                <CommentThread commentItem={commentItem} reading={open} onPage previewOnPage={open} allMessages={revealControls} />
+            </ThreadRecordingContext>
         </div>
         <Divider className="shrink-0" />
     </>;
@@ -899,7 +904,8 @@ export function CommentBubble(props: CommentBubbleProps) {
                 // Passed through to the Radix popover content, like `collisionPadding`
                 {...{ onCloseAutoFocus: handleCloseAutoFocus }}
                 {...{ onEscapeKeyDown: (event: Event) => {
-                    if (recording.phase === 'recording') { event.preventDefault(); recording.stop(); }
+                    for (const capture of [recording, evidenceRecording])
+                        if (capture.phase === 'recording') { event.preventDefault(); capture.stop(); }
                 } }}
                 // A saved thread: R, S and A act on it (`threadShortcuts.ts`); not on a preview
                 {...(commentItem && !preview && { 'data-uier-thread-scope': '' })}

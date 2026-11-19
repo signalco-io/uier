@@ -64,6 +64,7 @@ customer's site and calls `/api/review/<code>` on uier.io, implemented in
 | `GET /api/review/<code>/comments/<id>/screenshot` | the comment's screenshot, for reviewers who can see the comment |
 | `PATCH /api/review/<code>/comments/<id>/anchor` | reattach with `{ path, position, expectedRevision }`; author/admin, saved page and original allowed origin only |
 | `POST /api/review/<code>/comments/<id>/screenshot` | supply or replace saved evidence, with `{ screenshot, expectedRevision }`; author or workspace admin only |
+| `POST /api/review/<code>/comments/<id>/recording` | add a [recording](#screen-recordings) to a saved comment that has none, with `{ recordingId }`; author or workspace admin only, with their own upload |
 | `POST /api/review/<code>/rewrite` | `{ text, instruction? }`: rewrite suggestions, as `POST /api/rewrite`, for reviewers who can comment (limited per reviewer and per project, and app-wide like `POST /api/rewrite`) |
 | `POST /api/review/<code>/page-checks` | a page's [page check summary](#page-checks), from project members only; `204` |
 | `POST /api/review/<code>/page-suggestions` | `{ kind, text, title?, description? }`: a page's AI suggestions, as `POST /api/page-suggestions`, for reviewers who can comment (counted with rewrite suggestions; see [Page suggestions](#page-suggestions)) |
@@ -314,6 +315,7 @@ find the thread in either. `sourcePath` is the same page as it was addressed, fo
 | `GET /api/comments/{id}/replies/{itemId}/screenshot` | | `200` the reply image, for people who can read the thread; `404` for a missing/deleted reply or image |
 | `GET /api/comments/{id}/screenshot` | | `200` the comment's screenshot (`image/webp`, `image/jpeg` or `image/png`), public like the comment; `404` when it has none |
 | `POST /api/comments/{id}/screenshot` | `{ screenshot, expectedRevision }` | `200` updated comment; author only. `expectedRevision` is the current image revision, or `null` for an original/missing image; stale evidence returns `409` |
+| `POST /api/comments/{id}/recording` | `{ recordingId }` | `200` updated comment; author only, with their own finalized [recording](#screen-recordings) upload. A repeated request returns the same comment; a comment that already has a recording returns `409` |
 | `DELETE /api/comments/{id}` | | Deletes the first item; author only. `204` when the comment is gone, or `200` with the comment when other visitors replied (see below) |
 | `DELETE /api/comments/{id}/replies/{itemId}` | | `200` the updated comment; author of the reply only. The first item is deleted as with `DELETE /api/comments/{id}`; `204` when the comment is gone |
 | `GET /api/visitor` | | `200` `{ name, language }`: the visitor's guest name, `null` before their first write (the toolbar's profile), and the toolbar language as in `GET /api/review/<code>` (`preference` only for a signed-in account) |
@@ -517,6 +519,9 @@ For a project toolbar, use `/api/review/<projectId>/recordings`; public same-ori
    uier authorization headers.
 3. `POST <base>/<id>/complete` inspects the actual bytes and returns validated recording metadata.
    Send its `id` as `recordingId` with the comment or reply and the normal submission key.
+
+`POST .../comments/<id>/recording` with `{ recordingId }` adds a finalized upload to a saved comment's first
+message when it has none (public and review APIs; its author, or a workspace admin in a project).
 
 `GET .../comments/<id>/recording` and `GET .../comments/<id>/replies/<itemId>/recording` return
 `{ url, expiresAt }` after current thread access checks. Public routes start at `/api/comments/<id>`;

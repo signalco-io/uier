@@ -110,3 +110,21 @@ export async function commitChangeSubmission(store: CommentsStore, attempt: Subm
     }
     throw apiErrors.conflict();
 }
+
+/**
+ * A finalized recording added to a saved message: the changed comment, its receipt and the upload's
+ * attachment claim commit together, like a reply's. `authorize` runs against every version read.
+ */
+export async function commitRecordingSubmission(store: CommentsStore, attempt: Submission, id: string,
+    authorize: (comment: DbComment) => unknown, change: (comment: DbComment) => DbComment, recording: RecordingAttachment) {
+    for (let retry = 0; retry < 8; retry++) {
+        const recovered = await recoverSubmission(store, attempt);
+        if (recovered) { await authorize(recovered); return recovered; }
+        const stored = await store.get(attempt.domain, id);
+        if (!stored) throw apiErrors.notFound();
+        await authorize(stored.comment);
+        const saved = await commit(store, attempt, change(stored.comment), stored.etag, undefined, undefined, recording);
+        if (saved) { await authorize(saved); return saved; }
+    }
+    throw apiErrors.conflict();
+}
