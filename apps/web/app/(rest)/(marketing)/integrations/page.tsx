@@ -1,14 +1,14 @@
 import type { PropsWithChildren } from 'react';
 import { publicPageMetadata } from '@/src/lib/metadata';
-import { Add, ArrowRight } from '@signalco/ui-icons';
+import { ArrowRight, Code } from '@signalco/ui-icons';
 import { CheckList, Chip, InlineLink, PageHeader, PageSection, Panel } from '../../../../src/components/marketing/ContentPage';
 import { SuggestIntegrationButton } from '../../../../src/components/marketing/SuggestIntegrationButton';
 import { IntegrationLogo } from '../../../../src/components/app/integrations/IntegrationLogo';
-import { KnownPageLinks } from '../../../../src/knownPages';
+import { KnownPageLinks, KnownPages } from '../../../../src/knownPages';
 import { integrationCatalog, type IntegrationCatalogEntry, type IntegrationCatalogKey } from '../../../../src/lib/integrations/catalog';
 import { IntegrationsCover } from './IntegrationsCover';
 
-export const metadata = publicPageMetadata('/integrations', { title: 'Integrations', description: 'Connect website feedback to Notion, GitHub, Linear, Azure DevOps and Slack.' });
+export const metadata = publicPageMetadata('/integrations', { title: 'Integrations', description: 'Connect website feedback to Notion, GitHub, Linear, Azure DevOps and Slack, or build a custom integration with MCP or the REST API.' });
 
 const services = Object.entries(integrationCatalog) as [IntegrationCatalogKey, IntegrationCatalogEntry][];
 
@@ -33,10 +33,9 @@ const shared = [
 
 export default function IntegrationsPage() {
     return <main className="flex flex-col pb-16">
-        <PageHeader title="Keep feedback with your work" lead="Connect a uier project to the tools your team uses. Each service has its own destination and controls." />
+        <PageHeader title="Keep feedback with your work" lead="Send shared feedback to the tools your team uses, read a thread through MCP or connect your own software with the REST API." />
         <IntegrationsCover />
         <PageSection id="services" title="Choose a service" wide>
-            {/* Five services and the way to ask for another: six tiles, so every row of two or three is full */}
             <Panel as="ul" className="md:grid-cols-2 lg:grid-cols-3">
                 {services.map(([key, integration]) => (
                     <li key={key} className={tile}>
@@ -58,17 +57,20 @@ export default function IntegrationsPage() {
                 ))}
                 <li className={tile}>
                     <span aria-hidden="true" className="flex size-11 items-center justify-center rounded-xl border bg-background text-muted-foreground">
-                        <Add size={20} strokeWidth={1.75} />
+                        <Code size={20} strokeWidth={1.75} />
                     </span>
                     <div className="flex flex-col gap-1.5">
-                        <h3 className="text-base font-semibold">Another tool</h3>
-                        <p className="text-sm leading-relaxed text-muted-foreground">Tell us which one your team works in and what you would send to it.</p>
+                        <h3 className="text-base font-semibold">Model Context Protocol (MCP)</h3>
+                        <p className="text-sm leading-relaxed text-muted-foreground">Read feedback in Claude Code, Codex or Cursor. Choose which projects your tool can access and whether it can reply or update a thread’s status.</p>
                     </div>
-                    <a href="#suggest" className={`mt-auto ${tileLink}`}>Suggest an integration{tileArrow}</a>
+                    <a href={KnownPages.McpGuide} className={`mt-auto ${tileLink}`}>Set up MCP{tileArrow}</a>
                 </li>
             </Panel>
         </PageSection>
-        <PageSection id="shared" title="Every integration" lead="The same rules apply to each service.">
+        <PageSection id="rest-api" title="REST API" lead="Build a custom integration that reads project feedback, posts replies or updates a thread’s status.">
+            <InlineLink href={KnownPages.DeveloperApi}>Explore the REST API</InlineLink>
+        </PageSection>
+        <PageSection id="shared" title="How project sync works" lead="These settings apply when you send feedback to Notion, GitHub, Linear, Azure DevOps or Slack.">
             <CheckList items={shared} />
             <p className="text-sm leading-relaxed text-muted-foreground">Need to compare the whole workflow? The <InlineLink href={KnownPageLinks.comparison('website-feedback-tools')}>website feedback tools comparison</InlineLink> covers capture, review and the handoff to your team’s tools.</p>
         </PageSection>

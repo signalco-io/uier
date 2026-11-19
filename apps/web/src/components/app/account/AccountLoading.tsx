@@ -166,6 +166,13 @@ export function AccountUsageLoading() {
     );
 }
 
+export function AccountApiTokensLoading() {
+    const { t } = useAppI18n();
+    return <Loading label="Loading account" className={stack}>
+        <SectionOutline title={t('API tokens')} fields={2} />
+    </Loading>;
+}
+
 /** Coding agents: its five cards, the connected apps and the access tokens as lists */
 export function AccountCodingAgentsLoading() {
     const { t } = useAppI18n();

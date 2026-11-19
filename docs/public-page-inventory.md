@@ -63,7 +63,8 @@ above and the inventory review date above; the last column records additional cl
 | `/features/feedback-triage` | Search, prioritize and act on selected feedback | P1 | `FeedbackTriage`; [triage note](../apps/web/docs/triage.md) | Preserve current bounds and permissions |
 | `/features/fix-verification` | Ask a reviewer to check one thread's fix | P1 | `FixVerification`; [verification note](../apps/web/docs/fix-verification.md) | Preserve optional confirmation versus ordinary Done |
 | `/features/page-checks` | Understand in-browser accessibility/SEO checks | P1 | `PageChecks`; [checks note](../apps/web/docs/page-checks.md) | No certification or scheduled-crawler claim |
-| `/integrations` | Choose a supported feedback destination | P1 | `Integrations`; integration catalog, [activation](integration-activation.md) | Maintain dated availability/acceptance records |
+| `/integrations` | Choose a feedback destination, connect a coding tool or build a custom integration | P1 | `Integrations`, integration catalog, [activation](integration-activation.md), `McpGuide`, `DeveloperApi` | Maintain dated availability/acceptance records |
+| `/developers/api` | Authenticate and try a project-scoped REST call | P1 | `DeveloperApi`, [REST contract](api.md#public-rest-api-for-custom-integrations) | Keep the downloadable OpenAPI document aligned with the handlers |
 | `/integrations/github` | Set up the GitHub issue handoff | P1 | `KnownPageLinks.integration('github')`; catalog and activation/publication records | Marketplace approval is separate |
 | `/integrations/linear` | Set up the Linear issue handoff | P1 | `KnownPageLinks.integration('linear')`; catalog and activation/publication records | Directory eligibility is separate |
 | `/integrations/notion` | Set up the Notion page handoff | P1 | `KnownPageLinks.integration('notion')`; catalog and activation/publication records | Submission is not approval |

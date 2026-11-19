@@ -78,3 +78,5 @@ apps/extension-firefox/release/
 
 # Unmodified production ZIP extracted for persistent Chromium acceptance
 apps/extension/test-package/
+
+apps/web/public/scalar/standalone.js

@@ -110,7 +110,7 @@ const tradeoffs: Record<CompetitorSlug, { keep: string; withUier: string; test: 
     bugherd: {
         keep: 'Use BugHerd if your team depends on recorded audio, PDF review, task due dates or custom Kanban columns.',
         withUier: 'Both tools review images and selected Figma screens. In uier, statuses sit within five fixed stages. Deadlines apply to file approval rounds. Tasks have no due dates.',
-        test: 'Try one client review from first comment to a checked fix. If you review designs, try a Figma frame import and resync on a project with that format enabled. Check the integration you use to hand off work.'
+        test: 'Try one client review from first comment to a checked fix. If you review designs, try a Figma frame import and resync on a project with that format enabled. Check whether uier can send feedback to your team’s project tool or let you read it in your coding tool through MCP.'
     },
     'marker-io': {
         keep: 'Use Marker.io if replay, console/network evidence and scheduled monitoring are requirements.',

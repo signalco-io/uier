@@ -25,6 +25,8 @@ documents single files and folders or ZIPs with bundled assets. An agent can upl
 canvas using the CLI or MCP. The [MCP reference](https://help.usepastel.com/en/articles/16399713-connect-your-ai-agent-to-pastel-mcp-server)
 documents its permissions and comment tools. The ledger distinguishes an uploaded prototype from a live website URL.
 
+uier’s integration summary covers its five project destinations, MCP access for coding tools and the REST API for custom integrations.
+
 uier's claims follow the shipped feature pages, `docs/review-workflow.md`, the reproduction
 allowlist and screenshot/recording policies. Short screen recordings have explicit browser,
 permission, size and duration limits; built-in capture has no audio and ends on full-page navigation.
