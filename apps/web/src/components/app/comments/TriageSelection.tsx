@@ -284,8 +284,8 @@ export function TriageSelection({ projectId, scope, shown, assignees, barClassNa
     useEffect(() => {
         const region = regionRef.current;
         if (!region) return;
-        // The finger is down: `timer` until the press is long, then `held` until it is lifted. A click that follows a long press
-        // (`after`, until the next press anywhere) neither opens the row nor toggles it again. A cancelled press sends no click.
+        // The finger is down: `timer` until the press is long, then `held` until it is lifted. Mouse events synthesized
+        // after release (`after`, until the next press) must not activate the row or the bar that just appeared over it.
         let press: { x: number; y: number; timer: number } | undefined;
         let held = false;
         let after = false;
@@ -322,6 +322,11 @@ export function TriageSelection({ projectId, scope, shown, assignees, barClassNa
         const next = () => { after = false; };
         // While a press may become long, and while it is held: no link menu, no text selection, no dragged link
         const prevent = (event: Event) => { if (press || held) event.preventDefault(); };
+        const mouseDown = (event: globalThis.MouseEvent) => {
+            if (!after) return;
+            event.preventDefault();
+            event.stopPropagation();
+        };
         const click = (event: globalThis.MouseEvent) => {
             if (!after) return;
             after = false;
@@ -338,7 +343,8 @@ export function TriageSelection({ projectId, scope, shown, assignees, barClassNa
         region.addEventListener('contextmenu', prevent);
         region.addEventListener('dragstart', prevent);
         region.addEventListener('selectstart', prevent);
-        // Before React's handlers on the root, so neither the link nor a tap that selects sees it
+        // Base UI selects open on mousedown. Suppress it and the click before React's handlers see them.
+        window.addEventListener('mousedown', mouseDown, { capture: true });
         window.addEventListener('click', click, { capture: true });
         return () => {
             cancel();
@@ -350,6 +356,7 @@ export function TriageSelection({ projectId, scope, shown, assignees, barClassNa
             region.removeEventListener('contextmenu', prevent);
             region.removeEventListener('dragstart', prevent);
             region.removeEventListener('selectstart', prevent);
+            window.removeEventListener('mousedown', mouseDown, { capture: true });
             window.removeEventListener('click', click, { capture: true });
         };
     }, []);

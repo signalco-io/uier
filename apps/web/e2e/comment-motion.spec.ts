@@ -180,7 +180,7 @@ test('a card another person moves keeps the keyboard focus, and nothing scrolls'
     expect(await scroll()).toEqual(before);
 });
 
-test('list rows arrive, leave and slide to a new priority; many changes at once snap into place', async ({ page, request }) => {
+test('list rows arrive, leave and slide to a new priority; many changes at once snap into place', async ({ page, request }, testInfo) => {
     // Search matches each word on its own; a hyphen never appears in a project's id or the page path
     const words = ['stone-apricot', 'stone-cherry', 'stone-plum', 'banana', 'fig', 'grape', 'lemon', 'mango', 'melon', 'kiwi'];
     const { project: id, comments } = await project(page, request, words.map(word => `Motion thread ${word}`));
@@ -213,8 +213,15 @@ test('list rows arrive, leave and slide to a new priority; many changes at once 
     await watch.forget();
     const apricot = comments[0]!;
     await selectThread(page, apricot.number);
-    await page.getByRole('combobox', { name: 'Prioritize selected' }).click();
-    await page.getByRole('option', { name: 'Urgent', exact: true }).click();
+    const priority = page.getByRole('combobox', { name: 'Prioritize selected' });
+    const urgent = page.getByRole('option', { name: 'Urgent', exact: true });
+    if (testInfo.project.use.hasTouch) {
+        await priority.tap();
+        await urgent.tap();
+    } else {
+        await priority.click();
+        await urgent.click();
+    }
     await expect(commentRows(page).first()).toContainText('stone-apricot');
     expect(await watch.motions()).toEqual(expect.arrayContaining([`move:${apricot.id}`]));
     await watch.settled();
