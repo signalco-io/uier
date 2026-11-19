@@ -8,8 +8,9 @@ import { KnownPages } from '../../../../../src/knownPages';
 
 // Pinning a comment to an element, a dragged area or selected words, and what keeps a pin on its spot,
 // as the toolbar ships it: packages/toolbar/docs/point-mode.md (point mode, areas, selected text),
-// comment-thread.md (the pin), canvas-mode.md (Draw on the page, the optional `draw` feature),
-// anchor-recovery.md and docs/review-workflow.md ("Missing anchors and reattachment"). Change this page
+// composer-popovers.md (Suggest a change), comment-thread.md (the pin and saved suggestions),
+// canvas-mode.md (Draw on the page, the optional `draw` feature), anchor-recovery.md and
+// docs/review-workflow.md (missing anchors, reattachment and previews). Change this page
 // with them. Never claim a pin is moved by guessing: missing and ambiguous anchors get no pin.
 
 const title = 'Pinned comments';
@@ -56,6 +57,12 @@ const draw = [
     'Everything drawn in one go becomes one comment on the area around it. The drawing shows where it was drawn and is painted into the comment’s screenshot.',
     'Lines, arrows, shapes and notes can be added, moved and resized from the keyboard too.',
     'Project admins can hide Draw on the page in the project’s settings. Saved drawings still show.'
+];
+
+const proposal = [
+    { title: 'Choose one element', text: 'Choose Add comment, point at one element and choose Suggest a change. Text rewrites must be enabled for you to create a suggestion. Forms, editable fields and area comments are outside this workflow.' },
+    { title: 'Preview the change', text: 'Enter replacement text where available, up to 1,000 characters. Adjust text or background color, size or weight of the text, padding or corner radius. Switch between Original and Proposed. Add a note if it helps, then choose Post suggestion.' },
+    { title: 'Hand off the exact values', text: 'Open the saved thread on the original page and choose Proposed to preview it again. If the target or original values have changed, Exact values still shows the saved text and CSS for both versions. Your team can also copy the proposed values from the app and implement the change in the site’s source.' }
 ];
 
 const tryIt = [
@@ -136,6 +143,14 @@ export default function PinnedCommentsPage() {
                 title="Draw on the page"
                 lead="When words are not enough, circle it, point an arrow at it or blur it.">
                 <CheckList items={draw} />
+            </PageSection>
+
+            <PageSection
+                id="preview-a-change"
+                title="Preview text and style changes"
+                lead="Show a proposed change on the page and save it in a pinned thread. The preview is temporary.">
+                <StepsPanel steps={proposal} />
+                <p className="text-sm leading-relaxed text-muted-foreground">For selected words, choose Rewrite to preview a text replacement. Automatic screenshots capture the original page, and closing the preview restores the page.</p>
             </PageSection>
 
             <PageSection

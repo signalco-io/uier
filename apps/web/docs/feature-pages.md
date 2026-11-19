@@ -24,7 +24,10 @@ links, covers (Pause, the reduced-motion still frame, a loop that moves nothing 
 `/features/pinned-comments` (`PinnedCover`) states pinning to an element, a dragged area or selected words, the pin
 (number, message count, status dot, hover preview, Done leaving the page), what happens when the page changes (closed
 layers' openers, no guessed pins, reattaching by the author or an admin) and Draw on the page, which projects can hide.
-Its sources are the toolbar's point-mode, comment-thread, canvas-mode and anchor-recovery notes.
+It also explains Suggest a change for one eligible element, the Text rewrites setting, supported properties,
+Original and Proposed, and copying Exact values for implementation in source. Its sources are the toolbar's
+point-mode, composer-popovers, comment-thread, canvas-mode and anchor-recovery notes and the
+[review workflow](../../../docs/review-workflow.md#preview-text-and-style-changes).
 
 `/features/screenshots` (`ScreenshotsCover`, which draws the device details with the shared `DeviceDetails`) states the
 screenshot attempt and Attach screenshot, that the composer has no preview, the members-only device details (guests see

@@ -765,6 +765,23 @@ page key, original allowed origin and existing selector/offset limits. ETag retr
 replies/status changes and recheck authorization; anchor revisions reject stale choices. No cross-page
 migration or AI relocation is provided.
 
+## Preview text and style changes
+
+With **Text rewrites** available to you in the project's toolbar, choose **Add comment**, point at one
+element and choose **Suggest a change**. Preview up to 1,000 characters of replacement text where the
+existing markup allows it. Use supported CSS values for text and background colors, font size and
+weight, padding and corner radius. **Side padding** sets left and right together. **Padding details**
+lets you set each side. Select words and choose **Rewrite** to preview a text replacement. Forms,
+editable fields, page and area anchors, drawings, toolbar controls, and elements inside frames or
+shadow roots are outside the element suggestion workflow.
+
+Switch between **Original** and **Proposed**, then post with an optional note. The preview is local to your
+browser and ends when you post, close it or leave the page. Automatic screenshots capture the original
+page. When someone opens the saved thread on the original page, they can replay the proposal if the target
+and the captured values still match. **Exact values** shows the saved original and proposed text and CSS
+even when replay is unavailable. Authorized reviewers can also copy the proposed values from the app's thread
+detail. Your team implements and publishes the change in the site's source.
+
 ## Feedback environments
 
 Project settings → Environments is one table of the site addresses. Each configured **origin** (scheme, host
