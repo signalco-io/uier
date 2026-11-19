@@ -30,7 +30,9 @@ curl --fail-with-body https://uier.io/api/v1/projects \
 
 Feedback pages default to 25 threads and accept up to 100. Use the returned `next` value as
 the URL-encoded `before` parameter until `next` is null. The detail response includes the
-discussion text. Each request checks the owner's current project access and thread visibility.
+discussion text. Feedback endpoints operate on website threads. Each request checks
+the owner's current project access and thread visibility. Use the
+[MCP file handoff](mcp.md#hand-off-file-feedback) for file threads.
 Inaccessible resources return 404. Token revocation takes effect on subsequent calls.
 
 For writes, send `Content-Type: application/json` and a fresh `Idempotency-Key` (a UUID works).
