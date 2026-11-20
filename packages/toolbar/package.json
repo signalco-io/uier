@@ -200,7 +200,7 @@
         "axe-core": "4.14.1",
         "modern-screenshot": "4.7.0",
         "prosemirror-commands": "1.7.2",
-        "prosemirror-history": "1.5.1",
+        "prosemirror-history": "1.5.2",
         "prosemirror-inputrules": "1.6.0",
         "prosemirror-keymap": "1.2.3",
         "prosemirror-model": "1.25.13",
