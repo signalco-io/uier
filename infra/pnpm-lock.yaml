@@ -176,8 +176,8 @@ importers:
   .:
     dependencies:
       '@pulumi/azure-native':
-        specifier: 3.30.0
-        version: 3.30.0(typescript@7.0.2)
+        specifier: 3.32.0
+        version: 3.32.0(typescript@7.0.2)
       '@pulumi/cloudflare':
         specifier: 6.24.0
         version: 6.24.0(typescript@7.0.2)
@@ -365,8 +365,8 @@ packages:
   '@protobufjs/utf8@1.1.2':
     resolution: {integrity: sha512-b1UQwcEZ4yCnMCD8DAL1VlbvBJE9/IX4FTIp7BG1xYpf29SLazLSrqUkj4w7Y5y7cCVP6E5tcqqcI0xemPkHug==}
 
-  '@pulumi/azure-native@3.30.0':
-    resolution: {integrity: sha512-W4l1B4sku6DHFo7B4fJsez8FJzO8N7jQy3sJTPdI13H2igull2cNbeQSjk9pG7TkM0NArvAzp234YesVPFOjlA==}
+  '@pulumi/azure-native@3.32.0':
+    resolution: {integrity: sha512-dZttV3BOJR7rvBi0G5DwJNe0/QmpnQRlrlcO4hgcAXrdz93+ISatFjOTEPBX1B4jAk6MWgukws5NkQdr7ecg+g==}
 
   '@pulumi/cloudflare@6.24.0':
     resolution: {integrity: sha512-UsgQbHLExQgIFLoGjACgpTeRp359khU6wCNyQ7CNqK6hzgRgyOWKRXg1GqZYOKLEXmA/nKv32p+2S3gM0Va1Vg==}
@@ -928,7 +928,7 @@ snapshots:
 
   '@protobufjs/utf8@1.1.2': {}
 
-  '@pulumi/azure-native@3.30.0(typescript@7.0.2)':
+  '@pulumi/azure-native@3.32.0(typescript@7.0.2)':
     dependencies:
       '@pulumi/pulumi': 3.277.0(typescript@7.0.2)
     transitivePeerDependencies:
