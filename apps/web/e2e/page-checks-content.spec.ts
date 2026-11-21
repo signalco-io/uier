@@ -324,6 +324,60 @@ test('the Motion section lists what moves for more than five seconds, without th
     await expect(check('motion-reduced')).toContainText('The page\'s stylesheets have a prefers-reduced-motion rule.');
 });
 
+test('the Motion section finds elements that still move with reduced motion on', async ({ page }) => {
+    test.setTimeout(90_000);
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    const project = await memberReview(page, 'reduced-motion', '?clip&reduced-motion');
+    const animationTargets = () => page.evaluate(() =>
+        document.getAnimations().flatMap(animation => {
+            const target = (animation.effect as KeyframeEffect).target;
+            return target?.id ? [target.id] : [];
+        }));
+    await expect.poll(animationTargets).toEqual(expect.arrayContaining(['motion-slide', 'motion-css-opt-out', 'motion-js-opt-out', 'motion-js-always']));
+    let panel = await openAccessibility(page);
+    await showChecksTab(panel, 'visual');
+    await expect(panel.locator('[data-uier-check="motion-reduced"]')).toContainText('Turn on reduced motion');
+    await expect(panel.locator('[data-uier-check="motion-still-moving"]')).toHaveCount(0);
+    await panel.getByRole('button', { name: 'Close Accessibility panel' }).click();
+    await expect(panel).toBeHidden();
+
+    // Reload with the preference already set, so scripts that read it only at startup can respond.
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.reload();
+    await expect(toolbar(page)).toBeVisible();
+    const reducedTargets = await animationTargets();
+    expect(reducedTargets).not.toContain('motion-css-opt-out');
+    expect(reducedTargets).not.toContain('motion-js-opt-out');
+    panel = await openAccessibility(page);
+    await showChecksTab(panel, 'visual');
+    const finding = panel.locator('[data-uier-check="motion-still-moving"]');
+    await expect(finding).toHaveAttribute('data-uier-check-state', 'warn');
+    await expect(finding).toContainText('2 elements change position, scale or rotation with reduced motion on.');
+    const rows = finding.getByRole('listitem');
+    await expect(rows).toHaveCount(2);
+    await expect(rows.filter({ hasText: 'span#motion-slide' })).toHaveCount(1);
+    const script = rows.filter({ hasText: 'span#motion-js-always' });
+    await script.getByRole('button', { name: 'Highlight' }).click();
+    await expect(script.getByRole('button', { name: 'Highlight' })).toHaveAttribute('aria-pressed', 'true');
+    const created = nextCreate(page, project);
+    await script.getByRole('button', { name: 'Comment' }).click();
+    const body = (await created).postDataJSON();
+    expect(body.check).toEqual({ type: 'accessibility', id: 'motion-still-moving' });
+    expect(body.text).toContain('Animation: `script-turn`');
+    expect(body.position.selector).toContain('motion-js-always');
+    await expect(script).toContainText(/Comment posted as #1/);
+    await expectNoAxeViolations(page, { include: ['#uier-toolbar'] });
+
+    await page.evaluate(() => {
+        for (const id of ['motion-slide', 'motion-js-always']) {
+            document.getElementById(id)?.getAnimations().forEach(animation => animation.cancel());
+        }
+    });
+    await panel.getByRole('button', { name: 'Check again' }).click();
+    await expect(finding).toHaveAttribute('data-uier-check-state', 'none');
+    await expect(finding).toContainText('No running animations changed position, scale or rotation during this check.');
+});
+
 test('on a phone the reflow row says it was checked at the screen\'s width', async ({ page }, testInfo) => {
     test.skip(!testInfo.project.use.isMobile, 'Phone layout');
     test.setTimeout(90_000);

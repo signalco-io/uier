@@ -185,9 +185,15 @@ export const lazyFr: LazyMessages = {
         gifs: 'Images GIF',
         gifNote: (count: number) => `${count} ${s(count, 'image GIF', 'images GIF')}, par adresse. Un GIF peut être animé ; cette vérification ne peut pas le dire. Regardez-les.`,
         reduced: 'Animations réduites',
-        browserReduces: ' Votre navigateur demande des animations réduites, la page peut donc moins bouger ici que pour d’autres.',
-        reducedRule: (browser: string) => `Les feuilles de style de la page ont une règle prefers-reduced-motion. Activez les animations réduites dans le système pour voir ce qu’elle change.${browser}`,
-        noReducedRule: (browser: string) => `Aucune règle prefers-reduced-motion dans les feuilles de style que cette page laisse lire.${browser}`
+        motionWithPreference: 'Mouvement avec les animations réduites',
+        stillMoving: 'Bouge avec les animations réduites',
+        movingWithPreference: (count: number) => `${count} ${count === 1 ? 'élément change' : 'éléments changent'} de position, de taille ou d’angle avec les animations réduites. Vérifiez si ce mouvement est nécessaire.`,
+        noneWithPreference: 'Aucune animation en cours n’a changé de position, de taille ou d’angle pendant ce contrôle.',
+        stillMovingComment: 'Accessibilité : cet élément bouge avec les animations réduites. Vérifiez si ce mouvement est nécessaire et envisagez de le réduire.',
+        browserReduces: 'Les animations réduites sont activées.',
+        enableReduced: 'Activez les animations réduites dans les réglages système et relancez le contrôle.',
+        reducedRule: 'Les feuilles de style de la page ont une règle prefers-reduced-motion.',
+        noReducedRule: 'Aucune règle prefers-reduced-motion dans les feuilles de style que cette page laisse lire.'
     },
     reflow: {
         checkedWithin: (width: number, target: number) => `Vérifié à ${width} px, dans les ${target} px demandés par WCAG 1.4.10.`,

@@ -16,8 +16,11 @@ export const longAlt = 'A wide photo of the office at the start of the day, with
 const fixture: PageFixture = {
     // `?clip`: the page clips what sticks out instead of scrolling sideways. A phone widens its layout
     // viewport to content that scrolls sideways, and the toolbar's fixed controls move with it
-    head: url => url.searchParams.has('clip') ? '<link rel="stylesheet" href="/content/clip.css">' : '',
-    body: () => `<section id="content-checks">
+    head: url => [
+        url.searchParams.has('clip') ? '<link rel="stylesheet" href="/content/clip.css">' : '',
+        url.searchParams.has('reduced-motion') ? '<link rel="stylesheet" href="/content/motion.css">' : ''
+    ].join(''),
+    body: url => `<section id="content-checks">
         <h2>Our team</h2>
         <div class="content-images">
             <img id="alt-good" src="/content/team-photo.png" alt="Two people reviewing a page on a laptop" width="48" height="48">
@@ -42,6 +45,10 @@ const fixture: PageFixture = {
         <div id="spacing-scroll" class="content-box content-scroll">Plans renew every month.<br>Cancel at any time.</div>
         <p id="spacing-paragraph">Questions? Write to the team.</p>
         <p><span id="motion-pulse" class="motion-pulse">New</span> <span id="motion-slide" class="motion-slide">Spring sale</span> <span id="motion-fade" class="motion-fade">Welcome</span></p>
+        ${url.searchParams.has('reduced-motion') ? `
+            <p><span id="motion-css-opt-out">CSS slide</span> <span id="motion-js-opt-out">Script zoom</span>
+            <span id="motion-js-always">Script turn</span></p>
+            <script src="/content/motion.js" defer></script>` : ''}
         <marquee id="motion-marquee">Plans change every week</marquee>
         <video id="content-video" src="/content/clip.mp4" width="160" height="90" autoplay muted loop playsinline></video>
         <audio id="content-audio" src="/content/sound.mp3" autoplay loop></audio>
@@ -62,7 +69,10 @@ const fixture: PageFixture = {
         .motion-pulse { animation: content-pulse 2s ease-in-out infinite; }
         .motion-slide { animation: content-slide 30s linear 1; }
         .motion-fade { animation: content-fade 1s ease-out 1; }
-        @keyframes content-pulse { 50% { opacity: 0.6; } }
+        @keyframes content-pulse {
+            from, to { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(1); }
+        }
         @keyframes content-slide { to { transform: translateX(40px); } }
         @keyframes content-fade { from { opacity: 0.2; } }`,
     route: (url, _request, response) => {
@@ -70,6 +80,29 @@ const fixture: PageFixture = {
         if (url.pathname === '/content/clip.css') {
             response.writeHead(200, { 'Content-Type': 'text/css; charset=utf-8' });
             response.end('html, body { overflow-x: clip; }');
+            return true;
+        }
+        if (url.pathname === '/content/motion.css') {
+            response.writeHead(200, { 'Content-Type': 'text/css; charset=utf-8' });
+            response.end(`
+                #motion-css-opt-out, #motion-js-opt-out, #motion-js-always { display: inline-block; }
+                .motion-slide { animation-iteration-count: infinite; }
+                #motion-css-opt-out { animation: content-slide 2s infinite alternate; }
+                @media (prefers-reduced-motion: reduce) {
+                    #motion-css-opt-out { animation: none; }
+                }
+            `);
+            return true;
+        }
+        if (url.pathname === '/content/motion.js') {
+            response.writeHead(200, { 'Content-Type': 'text/javascript; charset=utf-8' });
+            response.end(`
+                const options = { duration: 3000, iterations: Infinity };
+                if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                    document.getElementById('motion-js-opt-out').animate([{ scale: '1' }, { scale: '1.2' }], options);
+                }
+                document.getElementById('motion-js-always').animate([{ rotate: '0deg' }, { rotate: '20deg' }], options).id = 'script-turn';
+            `);
             return true;
         }
         const image = /\.(png|jpg)$/.test(url.pathname) && !url.pathname.endsWith('/missing.png') ? png : url.pathname.endsWith('.gif') ? gif : undefined;

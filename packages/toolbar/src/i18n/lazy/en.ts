@@ -189,9 +189,15 @@ export const lazyEn = {
         gifs: 'GIF images',
         gifNote: (count: number) => `${count} ${s(count, 'GIF image', 'GIF images')}, by address. A GIF may animate; this check cannot tell. Look at ${s(count, 'it', 'them')}.`,
         reduced: 'Reduced motion',
-        browserReduces: ' Your browser asks for reduced motion now, so the page may move less here than for others.',
-        reducedRule: (browser: string) => `The page's stylesheets have a prefers-reduced-motion rule. Turn on reduced motion in the system to see what it changes.${browser}`,
-        noReducedRule: (browser: string) => `No prefers-reduced-motion rule found in the stylesheets this page lets us read.${browser}`
+        motionWithPreference: 'Motion with reduced motion on',
+        stillMoving: 'Still moves with reduced motion on',
+        movingWithPreference: (count: number) => `${count} ${s(count, 'element changes', 'elements change')} position, scale or rotation with reduced motion on. Check whether this motion is needed.`,
+        noneWithPreference: 'No running animations changed position, scale or rotation during this check.',
+        stillMovingComment: 'Accessibility: This element moves with reduced motion on. Check whether the motion is needed and consider reducing it.',
+        browserReduces: 'Reduced motion is on.',
+        enableReduced: 'Turn on reduced motion in your system settings and select Check again.',
+        reducedRule: 'The page\'s stylesheets have a prefers-reduced-motion rule.',
+        noReducedRule: 'No prefers-reduced-motion rule found in the stylesheets this page lets us read.'
     },
     reflow: {
         checkedWithin: (width: number, target: number) => `Checked at ${width} px, within the ${target} px WCAG 1.4.10 asks for.`,
