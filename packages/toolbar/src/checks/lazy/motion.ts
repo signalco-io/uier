@@ -28,9 +28,25 @@ function inMarquee(element: Element) {
     return !!(element.closest('marquee') || (root instanceof ShadowRoot && root.host.closest('marquee')));
 }
 
+const spatialProperties = [
+    'transform', 'translate', 'rotate', 'scale',
+    'offsetDistance', 'offsetPosition', 'offsetRotate',
+    'top', 'right', 'bottom', 'left', 'insetBlockStart', 'insetBlockEnd', 'insetInlineStart', 'insetInlineEnd'
+];
+
+/** Compare each property's keyframes so opacity and a constant transform alone do not count as movement. */
+function changesPosition(effect: KeyframeEffect) {
+    const frames = effect.getKeyframes();
+    return spatialProperties.some(property => {
+        const values = frames.map(frame => frame[property]).filter(value => value != null);
+        return values.some(value => value !== values[0]);
+    });
+}
+
 /** The page's running animations by element: rendered, not the toolbar's, and whether any runs long */
-function runningAnimations() {
+function runningAnimations(reducesMotion: boolean) {
     const elements = new Map<Element, Moving>();
+    const spatial = new Map<Element, Set<string>>();
     let any = false;
     for (const animation of document.getAnimations()) {
         const effect = animation.effect;
@@ -40,15 +56,22 @@ function runningAnimations() {
         if (!target || animation.playState !== 'running' || isToolbarNode(target) || !isRendered(target)) continue;
         any = true;
         const active = Number(effect.getComputedTiming().activeDuration ?? 0) / (Math.abs(animation.playbackRate) || 1);
-        if (active <= limit || inMarquee(target)) continue;
+        const moves = reducesMotion && active > 0 && animation.playbackRate !== 0 && changesPosition(effect);
+        if ((!moves && active <= limit) || inMarquee(target)) continue;
+        const name = animationName(animation);
+        if (moves) {
+            const names = spatial.get(target) ?? new Set<string>();
+            if (name) names.add(name);
+            spatial.set(target, names);
+        }
+        if (active <= limit) continue;
         const moving = elements.get(target) ?? { element: target, endless: false, seconds: 0, names: new Set<string>() };
         moving.endless ||= !Number.isFinite(active);
         if (Number.isFinite(active)) moving.seconds = Math.max(moving.seconds, Math.round(active / 1000));
-        const name = animationName(animation);
         if (name) moving.names.add(name);
         elements.set(target, moving);
     }
-    return { any, long: [...elements.values()] };
+    return { any, long: [...elements.values()], spatial };
 }
 
 /** Whether any stylesheet the page lets us read has a `prefers-reduced-motion` rule; other origins' cannot be read */
@@ -89,11 +112,13 @@ const gif = (address: string) => /^data:image\/gif[;,]/i.test(address) || /\.gif
  * What moves on the page now: running animations (CSS animations, transitions, the Web Animations
  * API) that never end or run longer than five seconds, and video and audio that play on their own
  * for longer without controls; then notes: GIF images, which may animate, and, when the page
- * animates, whether its readable stylesheets respond to `prefers-reduced-motion`.
+ * animates, whether its readable stylesheets contain a `prefers-reduced-motion` rule. With that
+ * preference on, report running animations that still change position, scale or rotation.
  */
 export function checkMotion({ path }: SectionContext): SectionReport {
     const { motion: t, found } = words();
-    const animations = runningAnimations();
+    const reducesMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const animations = runningAnimations(reducesMotion);
     const checks: PageCheck[] = [];
     const animated = animations.long.map(({ element, endless, seconds, names }) => {
         const summary = endless ? t.animatesEndless : t.animatesFor(seconds);
@@ -104,6 +129,16 @@ export function checkMotion({ path }: SectionContext): SectionReport {
         ? pageCheck('motion-animation', t.animations, 'warn', t.animated(animated.length),
             { issues: animated, value: shared(animated) })
         : pageCheck('motion-animation', t.animations, 'pass', t.noAnimation));
+
+    if (reducesMotion) {
+        const id = 'motion-still-moving';
+        const issues = Array.from(animations.spatial, ([element, names]) =>
+            pageIssue(path, { type: 'accessibility', id }, element, t.stillMoving,
+                `${t.stillMovingComment}${foundLine(found.animation, [...names].join(', '))}${foundLine(found.element, elementLabel(element))}`));
+        checks.push(issues.length
+            ? pageCheck(id, t.motionWithPreference, 'warn', t.movingWithPreference(issues.length), { issues })
+            : pageCheck(id, t.motionWithPreference, 'none', t.noneWithPreference));
+    }
 
     const players = [...document.querySelectorAll<HTMLMediaElement>('video, audio')].filter(media => !isToolbarNode(media) && !media.controls
         && (media.autoplay || !media.paused) && (media.loop || !(media.duration <= limit / 1000)));
@@ -135,8 +170,9 @@ export function checkMotion({ path }: SectionContext): SectionReport {
 
     // Only where something moves: a running animation, a player or a marquee
     if (animations.any || players.length || document.querySelector('marquee')) {
-        const browser = matchMedia('(prefers-reduced-motion: reduce)').matches ? t.browserReduces : '';
-        checks.push(pageCheck('motion-reduced', t.reduced, 'none', reducedMotionRule() ? t.reducedRule(browser) : t.noReducedRule(browser)));
+        const rule = reducedMotionRule() ? t.reducedRule : t.noReducedRule;
+        const guidance = reducesMotion ? t.browserReduces : t.enableReduced;
+        checks.push(pageCheck('motion-reduced', t.reduced, 'none', `${rule} ${guidance}`));
     }
     return { checks };
 }

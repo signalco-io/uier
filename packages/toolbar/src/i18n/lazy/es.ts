@@ -185,9 +185,15 @@ export const lazyEs: LazyMessages = {
         gifs: 'Imágenes GIF',
         gifNote: (count: number) => `${count} ${s(count, 'imagen GIF', 'imágenes GIF')}, por dirección. Un GIF puede estar animado; esta comprobación no puede saberlo. Míralas.`,
         reduced: 'Movimiento reducido',
-        browserReduces: ' Tu navegador pide movimiento reducido, así que la página puede moverse menos aquí que para otras personas.',
-        reducedRule: (browser: string) => `Las hojas de estilo de la página tienen una regla prefers-reduced-motion. Activa el movimiento reducido en el sistema para ver qué cambia.${browser}`,
-        noReducedRule: (browser: string) => `No hay ninguna regla prefers-reduced-motion en las hojas de estilo que esta página deja leer.${browser}`
+        motionWithPreference: 'Movimiento con la reducción de movimiento activada',
+        stillMoving: 'Se mueve con la reducción de movimiento activada',
+        movingWithPreference: (count: number) => `${count} ${count === 1 ? 'elemento cambia' : 'elementos cambian'} de posición, escala o rotación con la reducción de movimiento activada. Comprueba si este movimiento es necesario.`,
+        noneWithPreference: 'Durante esta comprobación, ninguna animación activa cambió de posición, escala o rotación.',
+        stillMovingComment: 'Accesibilidad: Este elemento se mueve con la reducción de movimiento activada. Comprueba si el movimiento es necesario y considera reducirlo.',
+        browserReduces: 'La reducción de movimiento está activada.',
+        enableReduced: 'Activa la reducción de movimiento en los ajustes del sistema y vuelve a comprobar la página.',
+        reducedRule: 'Las hojas de estilo de la página tienen una regla prefers-reduced-motion.',
+        noReducedRule: 'No hay ninguna regla prefers-reduced-motion en las hojas de estilo que esta página deja leer.'
     },
     reflow: {
         checkedWithin: (width: number, target: number) => `Comprobado a ${width} px, dentro de los ${target} px que pide WCAG 1.4.10.`,

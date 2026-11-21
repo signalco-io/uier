@@ -81,6 +81,14 @@ and a background check would miss them. What it finds is what moves at that mome
   the toolbar's own (its spinners never end), also inside its shadow root, and not a marquee's. An issue
   per element, "Animates without end" or "Animates for 30 s", with the animation's name in the comment:
   the toolbar cannot know whether the page offers a way to pause it.
+- **Motion with reduced motion on** (`motion-still-moving`): when the browser requests reduced
+  motion, compare the running animations' keyframes for changes in transform, position, scale or
+  rotation. This includes short animations and motion paths. Fades and constant transforms alone
+  are excluded. Each affected element has Highlight and Comment, with the animation names in the
+  comment. A finding asks the reviewer whether that motion is needed. The scan observes one
+  preference at a time and only covers the animations exposed by `document.getAnimations()`.
+  With reduced motion on and no such animation observed, the row shows a note. With reduced
+  motion off, the check does not run. A finding's thread needs the preference on to re-check it.
 - **Video and audio** (`motion-media`): players without `controls` that play on their own (`autoplay`,
   or playing) in a loop, for more than five seconds or for an unknown length. Audio takes no room on the
   page, so its issue is about the page; unmuted players mention WCAG 1.4.2.
@@ -89,8 +97,9 @@ and a background check would miss them. What it finds is what moves at that mome
   something moves (a running animation, a player, a marquee), whether a stylesheet the page lets us read
   (`document.styleSheets` and adopted sheets, through `@import`, `@media`, `@supports`, `@layer` and
   nesting) has a `prefers-reduced-motion` rule (`motion-reduced`). Stylesheets from other origins cannot
-  be read: "not found in the stylesheets this page lets us read". With reduced motion on in the
-  reviewer's browser, the note says the page may move less there.
+  be read: "not found in the stylesheets this page lets us read". The note gives the browser's
+  current reduced-motion state or tells the reviewer how to turn it on and check again. Reload the
+  reviewed page to test scripts that only read the preference when the page loads.
 
 ## Tests
 
@@ -103,7 +112,9 @@ one) and its comment; text spacing's values on the page, its rows and comment, t
 sizes and spacing unchanged, and the sheet gone after the toggle, closing the panel, Check again,
 collapsing, a client-side navigation and closing it while it is applied (Desktop Chrome); motion's rows
 without the short animation, the toolbar or the marquee (axe-core's rule), its comment and both
-reduced-motion notes (Desktop Chrome); the reflow wording at a phone's width (Mobile Chrome). Each
+stylesheet notes (Desktop Chrome); and motion with reduced motion on, using both settings across
+page loads to verify which CSS and startup-script animations stop and which still appear with
+Highlight and Comment (Desktop and Mobile Chrome). The reflow test checks the wording at a phone's width (Mobile Chrome). Each
 runs `expectNoAxeViolations` on the open panel. The phone test opens the page with `?clip`
 (`html, body { overflow-x: clip }`): on a phone, a page that scrolls sideways widens Chrome's layout
 viewport to its content (`innerWidth` 1572 on a 393 px screen), and the toolbar's fixed controls move

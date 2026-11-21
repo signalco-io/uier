@@ -185,9 +185,15 @@ export const lazyHr: LazyMessages = {
         gifs: 'GIF slike',
         gifNote: (count: number) => `${count} ${p(count, 'GIF slika', 'GIF slike', 'GIF slika')}, prema adresi. GIF može biti animiran; ova provjera to ne može utvrditi. Pogledajte ih.`,
         reduced: 'Smanjeno kretanje',
-        browserReduces: ' Vaš preglednik traži smanjeno kretanje, pa se stranica ovdje možda kreće manje nego drugima.',
-        reducedRule: (browser: string) => `Stilovi stranice imaju pravilo prefers-reduced-motion. Uključite smanjeno kretanje u sustavu da vidite što mijenja.${browser}`,
-        noReducedRule: (browser: string) => `Nema pravila prefers-reduced-motion u stilovima koje ova stranica dopušta čitati.${browser}`
+        motionWithPreference: 'Kretanje uz uključeno smanjeno kretanje',
+        stillMoving: 'Kreće se uz uključeno smanjeno kretanje',
+        movingWithPreference: (count: number) => `Broj elemenata koji mijenjaju položaj, veličinu ili kut zakreta uz uključeno smanjeno kretanje: ${count}. Provjerite je li to kretanje potrebno.`,
+        noneWithPreference: 'Tijekom ove provjere nijedna aktivna animacija nije mijenjala položaj, veličinu ili kut zakreta.',
+        stillMovingComment: 'Pristupačnost: Ovaj se element kreće uz uključeno smanjeno kretanje. Provjerite je li to kretanje potrebno i može li se smanjiti.',
+        browserReduces: 'Smanjeno kretanje je uključeno.',
+        enableReduced: 'Uključite smanjeno kretanje u postavkama sustava pa ponovno pokrenite provjeru.',
+        reducedRule: 'Stilovi stranice imaju pravilo prefers-reduced-motion.',
+        noReducedRule: 'Nema pravila prefers-reduced-motion u stilovima koje ova stranica dopušta čitati.'
     },
     reflow: {
         checkedWithin: (width: number, target: number) => `Provjereno na ${width} px, unutar ${target} px koje traži WCAG 1.4.10.`,
