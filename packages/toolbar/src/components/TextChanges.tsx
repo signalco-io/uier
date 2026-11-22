@@ -6,14 +6,14 @@ export const removedTextClassName = 'rounded-sm bg-[hsl(var(--destructive)/0.12)
 export const addedTextClassName = 'rounded-sm bg-[hsl(var(--brand-success)/0.14)] underline decoration-[hsl(var(--brand-success))] underline-offset-2 [box-decoration-break:clone] dark:bg-[hsl(var(--brand-success)/0.22)]';
 
 /** What a suggestion changes in the original text, as one inline diff, or that it changes only spacing or nothing */
-export function TextChanges({ original, proposed }: { original: string; proposed: string }) {
+export function TextChanges({ original, proposed, label = true }: { original: string; proposed: string; label?: boolean }) {
     const t = useMessages().proposal;
     const changes = textChanges(original, proposed);
     const summary = textChangeSummary(original, proposed, changes);
     if (summary !== 'words')
         return <p className="m-0 text-xs text-muted-foreground" data-uier-text-changes={summary}>{summary === 'spacing' ? t.onlySpacingChanges : t.noTextChanges}</p>;
     return <div className="min-w-0">
-        <p className="m-0 text-xs font-medium">{t.changes}</p>
+        {label && <p className="m-0 text-xs font-medium">{t.changes}</p>}
         <p className="m-0 select-text whitespace-pre-wrap break-words text-sm" data-uier-text-changes="">
             {changes.map((change, index) => change.type === 'same' ? change.text
                 : change.type === 'removed'

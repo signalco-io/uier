@@ -7,7 +7,10 @@ import { useDrafts } from '../../hooks/useDrafts';
 import { hasDraftContent, hasDraftProposal } from '../../hooks/draftStorage';
 import { useCommentPlacement } from '../../hooks/useCommentItemRects';
 import { markdownPlainText } from '../../markdown';
-import { buildElementProposal } from '../../proposalDraft';
+import { buildElementProposal, proposalValues } from '../../proposalDraft';
+import { readProposalElement } from '../../proposalPreview';
+import type { ChangeProposal } from '../../changeProposal';
+import { ProposalChanges } from '../ProposalChanges';
 import { matchesFeedbackSearch } from '../../triage';
 import { ColorText } from '../ColorText';
 import { CommentErrorBoundary } from '../CommentErrorBoundary';
@@ -46,13 +49,16 @@ export function InboxDrafts({ drafts: pageDrafts, keywords = '', onResume, onSen
         const saved = drafts.details(draft.draftKey);
         if (!saved || !hasDraftContent(saved)) return [];
         const suggesting = hasDraftProposal(saved);
-        const changedText = saved.proposalDraft?.original.text !== saved.proposalDraft?.values.text
-            ? saved.proposalDraft?.values.text : saved.proposal?.text?.proposed;
-        const text = saved.text.trim() || changedText || t.proposal.suggestion;
+        const editor = saved.proposalDraft ?? (saved.proposal && { original: proposalValues(saved.proposal, 'original'), values: proposalValues(saved.proposal, 'proposed') });
+        const built = editor ? buildElementProposal(editor) : undefined;
+        const proposal = saved.proposalDraft ? built?.proposal : saved.proposal;
+        // A suggestion's card shows its changes; its text is its note, when it has one
+        const text = saved.text.trim();
         const quote = draft.position.type === 'text' ? draft.position.text : undefined;
-        if (!matchesFeedbackSearch({ path: '', messages: [{ text, quotedText: quote }] }, keywords)) return [];
-        const invalid = !!saved.proposalDraft && buildElementProposal(saved.proposalDraft).invalid.length > 0;
-        return [{ draft, text, quote, suggesting, invalid, updatedAt: saved.updatedAt }];
+        const searched = [text, editor?.original.text, editor?.values.text].filter(Boolean).join(' ');
+        if (!matchesFeedbackSearch({ path: '', messages: [{ text: searched || (suggesting ? t.proposal.suggestion : ''), quotedText: quote }] }, keywords)) return [];
+        const invalid = !!saved.proposalDraft && !!built?.invalid.length;
+        return [{ draft, text, quote, suggesting, proposal, target: editor?.original.text, invalid, updatedAt: saved.updatedAt }];
     }).sort((a, b) => b.updatedAt - a.updatedAt);
     if (!listed.length) return null;
 
@@ -76,13 +82,15 @@ export function InboxDrafts({ drafts: pageDrafts, keywords = '', onResume, onSen
                 <span className="tabular-nums">{listed.length}</span>
             </h3>
             <Stack spacing={2}>
-                {listed.map(({ draft, text, quote, suggesting, invalid, updatedAt }, index) => (
+                {listed.map(({ draft, text, quote, suggesting, proposal, target, invalid, updatedAt }, index) => (
                     <CommentErrorBoundary key={draft.draftKey}>
                         <InboxDraftCard
                             draft={draft}
                             text={text}
                             quote={quote}
                             suggesting={suggesting}
+                            proposal={proposal}
+                            target={target}
                             invalid={invalid}
                             updatedAt={updatedAt}
                             onResume={() => onResume(draft.draftKey)}
@@ -95,11 +103,15 @@ export function InboxDrafts({ drafts: pageDrafts, keywords = '', onResume, onSen
     );
 }
 
-function InboxDraftCard({ draft, text, quote, suggesting, invalid, updatedAt, onResume, onSend, onDiscard }: {
+function InboxDraftCard({ draft, text, quote, suggesting, proposal, target, invalid, updatedAt, onResume, onSend, onDiscard }: {
     draft: InboxDraft;
     text: string;
     quote?: string;
     suggesting: boolean;
+    /** A suggestion's valid changes */
+    proposal?: ChangeProposal;
+    /** The text of the element a suggestion changes, as captured */
+    target?: string;
     invalid: boolean;
     updatedAt: number;
     onResume: () => void;
@@ -111,6 +123,8 @@ function InboxDraftCard({ draft, text, quote, suggesting, invalid, updatedAt, on
     const { rects, state } = useCommentPlacement(draft.position);
     const rewriting = draft.kind === 'rewrite';
     const label = suggesting ? t.proposal.draft : rewriting ? t.inbox.draftRewrite : t.inbox.draftComment;
+    // The element it changes, while it is on the page
+    const element = suggesting && rects.length ? readProposalElement(draft.position) : null;
     return (
         <article aria-label={label} data-uier-inbox-draft={draft.draftKey}
             className="overflow-hidden rounded-xl border bg-card">
@@ -123,7 +137,12 @@ function InboxDraftCard({ draft, text, quote, suggesting, invalid, updatedAt, on
                 {quote && (
                     <blockquote className="m-0 line-clamp-2 border-l-2 border-border pl-2.5 text-xs text-secondary-foreground">{quote}</blockquote>
                 )}
-                <p className="m-0 line-clamp-3 whitespace-pre-wrap break-words text-sm text-foreground"><ColorText text={suggesting ? text : markdownPlainText(text)} /></p>
+                {suggesting && (element || target) && <p className="m-0 flex min-w-0 items-baseline gap-1.5 text-xs text-muted-foreground" data-uier-inbox-draft-target="">
+                    {element && <code className="shrink-0 font-mono">{element.tag}</code>}
+                    {target && <span className="min-w-0 truncate">{target}</span>}
+                </p>}
+                {suggesting && proposal && <ProposalChanges proposal={proposal} />}
+                {text && <p className="m-0 line-clamp-3 whitespace-pre-wrap break-words text-sm text-foreground"><ColorText text={markdownPlainText(text)} /></p>}
                 {invalid && <p className="m-0 text-xs text-muted-foreground">{t.proposal.invalid}</p>}
                 {!rects.length && state !== 'page' && <p className="m-0 text-xs text-muted-foreground">{t.anchor.state[state]}</p>}
             </Stack>

@@ -6,6 +6,7 @@ import { isCommentArea } from './components/@types/Comments';
 import { resolvePreviewAnchor, resolvePreviewTextRange, trackPreviewTextRange } from './hooks/useCommentItemRects';
 import { getToolbarHost } from './mount';
 import { isToolbarAnchor, queryAnchorElements } from './toolbarReview';
+import { parseColor, type LengthContext } from './styleValues';
 
 type StyleValues = Partial<Record<ChangeStyleProperty, string>>;
 type TextPart = { node: Text; start: number; end: number };
@@ -161,6 +162,42 @@ export function readProposalTarget(position: CommentItemPosition, quotedText?: s
         if (isChangeStyleValue(property, value)) styles[property] = value;
     }
     return { text, styles };
+}
+
+/** The element a point suggestion changes, as its editor reads it (`ProposalFields`) */
+export type ProposalElement = {
+    /** Its tag, lowercase (`button`, `h1`) */
+    tag: string;
+    /** It reads as a box (a button, a card, anything with a fill, border, padding or rounded corners), not as text */
+    box: boolean;
+    /** The font sizes its rem, em and % are of */
+    context: LengthContext;
+};
+
+const boxRoles = /^(?:button|tab|menuitem|menuitemcheckbox|menuitemradio|switch|option|checkbox|radio)$/i;
+const boxLengths = ['padding-top', 'padding-right', 'padding-bottom', 'padding-left', 'border-top-width', 'border-right-width',
+    'border-bottom-width', 'border-left-width', 'border-top-left-radius', 'border-top-right-radius', 'border-bottom-right-radius', 'border-bottom-left-radius'];
+
+/** The pinned element of a point comment, without its identity check: what it is and the font sizes of its units */
+export function readProposalElement(position: CommentItemPosition): ProposalElement | null {
+    if (position.type !== 'point') return null;
+    const element = previewTarget(position)?.element;
+    if (!element) return null;
+    const computed = getComputedStyle(element);
+    const size = (value: string) => Number.parseFloat(value) || 0;
+    const background = parseColor(computed.backgroundColor);
+    const box = element.tagName.toLowerCase() === 'button' || boxRoles.test(element.getAttribute('role') ?? '')
+        || Boolean(background && background.a > 0) || boxLengths.some(name => size(computed.getPropertyValue(name)) > 0);
+    const parent = element.parentElement;
+    return {
+        tag: element.tagName.toLowerCase(),
+        box,
+        context: {
+            rootFontSize: size(getComputedStyle(document.documentElement).fontSize) || 16,
+            fontSize: size(computed.fontSize) || 16,
+            parentFontSize: parent ? size(getComputedStyle(parent).fontSize) || 16 : 16
+        }
+    };
 }
 
 function rangeOf(parts: TextPart[]) {

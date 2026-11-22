@@ -37,6 +37,7 @@ test('a saved CSS-only suggestion keeps Exact values when its positional target 
         if (testInfo.project.use.hasTouch) await first.tap();
         else await first.click();
         await page.locator('[data-uier-suggest-change]').click();
+        await page.locator('[data-uier-proposal-color="color"]').click();
         await page.locator('[data-uier-proposal-input="color"]').fill('#ff0000');
         await expect(first).toHaveCSS('color', 'rgb(255, 0, 0)');
         await expect(second).toHaveCSS('color', 'rgb(0, 0, 128)');
@@ -84,9 +85,10 @@ test('a saved CSS-only suggestion keeps Exact values when its positional target 
             else await first.click({ position });
             if (removeSuggestion) {
                 await page.locator('[data-uier-suggest-change]').click();
+                await page.locator('[data-uier-proposal-color="color"]').click();
                 await page.locator('[data-uier-proposal-input="color"]').fill('#ff0000');
                 await expect(first).toHaveCSS('color', 'rgb(255, 0, 0)');
-                await page.getByRole('button', { name: 'Remove suggestion', exact: true }).click();
+                await page.getByRole('button', { name: 'Back to comment', exact: true }).click();
                 await expect(first).toHaveCSS('color', 'rgb(0, 0, 128)');
             }
             await page.getByRole('textbox', { name: 'Comment', exact: true }).fill(removeSuggestion ? 'Note after removing the suggestion' : 'Ordinary note');

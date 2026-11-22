@@ -51,6 +51,20 @@ export function proposalMatchesTarget(proposal: ChangeProposal, target: ReturnTy
             target.styles[property as keyof typeof target.styles] === change.original));
 }
 
+/** One way the page differs from a suggestion's saved originals: the text, or a property and its value now */
+export type ProposalDrift = { key: 'text' } | { key: keyof ChangeProposal['styles']; saved: string; current?: string };
+
+/** What no longer matches a suggestion's saved originals; `null` when its element is not on the page */
+export function proposalDrift(proposal: ChangeProposal, target: ReturnType<typeof readProposalTarget>): ProposalDrift[] | null {
+    if (!target) return null;
+    const drift: ProposalDrift[] = proposal.text && proposal.text.original !== target.text ? [{ key: 'text' }] : [];
+    for (const [property, change] of Object.entries(proposal.styles) as [keyof ChangeProposal['styles'], { original: string }][]) {
+        const current = target.styles[property];
+        if (current !== change.original) drift.push({ key: property, saved: change.original, current });
+    }
+    return drift;
+}
+
 /** Owns a single page preview, including one waiting for an original screenshot. */
 export function showProposalSession(position: CommentItemPosition, proposal: ChangeProposal, notify: (result: PreviewResult) => void) {
     stopProposalSession();
