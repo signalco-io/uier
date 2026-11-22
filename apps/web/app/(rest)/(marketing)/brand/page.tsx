@@ -22,7 +22,7 @@ import { PullRequestStateBadge } from '../../../../src/components/app/comments/P
 import { ToolbarIllustration } from '../../../../src/components/brand/ToolbarIllustration';
 import { ReviewThreadDemo } from '../../../../src/components/marketing/ReviewThreadDemo';
 import { InlineLink, PageSection, Panel, Tile } from '../../../../src/components/marketing/ContentPage';
-import { KnownPageLinks } from '../../../../src/knownPages';
+import { KnownPageLinks, KnownPages } from '../../../../src/knownPages';
 
 // The living brand page. Everything here renders from @uier/brand and the UI kit with the
 // brand tokens applied, so it shows the brand as it ships. The written rules: packages/brand/BRAND.md.
@@ -91,7 +91,8 @@ export default function BrandPage() {
                     <h1 className="text-[40px] font-semibold leading-[1.1] tracking-[-0.03em]">{brand.name} brand</h1>
                     <p className="text-lg leading-relaxed text-muted-foreground">
                         How {brand.name} looks and sounds, rendered live from <InlineLink href={packageUrl}>packages/brand</InlineLink>.
-                        The rules are in <InlineLink href={brandMdUrl}>BRAND.md</InlineLink>.
+                        The rules are in <InlineLink href={brandMdUrl}>BRAND.md</InlineLink>, and every component in every state
+                        is on <InlineLink href={KnownPages.BrandComponents}>Components</InlineLink>.
                     </p>
                     <nav aria-label="Sections" className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
                         {sections.map(section => (
@@ -317,6 +318,10 @@ export default function BrandPage() {
                         <span className="text-muted-foreground">Priority: a flag in its colour, always beside its name. Lists and boards show it only when it is not Normal.</span>
                     </div>
                 </div>
+                <p className="max-w-[720px] text-sm leading-relaxed text-muted-foreground">
+                    These are a few. <InlineLink href={KnownPages.BrandComponents}>Components</InlineLink> has every one of them in each of its
+                    states, for designers and developers to review and comment on.
+                </p>
             </Section>
 
             <Section id="review" title="The review layer is always ink." lead="The toolbar, pins and inbox are what the product is. They stay black on any site they land on and never try to match it. Threads follow the system theme, because people read and type in them.">

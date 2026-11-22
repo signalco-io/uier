@@ -308,6 +308,10 @@ buttons are nothing until hovered. Inputs are bordered, 36 px, radius 8, blue fo
 Badges are full-radius with a 6 px status dot in the status's colour (see Status above). Menus and
 popovers are radius 12 and float; dialogs and the sidebar are radius 16.
 
+Every component, in each state it ships in, is on [uier.io/brand/components](https://uier.io/brand/components)
+(`/brand/components` locally). It renders the real components, and the review toolbar is on it, so
+a redesign starts as a comment on the state it changes.
+
 ## Marketing and metadata
 
 - Hero: the tagline as the display line, the one-line description (`brand.shortDescription`)
@@ -368,5 +372,6 @@ popovers are radius 12 and float; dialogs and the sidebar are radius 16.
    names, copy and hex mirrors, `src/Mark.tsx` for the shape).
 2. Update this file so the rule matches the value.
 3. Re-render icons if the mark changed (`pnpm -C packages/brand icons`) and commit them.
-4. Check [uier.io/brand](https://uier.io/brand) (or `/brand` locally): it renders from the same
-   code, so it shows the change as it ships.
+4. Check [uier.io/brand](https://uier.io/brand) (or `/brand` locally) and its
+   [components](https://uier.io/brand/components): they render from the same code, so they show
+   the change as it ships.

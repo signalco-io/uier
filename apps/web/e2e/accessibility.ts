@@ -3,13 +3,14 @@ import type { Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { animationsFinished, showcaseHint, toolbar } from './support/toolbar';
 
-/** Scans the page, or only the parts `include` selects */
-export async function expectNoAxeViolations(page: Page, { include = [] }: { include?: string[] } = {}) {
+/** Scans the page, or only the parts `include` selects, without the parts `exclude` selects */
+export async function expectNoAxeViolations(page: Page, { include = [], exclude = [] }: { include?: string[]; exclude?: string[] } = {}) {
     // App Router can stream metadata after the visible page. Scan the settled document title.
     await expect(page).toHaveTitle(/\S/);
     const scan = () => {
         const builder = new AxeBuilder({ page });
         for (const selector of include) builder.include(selector);
+        for (const selector of exclude) builder.exclude(selector);
         return builder
             .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag21aaa'])
             // The landing's animated scene is a picture (hidden from assistive technologies, text that
@@ -33,12 +34,12 @@ export async function expectNoAxeViolations(page: Page, { include = [] }: { incl
     expect(accessibilityScanResults.violations).toEqual([]);
 }
 
-export async function assertAccessibility(page: Page, url: string) {
+export async function assertAccessibility(page: Page, url: string, options: { exclude?: string[] } = {}) {
     await page.goto(url);
     // These public pages mount the showcase asynchronously. Scan the final hint colours,
     // rather than racing its entrance animation after an arbitrary one-second delay.
     await expect(toolbar(page)).toBeVisible();
     const hint = showcaseHint(page);
     if (await hint.count()) await animationsFinished(hint);
-    await expectNoAxeViolations(page);
+    await expectNoAxeViolations(page, options);
 }
