@@ -2,7 +2,7 @@
 
 import { useContext, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type MouseEvent, type PointerEvent, type Ref } from 'react';
 import { Button } from '@signalco/ui-primitives/Button';
-import { Close } from '@signalco/ui-icons';
+import { Add, Close, ListTodo } from '@signalco/ui-icons';
 import { Popper } from '@signalco/ui-primitives/Popper';
 import { Divider } from '@signalco/ui-primitives/Divider';
 import { cx } from '@signalco/ui-primitives/cx';
@@ -758,6 +758,7 @@ export function CommentBubble(props: CommentBubbleProps) {
                 label={rewriting ? t.pin.suggestedText : suggesting ? t.proposal.note : (creating ? t.pin.comment : t.pin.reply)}
                 placeholder={rewriting ? t.pin.suggestionPlaceholder : suggesting ? t.proposal.note : (creating ? t.pin.commentPlaceholder : t.thread.replyPlaceholder)}
                 submitLabel={addToSession ? t.reviewSessions.add : rewriting || suggesting ? t.pin.postSuggestion : (creating ? t.pin.postComment : t.thread.postReply)}
+                submitIcon={addToSession ? <Add size={16} aria-hidden="true" /> : undefined}
                 submitBlocked={fullReview ? t.reviewSessions.full : undefined}
                 allowEmpty={suggesting && Boolean(elementChanges?.proposal)}
                 draftKey={draftKey}
@@ -797,7 +798,8 @@ export function CommentBubble(props: CommentBubbleProps) {
                 alternativeSubmit={(sessionRejected || fullReview) && addToSession ? {
                     label: t.reviewSessions.postNormally, submit: (text, mentions) => handleSubmit(text, mentions, 'post')
                 } : creating && reviewSessionsAvailable && !reviewSession && (!composerError || sessionRejected) ? {
-                    label: t.reviewSessions.startWithComment, submit: (text, mentions) => handleSubmit(text, mentions, 'start')
+                    label: t.reviewSessions.startWithComment, icon: <ListTodo size={16} aria-hidden="true" />,
+                    submit: (text, mentions) => handleSubmit(text, mentions, 'start')
                 } : undefined}
                 discardable={drawingDraft || suggesting}
                 onDiscard={() => { recording.discard(); if (creating) handleDiscard(); else attachment.remove(); }} />

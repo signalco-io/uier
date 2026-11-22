@@ -1,9 +1,10 @@
 import { useId, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@signalco/ui-primitives/Button';
+import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { Input } from '@signalco/ui-primitives/Input';
 import { Popper } from '@signalco/ui-primitives/Popper';
-import { ListTodo } from '@signalco/ui-icons';
+import { Delete, ListTodo } from '@signalco/ui-icons';
 import { newLocalId } from '../hooks/useComments';
 import { useMessages } from '../i18n';
 import { useProjectViewer } from '../project/ProjectGate';
@@ -13,6 +14,7 @@ import { destructiveTextClassName, floatingShadowClassName, inputFocusRingClassN
 import { useAnnounce } from './Announcer';
 import { CommentsErrorMessage } from './CommentsErrorMessage';
 import { useToolbarPortalContainer } from './CommentsBootstrapperContext';
+import { IconTooltip } from './IconTooltip';
 import { useInkContainer } from './InkScope';
 
 // 16 px text on small screens keeps iOS from zooming the page into the field; 44 px tall for touch
@@ -135,10 +137,17 @@ export function ReviewSessionPanel({ session, onOpenComment, onFinished }: {
                         </Button>
                     </div>
                 </div> : <div className="flex flex-wrap justify-end gap-2">
-                    <Button ref={discardRef} variant="plain" size="sm" className={touchClassName} disabled={busy}
-                        onClick={() => session.state === 'discarding' ? void discard() : askDiscard(true)}>
-                        {session.state === 'discarding' ? t.finishDiscard : empty ? t.discardEmpty : t.discard}
-                    </Button>
+                    {session.state === 'discarding' || empty
+                        ? <Button ref={discardRef} variant="plain" size="sm" className={touchClassName} disabled={busy}
+                            onClick={() => session.state === 'discarding' ? void discard() : askDiscard(true)}>
+                            {session.state === 'discarding' ? t.finishDiscard : t.discardEmpty}
+                        </Button>
+                        : <IconTooltip label={t.discard}>
+                            <IconButton ref={discardRef} type="button" variant="plain" size="sm" aria-label={t.discard}
+                                className="size-8 pointer-coarse:size-11" disabled={busy} onClick={() => askDiscard(true)}>
+                                <Delete size={20} aria-hidden="true" />
+                            </IconButton>
+                        </IconTooltip>}
                     {session.state === 'open' && <Button size="sm" className={touchClassName} disabled={!canSend} onClick={() => void send()}>
                         {sending ? composer.sending : t.send}
                     </Button>}

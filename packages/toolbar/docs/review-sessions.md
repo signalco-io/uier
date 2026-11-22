@@ -1,13 +1,15 @@
 # Review sessions
 
-Start a review from Options or from a new comment. The marker beside the pill shows the number
-of unsent comments. The pill keeps its width. Choose the marker to inspect comments, enter a
-title and summary, send the review or confirm discarding its unsent comments and replies.
+Start a review from Options or with the checklist icon in the composer. During a review the composer
+uses a plus icon to add a comment to the session. The marker beside the pill shows the number of
+unsent comments. The pill keeps its width. Choose the marker to inspect comments, enter a title and
+summary, send the review or use the trash icon to open the discard confirmation.
 An empty review offers **Close review** with a confirmation. Opening the panel focuses its
 heading to keep the phone keyboard closed. A confirmation focuses its action, and Cancel returns
 focus to its trigger. Unsent pins carry an amber dot on the round corner of the pin, and their
 names include Not sent. Previously sent comments show the review number. The author can resume
-the review from one of its threads. Focus then stays in the thread.
+the review with the play icon beside that number. Focus then stays in the thread. Icon buttons
+have named tooltips for hover and keyboard focus, and 44 px targets on touch.
 
 The project viewer response carries availability and the reviewer's current server-side draft.
 The existing adaptive refresh keeps that response current. The marker fetches the pending

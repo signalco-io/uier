@@ -2,7 +2,8 @@
 
 Project feedback shows a review chip on threads added to sessions. Selecting a chip opens
 the session filter. Group by review session groups the project's list before paging. The group
-header counts visible threads and offers Send now to the review author and authorized admins.
+header counts visible threads. The review author and authorized admins can open the send confirmation
+with the paper plane button labeled Send now.
 [Review sessions](review-sessions.md)
 
 `e2e/project-review.spec.ts` checks the row's author through the avatar's accessible name and

@@ -8,7 +8,7 @@ import { Button } from '@signalco/ui-primitives/Button';
 import { Row } from '@signalco/ui-primitives/Row';
 import { Typography } from '@signalco/ui-primitives/Typography';
 import { cx } from '@signalco/ui-primitives/cx';
-import { Megaphone } from '@signalco/ui-icons';
+import { Add, ListTodo, Megaphone } from '@signalco/ui-icons';
 import { useComments } from '../hooks/useComments';
 import { feedbackDraftKey, useDrafts } from '../hooks/useDrafts';
 import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
@@ -191,6 +191,7 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
                 label={selected.label}
                 placeholder={selected.placeholder}
                 submitLabel={reviewSession?.draftId ? t.reviewSessions.add : kind === 'bug' ? t.feedback.sendBug : t.feedback.send}
+                submitIcon={reviewSession?.draftId ? <Add size={16} aria-hidden="true" /> : undefined}
                 submitBlocked={fullReview ? t.reviewSessions.full : undefined}
                 draftKey={`${feedbackDraftKey}:${kind}`}
                 autoFocus
@@ -213,7 +214,8 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
                 alternativeSubmit={(isReviewSessionRejection(create.error) || fullReview) && reviewSession?.draftId ? {
                     label: t.reviewSessions.postNormally, submit: (text, mentions) => handleSubmit(text, mentions, 'post')
                 } : reviewSessionsAvailable && !reviewSession && (!create.error || isReviewSessionRejection(create.error)) ? {
-                    label: t.reviewSessions.startWithComment, submit: (text, mentions) => handleSubmit(text, mentions, 'start')
+                    label: t.reviewSessions.startWithComment, icon: <ListTodo size={16} aria-hidden="true" />,
+                    submit: (text, mentions) => handleSubmit(text, mentions, 'start')
                 } : undefined} />
         </div>
     );

@@ -8,7 +8,7 @@ import { Row } from '@signalco/ui-primitives/Row';
 import { Stack } from '@signalco/ui-primitives/Stack';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { cx } from '@signalco/ui-primitives/cx';
-import { Check, ExpandDown } from '@signalco/ui-icons';
+import { Check, ExpandDown, Play } from '@signalco/ui-icons';
 import { Popper } from '@signalco/ui-primitives/Popper';
 import { Button } from '@signalco/ui-primitives/Button';
 import { newLocalId, useComments, useReadComment, useUnreadComment } from '../hooks/useComments';
@@ -254,6 +254,8 @@ export function CommentThreadHeader({ comment, message, onMarkedUnread, onReques
     const unreadMutation = useUnreadComment();
     const announce = useAnnounce();
     const reviewCommand = useReviewSessionCommand();
+    const reviewInfo = comment.reviewSession;
+    const canResumeReview = reviewSessionsAvailable && !reviewSession && reviewInfo?.canResume;
     const [uncopiedLink, setUncopiedLink] = useState<string>();
     const stage = feedbackStage(comment);
     const custom = useWorkflowStatus();
@@ -394,8 +396,23 @@ export function CommentThreadHeader({ comment, message, onMarkedUnread, onReques
                     )}
                     {unread && <UnreadDot disabled={read.isPending} onRead={() => read.mutate(comment)} />}
                     {comment.archivedAt && <span className="text-xs text-muted-foreground">{t.thread.archivedLabel}</span>}
-                    {comment.reviewSession?.number !== undefined &&
-                        <span className="text-xs font-medium text-muted-foreground">{t.reviewSessions.number(comment.reviewSession.number)}</span>}
+                    {(reviewInfo?.number !== undefined || canResumeReview) && <span className="inline-flex shrink-0 items-center gap-1">
+                        {reviewInfo.number !== undefined &&
+                            <span className="text-xs font-medium text-muted-foreground">{t.reviewSessions.number(reviewInfo.number)}</span>}
+                        {canResumeReview && <IconTooltip label={t.reviewSessions.resume}>
+                            <IconButton type="button" variant="plain" size="xs" className={`${threadActionClassName} pointer-coarse:size-11`}
+                                aria-label={t.reviewSessions.resume} disabled={reviewCommand.isPending} onClick={async () => {
+                                    try {
+                                        await reviewCommand.mutateAsync({ action: 'resume', id: reviewInfo.id });
+                                        announce(t.reviewSessions.resumed);
+                                        // The button goes with the open review: the focus stays in the thread
+                                        optionsRef?.current?.focus();
+                                    } catch { /* Keep the action available and show the error. */ }
+                                }}>
+                                <Play size={14} aria-hidden="true" />
+                            </IconButton>
+                        </IconTooltip>}
+                    </span>}
                     {comment.reviewSession?.held &&
                         <span className="rounded-full border px-2 py-0.5 text-xs text-muted-foreground">{t.reviewSessions.notSent}</span>}
                     <PriorityBadge comment={comment} />
@@ -440,16 +457,6 @@ export function CommentThreadHeader({ comment, message, onMarkedUnread, onReques
                     </>}
                 </Row>
             </Row>
-            {reviewSessionsAvailable && !reviewSession && comment.reviewSession?.canResume &&
-                <Button type="button" variant="plain" size="xs" className="self-start pointer-coarse:min-h-11"
-                    disabled={reviewCommand.isPending} onClick={async () => {
-                        try {
-                            await reviewCommand.mutateAsync({ action: 'resume', id: comment.reviewSession!.id });
-                            announce(t.reviewSessions.resumed);
-                            // The button goes with the open review: the focus stays in the thread
-                            optionsRef?.current?.focus();
-                        } catch { /* Keep the action available and show the error. */ }
-                    }}>{t.reviewSessions.resume}</Button>}
             <CommentsErrorMessage error={reviewCommand.error} />
             {assigning && comment.permissions?.assign && (
                 <CommentAssigneeOptions comment={comment} autoFocus={assigning === 'key'} onAssigned={() => { setAssigning(false); optionsRef?.current?.focus(); }} />

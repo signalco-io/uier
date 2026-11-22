@@ -1,6 +1,7 @@
 'use client';
 
 import { Fragment, useRef, useState, useTransition } from 'react';
+import { SendIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAppI18n } from '@/src/lib/i18n/client';
 import type { CommentReviewGroup } from '@/src/lib/app/projectCommentPaging';
@@ -9,6 +10,7 @@ import {
     AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
     AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
 } from '@/src/components/ui/alert-dialog';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/src/components/ui/tooltip';
 import { sendProjectReviewAction } from './actions';
 import { RelativeTime } from './DateTime';
 
@@ -23,6 +25,7 @@ export function ReviewSessionHeading({ projectId, group }: { projectId: string; 
     if (!group) return <h2 className="px-3 py-2 text-sm font-medium">{t('Ungrouped')}</h2>;
     const title = group.number ? t('Review {number}', { number: group.number }) : t('Review session');
     const send = group.send;
+    const sendLabel = t('Send now');
     const submit = () => {
         if (!send) return;
         if (attempt.current?.draftId !== send.draftId) attempt.current = { draftId: send.draftId, key: crypto.randomUUID() };
@@ -53,7 +56,12 @@ export function ReviewSessionHeading({ projectId, group }: { projectId: string; 
             </p>
         </div>
         {send && <AlertDialog open={open} onOpenChange={value => { if (!sending) { setOpen(value); setSent(false); } }}>
-            <AlertDialogTrigger render={<Button variant="outline" size="sm" className="pointer-coarse:min-h-11" />}>{t('Send now')}</AlertDialogTrigger>
+            <Tooltip>
+                <TooltipTrigger render={<AlertDialogTrigger render={<Button variant="outline" size="icon-sm" className="pointer-coarse:size-11" aria-label={sendLabel} />} />}>
+                    <SendIcon aria-hidden="true" className="size-5" strokeWidth={1.75} />
+                </TooltipTrigger>
+                <TooltipContent>{sendLabel}</TooltipContent>
+            </Tooltip>
             <AlertDialogContent finalFocus={sent ? headingRef : undefined}>
                 <AlertDialogHeader>
                     <AlertDialogTitle>{t('Send review')}</AlertDialogTitle>
