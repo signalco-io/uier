@@ -1,5 +1,10 @@
 # Comments inbox and board
 
+Project feedback shows a review chip on threads added to sessions. Selecting a chip opens
+the session filter. Group by review session groups the project's list before paging. The group
+header counts visible threads and offers Send now to the review author and authorized admins.
+[Review sessions](review-sessions.md)
+
 `e2e/project-review.spec.ts` checks the row's author through the avatar's accessible name and
 the page path separately, so layout changes keep both pieces of information covered. After restoring
 rows with the status filter it waits for their entrance motion to settle before scanning contrast.

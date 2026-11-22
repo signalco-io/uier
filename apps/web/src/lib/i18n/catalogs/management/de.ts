@@ -1,6 +1,19 @@
 import type en from './en';
 
 const messages: Record<keyof typeof en, string> = {
+    "Group review sessions": "Review-Sitzungen gruppieren",
+    "Post one Slack thread for each review.": "Für jedes Review wird ein Slack-Thread erstellt.",
+    "Group feedback pages by review in your Notion database.": "Feedback-Seiten werden in Ihrer Notion-Datenbank nach Review gruppiert.",
+    "Create one parent for each review and link its feedback underneath.": "Für jedes Review wird ein übergeordneter Eintrag erstellt und mit dem zugehörigen Feedback verknüpft.",
+    "This setting applies to future reviews. Resumed reviews keep their delivery mode.": "Diese Einstellung gilt für künftige Reviews. Fortgesetzte Reviews behalten ihre Zustellart.",
+    "Replies in a grouped Slack thread stay in Slack.": "Antworten in einem gruppierten Slack-Thread bleiben in Slack.",
+    "Map a Notion review session field first.": "Ordnen Sie zuerst ein Notion-Feld für die Review-Sitzung zu.",
+    "Review session grouping is saved.": "Die Gruppierung von Review-Sitzungen wurde gespeichert.",
+    "This integration does not support review groups.": "Diese Integration unterstützt keine Review-Gruppen.",
+    "Send feedback together when the review is ready.": "Feedback wird gemeinsam gesendet, sobald das Review fertig ist.",
+    "Review {number} by {author} in {project}": "Review {number} von {author} in {project}",
+    "{done} of {count} done": "{done} von {count} erledigt",
+    "{author} via uier on #{number}": "{author} über uier zu #{number}",
     "Enable fix verification": "Fix-Verifizierung aktivieren",
     "Ask a reviewer to confirm fixes before marking them done. When off, pending checks stay in Open or In progress and can be marked done.": "Bitten Sie eine prüfende Person, Korrekturen zu bestätigen, bevor Sie sie als erledigt markieren. Wenn diese Option deaktiviert ist, bleiben ausstehende Prüfungen unter Offen oder In Bearbeitung und können als erledigt markiert werden.",
     "Labels": "Labels",

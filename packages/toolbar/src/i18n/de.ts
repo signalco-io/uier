@@ -10,6 +10,35 @@ const p = (count: number, one: string, other: string) => plural('de', count, one
 const panelPlaces: Record<PanelDock, string> = { left: 'nach links', right: 'nach rechts', 'left-top': 'nach oben links', 'right-top': 'nach oben rechts', 'left-bottom': 'nach unten links', 'right-bottom': 'nach unten rechts' };
 
 export const de: Messages = {
+    reviewSessions: {
+        label: "Review-Sitzung",
+        start: "Review-Sitzung starten",
+        startWithComment: "Review mit diesem Kommentar starten",
+        add: "Zur Sitzung hinzufügen",
+        notSent: "Nicht gesendet",
+        send: "Review senden",
+        resume: "Sitzung fortsetzen",
+        discard: "Nicht gesendete Kommentare löschen",
+        discardEmpty: "Review schließen",
+        empty: "Noch keine nicht gesendeten Kommentare. Neue Kommentare erscheinen hier.",
+        ended: "Review geschlossen.",
+        finishDiscard: "Löschen abschließen",
+        postNormally: "Ohne Sitzung posten",
+        heldHelp: "Die Kommentare bleiben hier, bis Sie das Review senden.",
+        loading: "Kommentare werden geladen …",
+        title: "Titel (optional)",
+        summary: "Zusammenfassung (optional)",
+        started: "Review-Sitzung gestartet.",
+        resumed: "Review-Sitzung fortgesetzt.",
+        added: "Zum Review hinzugefügt.",
+        sent: "Review gesendet.",
+        discarded: "Nicht gesendete Kommentare gelöscht.",
+        closed: "Dieses Review wurde geändert. Ihr Entwurf ist gespeichert.",
+        full: "Dieses Review enthält 100 Kommentare. Senden Sie es, um ein neues zu starten.",
+        number: (number: number) => `Review ${number}`,
+        pending: (count: number) => `${count} ${p(count, "nicht gesendeter Kommentar", "nicht gesendete Kommentare")}`,
+        discardHelp: (count: number) => count === 0 ? "Dieses Review schließen? Es werden keine Kommentare gelöscht." : `Möchten Sie ${count} ${p(count, "Kommentar mit seinen Antworten löschen?", "Kommentare mit ihren Antworten löschen?")}`
+    },
     staging: {
         report: "Abweichung melden",
         label: "Designvergleich",

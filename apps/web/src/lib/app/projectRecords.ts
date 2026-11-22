@@ -106,6 +106,7 @@ export async function deleteProjectIntegrationRecords(projectId: string, workspa
     const pk = workspacePk(workspaceId);
     for (const provider of integrationProviders) {
         await removeAll(await store.query({ type: `${provider}-sync`, pk: `${provider}:${projectId}` }), store);
+        await removeAll(await store.query({ type: `${provider}-session-sync`, pk: `${provider}:${projectId}` }), store);
         await removeAll(await store.query({ type: `${provider}-connection`, pk, where: { projectId } }), store);
         await removeAll(await store.query({ type: `${provider}-oauth-state`, where: { projectId } }), store);
     }

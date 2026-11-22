@@ -9,6 +9,10 @@ export function withNotificationEvent(comment: DbComment, actorId: string, kind:
     // projects retain the ledger without queuing owner email.
     if (!comment.projectId) return comment;
     const sequence = threadActivity(comment).sequence;
-    return { ...comment, notificationPending: !isUierFeedbackProject(comment.projectId), notificationEvents: [...(comment.notificationEvents ?? []),
-        { sequence, actorId, kind, at, ...details, ...(recipients?.length ? { recipients: [...new Set(recipients)] } : {}), ...(agent ? { agent } : {}) }] };
+    const reviewHeld = Boolean(comment.reviewSession && !comment.reviewSession.releasedAt);
+    const publishedAt = comment.reviewSession?.releasedAt;
+    const eventAt = publishedAt && at <= publishedAt ? new Date(Date.parse(publishedAt) + 1).toISOString() : at;
+    return { ...comment, ...(reviewHeld ? {} : { notificationPending: !isUierFeedbackProject(comment.projectId) }), notificationEvents: [...(comment.notificationEvents ?? []),
+        { sequence, actorId, kind, at: eventAt, ...details, ...(reviewHeld ? { reviewHeld: true as const } : {}),
+            ...(recipients?.length ? { recipients: [...new Set(recipients)] } : {}), ...(agent ? { agent } : {}) }] };
 }

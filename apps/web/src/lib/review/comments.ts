@@ -50,6 +50,8 @@ import { queueIntegrationDelivery } from '../integrations/immediate';
 import { queueAiTitles } from '../titles/threadTitles';
 import { cleanManualTitle, MANUAL_TITLE_MAX_LENGTH } from '../titles/model';
 import { assignedAgents, assignedUserIds, assigneeIdsSchema, assignmentModeSchema, withAssignments, type AssignmentMode } from './assignments';
+import { prepareReviewAdd } from './reviewSessions';
+import { heldReviewWrite } from './reviewSessionRelease';
 
 /** Most comments the app loads for a project (all pages) */
 export const MAX_PROJECT_COMMENTS = 1000;
@@ -89,7 +91,8 @@ export function canSeeCommentPrivacy(comment: Pick<DbComment, 'private' | 'autho
 }
 
 /** Match the target in both directions. File grants carry no authority over website threads. */
-export function canSeeComment(comment: Pick<DbComment, 'private' | 'authorId' | 'domain' | 'path' | 'assetTarget'>, actor: ProjectActor) {
+export function canSeeComment(comment: Pick<DbComment, 'private' | 'authorId' | 'domain' | 'path' | 'assetTarget' | 'reviewSession'>, actor: ProjectActor) {
+    if (actor.kind === 'member' && actor.agent && comment.reviewSession && !comment.reviewSession.releasedAt) return false;
     const scoped = comment.assetTarget ? actor.proofThread?.assetId === comment.assetTarget.assetId && Boolean(actor.proofThread) : !actor.proofThread;
     if (actor.proofThread?.returning && (comment.authorId !== actorAuthorId(actor)
         || comment.assetTarget?.authorShareId !== actor.proofThread.shareId)) return false;
@@ -231,6 +234,8 @@ export type NewProjectComment = CreateCommentInput & {
     mentions?: DbMention[];
     /** Guests: the name they gave */
     authorName?: string;
+    reviewSessionId?: string;
+    reviewDraftId?: string;
 } & (
     // Website writes carry an address from the project's configured origins.
     | { origin: string; assetTarget?: never; private?: never; stagingPairingId?: string }
@@ -250,19 +255,28 @@ export async function createProjectComment(request: Request, project: DbProject,
     const stagingDesign = await checkStaging();
     const store = getCommentsStore();
     const partition = projectPartition(project.id);
+    const id = `comment_${nanoid()}`;
+    const { reviewSessionId, reviewDraftId } = input;
+    if ((reviewSessionId || reviewDraftId) && (!reviewSessionId || !reviewDraftId || !input.idempotencyKey))
+        throw apiErrors.invalidRequest('A review session, its draft ID and a submission key are required.');
+    const review = reviewSessionId && reviewDraftId
+        ? () => prepareReviewAdd(store, project, actor, reviewSessionId, reviewDraftId, id, actor.kind === 'guest' ? input.authorName : undefined)
+        : undefined;
     const message = createCommentMessage(input);
     const attempt = submission(partition, authorId, input.idempotencyKey ?? input.recordingId, {
         operation: 'create', ...(stagingDesign ? { stagingDesign } : {}), path: input.path, position: input.position, kind: input.kind, ...message, mentions: input.mentions ?? [],
         proposal: input.proposal, ...(input.assetTarget ? { assetTarget: input.assetTarget, private: input.private === true } : {}),
         authorName: actor.kind === 'guest' ? input.authorName : undefined, origin: input.origin,
-        ...(input.drawing ? { drawing: input.drawing } : {}), ...(input.recordingId ? { recordingId: input.recordingId } : {})
+        ...(input.drawing ? { drawing: input.drawing } : {}), ...(input.recordingId ? { recordingId: input.recordingId } : {}),
+        ...(review ? { reviewSessionId, reviewDraftId } : {})
     });
     const recovered = await recoverSubmission(store, attempt);
     if (recovered) {
         await checkStaging();
-        if (actor.proofThread) await refreshMutationActor(project, actor, true);
+        if (actor.proofThread || review) await refreshMutationActor(project, actor, true);
         return visibleOrThrow(recovered, actor);
     }
+    const pending = await review?.();
     const workflow = await loadStatusWorkflow(project);
     const initial = workflow.statuses.find(status => status.id === workflow.initialStatusId)!;
     const feedbackType = await feedbackTypeForSubmission(project, input.kind);
@@ -273,7 +287,7 @@ export async function createProjectComment(request: Request, project: DbProject,
     const now = nowIso();
     const authorName = actor.kind === 'guest' ? input.authorName : undefined;
     const comment: DbComment = {
-        id: `comment_${nanoid()}`,
+        id,
         domain: partition,
         projectId: project.id,
         ...(isUierFeedbackProject(project.id) ? { ttl: commentTtlSeconds() } : {}),
@@ -309,6 +323,7 @@ export async function createProjectComment(request: Request, project: DbProject,
         workflowStatusId: initial.id,
         authorId,
         activity: { sequence: 1, byActor: { [authorId]: 1 } },
+        ...(pending && reviewSessionId ? { reviewSession: { id: reviewSessionId, revision: pending.revision, number: pending.number } } : {}),
         createdAt: now,
         updatedAt: now
     };
@@ -321,9 +336,11 @@ export async function createProjectComment(request: Request, project: DbProject,
     await checkStaging();
     if (input.private && !canMakeCommentPrivate(actor)) throw apiErrors.forbidden();
     if (attempt) {
-        const saved = await commitNewSubmission(store, attempt, recorded, screenshot ? screenshotDocument(recorded, screenshot) : undefined, attachRecording(recording, recorded.id));
-        queueMcpEventDelivery(project.id);
-        queueAiTitles(project, [saved], 'new');
+        const saved = await commitNewSubmission(store, attempt, recorded, screenshot ? screenshotDocument(recorded, screenshot) : undefined, attachRecording(recording, recorded.id), review && (async () => (await review()).write));
+        if (!review) {
+            queueMcpEventDelivery(project.id);
+            queueAiTitles(project, [saved], 'new');
+        }
         if (actor.proofThread) await refreshMutationActor(project, actor, true);
         await checkStaging();
         return visibleOrThrow(saved, actor);
@@ -687,8 +704,11 @@ export async function editProjectCommentItem(project: DbProject, actor: ProjectA
 }
 
 /** The whole-thread delete: a durable cleanup intent, then the conditional delete with its integration tombstone */
-export async function deleteProjectThread(store: CommentsStore, project: Pick<DbProject, 'id' | 'integrations'>, comment: DbComment, etag: string) {
+export async function deleteProjectThread(store: CommentsStore, project: Pick<DbProject, 'id' | 'integrations'>, comment: DbComment, etag: string, deletingProject = false) {
+    const review = deletingProject ? undefined : await heldReviewWrite(store, comment, true);
+    if (review === null) return 'conflict';
     await queueThreadCleanup(comment.domain, comment.id, true);
+    if (comment.reviewSession && !comment.reviewSession.releasedAt) return store.delete(comment.domain, comment.id, etag, review);
     return !isUierFeedbackProject(project.id)
         ? store.deleteWithTombstone(comment.domain, comment.id, etag, syncTombstone(project, comment))
         : store.delete(comment.domain, comment.id, etag);

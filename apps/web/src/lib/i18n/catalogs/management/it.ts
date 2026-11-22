@@ -1,6 +1,19 @@
 import type en from './en';
 
 const messages: Record<keyof typeof en, string> = {
+    "Group review sessions": "Raggruppa le sessioni di revisione",
+    "Post one Slack thread for each review.": "Pubblica un thread Slack per ogni revisione.",
+    "Group feedback pages by review in your Notion database.": "Raggruppa le pagine dei feedback per revisione nel tuo database Notion.",
+    "Create one parent for each review and link its feedback underneath.": "Crea un elemento padre per ogni revisione e collega i feedback sotto di esso.",
+    "This setting applies to future reviews. Resumed reviews keep their delivery mode.": "Questa impostazione vale per le revisioni future. Le revisioni riprese mantengono la modalità di invio.",
+    "Replies in a grouped Slack thread stay in Slack.": "Le risposte in un thread Slack raggruppato rimangono su Slack.",
+    "Map a Notion review session field first.": "Associa prima un campo Notion alla sessione di revisione.",
+    "Review session grouping is saved.": "Il raggruppamento delle sessioni è stato salvato.",
+    "This integration does not support review groups.": "Questa integrazione non supporta i gruppi di revisione.",
+    "Send feedback together when the review is ready.": "Invia i feedback insieme quando la revisione è pronta.",
+    "Review {number} by {author} in {project}": "Revisione {number} di {author} in {project}",
+    "{done} of {count} done": "{done} di {count} completati",
+    "{author} via uier on #{number}": "{author} tramite uier sul commento #{number}",
     "Enable fix verification": "Attiva la verifica delle correzioni",
     "Ask a reviewer to confirm fixes before marking them done. When off, pending checks stay in Open or In progress and can be marked done.": "Chiedi a una persona che effettua la revisione di confermare le correzioni prima di contrassegnarle come completate. Se disattivi questa opzione, le verifiche in attesa restano in Aperto o In corso e puoi contrassegnarle come completate.",
     "Labels": "Etichette",

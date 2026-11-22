@@ -8,17 +8,19 @@ import { integrationPk, integrationSyncId, enqueueIntegrationSync } from '../dis
 import { getCommentsStore } from '../../repo/commentsStore';
 import { canSyncThread } from '../source';
 import { acquireOwner, currentSlackGrant, releaseOwner, SlackConnectionError, rawSlackConnection, requireSlackProject, slackAccessToken } from './connection';
-import { isSlackConfigured, slackFileScopes, slackId, slackLabel } from './config';
+import { isSlackConfigured, slackFileScopes, slackId, slackLabel, slackTimestamp } from './config';
 import { slackMethods, slackRequest, type SlackMethod } from './client';
 import type { SlackConnection, SlackInstallationOwner, SlackState } from './model';
 import { slackRatePk, withSlackRateLimit, type SlackRateBucket } from './rate';
 import { loadSlackI18n } from './i18n';
+import { reviewGroupIdentityForDestination } from '../reviewGroups';
 
 export async function getSlackSettings(project: DbProject, userId: string) {
     project = await requireSlackProject(project.workspaceId, project.id, userId);
     const connection = await rawSlackConnection(project);
-    const review = connection ? await Promise.all((['failed', 'ambiguous'] as const).map(status => getAppStore().query<IntegrationSync>({
-        type: 'slack-sync', pk: integrationPk('slack', project.id), where: { connectionId: connection.id, status }, limit: 1000 }))) : [];
+    const review = connection ? await Promise.all((['slack-sync', 'slack-session-sync'] as const).flatMap(type => (['failed', 'ambiguous'] as const).map(status =>
+        getAppStore().query<IntegrationSync>({ type, pk: integrationPk('slack', project.id),
+            where: { connectionId: connection.id, status }, limit: 1000 })))) : [];
     const ledgers = review.flat();
     const rateReviewMethods = connection ? await listSlackRateReviews(project, userId).catch(error => {
         if (error instanceof SlackConnectionError) return [] as SlackMethod[];
@@ -246,7 +248,7 @@ export async function sendSlackTestNotification(project: DbProject, userId: stri
 
 /** The operator checks Slack under their own access; no history permission is added for recovery. */
 export async function resolveSlackUncertainPost(project: DbProject, userId: string, threadId: string,
-    input: { operationId: string; decision: 'adopt' | 'absent'; ts?: string; confirmed: boolean }) {
+    input: { operationId: string; decision: 'adopt' | 'absent'; ts?: string; confirmed: boolean; reviewGroupLedgerId?: string }) {
     project = await requireSlackProject(project.workspaceId, project.id, userId);
     const connection = await rawSlackConnection(project);
     const source = (await getCommentsStore().get(`project:${project.id}`, threadId))?.comment;
@@ -255,8 +257,13 @@ export async function resolveSlackUncertainPost(project: DbProject, userId: stri
         || !['adopt', 'absent'].includes(input.decision) || typeof input.operationId !== 'string' || input.operationId.length > 100
         || (input.decision === 'adopt' && !/^\d{1,20}\.\d{1,20}$/.test(input.ts ?? ''))) throw new SlackConnectionError('resolution_unavailable');
     const canResume = input.decision === 'absent' && source && await canSyncThread(project, source, getAppStore());
-    const pk = integrationPk('slack', project.id); const id = integrationSyncId('slack', connection.id, project.id, threadId);
+    const pk = integrationPk('slack', project.id);
+    const id = input.reviewGroupLedgerId ?? integrationSyncId('slack', connection.id, project.id, threadId);
     await updateDoc<IntegrationSync>(pk, id, ledger => {
+        if (input.reviewGroupLedgerId && (ledger.type !== 'slack-session-sync' || ledger.connectionId !== connection.id
+            || ledger.workspaceId !== project.workspaceId || ledger.threadId !== threadId || !ledger.reviewGroup
+            || reviewGroupIdentityForDestination(connection, threadId, ledger.reviewGroup.destination).id !== id))
+            throw new SlackConnectionError('resolution_unavailable');
         if (ledger.lease && Date.parse(ledger.lease.until) > Date.now()) throw new SlackConnectionError('notification_busy');
         const state = structuredClone(ledger.state) as SlackState;
         const attempt = ledger.attempt;
@@ -264,19 +271,20 @@ export async function resolveSlackUncertainPost(project: DbProject, userId: stri
             && ['post_root', 'post_summary'].includes(attempt.step) && slackId(attempt.metadata.teamId) && slackId(attempt.metadata.channelId)) {
             state.uncertainPosts = [...(state.uncertainPosts ?? []).filter(post => post.operationId !== attempt.operationId), {
                 operationId: attempt.operationId, step: attempt.step, teamId: attempt.metadata.teamId, channelId: attempt.metadata.channelId,
-                destinationRevision: attempt.destinationRevision, firstSentAt: attempt.firstSentAt, planHash: attempt.planHash }];
+                destinationRevision: attempt.destinationRevision, firstSentAt: attempt.firstSentAt, planHash: attempt.planHash,
+                ...(slackTimestamp(attempt.metadata.threadTs) ? { threadTs: attempt.metadata.threadTs } : {}) }];
         }
         const post = state.uncertainPosts?.find(post => post.operationId === input.operationId);
         if (!post) throw new SlackConnectionError('resolution_unavailable');
         if (post.resolved) return ledger;
         post.resolved = input.decision === 'adopt' ? 'adopted' : 'absent'; post.ts = input.decision === 'adopt' ? input.ts : undefined;
         if (input.decision === 'adopt') {
-            const target = { ts: input.ts!, teamId: post.teamId, channelId: post.channelId };
+            const target = { ts: input.ts!, teamId: post.teamId, channelId: post.channelId, threadTs: post.threadTs };
             if (post.teamId === connection.config.teamId && post.channelId === connection.config.channelId) {
                 if (post.step === 'post_root' && !state.root) state.root = target;
                 else { state.notifications = [...(state.notifications ?? []), target]; state.resolvedSummary = true; }
             } else state.retired = [...(state.retired ?? []), target];
-        } else if (canResume && post.step === 'post_root' && post.destinationRevision === connection.destinationRevision) {
+        } else if ((canResume || ledger.reviewGroup) && post.step === 'post_root' && post.destinationRevision === connection.destinationRevision) {
             state.resume = { id: randomUUID(), requestedAt: new Date().toISOString(), destinationRevision: connection.destinationRevision };
         }
         return { ...ledger, state, attempt: attempt?.operationId === input.operationId ? undefined : attempt,
@@ -284,6 +292,6 @@ export async function resolveSlackUncertainPost(project: DbProject, userId: stri
     });
     const saved = (await getAppStore().get<IntegrationSync>(pk, id))?.doc;
     if (!saved) throw new SlackConnectionError('resolution_unavailable');
-    await enqueueIntegrationSync(project, 'slack', connection.id, threadId, source?.syncVersion ?? saved.requestedVersion,
+    if (!saved.reviewGroup) await enqueueIntegrationSync(project, 'slack', connection.id, threadId, source?.syncVersion ?? saved.requestedVersion,
         { requestId: `resolve_${input.operationId}`, destinationRevision: connection.destinationRevision });
 }

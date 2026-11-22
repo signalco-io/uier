@@ -3,9 +3,9 @@ import { createHash, createPublicKey, createVerify, randomUUID, type KeyObject }
 import { pathToFileURL } from 'node:url';
 import type { GitHubComment, GitHubIssue, GitHubRepository } from '../../src/lib/integrations/github/model';
 
-type Body = { client_id?: string; client_secret?: string; code_verifier?: string; code?: string; repository_ids?: number[]; permissions?: { issues?: string; metadata?: string }; title?: string; body?: string; state?: string };
+type Body = { client_id?: string; client_secret?: string; code_verifier?: string; code?: string; repository_ids?: number[]; permissions?: { issues?: string; metadata?: string }; title?: string; body?: string; state?: string; sub_issue_id?: number; replace_parent?: boolean };
 
-type Issue = GitHubIssue & { title: string; comments: GitHubComment[] };
+type Issue = GitHubIssue & { title: string; comments: GitHubComment[]; parentId?: number };
 export async function startGitHubStub(publicKey: KeyObject, options: { port?: number; browserAppBaseUrl?: string } = {}) {
     const app = options.browserAppBaseUrl ? new URL(options.browserAppBaseUrl) : undefined;
     if (app && (app.protocol !== 'http:' || !['127.0.0.1', 'localhost', '[::1]'].includes(app.hostname)
@@ -19,7 +19,7 @@ export async function startGitHubStub(publicKey: KeyObject, options: { port?: nu
     const usedCodes = new Set<string>();
     const browserCodes = new Map<string, string>();
     let nextIssue = 1000, nextComment = 5000, tokenNumber = 0;
-    const faults = { loseIssueResponse: 0, loseCommentResponse: 0, rateLimit: 0, invalidToken: 0, installationUnavailable: false,
+    const faults = { loseIssueResponse: 0, loseCommentResponse: 0, loseSubIssueResponse: 0, denySubIssue: false, rateLimit: 0, invalidToken: 0, installationUnavailable: false,
         adminRepository: true, userInstallation: true, challenge: '', oauthDenied: false, githubUserId: 7, makePublicAfterIssueUpdate: false };
     const read = async (request: IncomingMessage) => {
         const parts = []; for await (const part of request) parts.push(part);
@@ -139,6 +139,24 @@ export async function startGitHubStub(publicKey: KeyObject, options: { port?: nu
             return answer(200, comment);
         }
         if (!issue) return answer(404, { message: 'Missing issue' });
+        if (path.endsWith('/parent') && request.method === 'GET') {
+            const parent = values.find(parent => parent.id === issue.parentId);
+            return parent ? answer(200, parent) : answer(404, { message: 'Missing parent' });
+        }
+        if (path.endsWith('/sub_issues') && request.method === 'POST') {
+            if (faults.denySubIssue) return answer(403, { message: 'Sub-issue relation refused' });
+            const child = values.find(child => child.id === body.sub_issue_id);
+            if (!child || child === issue || (child.parentId && !body.replace_parent)) return answer(422, { message: 'Invalid sub-issue' });
+            child.parentId = issue.id;
+            if (faults.loseSubIssueResponse > 0) { faults.loseSubIssueResponse--; return answer(500, { message: 'Lost after commit' }); }
+            return answer(201, issue);
+        }
+        if (path.endsWith('/sub_issue') && request.method === 'DELETE') {
+            const child = values.find(child => child.id === body.sub_issue_id && child.parentId === issue.id);
+            if (!child) return answer(404, { message: 'Missing sub-issue' });
+            child.parentId = undefined;
+            return answer(204);
+        }
         if (path.endsWith('/comments')) {
             if (request.method === 'GET') {
                 const page = Number(url.searchParams.get('page') ?? 1);

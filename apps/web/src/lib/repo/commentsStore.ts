@@ -2,7 +2,7 @@ import type { ProofThreadFilter } from './proofThreadFilter';
 import type { ArchiveFilter } from './archiveFilter';
 import type { OriginFilter } from './originFilter';
 import type { RealtimeComment } from '../realtime/source';
-import type { DbComment, DbCommentActivity, DbScreenshot, DbSubmission, DbSyncTombstone, DbThreadItem, DbRecordingUpload, RecordingAttachment } from '../db/schema';
+import type { DbComment, DbCommentActivity, DbScreenshot, DbSubmission, DbSyncTombstone, DbThreadItem, DbRecordingUpload, RecordingAttachment, DbReviewRelease, DbReviewSession, DbReviewSessionRecord } from '../db/schema';
 import type { VisibilityFilter } from './visibilityFilter';
 import { isCosmosConfigured } from '../db/client';
 import { isLocalRuntime } from '../comments/environment';
@@ -21,6 +21,14 @@ export type StoredComment = {
 export type ConditionalWriteResult = 'ok' | 'conflict' | 'not_found';
 export type AppendResult = 'ok' | 'full' | 'not_found';
 export type SyncPendingOptions = { limit?: number; after?: string };
+export type StoredReviewRecord<T extends DbReviewSessionRecord = DbReviewSessionRecord> = { doc: T; etag: string };
+export type ReviewSessionWrite =
+    | { operation: 'create'; doc: DbReviewSessionRecord }
+    | { operation: 'replace'; doc: DbReviewSessionRecord; etag: string }
+    | { operation: 'delete'; id: string; etag: string };
+export type ReviewReleaseOptions = { since?: number; limit?: number };
+export type ReviewSessionSummaryRecord = Pick<DbReviewSession,
+    'id' | 'type' | 'number' | 'authorId' | 'authorName' | 'pendingThreadIds' | 'threadCount' | 'revision' | 'draftId' | 'state' | 'submittedAt'>;
 
 /** Callers cannot turn a worker page into an unbounded cross-partition fetch. */
 export function syncPendingPageLimit(options: SyncPendingOptions = {}) {
@@ -33,6 +41,14 @@ export function syncPendingPageLimit(options: SyncPendingOptions = {}) {
  * except the explicit worker discovery and orphan-image projections.
  */
 export type CommentsStore = {
+    reviewSessionRecord<T extends DbReviewSessionRecord>(domain: string, id: string): Promise<StoredReviewRecord<T> | null>;
+    listReviewSessions(domain: string, options: { limit: number; before?: string; authorId?: string }): Promise<DbReviewSession[]>;
+    listReviewSessionRecords(domain: string, ids: readonly string[]): Promise<ReviewSessionSummaryRecord[]>;
+    listReviewReleases(domain: string, options?: ReviewReleaseOptions): Promise<DbReviewRelease[]>;
+    listReviewReleasesPending(kind: 'integrations' | 'email', limit?: number): Promise<DbReviewRelease[]>;
+    listReviewDiscards(limit?: number): Promise<DbReviewSession[]>;
+    writeReviewSessionBatch(domain: string, operations: ReviewSessionWrite[]): Promise<'ok' | 'conflict'>;
+    deleteReviewSessions(domain: string): Promise<void>;
     /** All authorized compact candidates; budgets fail explicitly, never return a truncated match set. */
     queryCandidates(domain: string, options?: CommentCandidateOptions): Promise<CommentQueryCandidate[]>;
     /** Complete partition metadata for realtime detection, including hard deletions; no message text. */
@@ -76,7 +92,7 @@ export type CommentsStore = {
     create(comment: DbComment): Promise<void>;
     getSubmission(domain: string, id: string): Promise<DbSubmission | null>;
     /** Receipt + create/conditional replacement + optional image reference: one partition transaction. */
-    commitSubmission(receipt: DbSubmission, comment: DbComment, etag?: string, screenshot?: DbScreenshot, recording?: RecordingAttachment): Promise<'ok' | 'conflict'>;
+    commitSubmission(receipt: DbSubmission, comment: DbComment, etag?: string, screenshot?: DbScreenshot, recording?: RecordingAttachment, reviewWrite?: ReviewSessionWrite): Promise<'ok' | 'conflict'>;
     getRecordingUpload(domain: string, id: string): Promise<{ doc: DbRecordingUpload; etag: string } | null>;
     createRecordingUpload(doc: DbRecordingUpload): Promise<void>;
     replaceRecordingUpload(doc: DbRecordingUpload, etag: string): Promise<ConditionalWriteResult>;
@@ -88,7 +104,7 @@ export type CommentsStore = {
      * Deletes the comment only when it was not changed since it was read (`etag`), so a reply
      * appended in the meantime is never deleted with it
      */
-    delete(domain: string, id: string, etag: string): Promise<ConditionalWriteResult>;
+    delete(domain: string, id: string, etag: string, reviewWrite?: ReviewSessionWrite): Promise<ConditionalWriteResult>;
     /** Atomically appends a thread item unless the thread already has `maxItems` items */
     appendThreadItem(domain: string, id: string, item: DbThreadItem, maxItems: number, updatedAt: string): Promise<AppendResult>;
 

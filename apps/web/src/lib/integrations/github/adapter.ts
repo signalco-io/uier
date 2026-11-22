@@ -6,7 +6,7 @@ import type { IntegrationAdapter, IntegrationAttempt, IntegrationDeliveryContext
 import { githubAppPk, processGitHubWebhookEvents, type GitHubUserAccess } from './webhook';
 import { githubRequest, mintGitHubInstallationToken, validateGitHubRepository, type InstallationToken } from './client';
 import { GitHubError, githubConfig, githubId, githubRepositoryPath, isGitHubConfigured } from './config';
-import { githubIssueProjection, githubOwnershipMarker, githubPayloadHash, githubReplyMarker, githubReplyProjection, ownsGitHubContent } from './issue';
+import { githubIssueProjection, githubOwnershipMarker, githubPayloadHash, githubReplyMarker, githubReplyProjection, githubReviewIssue, ownsGitHubContent } from './issue';
 import { githubInstallationPk, type GitHubComment, type GitHubConnection, type GitHubDestination, type GitHubInstallation, type GitHubIssue, type GitHubState, type GitHubRepository } from './model';
 
 type RateBucket = AppDoc & { type: 'github-rate'; nextWriteAt?: string; pausedUntil?: string };
@@ -41,6 +41,11 @@ function canonicalUrl(destination: GitHubDestination, number: number) {
 export function createGitHubAdapter(options: { store?: AppStore; writeIntervalMs?: number } = {}): IntegrationAdapter {
     return {
         provider: 'github', isConfigured: isGitHubConfigured, maxRunMs: 4 * 60_000, maxCalls: 60, supportsStatusSync: true, supportsReplySync: true,
+        supportsSessionGroups: true,
+        reviewParentReady(connection, ledger) {
+            const parent = (ledger.state as GitHubState).active;
+            return Boolean(parent?.issue && !parent.cleaned && parent.revision === connection.destinationRevision);
+        },
         async maintenance(budget) {
             if (!isGitHubConfigured()) return { calls: 0 };
             const result = await processGitHubWebhookEvents(budget, options.store ?? getAppStore());
@@ -138,6 +143,43 @@ export function createGitHubAdapter(options: { store?: AppStore; writeIntervalMs
                 const value = await read<GitHubIssue>(destination, `${githubRepositoryPath(destination.owner, destination.name)}/issues/${destination.issue.number}`);
                 if (value.pull_request || githubId(value.id) !== destination.issue.id || !ownsGitHubContent(value.body, destination.marker, value.user, destination.botId)) throw new GitHubError('ownership_changed');
                 return value;
+            }
+            async function readParent(destination: GitHubDestination) {
+                const base = githubRepositoryPath(destination.owner, destination.name);
+                try {
+                    const parent = await read<GitHubIssue>(destination, `${base}/issues/${destination.issue!.number}/parent`);
+                    if (!parent || !Number.isSafeInteger(parent.number) || parent.number <= 0) throw new GitHubError('invalid_parent_response');
+                    return { id: githubId(parent.id), number: parent.number };
+                } catch (error) {
+                    if (error instanceof GitHubError && error.status === 404) return null;
+                    throw error;
+                }
+            }
+            async function linkReviewParent(destination: GitHubDestination, parent: GitHubDestination) {
+                if (!parent.issue || !destination.issue || parent.repositoryId !== destination.repositoryId
+                    || parent.installationId !== destination.installationId) throw new GitHubError('parent_destination_mismatch');
+                const base = githubRepositoryPath(destination.owner, destination.name);
+                let fallback = false;
+                try {
+                    const existing = await readParent(destination);
+                    if (!existing) {
+                        await issue(parent);
+                        // Store the intended relationship before sending so cleanup can verify it after a lost response.
+                        destination.reviewParentIssue = { id: parent.issue.id, number: parent.issue.number };
+                        await checkpoint();
+                        await write(destination, 'link_sub_issue', 'POST', `${base}/issues/${parent.issue.number}/sub_issues`,
+                            { sub_issue_id: Number(githubId(destination.issue.id)), replace_parent: false });
+                    } else if (existing.id === parent.issue.id) {
+                        destination.reviewParentIssue = existing;
+                    } else {
+                        fallback = true;
+                    }
+                } catch (error) {
+                    if (!(error instanceof GitHubError) || ![403, 404, 410, 422].includes(error.status) || error.code === 'rate_limited') throw error;
+                    fallback = true;
+                }
+                await ctx.checkpoint(state, { clearAttempt: true, reviewGroupFallback: fallback });
+                return fallback;
             }
             /** Bounded cursor scan, never treating a partial or uncertain empty scan as absence. */
             async function scan(destination: GitHubDestination, kind: 'issue' | 'comment', marker: string, itemId?: string, initial = false, receipt?: IntegrationAttempt) {
@@ -240,6 +282,14 @@ export function createGitHubAdapter(options: { store?: AppStore; writeIntervalMs
                 if (destination.issue) {
                     try {
                         const current = await issue(destination);
+                        if (destination.reviewParentIssue) {
+                            if ((await readParent(destination))?.id === destination.reviewParentIssue.id) {
+                                await write(destination, 'unlink_sub_issue', 'DELETE', `${base}/issues/${destination.reviewParentIssue.number}/sub_issue`,
+                                    { sub_issue_id: Number(githubId(destination.issue.id)) });
+                            }
+                            destination.reviewParentIssue = undefined;
+                            await checkpoint(true);
+                        }
                         if (destination.issue.bodyHash !== githubPayloadHash(desired) || current.title !== desired.title || current.body !== desired.body || current.state !== desired.state) {
                             await write(destination, 'redact_issue', 'PATCH', `${base}/issues/${destination.issue.number}`, desired);
                             destination.issue.bodyHash = githubPayloadHash(desired);
@@ -374,8 +424,10 @@ export function createGitHubAdapter(options: { store?: AppStore; writeIntervalMs
                     await checkpoint();
                 }
                 if (!ctx.feedback) throw new GitHubError('missing_projection');
-                if (!state.active) { state.active = freshDestination(connection, ctx.project.id, ctx.ledger.threadId); await checkpoint(); }
+                if (!state.active) { state.active = freshDestination(connection, ctx.project.id, ctx.reviewGroup ? ctx.ledger.id : ctx.ledger.threadId); await checkpoint(); }
                 const destination = state.active;
+                const projectIssue = () => ctx.reviewGroup ? githubReviewIssue(ctx.reviewGroup, destination.marker)
+                    : githubIssueProjection(ctx.feedback!.context, destination.marker);
                 const repository = await refreshRepository(destination);
                 await publicationConsent(destination, repository);
                 if (!await reconcile(destination)) return { status: 'waiting', code: 'reconciling_create' };
@@ -383,7 +435,7 @@ export function createGitHubAdapter(options: { store?: AppStore; writeIntervalMs
                     const found = await scan(destination, 'issue', destination.marker, undefined, true);
                     if (found === 'waiting') return { status: 'waiting', code: 'finding_existing_issue' };
                     if (found === 'absent') {
-                        const projected = githubIssueProjection(ctx.feedback.context, destination.marker);
+                        const projected = projectIssue();
                         const created = await write<GitHubIssue>(destination, 'create_issue', 'POST', `${githubRepositoryPath(destination.owner, destination.name)}/issues`,
                             { title: projected.title, body: projected.body }, { marker: destination.marker }, false);
                         if (!ownsGitHubContent(created.body, destination.marker, created.user, destination.botId)) throw new GitHubError('invalid_create_response');
@@ -392,7 +444,7 @@ export function createGitHubAdapter(options: { store?: AppStore; writeIntervalMs
                     }
                 }
                 const current = await issue(destination);
-                const projection = githubIssueProjection(ctx.feedback.context, destination.marker);
+                const projection = projectIssue();
                 const desired = { title: projection.title, body: projection.body, state: projection.state };
                 const hash = githubPayloadHash(desired);
                 if (destination.issue!.bodyHash !== hash || current.title !== desired.title || current.body !== desired.body || current.state !== desired.state) {
@@ -435,7 +487,10 @@ export function createGitHubAdapter(options: { store?: AppStore; writeIntervalMs
                     await write(destination, 'delete_reply_text', 'PATCH', `${githubRepositoryPath(destination.owner, destination.name)}/issues/comments/${known.id}`, { body });
                     known.hash = hash; await checkpoint(true);
                 }
-                return { status: 'accepted', ...(projection.truncated ? { code: 'content_truncated' } : {}) };
+                const parent = ctx.reviewParent ? (ctx.reviewParent.state as GitHubState).active : undefined;
+                const fallback = parent ? await linkReviewParent(destination, parent) : false;
+                return { status: 'accepted', ...(fallback ? { code: 'sub_issues_unavailable' }
+                    : projection.truncated ? { code: 'content_truncated' } : {}) };
             } catch (error) {
                 if (error instanceof IntegrationControlError) throw error;
                 if (!(error instanceof GitHubError)) throw error;

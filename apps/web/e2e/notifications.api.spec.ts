@@ -6,6 +6,7 @@ import { emailSuppression } from '../src/lib/email/suppression';
 import { emailReport, emailReportHeaders, emailReportTestSecret, emailReportTestSubscription, emailReportTestTopic } from './support/emailReports';
 import { randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
+import { resumeReviewSession, sendReviewSession, startReviewSession } from '../src/lib/review/reviewSessions';
 import { getAppStore, updateDoc } from '../src/lib/app/store';
 import { findOrCreateUser, findUserByEmail } from '../src/lib/app/users';
 import { memberId, projectRefPk, workspacePk, type AppDoc, type DbMember, type DbProject, type DbProjectRef } from '../src/lib/app/model';
@@ -61,6 +62,41 @@ async function dispatch(project: DbProject, comment: DbComment, sent: EmailMessa
     for (const delivery of await deliveries(project)) await processNotificationDelivery(delivery, baseUrl,
         transport ?? (async message => { sent.push(message); return { status: 'sent' }; }), Date.now() + 30 * 60 * 1000, store);
 }
+
+test('holds unsent review discussion and sends one email per revision with unread eligible comments', async () => {
+    const f = await fixture();
+    const sent: EmailMessage[] = [];
+    const transport: typeof deliverNotificationEmail = async message => {
+        if (message.to === f.owner.email) sent.push(message);
+        return { status: 'sent' };
+    };
+    const held = (draft: NonNullable<Awaited<ReturnType<typeof startReviewSession>>>, text: string) =>
+        createProjectComment(request, f.project, f.memberActor, {
+            text, origin: 'https://reviewed.example', path: '/pricing', position: { type: 'page' }, kind: 'feedback',
+            idempotencyKey: randomUUID(), reviewSessionId: draft.id, reviewDraftId: draft.draftId
+        });
+    const send = (draft: NonNullable<Awaited<ReturnType<typeof startReviewSession>>>) =>
+        sendReviewSession(f.project, f.memberActor, draft.id, { draftId: draft.draftId!, revision: draft.revision, idempotencyKey: randomUUID() });
+    const run = () => runNotificationWorker(baseUrl, transport, getAppStore());
+    const draft = (await startReviewSession(f.project, f.memberActor))!;
+    const read = await held(draft, 'First comment, already read');
+    const second = await held(draft, 'Second comment');
+    await replyToProjectComment(request, f.project, f.memberActor, second.id, { text: 'Held discussion' });
+    await markThreadRead(read, `user:${f.owner.id}`, 1);
+    await run();
+    expect(sent).toEqual([]);
+    await send(draft);
+    const reopened = (await resumeReviewSession(f.project, f.memberActor, draft.id))!;
+    await held(reopened, 'Third comment in same review');
+    await send(reopened);
+    await run();
+    expect(sent.map(message => message.subject)).toEqual(expect.arrayContaining([
+        expect.stringMatching(/sent a review with 1 comment$/), expect.stringMatching(/added 1 comment to Review 1$/)
+    ]));
+    expect(sent).toHaveLength(2);
+    await run();
+    expect(sent).toHaveLength(2);
+});
 
 test('all whole-thread delete services remove subscriptions, delivery ledgers and per-reviewer cursors', async () => {
     for (const method of ['project', 'project-item', 'public', 'public-item'] as const) {

@@ -63,9 +63,13 @@ export async function runIntegrationWorker(baseUrl: string, options: Integration
         }
         let pending: IntegrationSync[];
         try {
-            pending = (await store.query<IntegrationSync>({ type: `${adapter.provider}-sync`, where: { active: true },
-                limit: 100, orderBy: 'nextAttemptAt', dueBefore: new Date(now()).toISOString() }))
-                .sort((a, b) => a.nextAttemptAt.localeCompare(b.nextAttemptAt) || a.id.localeCompare(b.id));
+            const due = { where: { active: true }, limit: 100, orderBy: 'nextAttemptAt' as const, dueBefore: new Date(now()).toISOString() };
+            const [groups, threads] = await Promise.all([
+                adapter.supportsSessionGroups && adapter.provider !== 'notion'
+                    ? store.query<IntegrationSync>({ type: `${adapter.provider}-session-sync`, ...due }) : [],
+                store.query<IntegrationSync>({ type: `${adapter.provider}-sync`, ...due })
+            ]);
+            pending = [...groups, ...threads.sort((a, b) => a.nextAttemptAt.localeCompare(b.nextAttemptAt) || a.id.localeCompare(b.id))];
         } catch {
             results.push({ provider: adapter.provider, checked, calls, deferred: 1, blocked: 0 });
             continue;
@@ -84,8 +88,11 @@ export async function runIntegrationWorker(baseUrl: string, options: Integration
         }
         let blocked = 0;
         try {
-            for (const status of ['failed', 'ambiguous'] as const) blocked += await store.count<IntegrationSync>({
-                type: `${adapter.provider}-sync`, where: { active: false, status } });
+            for (const status of ['failed', 'ambiguous'] as const) {
+                blocked += await store.count<IntegrationSync>({ type: `${adapter.provider}-sync`, where: { active: false, status } });
+                if (adapter.supportsSessionGroups && adapter.provider !== 'notion')
+                    blocked += await store.count<IntegrationSync>({ type: `${adapter.provider}-session-sync`, where: { active: false, status } });
+            }
         }
         catch { deferred++; }
         results.push({ provider: adapter.provider, checked, calls, deferred,
@@ -100,7 +107,10 @@ export async function retryIntegrationSync(input: { provider: IntegrationProvide
     if (!isIntegrationProvider(input.provider) || !new RegExp(`^${input.provider}_[a-f0-9]{64}$`).test(input.id))
         throw new Error('Invalid integration ledger id');
     if (!integrationRegistry(configuredIntegrationAdapters).has(input.provider)) throw new Error('Integration provider is unavailable');
-    const matches = await store.query<IntegrationSync>({ type: `${input.provider}-sync`, where: { id: input.id } });
+    const matches = (await Promise.all([
+        store.query<IntegrationSync>({ type: `${input.provider}-sync`, where: { id: input.id } }),
+        store.query<IntegrationSync>({ type: `${input.provider}-session-sync`, where: { id: input.id } })
+    ])).flat();
     if (matches.length !== 1) throw new Error('Integration ledger was not found');
     const ledger = matches[0]!;
     if (ledger.status !== 'failed' && ledger.status !== 'ambiguous') throw new Error('Integration ledger does not need recovery');

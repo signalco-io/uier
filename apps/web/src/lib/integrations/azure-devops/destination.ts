@@ -148,7 +148,7 @@ export async function saveAzureDevOpsDestination(project: DbProject, userId: str
     const saved = await updateDoc<AzureDevOpsConnection>(connection.pk, connection.id, old => {
         if (old.destinationRevision !== connection.destinationRevision || old.grantId !== connection.grantId || old.connectedBy !== connection.connectedBy)
             throw new AzureDevOpsSetupError('connection_changed');
-        return { ...old, config, destinationRevision: old.destinationRevision + 1, connectedBy: userId,
+        return { ...old, config: { ...config, groupSessions: old.config.groupSessions }, destinationRevision: old.destinationRevision + 1, connectedBy: userId,
             enabled: true, status: 'connected', statusCode: undefined, updatedAt: time };
     });
     if (!saved) throw new AzureDevOpsSetupError('connection_changed');

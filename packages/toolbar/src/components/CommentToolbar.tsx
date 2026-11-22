@@ -27,6 +27,9 @@ import { addCommentShortcut, useShortcutsEnabled } from '../shortcuts';
 import { useRovingFocus } from '../focusKeys';
 import { useToolbarFeatures } from '../hooks/useToolbarFeatures';
 import { useMessages } from '../i18n';
+import { useProjectViewer } from '../project/ProjectGate';
+import type { ReviewSessionComment } from '../project/reviewSessions';
+import { ReviewSessionPanel } from './ReviewSessionPanel';
 
 type CommentToolbarProps = {
     mode: ToolbarMode;
@@ -57,6 +60,8 @@ type CommentToolbarProps = {
     onCancelPointComment: () => void;
     /** A draft pin with text is closed: "Resume draft", above the pill, opens it again */
     onResumeDraft?: () => void;
+    onOpenReviewComment: (comment: ReviewSessionComment) => void;
+    onReviewFinished: () => void;
     /** Whether the inbox sidebar is open (the Inbox button opens and closes it) */
     sidebarOpen?: boolean;
     onToggleSidebar: () => void;
@@ -109,10 +114,11 @@ export function CommentToolbar({
     addButtonRef, inboxButtonRef, hintButtonRef, sidebarOpen = false, onAddPointComment, drawing = false, drawButtonRef, onDraw, onCancelPointComment, onResumeDraft, onToggleSidebar, onFeedbackOpen,
     checksPanels = [], onChecksPanelChange, accessibilityAvailable = false, checksAttention, accessibilityButtonRef, seoButtonRef, consentButtonRef, optionsButtonRef,
     feedbackRequested = false, onFeedbackRequestHandled, onMoveStart, onToggleHint, onCollapsedChange, onExitReview,
-    shortcutsRequested = false, onShortcutsRequestHandled
+    shortcutsRequested = false, onShortcutsRequestHandled, onOpenReviewComment, onReviewFinished
 }: CommentToolbarProps) {
     const { path } = useContext(CommentsBootstrapperContext);
     const t = useMessages();
+    const { reviewSession } = useProjectViewer();
     const features = useToolbarFeatures();
     const navRef = useRef<HTMLElement>(null);
     // The pill's buttons are one tab stop (a toolbar): ← and → move between them, Home and End to the first and the last
@@ -192,20 +198,22 @@ export function CommentToolbar({
                 )}
             </div>
             {/* Beside the instruction's place, not in the pill: the pill keeps its width */}
-            {onResumeDraft && !creatingPointComment && !collapsed && (
+            {(onResumeDraft || reviewSession) && !creatingPointComment && !collapsed && (
                 <div
                     ref={resumeDraft.ref}
                     style={resumeDraft.style}
                     data-uier-capture-exclude=""
-                    className={cx('fixed w-max', canReviewToolbar() ? 'z-[54]' : 'z-[51]')}>
-                    <Button
+                    className={cx('fixed flex w-max max-w-[calc(100vw-2rem)] flex-wrap justify-center gap-2', canReviewToolbar() ? 'z-[54]' : 'z-[51]')}>
+                    {reviewSession && <ReviewSessionPanel key={reviewSession.draftId ?? reviewSession.id} session={reviewSession}
+                        onOpenComment={onOpenReviewComment} onFinished={onReviewFinished} />}
+                    {onResumeDraft && <Button
                         size="sm"
                         variant="outlined"
                         className="rounded-full bg-background text-foreground shadow-(--brand-shadow-review)"
                         startDecorator={<Edit size={16} aria-hidden="true" />}
                         onClick={onResumeDraft}>
                         {t.toolbar.resumeDraft}
-                    </Button>
+                    </Button>}
                 </div>
             )}
             <nav

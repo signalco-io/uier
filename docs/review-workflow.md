@@ -570,6 +570,22 @@ thread expiry rules. Done and Archive retain them. See [screen recordings](recor
 API, upload budgets, storage and cleanup details. Cross-navigation extension recording, video
 redaction and automatic copies to integrations or AI providers are separate features.
 
+## Review sessions
+
+Choose **Start review session** in the toolbar when you want to collect several comments before
+sending them together. A review can span pages on the project. Each comment is saved as you add it,
+and teammates with access to the thread can see its **Not sent** label. The review remains open
+when you close the page. Members can return from another device and guests use the same browser.
+
+Open the review from the toolbar to check its comments, optionally add a title or summary, then
+choose **Send review**. Email and integrations begin delivery at that point. With grouping enabled,
+Slack receives one channel message with the comments as replies, and GitHub receives a parent issue
+with the comments as sub-issues. The author can resume a sent review and send additions to the
+same destination. The project inbox can filter and group by review session.
+
+An authorized workspace admin can send or discard an open review. Discard removes the unsent
+threads and their replies. Each review can include up to 100 comments across all sends.
+
 ## Draft recovery and submission retries
 
 The toolbar keeps unsent comment, rewrite, page feedback, bug, reply and edit text, plus raw element

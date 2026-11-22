@@ -54,7 +54,7 @@ export type IntegrationAttempt = {
 };
 
 export type IntegrationSync = AppDoc & {
-    type: `${IntegrationProviderId}-sync`;
+    type: `${IntegrationProviderId}-sync` | `${IntegrationProviderId}-session-sync`;
     provider: IntegrationProviderId;
     workspaceId: string;
     connectionId: string;
@@ -81,6 +81,30 @@ export type IntegrationSync = AppDoc & {
     statusCheckedAt?: string;
     statusSyncCode?: string;
     state: IntegrationState;
+    /** Route for a review group. Keep only ids in durable delivery state. */
+    reviewGroup?: {
+        destination: string;
+        destinationRevision: number;
+        grouped: boolean;
+        threadIds: string[];
+    };
+    /** Parent for which a child has been delivered, including a fallback link if native linking failed. */
+    reviewGroupId?: string;
+    reviewGroupFallback?: boolean;
+};
+
+export type ReviewGroupProjection = {
+    number: number;
+    author: string;
+    title?: string;
+    summary?: string;
+    url: string;
+    threads: number;
+    done: number;
+    pages: number;
+    kinds: { kind: string; customLabel?: string; count: number }[];
+    environments: string[];
+    links: string[];
 };
 
 export type IntegrationResult =
@@ -107,6 +131,9 @@ export type IntegrationDeliveryContext = {
     readonly through: number;
     readonly deadline: number;
     readonly baseUrl: string;
+    readonly reviewGroup?: ReviewGroupProjection;
+    readonly reviewParent?: { id: string; number: number; state: IntegrationState };
+    readonly reviewReleasedAt?: string;
     /** Read the existing managed copy only. Never create, update or clean up provider content. */
     readonly statusOnly?: boolean;
     receiveStatus?(resolved: boolean): Promise<void>;
@@ -122,7 +149,7 @@ export type IntegrationDeliveryContext = {
     /** Persist-before-send. An uncertain non-repeatable operation cannot be blindly replayed. */
     operation<T>(operation: IntegrationOperation, send: (signal: AbortSignal) => Promise<T>): Promise<T>;
     /** Lease-fenced metadata checkpoint after a definitive response or reconciliation. */
-    checkpoint(state: IntegrationState, options?: { clearAttempt?: boolean }): Promise<void>;
+    checkpoint(state: IntegrationState, options?: { clearAttempt?: boolean; reviewGroupFallback?: boolean }): Promise<void>;
 };
 
 export type IntegrationAdapter = {
@@ -133,6 +160,9 @@ export type IntegrationAdapter = {
     maxCalls?: number;
     supportsStatusSync?: boolean;
     supportsReplySync?: boolean;
+    supportsSessionGroups?: boolean;
+    /** Checkpointed parent reference that can safely accept children. */
+    reviewParentReady?(connection: IntegrationConnection, ledger: IntegrationSync): boolean;
     /** Provider access/schema maintenance, without any feedback projection. */
     maintenance?(options: { deadline: number; maxCalls: number }): Promise<{ calls: number; deferred?: number }>;
     /** Must reconcile ledger.attempt before planning another create, even during cleanup. */

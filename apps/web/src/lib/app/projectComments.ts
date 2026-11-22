@@ -118,6 +118,7 @@ export type CommentOutline = {
 
 /** A comment as the app shows it */
 export type ProjectCommentView = {
+    reviewSession?: { id: string; number?: number; held: boolean };
     labels?: ThreadLabel[];
     availableLabels?: ThreadLabel[];
     labelIds?: string[];
@@ -302,6 +303,9 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
         activity,
         history: threadHistoryView(comment, { member: actor.kind === 'member', authorId: myId, admin: actor.kind === 'member' && actor.isAdmin }, participants, t),
         id: comment.id,
+        ...(comment.reviewSession ? { reviewSession: {
+            id: comment.reviewSession.id, number: comment.reviewSession.number, held: !comment.reviewSession.releasedAt
+        } } : {}),
         url: `${origin}${commentSourcePath(comment)}`,
         path,
         number: Number.isInteger(comment.number) ? comment.number : undefined,

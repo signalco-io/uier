@@ -3,6 +3,7 @@ import { commentPriority, priorityLabels } from '@uier/toolbar/triage';
 import { deviceSettings } from '@uier/toolbar/devices';
 import { anchorLabel, areaText, type FeedbackContext, type FeedbackMessage } from '@uier/toolbar/feedback-context';
 import { sha256Hex } from '../../app/tokens';
+import type { ReviewGroupProjection } from '../model';
 
 export const azureDevOpsMarker = (connectionId: string, projectId: string, threadId: string, generation: number) =>
     `uier-source:${sha256Hex(JSON.stringify(['azure-devops', connectionId, projectId, threadId, generation]))}`;
@@ -80,3 +81,12 @@ export function azureDevOpsProjection(context: FeedbackContext, marker: string) 
 
 export const removedProjection = (marker: string) => ({ title: 'Removed from uier',
     html: paragraph('This feedback was removed from uier.') + paragraph(text(marker)) });
+
+export function azureDevOpsReview(group: ReviewGroupProjection, marker: string) {
+    const title = (group.title || `Review ${group.number} by ${group.author}`).replace(/[\p{Cc}\p{Cf}]/gu, ' ').slice(0, 250);
+    return { title, truncated: false,
+        html: paragraph(`Review ${group.number} by ${text(group.author)}`)
+            + (group.summary ? literal(group.summary) : '')
+            + paragraph(`${group.done} of ${group.threads} done`)
+            + paragraph(link('Open in uier', group.url)) + paragraph(text(marker)) };
+}

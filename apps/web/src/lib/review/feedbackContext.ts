@@ -17,6 +17,7 @@ import { getProjectComment } from './comments';
 import { authorNames, participantNames, toReviewCommentDto } from './dto';
 import { getUser } from '../app/users';
 import { manualThreadTitle, threadTitle } from '../titles/model';
+import { publishedReviewReader } from './publishedFeedback';
 
 /** One authorized read model for toolbar, app and later integrations. Reloads at export time. */
 export async function projectFeedbackExport(project: DbProject, actor: ProjectActor, id: string, siteOrigin: string | undefined, baseUrl: string) {
@@ -35,6 +36,7 @@ export function createProjectFeedbackExportReader(project: DbProject, actor: Pro
     let participants: ReturnType<typeof participantNames> | undefined;
     let titleSetting: Promise<boolean> | undefined;
     const users = new Map<string, ReturnType<typeof getUser>>();
+    const readReview = publishedReviewReader();
     const user = (id: string) => {
         let pending = users.get(id);
         if (!pending) { pending = getUser(id); users.set(id, pending); }
@@ -43,6 +45,8 @@ export function createProjectFeedbackExportReader(project: DbProject, actor: Pro
     return async (id: string) => {
         const comment = await getProjectComment(project, actor, id);
         if (!comment) throw apiErrors.notFound();
+        const reviewSession = await readReview(comment);
+        if (actor.kind === 'member' && actor.agent && comment.reviewSession && !reviewSession) throw apiErrors.notFound();
         const origins = projectOrigins(project);
         const [names, people] = await Promise.all([
             authorNames([comment], user),
@@ -86,6 +90,6 @@ export function createProjectFeedbackExportReader(project: DbProject, actor: Pro
                 ? KnownPageLinks.projectReplyScreenshot(project.id, comment.id, itemId)
                 : `/api/review/${encodeURIComponent(project.publicId ?? project.id)}/comments/${encodeURIComponent(comment.id)}/replies/${encodeURIComponent(itemId)}/screenshot`, baseUrl).href)
         });
-        return actor.kind === 'member' ? { ...packet, labels: labelsForComment(effectiveThreadLabels(await loadWorkspace(), project), comment), workflowStatus: statusForComment(await (workflow ??= loadWorkspace().then(workspace => effectiveStatusWorkflow(workspace, project))), comment), ...(comment.archivedAt && comment.archiveStatusId ? { archiveStatusId: comment.archiveStatusId } : {}) } : packet;
+        return actor.kind === 'member' ? { ...packet, ...(reviewSession ? { reviewSession } : {}), labels: labelsForComment(effectiveThreadLabels(await loadWorkspace(), project), comment), workflowStatus: statusForComment(await (workflow ??= loadWorkspace().then(workspace => effectiveStatusWorkflow(workspace, project))), comment), ...(comment.archivedAt && comment.archiveStatusId ? { archiveStatusId: comment.archiveStatusId } : {}) } : packet;
     };
 }

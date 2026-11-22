@@ -10,6 +10,35 @@ const p = (count: number, one: string, other: string) => plural('fr', count, one
 const panelPlaces: Record<PanelDock, string> = { left: 'à gauche', right: 'à droite', 'left-top': 'en haut à gauche', 'right-top': 'en haut à droite', 'left-bottom': 'en bas à gauche', 'right-bottom': 'en bas à droite' };
 
 export const fr: Messages = {
+    reviewSessions: {
+        label: "Session de revue",
+        start: "Démarrer une session de revue",
+        startWithComment: "Démarrer la revue avec ce commentaire",
+        add: "Ajouter à la session",
+        notSent: "Non envoyé",
+        send: "Envoyer la revue",
+        resume: "Reprendre la session",
+        discard: "Supprimer les commentaires non envoyés",
+        discardEmpty: "Fermer la revue",
+        empty: "Aucun commentaire non envoyé pour l’instant. Vos nouveaux commentaires apparaissent ici.",
+        ended: "Revue fermée.",
+        finishDiscard: "Terminer la suppression",
+        postNormally: "Publier hors session",
+        heldHelp: "Les commentaires restent ici jusqu’à l’envoi de la revue.",
+        loading: "Chargement des commentaires…",
+        title: "Titre (facultatif)",
+        summary: "Résumé (facultatif)",
+        started: "Session de revue démarrée.",
+        resumed: "Session de revue reprise.",
+        added: "Ajouté à la revue.",
+        sent: "Revue envoyée.",
+        discarded: "Commentaires non envoyés supprimés.",
+        closed: "Cette revue a changé. Votre brouillon est conservé.",
+        full: "Cette revue contient 100 commentaires. Envoyez-la pour en démarrer une autre.",
+        number: (number: number) => `Revue ${number}`,
+        pending: (count: number) => `${count} ${p(count, "commentaire non envoyé", "commentaires non envoyés")}`,
+        discardHelp: (count: number) => count === 0 ? "Fermer cette revue ? Aucun commentaire n’est supprimé." : `Supprimer ${count} ${p(count, "commentaire et ses réponses ?", "commentaires et leurs réponses ?")}`
+    },
     staging: {
         report: "Signaler un écart",
         label: "Comparaison du design",

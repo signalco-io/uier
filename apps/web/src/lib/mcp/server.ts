@@ -24,7 +24,8 @@ import { ApiError, apiErrors } from '../comments/http';
 import { commentProposal } from '../comments/dto';
 import { MAX_SCREENSHOT_BYTES } from '../comments/limits';
 import { idempotencyKeySchema, reviewPathSchema, textSchema } from '../comments/validation';
-import { getProjectComment, getProjectScreenshot, listProjectComments, MAX_PROJECT_COMMENTS, replyToProjectComment, setProjectCommentAssignee, setProjectCommentAssignees, setProjectCommentResolved, setProjectCommentStatus, setProjectCommentArchived } from '../review/comments';
+import { getProjectComment, getProjectScreenshot, MAX_PROJECT_COMMENTS, replyToProjectComment, setProjectCommentAssignee, setProjectCommentAssignees, setProjectCommentResolved, setProjectCommentStatus, setProjectCommentArchived } from '../review/comments';
+import { listPublishedFeedback, reviewSessionIdPattern } from '../review/publishedFeedback';
 import { actorAuthorId, assertCanUseComments } from '../review/actor';
 import { createProjectFeedbackExportReader, projectFeedbackExport } from '../review/feedbackContext';
 import { threadTitle } from '../titles/model';
@@ -90,6 +91,7 @@ const feedbackFilters = z.object({
     archive: z.enum(['exclude', 'only', 'all']).default('exclude').describe('Archived threads are excluded by default. only: archive view; all: include both. Workflow status is separate.'),
     priority: z.enum(priorities).optional(),
     labelId: threadLabelIdSchema.optional(),
+    reviewSessionId: z.string().regex(reviewSessionIdPattern).optional(),
     status: z.enum(['all', 'open', 'in-progress', 'ready', 'resolved']).default('all')
         .describe('open: not done (In progress and Ready to verify included); in-progress: In progress, someone is working on it; ready: Ready to verify, a fix check is pending; resolved: Done.'),
     path: reviewPathSchema.optional(),
@@ -268,8 +270,13 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
         const environments = environmentOptions(project);
         if (input.environment !== undefined && !['unknown', 'removed'].includes(input.environment) && !environments.some(option => option.id === input.environment))
             throw apiErrors.invalidRequest('Choose a configured environment, unknown or removed.');
-        const comments = await listProjectComments(project, actor, input.path === undefined ? undefined : pagePath(input.path, project.pageState),
-            input.environment === undefined ? undefined : environmentFilter(project, input.environment), undefined, undefined, input.archive);
+        const published = await listPublishedFeedback(project, actor, {
+            limit: MAX_PROJECT_COMMENTS, path: input.path === undefined ? undefined : pagePath(input.path, project.pageState),
+            originFilter: input.environment === undefined ? undefined : environmentFilter(project, input.environment),
+            archive: input.archive, reviewSessionId: input.reviewSessionId
+        }, request.signal);
+        const reviews = new Map(published.map(row => [row.comment.id, row.reviewSession]));
+        const comments = published.map(row => row.comment);
         const authorId = actorAuthorId(actor);
         const search = input.search.toLocaleLowerCase();
         // Filter stored values before paging: display names, verification and titles cannot affect a match.
@@ -304,7 +311,7 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
             for (const comment of page.items) {
                 const first = comment.thread.items[0];
                 const assignee = assignedUserIds(comment)[0];
-                const item = { id: comment.id, number: comment.number, updatedAt: comment.updatedAt,
+                const item = { id: comment.id, number: comment.number, updatedAt: comment.updatedAt, reviewSession: reviews.get(comment.id),
                     resolved: Boolean(comment.resolved), stage: feedbackStage({ ...comment, verificationEnabled: project.verificationEnabled === true }),
                     archivedAt: comment.archivedAt, archiveStatusId: comment.archiveStatusId, priority: commentPriority(comment.priority), private: Boolean(comment.private), assignee: assignee ? { id: assignee } : null,
                     authorKind: first && !first.deletedAt ? first.authorId?.startsWith('user:') ? 'member' as const : 'guest' as const : undefined,
@@ -327,7 +334,7 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
         const items = page.items.map(comment => {
             const first = comment.thread.items[0];
             const { path, source, assignee, assignees, activity } = projectCommentRouting(comment, project, participants, authorId, reads.get(comment.id));
-            return { verification: verificationDetails(comment, project, actor, participants), id: comment.id, number: comment.number, kind: comment.kind ?? 'comment', ...(feedbackTypeSnapshot(comment.feedbackType, comment.kind) ? { feedbackType: feedbackTypeSnapshot(comment.feedbackType, comment.kind) } : {}),
+            return { verification: verificationDetails(comment, project, actor, participants), id: comment.id, number: comment.number, reviewSession: reviews.get(comment.id), kind: comment.kind ?? 'comment', ...(feedbackTypeSnapshot(comment.feedbackType, comment.kind) ? { feedbackType: feedbackTypeSnapshot(comment.feedbackType, comment.kind) } : {}),
                 ...(commentProposal(comment) ? { hasProposal: true } : {}),
                 ...(commentCheck(comment.check) ? { check: commentCheck(comment.check) } : {}), priority: commentPriority(comment.priority), workflowStatus: statusForComment(workflow, comment), labels: labelsForComment(labels, comment), archivedAt: comment.archivedAt, archiveStatusId: comment.archiveStatusId, resolved: Boolean(comment.resolved), stage: feedbackStage({ ...comment, verificationEnabled: project.verificationEnabled === true }), private: Boolean(comment.private),
                 title: threadTitle(comment, titles)?.text, summary: first?.deletedAt ? 'Comment deleted' : first?.text.slice(0, 240), updatedAt: comment.updatedAt,

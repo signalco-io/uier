@@ -200,12 +200,13 @@ export async function saveGitHubRepository(input: GitHubSetupInput & { repositor
         twoWaySync: sameTarget && old?.doc.twoWaySync === true,
         replySync: sameTarget ? old?.doc.replySync : undefined,
         destinationRevision: sameTarget ? old!.doc.destinationRevision : (old?.doc.destinationRevision ?? 0) + 1, createdAt: old?.doc.createdAt ?? now, updatedAt: now,
-        config: { installationId: current.stored.doc.installationId, repositoryId: id, repositoryNodeId: String(selected.node_id),
+        config: { groupSessions: old?.doc.config.groupSessions, installationId: current.stored.doc.installationId, repositoryId: id, repositoryNodeId: String(selected.node_id),
             owner: selected.owner.login, name: selected.name, private: selected.private === true, botId: current.stored.doc.botId,
             markerSeed: old?.doc.config.markerSeed ?? randomToken(), authorizedGitHubUserId: current.stored.doc.githubUserId, authorizedAt: now } };
     await githubAdmin(input, store);
     if (old ? await store.replace(connection, old.etag) !== 'ok' : !await store.create(connection)) throw new GitHubError('connection_changed');
-    await setIntegrationBinding(input.workspaceId, input.projectId, 'github', { connectionId: key, since: now }, store);
+    await setIntegrationBinding(input.workspaceId, input.projectId, 'github', { connectionId: key,
+        since: (sameTarget ? current.project.integrations?.github?.since : undefined) ?? now }, store);
     return connection;
 }
 

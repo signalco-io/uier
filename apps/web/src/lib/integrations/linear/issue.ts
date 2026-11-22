@@ -3,6 +3,8 @@ import { commentPriority, priorityLabels } from '@uier/toolbar/triage';
 import { feedbackMarkdown, type FeedbackContext, type FeedbackMessage } from '@uier/toolbar/feedback-context';
 import { sha256Hex } from '../../app/tokens';
 import type { LinearIssueGeneration } from './model';
+import type { ReviewGroupProjection } from '../model';
+import { reviewGroupTitle } from '../reviewGroups';
 
 const plain = (value: string) => value.replace(/[\p{Cc}\p{Cf}]/gu, ' ').replace(/([\\`*_{}\[\]<>()#!|>~@])/g, '\\$1');
 function literal(value: string) { const fence = '`'.repeat(Math.max(3, ...[...value.matchAll(/`+/g)].map(match => match[0].length + 1))); return `${fence}text\n${value}\n${fence}`; }
@@ -26,4 +28,14 @@ export function linearCommentProjection(message: FeedbackMessage, marker: string
     const text = message.deleted ? 'This reply was deleted in uier.' : message.text ?? '';
     const metadata = [message.authorName, message.createdAt, message.editedAt ? `Edited ${message.editedAt}` : undefined].filter(Boolean).map(value => plain(value!.slice(0, 200))).join(' · ');
     return `${metadata}\n\n${literal(text.slice(0, 40_000))}${text.length > 40_000 ? '\n\nThis reply was shortened. Read its full saved text in uier.' : ''}\n\n${marker}`;
+}
+
+export function linearReviewIssue(group: ReviewGroupProjection, marker: string) {
+    const description = [
+        `Review ${group.number} by ${plain(group.author)}`,
+        group.summary ? literal(group.summary) : '',
+        `${group.done} of ${group.threads} done`,
+        `[Open in uier](<${group.url}>)`, marker
+    ].filter(Boolean).join('\n\n');
+    return { title: reviewGroupTitle(group).slice(0, 100), description, truncated: false };
 }

@@ -24,14 +24,14 @@ export type SlackConfig = {
     files?: boolean;
 };
 export type SlackConnection = IntegrationConnection & { provider: 'slack'; type: 'slack-connection'; config: SlackConfig & Record<string, unknown>; setupNonce?: string };
-export type SlackMessage = { ts: string; channelId: string; teamId: string; payloadHash?: string; permalink?: string; replySync?: import('../replies').ReplyCopies };
+export type SlackMessage = { ts: string; threadTs?: string; channelId: string; teamId: string; payloadHash?: string; permalink?: string; replySync?: import('../replies').ReplyCopies };
 /**
  * A screenshot or recording shared under a root message. `key` is `root:screenshot`, `root:recording` or
  * `<reply item id>:<kind>`; `revision` identifies the source bytes. `shared` is set once Slack confirms it.
  */
 export type SlackFile = { key: string; revision: string; fileId: string; teamId: string; channelId: string; rootTs: string; shared?: boolean };
 export type SlackUncertainPost = { operationId: string; step: string; channelId: string; teamId: string;
-    destinationRevision: number; firstSentAt: string; planHash: string; resolved?: 'adopted' | 'absent'; ts?: string };
+    destinationRevision: number; firstSentAt: string; planHash: string; resolved?: 'adopted' | 'absent'; ts?: string; threadTs?: string };
 export type SlackState = IntegrationState & {
     destination?: SlackDestination;
     root?: SlackMessage;

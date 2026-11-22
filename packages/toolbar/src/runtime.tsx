@@ -3,7 +3,7 @@ import { GEIST_FONTS_PATH } from '@uier/brand';
 import './index.css';
 import { CommentsBootstrapper, clearToolbarQueries } from './components/CommentsBootstrapper';
 import { toolbarConfig, ToolbarMode } from './config';
-import { endReviewSession, type ReviewSession } from './review';
+import { endReviewSession, type ReviewLink } from './review';
 import { forgetOpenPanel } from './openPanel';
 import { requestOnMount } from './openFeedback';
 import { runtimeContext } from './runtimeContext';
@@ -41,7 +41,7 @@ function ensureBrandFont() {
     }
 }
 
-export function mountToolbar(mode: ToolbarMode, review: ReviewSession | null, onExit?: () => void) {
+export function mountToolbar(mode: ToolbarMode, review: ReviewLink | null, onExit?: () => void) {
     // The script can be included more than once (or re-run by client-side navigation)
     if (getToolbarHost() || extensionOwnsReviewLayer()) {
         console.debug('uier-toolbar: Already mounted');

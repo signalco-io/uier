@@ -15,7 +15,8 @@ import type { restScopes } from '../mcp/scopes';
 import { commentPageCursor, formatCommentPageCursor } from '../repo/commentPage';
 import { getCommentsStore } from '../repo/commentsStore';
 import { memberActor, workspaceMemberAccess } from '../review/actor';
-import { getProjectComment, listProjectCommentsPage, replyToProjectComment, setProjectCommentArchived, setProjectCommentWorkflowStatus } from '../review/comments';
+import { getProjectComment, replyToProjectComment, setProjectCommentArchived, setProjectCommentWorkflowStatus } from '../review/comments';
+import { listPublishedFeedback, publishedReviewReader, reviewSessionIdPattern } from '../review/publishedFeedback';
 import { itemAuthorName } from '../review/dto';
 import { apiPageLimit, apiRequestLimit, replyBody, statusBody, type feedbackDetail } from './contract';
 
@@ -28,12 +29,12 @@ async function projectAccess(credential: McpCredential, id: string) {
     return { project, actor: { ...actor, agent: { credentialId: credential.id, name: credential.name, kind: 'credential' as const } } };
 }
 
-function summary(comment: DbComment, workflow: StatusWorkflow) {
+function summary(comment: DbComment, workflow: StatusWorkflow, reviewSession?: Awaited<ReturnType<ReturnType<typeof publishedReviewReader>>>) {
     const first = comment.thread?.items?.[0];
     return {
         id: comment.id, path: commentPath(comment), statusId: statusForComment(workflow, comment).id,
         archivedAt: comment.archivedAt ?? null, ...(comment.archivedAt && comment.archiveStatusId ? { archiveStatusId: comment.archiveStatusId } : {}),
-        createdAt: comment.createdAt ?? null,
+        createdAt: comment.createdAt ?? null, ...(reviewSession ? { reviewSession } : {}),
         excerpt: !first?.deletedAt && typeof first?.text === 'string' ? first.text.slice(0, 200) : null
     };
 }
@@ -48,7 +49,7 @@ async function detail(comment: DbComment, workflow: StatusWorkflow): Promise<z.o
         author: item.deletedAt ? null : itemAuthorName(item, names),
         text: item.deletedAt ? null : item.text ?? ''
     }));
-    return { ...summary(comment, workflow), messages };
+    return { ...summary(comment, workflow, await publishedReviewReader()(comment)), messages };
 }
 
 function restRoute<P>(scope: typeof restScopes[number], run: (request: Request, params: P, token: McpCredential) => Promise<unknown>) {
@@ -98,13 +99,14 @@ export const listFeedback = restRoute<ProjectParams>('feedback:read', async (req
     if (!params.has('limit')) params.set('limit', '25');
     const page = listPage(params)!;
     if (page.limit > apiPageLimit) throw apiErrors.invalidRequest(`Maximum page size is ${apiPageLimit}.`);
-    const [{ comments, stored }, workflow] = await Promise.all([
-        listProjectCommentsPage(project, actor, { ...page, limit: page.limit + 1 }), loadStatusWorkflow(project)
+    const reviewSessionId = params.get('reviewSessionId') ?? undefined;
+    if (reviewSessionId !== undefined && !reviewSessionIdPattern.test(reviewSessionId)) throw apiErrors.invalidRequest('Invalid review session ID.');
+    const [rows, workflow] = await Promise.all([
+        listPublishedFeedback(project, actor, { ...page, limit: page.limit + 1, reviewSessionId }, request.signal), loadStatusWorkflow(project)
     ]);
-    const lookahead = stored[page.limit];
-    const last = lookahead && stored[page.limit - 1];
+    const last = rows.length > page.limit ? rows[page.limit - 1]?.comment : undefined;
     return {
-        items: comments.filter(comment => comment.id !== lookahead?.id).map(comment => summary(comment, workflow)),
+        items: rows.slice(0, page.limit).map(({ comment, reviewSession }) => summary(comment, workflow, reviewSession)),
         next: last ? formatCommentPageCursor(commentPageCursor(last)) : null
     };
 });

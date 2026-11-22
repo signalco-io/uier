@@ -1,6 +1,17 @@
 import type en from './en';
 
 const messages: Record<keyof typeof en, string> = {
+    "Review session": "Review-Sitzung",
+    "Review {number}": "Review {number}",
+    "Not sent": "Nicht gesendet",
+    "All reviews": "Alle Reviews",
+    "Unsent review by {name}": "Nicht gesendetes Review von {name}",
+    "{count} not sent": "{count} nicht gesendet",
+    "Send now": "Jetzt senden",
+    "Review sent.": "Review gesendet.",
+    "Send review": "Review senden",
+    "Could not send the review. Try again.": "Das Review konnte nicht gesendet werden. Versuchen Sie es erneut.",
+    "Send the pending comments to eligible recipients and connected services?": "Die ausstehenden Kommentare an die vorgesehenen Empfänger und verbundenen Dienste senden?",
     "Add comment": "Kommentar hinzufügen",
     "After": "Danach",
     "Before": "Vorher",

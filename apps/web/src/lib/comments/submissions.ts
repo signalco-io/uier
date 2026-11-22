@@ -1,7 +1,7 @@
 import { withNotificationEvent } from '../notifications/events';
 import { createHash } from 'node:crypto';
 import type { DbComment, DbScreenshot, DbSubmission, DbThreadItem, RecordingAttachment } from '../db/schema';
-import type { CommentsStore } from '../repo/commentsStore';
+import type { CommentsStore, ReviewSessionWrite } from '../repo/commentsStore';
 import { ApiError, apiErrors } from './http';
 import { MAX_THREAD_ITEMS } from './limits';
 import { withThreadActivity } from './activity';
@@ -36,10 +36,10 @@ export async function recoverSubmission(store: CommentsStore, attempt: Submissio
 }
 
 /** Commit then recover even if the database response itself was lost. */
-async function commit(store: CommentsStore, attempt: Submission, comment: DbComment, etag?: string, screenshot?: DbScreenshot, changed?: boolean, recording?: RecordingAttachment) {
+async function commit(store: CommentsStore, attempt: Submission, comment: DbComment, etag?: string, screenshot?: DbScreenshot, changed?: boolean, recording?: RecordingAttachment, reviewWrite?: ReviewSessionWrite) {
     const receipt: DbSubmission = { ...attempt, ...(changed === undefined ? {} : { changed }), type: 'submission', commentId: comment.id, ttl: submissionTtlSeconds };
     try {
-        if (await store.commitSubmission(receipt, comment, etag, screenshot, recording) === 'ok') return comment;
+        if (await store.commitSubmission(receipt, comment, etag, screenshot, recording, reviewWrite) === 'ok') return comment;
     } catch (error) {
         const saved = await recoverSubmission(store, attempt);
         if (saved) return saved;
@@ -48,17 +48,24 @@ async function commit(store: CommentsStore, attempt: Submission, comment: DbComm
     return await recoverSubmission(store, attempt);
 }
 
-export async function commitNewSubmission(store: CommentsStore, attempt: Submission, comment: DbComment, screenshot?: DbScreenshot, recording?: RecordingAttachment) {
-    try {
-        const saved = await commit(store, attempt, comment, undefined, screenshot, undefined, recording);
-        if (saved) return saved;
-    } catch (error) {
-        if (!screenshot) throw error;
-        // A failed image transaction rolled back the text and receipt too. Retry without the image.
-        delete comment.screenshot;
-        const saved = await commit(store, attempt, comment, undefined, undefined, undefined, recording);
-        if (saved) return saved;
+export async function commitNewSubmission(store: CommentsStore, attempt: Submission, comment: DbComment, screenshot?: DbScreenshot, recording?: RecordingAttachment, prepareReview?: () => Promise<ReviewSessionWrite>) {
+    for (let retry = 0; retry < (prepareReview ? 8 : 1); retry++) {
+        const recovered = await recoverSubmission(store, attempt);
+        if (recovered) return recovered;
+        const review = await prepareReview?.();
+        try {
+            const saved = await commit(store, attempt, comment, undefined, screenshot, undefined, recording, review);
+            if (saved) return saved;
+        } catch (error) {
+            if (!screenshot) throw error;
+            // A failed image transaction rolled back the text and receipt too. Retry without the image.
+            delete comment.screenshot;
+            screenshot = undefined;
+            const saved = await commit(store, attempt, comment, undefined, undefined, undefined, recording, review);
+            if (saved) return saved;
+        }
     }
+    await prepareReview?.(); // Report a closed or full review distinctly from a transient write conflict.
     throw apiErrors.conflict();
 }
 

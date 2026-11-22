@@ -10,13 +10,16 @@ import { syncPendingPageLimit, type AppendResult, type CommentsStore, type Condi
 import { candidateBudget, CommentQueryBudgetError, throwIfQueryAborted, toCommentQueryCandidate, validateCandidatePredicate, type CommentQueryCandidate } from './commentQuerySource';
 import { withCommentQueryMetadata } from './queryMetadata';
 import { isAfterCursor, newestCommentFirst } from './commentPage';
+import type { DbReviewRelease, DbReviewSession, DbReviewSessionRecord } from '../db/schema';
+import type { ReviewSessionWrite } from './commentsStore';
+import { heldReviewWrite, withReviewRelease } from '../review/reviewSessionRelease';
 
 /** Safety net so a long-running dev/test server can't grow without bounds */
 const MAX_COMMENTS_PER_DOMAIN = 5000;
 
 type MemoryEntry = {
     /** A comment, the domain's comment numbers or a screenshot: as in Cosmos DB, they share the partition */
-    document: DbComment | DbSequence | DbScreenshot | DbSubmission | DbSyncTombstone | DbRecordingUpload;
+    document: DbComment | DbSequence | DbScreenshot | DbSubmission | DbSyncTombstone | DbRecordingUpload | DbReviewSessionRecord;
     version: number;
     /** Milliseconds; emulates Cosmos `_ts` (last modification) for TTL */
     modifiedAt: number;
@@ -86,7 +89,67 @@ function pathMatches(comment: DbComment, path: string) {
 }
 
 export function getMemoryCommentsStore(): CommentsStore {
-    return {
+    function recordOf(entry: MemoryEntry | undefined) {
+        const document = entry?.document;
+        if (document && 'type' in document
+            && ['review-session', 'review-release', 'review-session-open', 'review-session-number', 'review-session-receipt', 'review-session-discard'].includes(document.type))
+            return document as DbReviewSessionRecord;
+        return undefined;
+    }
+    function records(domain: string) {
+        return [...domainEntries(domain).values()].flatMap(entry => recordOf(entry) ?? []);
+    }
+    function releases(domain: string) {
+        return records(domain).filter((doc): doc is DbReviewRelease => doc.type === 'review-release');
+    }
+    function recentReleases(items: DbReviewRelease[], limit?: number) {
+        return clone(items.sort((a, b) => a.submittedAt.localeCompare(b.submittedAt)).slice(0, syncPendingPageLimit({ limit })));
+    }
+    function matchesWrite(entries: Map<string, MemoryEntry>, write: ReviewSessionWrite) {
+        const entry = entries.get(write.operation === 'delete' ? write.id : write.doc.id);
+        return write.operation === 'create' ? !entry : entry && String(entry.version) === write.etag;
+    }
+    function applyWrite(entries: Map<string, MemoryEntry>, write: ReviewSessionWrite) {
+        if (write.operation === 'delete') entries.delete(write.id);
+        else entries.set(write.doc.id, { document: clone(write.doc), version: ++state().version, modifiedAt: Date.now() });
+    }
+    const store: CommentsStore = {
+        async reviewSessionRecord<T extends DbReviewSessionRecord>(domain: string, id: string) {
+            const entry = domainEntries(domain).get(id);
+            const document = recordOf(entry);
+            return entry && document ? { doc: clone(document) as T, etag: String(entry.version) } : null;
+        },
+        async listReviewSessions(domain, { limit, before, authorId }) {
+            return clone(records(domain).filter((doc): doc is DbReviewSession => doc.type === 'review-session'
+                && (!before || doc.id < before) && (!authorId || doc.authorId === authorId))
+                .sort((a, b) => a.id < b.id ? 1 : a.id > b.id ? -1 : 0).slice(0, limit));
+        },
+        async listReviewSessionRecords(domain, ids) {
+            const entries = domainEntries(domain);
+            return clone(ids.map(id => recordOf(entries.get(id))).filter((doc): doc is DbReviewSession => doc?.type === 'review-session'));
+        },
+        async listReviewReleases(domain, { since, limit = 1000 } = {}) {
+            return recentReleases(releases(domain).filter(doc => since === undefined || Date.parse(doc.submittedAt) >= since), limit);
+        },
+        async listReviewReleasesPending(kind, limit = 20) {
+            return recentReleases([...state().domains.keys()].flatMap(releases)
+                .filter(doc => kind === 'integrations' ? doc.integrationPending : doc.emailPending), limit);
+        },
+        async listReviewDiscards(limit = 20) {
+            return clone([...state().domains.keys()].flatMap(records)
+                .filter((doc): doc is DbReviewSession => doc.type === 'review-session' && doc.state === 'discarding')
+                .sort((a, b) => a.lastActivityAt.localeCompare(b.lastActivityAt)).slice(0, syncPendingPageLimit({ limit })));
+        },
+        async writeReviewSessionBatch(domain, operations) {
+            const entries = domainEntries(domain);
+            if (!operations.every(write => matchesWrite(entries, write))) return 'conflict';
+            for (const write of operations) applyWrite(entries, write);
+            return 'ok';
+        },
+        async deleteReviewSessions(domain) {
+            const entries = domainEntries(domain);
+            for (const doc of records(domain)) entries.delete(doc.id);
+        },
         async queryCandidates(domain, options = {}) {
             validateCandidatePredicate(options.predicate);
             const budget = candidateBudget(options);
@@ -180,12 +243,13 @@ export function getMemoryCommentsStore(): CommentsStore {
                 .slice(0, limit)
                 .map(clone);
         },
-        async listPage(domain, { limit, before, path, originFilter, authorId, archive, visibility, proof, stagingPairingId }) {
+        async listPage(domain, { limit, before, path, originFilter, authorId, archive, visibility, proof, stagingPairingId, reviewSessionId }) {
             return domainComments(domain)
                 .filter(comment => matchesProofThread(comment, proof) && typeof comment.path === 'string' && typeof comment.createdAt === 'string'
                     && (path === undefined || pathMatches(comment, path)) && matchesVisibility(comment, visibility)
                     && matchesOrigin(comment.origin, originFilter) && matchesAuthor(comment, authorId) && matchesArchive(comment, archive)
-                    && (!stagingPairingId || comment.stagingDesign?.pairingId === stagingPairingId) && isAfterCursor(comment, before))
+                    && (!stagingPairingId || comment.stagingDesign?.pairingId === stagingPairingId)
+                    && (!reviewSessionId || comment.reviewSession?.id === reviewSessionId) && isAfterCursor(comment, before))
                 .sort(newestCommentFirst)
                 .slice(0, Math.max(1, Math.min(1000, Math.trunc(limit))))
                 .map(clone);
@@ -196,21 +260,25 @@ export function getMemoryCommentsStore(): CommentsStore {
         async get(domain, id): Promise<StoredComment | null> {
             const entry = domainEntries(domain).get(id);
             const comment = commentOf(entry);
-            return entry && comment ? { comment: clone(comment), etag: String(entry.version) } : null;
+            return entry && comment ? { comment: await withReviewRelease(clone(comment), store), etag: String(entry.version) } : null;
         },
         async getSubmission(domain, id) {
             const document = domainEntries(domain).get(id)?.document;
             return document && 'type' in document && document.type === 'submission' ? clone(document) : null;
         },
-        async commitSubmission(receipt, comment, etag, screenshot, recording) {
+        async commitSubmission(receipt, comment, etag, screenshot, recording, reviewWrite) {
+            const write = reviewWrite ?? await heldReviewWrite(store, comment);
+            if (write === null) return 'conflict';
             const entries = domainEntries(receipt.domain);
             const previous = entries.get(comment.id);
             if (entries.has(receipt.id) || (etag ? !previous || String(previous.version) !== etag : previous)) return 'conflict';
             if (recording && String(entries.get(recording.doc.id)?.version) !== recording.etag) return 'conflict';
+            if (write && !matchesWrite(entries, write)) return 'conflict';
             // No await between checking and applying: mirrors the Cosmos transaction.
             for (const document of [receipt, withCommentQueryMetadata(comment), ...(screenshot ? [screenshot] : []), ...(recording ? [recording.doc] : [])]) {
                 entries.set(document.id, { document: clone(document), version: ++state().version, modifiedAt: Date.now() });
             }
+            if (write) applyWrite(entries, write);
             return 'ok';
         },
         async getRecordingUpload(domain, id) {
@@ -261,25 +329,29 @@ export function getMemoryCommentsStore(): CommentsStore {
             entries.set(comment.id, { document: clone(withCommentQueryMetadata(comment)), version: ++state().version, modifiedAt: Date.now() });
         },
         async replace(comment, etag): Promise<ConditionalWriteResult> {
+            const review = await heldReviewWrite(store, comment);
+            if (review === null) return 'conflict';
             const entries = domainEntries(comment.domain);
             const entry = entries.get(comment.id);
             if (!entry || !commentOf(entry))
                 return 'not_found';
-            if (String(entry.version) !== etag)
+            if (String(entry.version) !== etag || (review && !matchesWrite(entries, review)))
                 return 'conflict';
 
             entries.set(comment.id, { document: clone(withCommentQueryMetadata(comment)), version: ++state().version, modifiedAt: Date.now() });
+            if (review) applyWrite(entries, review);
             return 'ok';
         },
-        async delete(domain, id, etag): Promise<ConditionalWriteResult> {
+        async delete(domain, id, etag, reviewWrite): Promise<ConditionalWriteResult> {
             const entries = domainEntries(domain);
             const entry = entries.get(id);
             if (!entry || !commentOf(entry))
                 return 'not_found';
-            if (String(entry.version) !== etag)
+            if (String(entry.version) !== etag || (reviewWrite && !matchesWrite(entries, reviewWrite)))
                 return 'conflict';
 
             entries.delete(id);
+            if (reviewWrite) applyWrite(entries, reviewWrite);
             return 'ok';
         },
         async listActivity(domain): Promise<DbCommentActivity[]> {
@@ -335,16 +407,19 @@ export function getMemoryCommentsStore(): CommentsStore {
             entries.set(screenshot.id, { document: clone(screenshot), version: ++state().version, modifiedAt: Date.now() });
         },
         async replaceScreenshot(comment, etag, screenshot) {
+            const review = await heldReviewWrite(store, comment);
+            if (review === null) return 'conflict';
             const entries = domainEntries(comment.domain);
             const entry = entries.get(comment.id);
             if (!commentOf(entry)) return 'not_found';
-            if (String(entry!.version) !== etag) return 'conflict';
+            if (String(entry!.version) !== etag || (review && !matchesWrite(entries, review))) return 'conflict';
             // No await between the check and both writes: the same transaction as Cosmos.
             const modifiedAt = Date.now();
             const savedComment = clone(withCommentQueryMetadata(comment));
             const savedImage = clone(screenshot);
             entries.set(comment.id, { document: savedComment, version: ++state().version, modifiedAt });
             entries.set(screenshot.id, { document: savedImage, version: ++state().version, modifiedAt });
+            if (review) applyWrite(entries, review);
             return 'ok';
         },
         async getScreenshot(domain, commentId, itemId) {
@@ -394,4 +469,5 @@ export function getMemoryCommentsStore(): CommentsStore {
             return true;
         }
     };
+    return store;
 }

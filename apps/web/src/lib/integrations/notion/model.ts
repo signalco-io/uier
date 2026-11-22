@@ -13,6 +13,7 @@ export type NotionMapping = {
     created?: string;
     assignee?: string;
     screenshot?: string;
+    reviewSession?: { property: string; type: 'rich_text' | 'select' };
 };
 export type NotionConfiguration = {
     dataSourceId?: string;

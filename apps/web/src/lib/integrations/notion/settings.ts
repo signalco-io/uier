@@ -83,7 +83,7 @@ export async function saveNotionMapping(project: DbProject, userId: string, inpu
     }, store);
     if (!saved) throw new NotionApiError(409, 'connection_changed');
     await setIntegrationBinding(project.workspaceId, project.id, 'notion', { connectionId: saved.id,
-        since: currentProject.integrations?.notion?.since ?? new Date().toISOString() }, store);
+        since: (connection.config.dataSourceId === saved.config.dataSourceId ? currentProject.integrations?.notion?.since : undefined) ?? new Date().toISOString() }, store);
     return getNotionSettings(project, userId, services);
 }
 

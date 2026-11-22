@@ -6,7 +6,7 @@ import { findOrCreateUser } from '../src/lib/app/users';
 import { getCommentsStore } from '../src/lib/repo/commentsStore';
 import { createProjectComment, deleteProjectCommentItem, editProjectCommentItem, editProjectCommentText, replyToProjectComment, setProjectCommentPrivate, setProjectCommentResolved } from '../src/lib/review/comments';
 import { memberActor } from '../src/lib/review/actor';
-import { enqueueIntegrationSync, integrationSyncId } from '../src/lib/integrations/discovery';
+import { discoverThreadIntegrationSync, enqueueIntegrationSync, integrationSyncId } from '../src/lib/integrations/discovery';
 import { processIntegrationDelivery } from '../src/lib/integrations/delivery';
 import type { IntegrationSync } from '../src/lib/integrations/model';
 import { beginGitHubConnect, finishGitHubConnect, finishGitHubSetup, getGitHubSettings, listGitHubRepositories, saveGitHubRepository, disconnectGitHub } from '../src/lib/integrations/github/connection';
@@ -18,7 +18,9 @@ import { githubAppPk, receiveGitHubWebhook } from '../src/lib/integrations/githu
 import { githubInstallationPk, type GitHubConnection, type GitHubInstallation, type GitHubState } from '../src/lib/integrations/github/model';
 import { startGitHubStub } from './support/githubStub';
 import { createOauthState } from '../src/lib/integrations/oauthState';
-import { setIntegrationTwoWaySync, setIntegrationReplySync } from '../src/lib/integrations/connection';
+import { setIntegrationGroupSessions, setIntegrationTwoWaySync, setIntegrationReplySync } from '../src/lib/integrations/connection';
+import { reviewGroupIdentity } from '../src/lib/integrations/reviewGroups';
+import { prepareReviewReleases, resumeReviewSession, sendReviewSession, startReviewSession } from '../src/lib/review/reviewSessions';
 
 const variables = ['UIER_LOCAL', 'UIER_GITHUB_APP_ID', 'UIER_GITHUB_APP_SLUG', 'UIER_GITHUB_CLIENT_ID', 'UIER_GITHUB_CLIENT_SECRET',
     'UIER_GITHUB_PRIVATE_KEY', 'UIER_GITHUB_SETUP_KEY', 'UIER_GITHUB_WEBHOOK_SECRET', 'UIER_GITHUB_API_BASE_URL', 'UIER_GITHUB_OAUTH_BASE_URL'];
@@ -70,7 +72,7 @@ async function fixture(repositoryId = '201') {
     const f = await localProject();
     await getAppStore().delete(githubAppPk('999'), 'content-rate');
     await getAppStore().delete(githubAppPk('999'), 'user_7');
-    Object.assign(stub.faults, { loseIssueResponse: 0, loseCommentResponse: 0, rateLimit: 0, invalidToken: 0,
+    Object.assign(stub.faults, { loseIssueResponse: 0, loseCommentResponse: 0, loseSubIssueResponse: 0, denySubIssue: false, rateLimit: 0, invalidToken: 0,
         installationUnavailable: false, adminRepository: true, userInstallation: true, oauthDenied: false, githubUserId: 7, makePublicAfterIssueUpdate: false });
     const setup = (await authorized(f)).result;
     expect(setup.status).toBe('connected');
@@ -92,6 +94,72 @@ const external = (ledger: IntegrationSync) => {
     const destination = state(ledger).active!;
     return stub.issues.get(Number(destination.repositoryId))!.find(issue => issue.id === Number(destination.issue!.id))!;
 };
+
+test('GitHub resumes one parent, reconciles a lost sub-issue link, and redacts private feedback', async () => {
+    const f = await fixture();
+    const store = getAppStore();
+    const comments = getCommentsStore();
+    const started = (await startReviewSession(f.project, f.actor, comments))!;
+    const add = (draft: typeof started, text: string) => createProjectComment(request, f.project, f.actor, {
+        origin, path: '/page', kind: 'feedback', position: { type: 'page' }, text,
+        idempotencyKey: randomUUID(), reviewSessionId: draft.id, reviewDraftId: draft.draftId!
+    });
+    const send = (draft: typeof started, summary: string) => sendReviewSession(f.project, f.actor, draft.id, {
+        draftId: draft.draftId!, revision: draft.revision, idempotencyKey: randomUUID(), summary
+    }, comments);
+    const { pk, id: parentId } = reviewGroupIdentity(f.project, f.connection, started.id);
+    const fetchLedger = async (id: string) => (await store.get<IntegrationSync>(pk, id))!.doc;
+    const childId = (id: string) => integrationSyncId('github', f.connection.id, f.project.id, id);
+    const run = async (id: string) => {
+        f.clock.offset += 120_000;
+        await processIntegrationDelivery(await fetchLedger(id), baseUrl, f.adapter, { now: () => Date.now() + f.clock.offset });
+    };
+    const discover = async (id: string) => discoverThreadIntegrationSync(f.project,
+        (await comments.get(f.comment.domain, id))!.comment, { adapters: [f.adapter] });
+    const first = await add(started, 'Group this issue');
+    const second = await add(started, 'Keep this issue attached');
+    expect(await discover(first.id)).toBe(false);
+    expect(await store.get<IntegrationSync>(pk, parentId)).toBeNull();
+    await send(started, 'Original summary');
+    await prepareReviewReleases(comments);
+    await discover(first.id); await discover(second.id);
+    await run(parentId);
+    const parent = external(await fetchLedger(parentId));
+    stub.faults.loseSubIssueResponse = 1;
+    await run(childId(first.id));
+    const firstIssue = external(await fetchLedger(childId(first.id)));
+    expect(firstIssue.parentId).toBe(parent.id);
+    await run(childId(first.id));
+    await run(childId(second.id));
+    expect(external(await fetchLedger(childId(second.id))).parentId).toBe(parent.id);
+    const requests = stub.calls.filter(call => call.path.endsWith(`/issues/${parent.number}/sub_issues`));
+    expect(requests).toHaveLength(2);
+
+    await setIntegrationGroupSessions(f.project, 'github', f.user.id, false);
+    const resumed = (await resumeReviewSession(f.project, f.actor, started.id, comments))!;
+    const third = await add(resumed, 'Follow-up for the same parent');
+    await send(resumed, 'Updated review summary');
+    await prepareReviewReleases(comments);
+    await discover(third.id);
+    stub.faults.denySubIssue = true;
+    try { await run(childId(third.id)); }
+    finally { stub.faults.denySubIssue = false; }
+    const thirdCopy = await fetchLedger(childId(third.id));
+    expect(thirdCopy.lastCode).toBe('sub_issues_unavailable');
+    await run(parentId);
+    expect(parent.body).toContain('Updated review summary');
+    expect(parent.body).toContain(external(thirdCopy).html_url);
+
+    await setProjectCommentPrivate(f.project, f.actor, first.id, true);
+    await discover(first.id);
+    await run(childId(first.id));
+    await run(parentId);
+    expect(firstIssue.parentId).toBeUndefined();
+    expect(firstIssue.title).toBe('Removed from uier');
+    expect(external(await fetchLedger(parentId)).id).toBe(parent.id);
+    expect(parent.body).toContain('0 of 2 done');
+    expect(parent.body).not.toContain('Updated review summary');
+});
 
 test('two-way status sync is opt-in, imports close and reopen once, and can be disabled independently', async () => {
     const f = await fixture(); let current = await sync(f, { realTime: true });

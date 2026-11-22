@@ -11,6 +11,35 @@ const s = (count: number, one: string, other: string) => count === 1 ? one : oth
 const panelPlaces: Record<PanelDock, string> = { left: 'the left', right: 'the right', 'left-top': 'the top left', 'right-top': 'the top right', 'left-bottom': 'the bottom left', 'right-bottom': 'the bottom right' };
 
 export const en = {
+    reviewSessions: {
+        label: "Review session",
+        start: "Start review session",
+        startWithComment: "Start review with this comment",
+        add: "Add to session",
+        notSent: "Not sent",
+        send: "Send review",
+        resume: "Resume session",
+        discard: "Discard unsent comments",
+        discardEmpty: "Close review",
+        empty: "No unsent comments yet. Comments you add appear here.",
+        ended: "Review closed.",
+        finishDiscard: "Finish discarding",
+        postNormally: "Post without session",
+        heldHelp: "Comments stay here until you send the review.",
+        loading: "Loading comments…",
+        title: "Title (optional)",
+        summary: "Summary (optional)",
+        started: "Review session started.",
+        resumed: "Review session resumed.",
+        added: "Added to review.",
+        sent: "Review sent.",
+        discarded: "Unsent comments discarded.",
+        closed: "This review changed. Your draft is saved.",
+        full: "This review has 100 comments. Send it to start another review.",
+        number: (number: number) => `Review ${number}`,
+        pending: (count: number) => `${count} ${s(count, "unsent comment", "unsent comments")}`,
+        discardHelp: (count: number) => count === 0 ? "Close this review? No comments are deleted." : `Discard ${count} ${s(count, "comment and its replies?", "comments and their replies?")}`
+    },
     staging: {
         report: "Report discrepancy",
         label: "Design comparison",

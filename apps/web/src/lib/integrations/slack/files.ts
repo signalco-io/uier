@@ -90,13 +90,14 @@ export async function syncSlackFiles(session: Session & { connection: SlackConne
         }
         const root = state.root;
         if (!enabled || !root || state.suppressed || state.missing) return;
+        const threadTs = root.threadTs ?? root.ts;
         const read = (method: SlackMethod, payload: Record<string, unknown>) => withSlackRateLimit(grant, method, undefined,
             () => context.read(signal => slackRequest(method, payload, { token, signal })), context.deadline);
         const base = `uier-${packet.identity.number ?? 'feedback'}`;
         for (const source of sources) {
             // A reply's files follow its copy in the Slack thread; without that copy they would have no context.
             if (source.itemId && !root.replySync?.copies?.[source.itemId]) continue;
-            if (state.files?.some(file => file.key === source.key && file.teamId === root.teamId && file.channelId === root.channelId && file.rootTs === root.ts)) continue;
+            if (state.files?.some(file => file.key === source.key && file.teamId === root.teamId && file.channelId === root.channelId && file.rootTs === threadTs)) continue;
             if (state.skippedFiles?.some(item => item.key === source.key && item.revision === source.revision)) { code ??= 'file_refused'; continue; }
             let bytes: Buffer;
             try {
@@ -108,7 +109,7 @@ export async function syncSlackFiles(session: Session & { connection: SlackConne
             const reserved = await read('files.getUploadURLExternal', { filename: `${base}${source.itemId ? '-reply' : ''}-${source.kind}.${extensions[source.contentType] ?? 'bin'}`,
                 length: bytes.length, ...(image ? { alt_txt: t('Screenshot saved with this feedback in uier.') } : {}) });
             if (!slackId(reserved.file_id) || !slackUploadUrl(reserved.upload_url)) throw new SlackApiError(200, 'invalid_upload_response');
-            const file: SlackFile = { key: source.key, revision: source.revision, fileId: reserved.file_id, teamId: root.teamId, channelId: root.channelId, rootTs: root.ts };
+            const file: SlackFile = { key: source.key, revision: source.revision, fileId: reserved.file_id, teamId: root.teamId, channelId: root.channelId, rootTs: threadTs };
             state.files = [...(state.files ?? []), file];
             await context.checkpoint(state);
             // Fixed words in the project's review language, set when the file is sent; never reviewer text.
@@ -119,10 +120,10 @@ export async function syncSlackFiles(session: Session & { connection: SlackConne
                     // Check after the posting slot wait, as for messages: saved metadata cannot authorize later Slack Connect access.
                     const metadata = await read('conversations.info', { channel: root.channelId });
                     if (!eligibleChannel(metadata.channel) || metadata.channel.id !== root.channelId) throw new SlackApiError(200, 'channel_ineligible');
-                    return context.operation({ step: 'share_file', planHash: sha256Hex(`share:${file.fileId}:${file.revision}:${root.channelId}:${root.ts}`), repeatable: true,
-                        metadata: { fileId: file.fileId, teamId: root.teamId, channelId: root.channelId, ts: root.ts } }, async () => {
+                    return context.operation({ step: 'share_file', planHash: sha256Hex(`share:${file.fileId}:${file.revision}:${root.channelId}:${threadTs}`), repeatable: true,
+                        metadata: { fileId: file.fileId, teamId: root.teamId, channelId: root.channelId, ts: threadTs } }, async () => {
                         await slackUpload(reserved.upload_url, bytes, { signal: timeout(60_000) });
-                        return slackRequest('files.completeUploadExternal', { files: [{ id: file.fileId, title }], channel_id: root.channelId, thread_ts: root.ts },
+                        return slackRequest('files.completeUploadExternal', { files: [{ id: file.fileId, title }], channel_id: root.channelId, thread_ts: threadTs },
                             { token, signal: timeout(20_000) });
                     });
                 }, context.deadline);

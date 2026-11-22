@@ -4,14 +4,16 @@ import type { IntegrationProviderId } from './model';
  * What a service does with shared feedback, shown on its public page and on a project's page for it.
  * `two-way-status` and `reply-sync` follow the adapter's `supportsStatusSync` and `supportsReplySync`.
  */
-export type IntegrationFeatureKey = 'items' | 'fields' | 'discussion' | 'status' | 'summaries' | 'screenshots' | 'two-way-status' | 'reply-sync' | 'backfill';
+export type IntegrationFeatureKey = 'items' | 'fields' | 'discussion' | 'status' | 'summaries' | 'screenshots' | 'two-way-status' | 'reply-sync' | 'backfill' | 'review-sessions';
 /** `optional`: off until an admin turns it on for the project */
-export type IntegrationFeature = { key: IntegrationFeatureKey; title: string; detail: string; optional?: boolean };
+export type IntegrationFeature = { key: IntegrationFeatureKey; title: string; detail: string; optional?: boolean; appOnly?: true };
 /** A choice on a project's page for the service, in that page's order */
 export type IntegrationSetting = { name: string; detail: string; required?: boolean };
 
 const twoWayStatusSetting: IntegrationSetting = { name: 'Two-way status sync', detail: 'Off by default. Status changes made in the connected tool are checked in the background, usually every five minutes. Pending uier changes take precedence.' };
 const replySyncSetting: IntegrationSetting = { name: 'Reply sync', detail: 'Off by default. Starts with replies added after you turn it on. Imported replies show their source and are read-only in uier.' };
+const reviewSessions: IntegrationFeature = { key: 'review-sessions', title: 'Group review sessions',
+    detail: 'Send feedback together when the review is ready.', appOnly: true };
 
 export type IntegrationCatalogEntry = {
     name: string;
@@ -36,6 +38,7 @@ export const integrationCatalog: Record<IntegrationProviderId, IntegrationCatalo
         result: 'One page per feedback thread',
         detail: 'uier creates a page for each shared feedback thread, then updates its text, discussion and page context in the background. Saved screenshots can be uploaded to Notion.',
         features: [
+            reviewSessions,
             { key: 'items', title: 'A page for each thread', detail: 'Each shared feedback thread becomes a page in the database you choose, with its text, discussion and page context. uier keeps the page up to date.' },
             { key: 'fields', title: 'Mapped properties', detail: 'A title and the uier id are required. Kind, environment, feedback link, reviewed page, created date, assignee and status can fill properties you already have.' },
             { key: 'screenshots', title: 'Screenshots', detail: 'The saved screenshot is uploaded into the page. A files property can hold it too.' },
@@ -68,6 +71,7 @@ export const integrationCatalog: Record<IntegrationProviderId, IntegrationCatalo
         result: 'One issue per feedback thread',
         detail: 'uier creates an issue for each shared feedback thread in your chosen repository. It updates the issue, mirrors the discussion and closes or reopens it as the uier status changes.',
         features: [
+            reviewSessions,
             { key: 'items', title: 'An issue for each thread', detail: 'Each shared feedback thread becomes an issue in the repository you choose, with its text, page context and a link back to uier.' },
             { key: 'discussion', title: 'Discussion', detail: 'Replies in uier are added as issue comments and kept current. Comments people write in GitHub are kept.' },
             { key: 'status', title: 'Open and closed', detail: 'Marking feedback Done closes the issue, and reopening it in uier reopens the issue.' },
@@ -99,6 +103,7 @@ export const integrationCatalog: Record<IntegrationProviderId, IntegrationCatalo
         result: 'One issue per feedback thread',
         detail: 'uier creates an issue for each shared feedback thread, mirrors its discussion and updates its state. Choose a team, optional project, open and done states, and existing labels.',
         features: [
+            reviewSessions,
             { key: 'items', title: 'An issue for each thread', detail: 'Each shared feedback thread becomes an issue in the team you choose, with its text, page context and a link back to uier.' },
             { key: 'discussion', title: 'Discussion', detail: 'Replies in uier are added as issue comments and kept current. Comments and labels people add in Linear are kept.' },
             { key: 'status', title: 'Workflow states', detail: 'Open and Done in uier move the issue to the open and done states you choose.' },
@@ -134,6 +139,7 @@ export const integrationCatalog: Record<IntegrationProviderId, IntegrationCatalo
         result: 'One work item per feedback thread',
         detail: 'uier creates a work item for each shared feedback thread in the project and area you choose. It keeps the description and discussion up to date and sets your open or done state when the feedback’s status changes.',
         features: [
+            reviewSessions,
             { key: 'items', title: 'A work item for each thread', detail: 'Each shared feedback thread becomes a work item in the project and area you choose, with its text, page context and a link back to uier.' },
             { key: 'discussion', title: 'Discussion', detail: 'The work item’s text keeps the feedback, its page context and the uier discussion up to date.' },
             { key: 'status', title: 'States', detail: 'Open and Done in uier set the states you choose. Moves on your board are kept until the uier status changes.' },
@@ -168,6 +174,7 @@ export const integrationCatalog: Record<IntegrationProviderId, IntegrationCatalo
         result: 'A channel message with context',
         detail: 'uier posts a bounded excerpt and a link for each new shared feedback thread. It updates the root message and can add summaries of replies and status changes. Optional reply sync copies new replies into the Slack thread and back to uier.',
         features: [
+            reviewSessions,
             { key: 'items', title: 'A message for each thread', detail: 'Each new shared feedback thread posts a short excerpt and a link to one channel. uier keeps that message current.' },
             { key: 'summaries', title: 'Reply and status summaries', detail: 'A short reply count or the current status, posted in the Slack thread. Choose either or both.', optional: true },
             { key: 'screenshots', title: 'Screenshots and recordings', detail: 'Send each thread’s screenshots and recordings as files in its Slack thread. They stay in uier until an admin allows file uploads and turns this on.', optional: true },

@@ -12,7 +12,7 @@ export function compileCandidatePredicate(query: QueryDocument, context: Evaluat
     const resolve = (input: unknown) => input && typeof input === 'object' && 'relative' in input ? context.viewerId : input;
     const leaf = (condition: Condition): string | undefined => {
         const scalar: Partial<Record<Condition['field'], string>> = {
-            page: 'c.path', number: 'c.number', openedBy: 'c.authorId',
+            page: 'c.path', number: 'c.number', openedBy: 'c.authorId', reviewSessionId: 'c.reviewSession.id',
             private: 'IIF(c.private = true, true, false)',
             status: verificationEnabled ? 'IIF(c.resolved = true, "done", IIF(c.verification.outcome = "pending", "ready", IIF(c.inProgress = true, "in-progress", "open")))' : 'IIF(c.resolved = true, "done", IIF(c.inProgress = true, "in-progress", "open"))',
             priority: 'IIF(c.priority IN ("urgent", "high", "low"), c.priority, "normal")'
@@ -137,7 +137,7 @@ export function compileCandidatePredicate(query: QueryDocument, context: Evaluat
     // with the complete evaluator, so residual fields never change result correctness.
     return { clause: compiled.sql, parameters, test: candidate => compiled.test({
         id: candidate.id, scopeKey: candidate.domain,
-        fields: { page: candidate.path, number: candidate.number, openedBy: candidate.authorId, private: candidate.private === true,
+        fields: { page: candidate.path, number: candidate.number, openedBy: candidate.authorId, private: candidate.private === true, reviewSessionId: candidate.reviewSession?.id,
             status: candidate.resolved ? 'done' : verificationEnabled && candidate.verification?.outcome === 'pending' ? 'ready' : candidate.inProgress ? 'in-progress' : 'open',
             priority: ['urgent', 'high', 'low'].includes(candidate.priority ?? '') ? candidate.priority : 'normal' }, searchText: ''
     }, candidate) };

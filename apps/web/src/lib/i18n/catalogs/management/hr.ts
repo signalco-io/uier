@@ -1,6 +1,19 @@
 import type en from './en';
 
 const messages: Record<keyof typeof en, string> = {
+    "Group review sessions": "Grupiraj sesije pregleda",
+    "Post one Slack thread for each review.": "Za svaki pregled objavljuje se jedna rasprava u Slacku.",
+    "Group feedback pages by review in your Notion database.": "Stranice s povratnim informacijama u vašoj bazi Notion grupiraju se po pregledu.",
+    "Create one parent for each review and link its feedback underneath.": "Za svaki pregled stvara se nadređena stavka i s njom se povezuju povratne informacije.",
+    "This setting applies to future reviews. Resumed reviews keep their delivery mode.": "Postavka vrijedi za buduće preglede. Nastavljeni pregledi zadržavaju način slanja.",
+    "Replies in a grouped Slack thread stay in Slack.": "Odgovori u grupiranoj raspravi ostaju u Slacku.",
+    "Map a Notion review session field first.": "Najprije povežite polje u Notionu sa sesijom pregleda.",
+    "Review session grouping is saved.": "Grupiranje sesija pregleda je spremljeno.",
+    "This integration does not support review groups.": "Ova integracija ne podržava grupe pregleda.",
+    "Send feedback together when the review is ready.": "Povratne informacije šalju se zajedno kad je pregled spreman.",
+    "Review {number} by {author} in {project}": "Pregled {number} · {author} · {project}",
+    "{done} of {count} done": "Dovršeno {done} od {count}",
+    "{author} via uier on #{number}": "{author} putem uiera na komentaru #{number}",
     "Enable fix verification": "Omogućite provjeru ispravaka",
     "Ask a reviewer to confirm fixes before marking them done. When off, pending checks stay in Open or In progress and can be marked done.": "Zatražite od pregledavatelja da potvrdi ispravke prije nego što ih označite dovršenima. Kad je ova opcija isključena, provjere na čekanju ostaju u statusu Otvoreno ili U tijeku i možete ih označiti dovršenima.",
     "Labels": "Oznake",

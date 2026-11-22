@@ -9,13 +9,13 @@ import type { IntegrationAdapter, IntegrationDeliveryContext, IntegrationResult,
 import { bounded, field, linearGraphql, LinearApiError, mutation, object, uuid, validLinearAsset, withLinearRequest } from './client';
 import { isLinearConfigured } from './config';
 import { currentLinearGrant, linearAccessToken, LinearSetupError, pauseLinearGrant } from './connection';
-import { linearCommentMarker, linearCommentProjection, linearIssueProjection, linearMarker } from './issue';
+import { linearCommentMarker, linearCommentProjection, linearIssueProjection, linearMarker, linearReviewIssue } from './issue';
 import type { LinearConnection, LinearDestination, LinearGrant, LinearIssueGeneration, LinearState } from './model';
 
 type RemoteIssue = { id: string; identifier: string; url: string; description: string; creatorId: string; teamId: string;
-    projectId?: string; trashed: boolean; archived: boolean; stateId: string; stateType?: string; labelIds: string[] };
+    projectId?: string; parentId?: string; trashed: boolean; archived: boolean; stateId: string; stateType?: string; labelIds: string[] };
 type RemoteComment = { id: string; body: string; userId: string; issueId: string };
-const issueFields = 'id identifier url description creator { id } team { id } project { id } trashed archivedAt state { id type } labels(first: 100) { nodes { id } }';
+const issueFields = 'id identifier url description creator { id } team { id } project { id } parent { id } trashed archivedAt state { id type } labels(first: 100) { nodes { id } }';
 const commentFields = 'id body user { id } issue { id }';
 
 function destination(connection: LinearConnection): LinearDestination {
@@ -32,6 +32,7 @@ function issueDecoder(value: unknown): RemoteIssue {
     return { id: value.id, identifier: bounded(value.identifier, 100), url: value.url,
         description: typeof value.description === 'string' ? value.description : '', creatorId: value.creator.id,
         teamId: value.team.id, ...(object(value.project) && uuid(value.project.id) ? { projectId: value.project.id } : {}),
+        parentId: object(value.parent) && uuid(value.parent.id) ? value.parent.id : undefined,
         trashed: value.trashed === true, archived: Boolean(value.archivedAt), stateId: value.state.id,
         stateType: typeof value.state.type === 'string' ? value.state.type : undefined,
         labelIds: value.labels.nodes.map(node => { if (!object(node) || !uuid(node.id)) throw new LinearApiError('invalid_issue'); return node.id; }) };
@@ -269,7 +270,7 @@ async function deliver(context: IntegrationDeliveryContext): Promise<Integration
         if (!state.issue) {
             const generation = (state.visibilityGeneration ?? 0) + 1;
             state.visibilityGeneration = generation;
-            state.issue = { generation, issueId: randomUUID(), marker: linearMarker(connection.id, context.project.id, context.ledger.threadId, generation),
+            state.issue = { generation, issueId: randomUUID(), marker: linearMarker(connection.id, context.project.id, context.reviewGroup ? context.ledger.id : context.ledger.threadId, generation),
                 teamId: config.teamId, projectId: config.projectId, grantId: grant!.id, organizationId: grant!.organizationId, appUserId: grant!.appUserId, destinationRevision: connection.destinationRevision, managedLabels: [], comments: {} };
             await checkpoint();
         }
@@ -284,23 +285,31 @@ async function deliver(context: IntegrationDeliveryContext): Promise<Integration
         if (config.screenshots && context.feedback.context.screenshot.state === 'protected') {
             await uploadScreenshot(saved, context, connection, token, write, checkpoint);
         } else if (saved.screenshot) { saved.screenshot = undefined; await checkpoint(); }
-        const projection = linearIssueProjection(context.feedback.context, saved);
+        const projection = context.reviewGroup ? linearReviewIssue(context.reviewGroup, saved.marker) : linearIssueProjection(context.feedback.context, saved);
         const resolved = context.feedback.context.status === 'done';
         // Preserve the team's equivalent workflow state when acknowledging an imported status.
-        const stateId = connection.twoWaySync && remote && remoteResolved(remote, config) === resolved ? remote.stateId
+        const stateId = !context.reviewGroup && connection.twoWaySync && remote && remoteResolved(remote, config) === resolved ? remote.stateId
             : resolved ? config.doneStateId : config.openStateId;
         const payload = { title: projection.title, description: projection.description, stateId };
         const bodyHash = sha256Hex(JSON.stringify(payload));
+        const parent = context.reviewParent ? (context.reviewParent.state as LinearState).issue : undefined;
+        if (parent && !remote?.parentId) {
+            const current = await maybeIssue(parent.issueId);
+            if (!current || current.trashed || current.archived) return { status: 'waiting', code: 'session_root_pending' };
+            issueOwned(current, parent, grant);
+        }
+        const parentId = parent && !remote?.parentId ? parent.issueId : undefined;
         if (!remote) {
             remote = await write('create_issue', 'UierLinearIssueCreate', `mutation UierLinearIssueCreate($input: IssueCreateInput!) { issueCreate(input: $input) { success issue { ${issueFields} } } }`,
-                { input: { id: saved.issueId, teamId: config.teamId, ...(config.projectId ? { projectId: config.projectId } : {}), ...payload, labelIds: config.labelIds } },
+                { input: { id: saved.issueId, teamId: config.teamId, ...(config.projectId ? { projectId: config.projectId } : {}),
+                    ...payload, ...(parentId ? { parentId } : {}), labelIds: config.labelIds } },
                 data => issueDecoder(mutation(data, 'issueCreate').issue), { issueId: saved.issueId }, false);
             issueOwned(remote, saved, grant);
             saved.identifier = remote.identifier; saved.url = remote.url; saved.bodyHash = bodyHash; saved.stateId = stateId; saved.managedLabels = config.labelIds;
             await checkpoint(true);
-        } else if (saved.bodyHash !== bodyHash || JSON.stringify(saved.managedLabels) !== JSON.stringify(config.labelIds)) {
+        } else if (parentId || saved.bodyHash !== bodyHash || JSON.stringify(saved.managedLabels) !== JSON.stringify(config.labelIds)) {
             await write('update_issue', 'UierLinearIssueUpdate', 'mutation UierLinearIssueUpdate($id: String!, $input: IssueUpdateInput!) { issueUpdate(id: $id, input: $input) { success issue { id } } }',
-                { id: saved.issueId, input: { ...payload, addedLabelIds: config.labelIds.filter(id => !remote!.labelIds.includes(id)),
+                { id: saved.issueId, input: { ...payload, ...(parentId ? { parentId } : {}), addedLabelIds: config.labelIds.filter(id => !remote!.labelIds.includes(id)),
                     removedLabelIds: saved.managedLabels.filter(id => !config.labelIds.includes(id)) } },
                 data => { const result = mutation(data, 'issueUpdate'); if (field(result, 'issue').id !== saved.issueId) throw new LinearApiError('invalid_response'); return true; }, { issueId: saved.issueId });
             saved.bodyHash = bodyHash; saved.stateId = stateId; saved.managedLabels = config.labelIds; await checkpoint(true);
@@ -413,7 +422,11 @@ async function uploadScreenshot(saved: LinearIssueGeneration, context: Integrati
     await checkpoint(true);
 }
 
-export const linearAdapter: IntegrationAdapter = { provider: 'linear', isConfigured: isLinearConfigured, maxRunMs: 5 * 60_000, maxCalls: 100, supportsStatusSync: true, supportsReplySync: true,
+export const linearAdapter: IntegrationAdapter = { provider: 'linear', isConfigured: isLinearConfigured, maxRunMs: 5 * 60_000, maxCalls: 100, supportsStatusSync: true, supportsReplySync: true, supportsSessionGroups: true,
+    reviewParentReady(connection, ledger) {
+        const parent = (ledger.state as LinearState).issue;
+        return Boolean(parent?.identifier && !parent.cleaned && parent.destinationRevision === connection.destinationRevision);
+    },
     deliver, externalLink(connection, ledger) {
         const state = stateFrom(ledger.state); const issue = state.issue;
         if (!issue?.url || issue.trashed || issue.cleaned || !issue.identifier) return null;

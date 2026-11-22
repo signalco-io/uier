@@ -84,6 +84,8 @@ export function defaultNotionMapping(schema: NotionSchema): NotionMapping {
     const status = Object.entries(schema).find(([, value]) => value.name === 'Status' && ['status', 'select'].includes(value.type));
     if (status && (status[1].type === 'select' || ['Open', 'Done'].every(option => status[1].options?.includes(option))))
         mapping.status = { property: status[0], type: status[1].type as 'status' | 'select', open: 'Open', done: 'Done' };
+    const session = Object.entries(schema).find(([, value]) => value.name === 'Review session' && ['rich_text', 'select'].includes(value.type));
+    if (session) mapping.reviewSession = { property: session[0], type: session[1].type as 'rich_text' | 'select' };
     return mapping;
 }
 export function validateNotionMapping(value: unknown, schema: NotionSchema): NotionMapping {
@@ -108,10 +110,17 @@ export function validateNotionMapping(value: unknown, schema: NotionSchema): Not
             || (status.type === 'status' && ![status.open, status.done].every(option => schema[status.property as string]?.options?.includes(option))))
             throw new NotionApiError(400, 'mapping_invalid');
         mapping.status = { property: status.property, type: status.type as 'status' | 'select', open: status.open, done: status.done };
+        used.add(status.property);
+    }
+    if (input.reviewSession !== undefined && input.reviewSession !== null) {
+        const session = object(input.reviewSession);
+        if (typeof session.property !== 'string' || used.has(session.property) || (session.type !== 'rich_text' && session.type !== 'select')
+            || schema[session.property]?.type !== session.type) throw new NotionApiError(400, 'mapping_invalid');
+        mapping.reviewSession = { property: session.property, type: session.type };
     }
     return mapping;
 }
-export function notionProperties(context: FeedbackContext, mapping: NotionMapping, screenshotId?: string): JsonObject {
+export function notionProperties(context: FeedbackContext, mapping: NotionMapping, screenshotId?: string, reviewNumber?: number): JsonObject {
     const values: JsonObject = { [mapping.title]: { title: rich(context.title.slice(0, 150)) }, [mapping.uierId]: { rich_text: rich(context.identity.commentId) } };
     if (mapping.status) values[mapping.status.property] = { [mapping.status.type]: { name: context.status === 'done' ? mapping.status.done : mapping.status.open } };
     // Notion refuses commas in select option names, and a custom type's name may have one
@@ -125,12 +134,18 @@ export function notionProperties(context: FeedbackContext, mapping: NotionMappin
     const assignee = context.assignees?.map(person => person.name).join(', ') || object(context.assignee).name;
     if (mapping.assignee) values[mapping.assignee] = { rich_text: typeof assignee === 'string' ? rich(assignee) : [] };
     if (mapping.screenshot) values[mapping.screenshot] = { files: screenshotId ? [{ name: 'Screenshot', type: 'file_upload', file_upload: { id: screenshotId } }] : [] };
+    if (mapping.reviewSession) {
+        const label = reviewNumber === undefined ? undefined : `Review ${reviewNumber}`;
+        values[mapping.reviewSession.property] = mapping.reviewSession.type === 'select' ? { select: label ? { name: label } : null }
+            : { rich_text: label ? rich(label) : [] };
+    }
     return values;
 }
 export function emptyNotionProperties(mapping: NotionMapping, schema?: NotionSchema): JsonObject {
     const result: JsonObject = {};
-    for (const [key, originalType] of Object.entries(expectedTypes)) {
-        const id = mapping[key as keyof typeof expectedTypes];
+    const entries = Object.entries(expectedTypes).map(([key, type]) => ({ id: mapping[key as keyof typeof expectedTypes], type: String(type) }));
+    if (mapping.reviewSession) entries.push({ id: mapping.reviewSession.property, type: mapping.reviewSession.type });
+    for (const { id, type: originalType } of entries) {
         if (!id || (schema && !schema[id])) continue;
         const type = schema?.[id]?.type ?? originalType;
         // A schema conversion can retain the previously copied value. Clear the current

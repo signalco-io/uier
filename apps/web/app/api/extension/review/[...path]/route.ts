@@ -6,6 +6,7 @@ import { apiErrors, parseJsonBody } from '@/src/lib/comments/http';
 import { assertCanUseComments } from '@/src/lib/review/actor';
 import { assertVerifiedWrite } from '@/src/lib/review/verification';
 import * as review from '@/src/lib/review/routes';
+import { discardReviewSessionRoute, editReviewSessionRoute, getReviewSessionRoute, listReviewSessionRoute, resumeReviewSessionRoute, startReviewSessionRoute, submitReviewSessionRoute } from '@/src/lib/review/reviewSessionRoutes';
 import { startReviewRecording, completeReviewRecording, readReviewRecording, attachReviewRecording } from '@/src/lib/recordings/routes';
 import { readReviewComments, reviewActivitySummary } from '@/src/lib/review/readRoutes';
 import { reattachReviewAnchor } from '@/src/lib/review/anchorRoutes';
@@ -30,6 +31,14 @@ const handler = extensionHandler(async request => {
     if (id && suffix === 'recording') return request.method === 'POST' ? attachReviewRecording(context, { id }) : readReviewRecording(context, { id });
     if (id && suffix === 'replies' && itemId && itemResource === 'recording') return readReviewRecording(context, { id, itemId });
     if (!operation) return review.getReviewInfo(context);
+    if (path === 'review-sessions') return request.method === 'GET' ? listReviewSessionRoute(context) : startReviewSessionRoute(context);
+    if (path.startsWith('review-sessions/') && id) {
+        const params = { projectId: project.id, id };
+        if (suffix === 'submit') return submitReviewSessionRoute(context, params);
+        if (suffix === 'resume') return resumeReviewSessionRoute(context, params);
+        if (suffix === 'held') return discardReviewSessionRoute(context, params);
+        return request.method === 'GET' ? getReviewSessionRoute(context, params) : editReviewSessionRoute(context, params);
+    }
     if (path === 'comments') return request.method === 'GET' ? review.listReviewComments(context) : review.createReviewComment(context);
     if (path === 'comments/activity') return reviewActivitySummary(context);
     if (path === 'comments/read') return readReviewComments(context);

@@ -16,6 +16,7 @@ import { commentPriority, type CommentPriority as CommentPriorityValue } from '.
 import { commentLink } from '../review';
 import { toolbarConfig } from '../config';
 import { useProjectViewer } from '../project/ProjectGate';
+import { useReviewSessionCommand } from '../project/reviewSessions';
 import { CommentsBootstrapperContext, useToolbarPortalContainer } from './CommentsBootstrapperContext';
 import { CommentsErrorMessage } from './CommentsErrorMessage';
 import { useAnnounce } from './Announcer';
@@ -246,12 +247,13 @@ export function CommentThreadHeader({ comment, message, onMarkedUnread, onReques
     optionsRef?: RefObject<HTMLButtonElement | null>;
 }) {
     const { review } = useContext(CommentsBootstrapperContext);
-    const { isMember } = useProjectViewer();
+    const { isMember, reviewSession, reviewSessionsAvailable } = useProjectViewer();
     const t = useMessages();
     const { resolve, progress, archive, prioritize, verification: verificationMutation } = useComments();
     const read = useReadComment();
     const unreadMutation = useUnreadComment();
     const announce = useAnnounce();
+    const reviewCommand = useReviewSessionCommand();
     const [uncopiedLink, setUncopiedLink] = useState<string>();
     const stage = feedbackStage(comment);
     const custom = useWorkflowStatus();
@@ -392,6 +394,10 @@ export function CommentThreadHeader({ comment, message, onMarkedUnread, onReques
                     )}
                     {unread && <UnreadDot disabled={read.isPending} onRead={() => read.mutate(comment)} />}
                     {comment.archivedAt && <span className="text-xs text-muted-foreground">{t.thread.archivedLabel}</span>}
+                    {comment.reviewSession?.number !== undefined &&
+                        <span className="text-xs font-medium text-muted-foreground">{t.reviewSessions.number(comment.reviewSession.number)}</span>}
+                    {comment.reviewSession?.held &&
+                        <span className="rounded-full border px-2 py-0.5 text-xs text-muted-foreground">{t.reviewSessions.notSent}</span>}
                     <PriorityBadge comment={comment} />
                     {/* Wraps under the status as one piece when the line is too narrow for it */}
                     {message?.author && <span className="flex min-w-0 max-w-full items-center gap-1" data-uier-thread-author="">{message.author}</span>}
@@ -434,6 +440,17 @@ export function CommentThreadHeader({ comment, message, onMarkedUnread, onReques
                     </>}
                 </Row>
             </Row>
+            {reviewSessionsAvailable && !reviewSession && comment.reviewSession?.canResume &&
+                <Button type="button" variant="plain" size="xs" className="self-start pointer-coarse:min-h-11"
+                    disabled={reviewCommand.isPending} onClick={async () => {
+                        try {
+                            await reviewCommand.mutateAsync({ action: 'resume', id: comment.reviewSession!.id });
+                            announce(t.reviewSessions.resumed);
+                            // The button goes with the open review: the focus stays in the thread
+                            optionsRef?.current?.focus();
+                        } catch { /* Keep the action available and show the error. */ }
+                    }}>{t.reviewSessions.resume}</Button>}
+            <CommentsErrorMessage error={reviewCommand.error} />
             {assigning && comment.permissions?.assign && (
                 <CommentAssigneeOptions comment={comment} autoFocus={assigning === 'key'} onAssigned={() => { setAssigning(false); optionsRef?.current?.focus(); }} />
             )}

@@ -5,6 +5,10 @@ import { discoverThreadIntegrationSync, integrationPk, integrationProject, integ
 import type { IntegrationAdapter, IntegrationSync } from './model';
 import { integrationRegistry } from './registry';
 import { integrationTargets } from './syncSignal';
+import type { DbProject } from '../app/model';
+import type { DbReviewRelease } from '../db/schema';
+import { getIntegrationConnection } from './connection';
+import { reviewGroupIdentity } from './reviewGroups';
 
 /**
  * Updates the copies a thread already has now instead of on the next worker run, for providers
@@ -35,6 +39,45 @@ export async function deliverThreadNow(projectId: string, threadId: string, opti
         if (Date.now() >= options.deadline) break;
         await processIntegrationDelivery(ledger, options.baseUrl, adapter, { store, comments, deadline: options.deadline });
         checked++;
+    }
+    return checked;
+}
+
+/** Spend a short post-response turn on this committed review. Scheduled discovery owns the tail. */
+export async function deliverReviewNow(project: DbProject, release: DbReviewRelease, options: {
+    baseUrl: string; deadline: number; store?: AppStore; comments?: CommentsStore; adapters?: readonly IntegrationAdapter[];
+}) {
+    const store = options.store ?? getAppStore();
+    const comments = options.comments ?? getCommentsStore();
+    const registry = integrationRegistry(options.adapters);
+    const targets = integrationTargets(project);
+    const ids: string[] = [];
+    for (const id of release.threadIds) {
+        if (Date.now() >= options.deadline) break;
+        const source = (await comments.get(release.domain, id))?.comment;
+        if (source?.syncPending) await discoverThreadIntegrationSync(project, source, { store, comments, adapters: options.adapters });
+        if (source) ids.push(id);
+        // The first group-eligible child can register the whole published revision.
+        if (ids.length >= 5) break;
+    }
+    let checked = 0;
+    for (const [index, target] of targets.entries()) {
+        if (Date.now() >= options.deadline) break;
+        const adapter = registry.get(target.provider);
+        if (!adapter?.supportsSessionGroups || !adapter.isConfigured()) continue;
+        const connection = await getIntegrationConnection(project, target.provider, store);
+        if (!connection || connection.id !== target.connectionId) continue;
+        const deadline = Date.now() + Math.floor((options.deadline - Date.now()) / (targets.length - index));
+        const { pk, id } = reviewGroupIdentity(project, connection, release.sessionId);
+        const parent = (await store.get<IntegrationSync>(pk, id))?.doc;
+        if (parent?.active) await processIntegrationDelivery(parent, options.baseUrl, adapter, { store, comments, deadline });
+        for (const threadId of ids) {
+            if (Date.now() >= deadline) break;
+            const ledger = (await store.get<IntegrationSync>(pk, integrationSyncId(target.provider, connection.id, project.id, threadId)))?.doc;
+            if (!ledger?.active) continue;
+            await processIntegrationDelivery(ledger, options.baseUrl, adapter, { store, comments, deadline });
+            checked++;
+        }
     }
     return checked;
 }

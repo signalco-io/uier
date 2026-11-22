@@ -14,6 +14,8 @@ import { feedbackDraftKey, useDrafts } from '../hooks/useDrafts';
 import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
 import { useInkContainer } from './InkScope';
 import { CommentComposer } from './CommentComposer';
+import { isReviewSessionRejection } from './CommentsErrorMessage';
+import { reviewSessionIsFull } from '../project/reviewSessionTypes';
 import { defaultFeedbackTypes, type FeedbackTypeId } from '../feedbackTypes';
 import { useProjectViewer } from '../project/ProjectGate';
 import { CommentKindIcon } from './CommentKindLabel';
@@ -43,7 +45,8 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
     // Dark like the pill it opens from
     const container = useInkContainer() ?? rootElement;
     const { create } = useComments();
-    const { feedbackTypes = defaultFeedbackTypes } = useProjectViewer();
+    const { feedbackTypes = defaultFeedbackTypes, reviewSession, reviewSessionsAvailable } = useProjectViewer();
+    const fullReview = reviewSessionIsFull(reviewSession);
     const t = useMessages();
     // The built-in types' names and hints in the toolbar's language, unless an admin renamed them
     const kinds = feedbackTypes.filter(type => type.enabled).map(type => ({ ...type, ...feedbackTypeText(type, t) }));
@@ -105,10 +108,11 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
     // Sent in the background: the form closes at once and is clean when opened again, while this
     // send keeps its image. A failure says so, keeps the text and brings the image and the choice to
     // omit the screenshot back, unless another image was attached meanwhile.
-    const handleSubmit = async (text: string, mentions?: import('./@types/Comments').Mention[]) => {
+    const handleSubmit = async (text: string, mentions?: import('./@types/Comments').Mention[], reviewAction?: 'start' | 'post') => {
         if (!selected) return;
         const sent = { image: attachment.image, recording: recording.current(), omitScreenshot };
         const sending = create.mutateAsync({
+            reviewAction,
             position: { type: 'page' },
             kind,
             feedbackType: kind.startsWith('custom_') ? { id: selected.id, label: selected.label, icon: selected.icon } : undefined,
@@ -123,8 +127,10 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
         recording.clear(sent.recording);
         handleOpenChange(false);
         try {
-            await sending;
+            const posted = await sending;
             recording.clear(sent.recording);
+            announce(posted.reviewSession?.held ? t.reviewSessions.added
+                : kind === 'bug' ? t.feedback.bugSent : kind === 'feedback' ? t.feedback.feedbackSent : t.feedback.typeSent(selected.label));
         } catch (error) {
             if (sent.recording) recording.restore(sent.recording);
             if (!attachment.attached()) {
@@ -133,7 +139,6 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
             }
             throw error;
         }
-        announce(kind === 'bug' ? t.feedback.bugSent : kind === 'feedback' ? t.feedback.feedbackSent : t.feedback.typeSent(selected.label));
     };
 
     // A press on the button is outside the popover: kept open here, so its click toggles it closed
@@ -185,7 +190,8 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
                 key={kind}
                 label={selected.label}
                 placeholder={selected.placeholder}
-                submitLabel={kind === 'bug' ? t.feedback.sendBug : t.feedback.send}
+                submitLabel={reviewSession?.draftId ? t.reviewSessions.add : kind === 'bug' ? t.feedback.sendBug : t.feedback.send}
+                submitBlocked={fullReview ? t.reviewSessions.full : undefined}
                 draftKey={`${feedbackDraftKey}:${kind}`}
                 autoFocus
                 tall={expanded}
@@ -203,7 +209,12 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
                 onImageDrop={file => void attachment.attach(file)}
                 error={create.error}
                 onDiscard={() => { recording.discard(); attachment.remove(); }}
-                onSubmit={handleSubmit} />
+                onSubmit={(text, mentions) => handleSubmit(text, mentions, isReviewSessionRejection(create.error) ? (reviewSession?.draftId ? 'start' : 'post') : undefined)}
+                alternativeSubmit={(isReviewSessionRejection(create.error) || fullReview) && reviewSession?.draftId ? {
+                    label: t.reviewSessions.postNormally, submit: (text, mentions) => handleSubmit(text, mentions, 'post')
+                } : reviewSessionsAvailable && !reviewSession && (!create.error || isReviewSessionRejection(create.error)) ? {
+                    label: t.reviewSessions.startWithComment, submit: (text, mentions) => handleSubmit(text, mentions, 'start')
+                } : undefined} />
         </div>
     );
     return (

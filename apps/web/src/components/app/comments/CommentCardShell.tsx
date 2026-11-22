@@ -1,4 +1,5 @@
 'use client';
+import { ReviewSessionChip } from './ReviewSessionChip';
 
 import { Fragment, useRef, type CSSProperties } from 'react';
 import { ArrowLeftIcon, MoreHorizontalIcon, ReplyIcon } from 'lucide-react';
@@ -175,6 +176,7 @@ export function CommentCardShell({ projectId, comment, reviewLink, assignees, us
                         )}
                         {comment.archivedAt && <Badge variant="outline" className="text-muted-foreground">{t("Archived")}</Badge>}
                         {comment.private && <PrivateBadge />}
+                        <ReviewSessionChip review={comment.reviewSession} />
                     </div>
                     <div inert className="-mr-1.5 flex shrink-0 items-center gap-0.5">
                         <CopyMenu copyIssue={copyIssue} canCopyLink={comment.source.available} onCopyLink={() => {}} />

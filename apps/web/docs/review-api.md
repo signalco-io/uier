@@ -1,5 +1,9 @@
 # Review API and comment records
 
+Use the [review sessions note](review-sessions.md) for starting, sending and resuming a batch of
+comments. The [endpoint reference](../../../docs/api.md#review-sessions) includes the draft and
+submission fields.
+
 ## Screen recordings
 
 Comments and replies accept `recordingId` for a previously finalized recording owned by the same

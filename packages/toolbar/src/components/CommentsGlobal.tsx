@@ -34,7 +34,8 @@ import { useAnnounce } from './Announcer';
 import { isShowcaseHintDismissed, rememberShowcaseHintDismissed, ShowcaseHint } from './ShowcaseHint';
 import { toolbarConfig } from '../config';
 import { usePagePath } from '../hooks/usePagePath';
-import { takeLinkedCommentId } from '../review';
+import { commentLink, takeLinkedCommentId } from '../review';
+import type { ReviewSessionComment } from '../project/reviewSessions';
 import { PanelSwitchContext } from './PanelTitle';
 import { fitPanels, readInboxFilter, readOpenPanels, rememberInboxFilter, rememberOpenPanels, RestoredPanelContext, type DockPanelId } from '../openPanel';
 import { openFeedbackEvent, startCommentEvent, takeToolbarRequest } from '../openFeedback';
@@ -750,6 +751,21 @@ export function CommentsGlobal({
         setSidebarFilter({ status, archived });
         setSidebarOpen(true);
     };
+    const openReviewComment = (comment: ReviewSessionComment) => {
+        if (pinnedComments.some(candidate => candidate.id === comment.id)) {
+            setOpenComment({ id: comment.id });
+            return;
+        }
+        const cached = allComments?.find(candidate => candidate.id === comment.id)
+            ?? linkedSite.data?.find(candidate => candidate.id === comment.id);
+        if (comment.path === path || !cached?.source?.available) {
+            setSidebarFilter({ status: 'all', archived: Boolean(cached?.archivedAt), page: 'all', keywords: comment.number === undefined ? undefined : `#${comment.number}` });
+            setSidebarOpen(true);
+            return;
+        }
+        const url = commentLink(cached, review);
+        if (url) window.location.assign(url);
+    };
 
     // The latest closed draft pin with text (a closed draft pin always has text)
     const resumableDraft = creatingComments
@@ -1132,6 +1148,8 @@ export function CommentsGlobal({
                 onDraw={features.includes('draw') ? toggleCanvas : undefined}
                 // Not over the inbox or while choosing a new anchor
                 onResumeDraft={resumableDraft && !sidebarOpen && !reattaching ? () => resumeDraft(resumableDraft) : undefined}
+                onOpenReviewComment={openReviewComment}
+                onReviewFinished={() => requestAnimationFrame(() => addButtonRef.current?.focus({ preventScroll: true }))}
                 onCancelPointComment={() => { setCreatingCommentPoint(false); addButtonRef.current?.focus(); }}
                 sidebarOpen={sidebarOpen}
                 checksPanels={checksPanels}

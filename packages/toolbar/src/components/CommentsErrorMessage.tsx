@@ -42,7 +42,11 @@ function invalidRequestMessage(message: string | undefined) {
 
 /** Errors whose message already says the text is kept */
 export function errorKeepsText(error: unknown) {
-    return error instanceof CommentsApiError && ['conflict', 'sign_in_required', 'comments_disabled'].includes(error.code);
+    return error instanceof CommentsApiError && ['conflict', 'sign_in_required', 'comments_disabled', 'review_session_closed', 'review_session_full'].includes(error.code);
+}
+
+export function isReviewSessionRejection(error: unknown) {
+    return error instanceof CommentsApiError && ['review_session_closed', 'review_session_full'].includes(error.code);
 }
 
 /** Friendly, plain text message for errors of the comments API, in the toolbar's language */
@@ -64,6 +68,10 @@ export function getCommentsErrorMessage(error: unknown) {
                 return t.errors.conflict;
             case 'sign_in_required':
                 return t.errors.signInRequired;
+            case 'review_session_closed':
+                return t.reviewSessions.closed;
+            case 'review_session_full':
+                return t.reviewSessions.full;
             case 'comments_disabled':
                 return t.errors.commentsDisabled;
             case 'not_found':

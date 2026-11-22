@@ -23,6 +23,7 @@ import { uploadRecording, type RecordingClip } from '../recordings';
 import { completeDeviceInfo } from '../components/info/getDeviceInfo';
 import type { ChangeProposal } from '../changeProposal';
 import { stopProposalSession } from '../proposalSession';
+import { refreshReviewSession, reviewSessionDetailPrefix, writeReviewSession, type ReviewSessionTarget, type ReviewSessionView } from '../project/reviewSessions';
 
 export { CommentsApiError, type CommentsApiErrorCode, type CommentsRateLimitReason } from './api';
 
@@ -70,9 +71,11 @@ export type CreateCommentInput = {
     /** The draft it was written in (one of several on the page): its submission key is kept there. Never sent. */
     draftKey?: string;
     recording?: RecordingClip;
+    reviewAction?: 'start' | 'post';
 };
 
 type ReplyInput = { commentId: string; text: string; mentions?: Mention[]; screenshot?: string; imageKey?: string; recording?: RecordingClip };
+type CreateIntent = CreateCommentInput & { activeReview?: ReviewSessionView; startAvailable?: boolean };
 
 /*
  * Optimistic comments and replies: shown at once, sent in the background. A list fetched while
@@ -203,16 +206,16 @@ export function uploadCommentRecording(recording: RecordingClip, revision: numbe
     }, revision);
 }
 
-async function createComment(path: string, policy: PageStatePolicy, { idempotencyKey, position, kind, text, mentions, quotedText, proposal, check, drawing, device, screenshot, recording, stagingPairingId }: CreateCommentInput) {
+async function createComment(path: string, policy: PageStatePolicy, { idempotencyKey, position, kind, text, mentions, quotedText, proposal, check, drawing, device, screenshot, recording, stagingPairingId }: CreateCommentInput, reviewTarget?: ReviewSessionTarget) {
     stopProposalSession();
     const revision = currentReviewerRevision();
     const [image, deviceInfo, recordingId] = await Promise.all([
         screenshot, device && completeDeviceInfo(device), recording && uploadCommentRecording(recording, revision)
     ]);
-    if (recording && revision !== currentReviewerRevision()) throw new CommentsApiError('sign_in_required', 'The review session changed.', 401);
+    if ((recording || reviewTarget) && revision !== currentReviewerRevision()) throw new CommentsApiError('sign_in_required', 'The reviewer changed.', 401);
     return required(await apiRequest<CommentItem>(commentsApiUrl, {
         method: 'POST',
-        body: { idempotencyKey, stagingPairingId, path, sourcePath: sourcePath(path, policy), position, kind,
+        body: { ...reviewTarget, idempotencyKey, stagingPairingId, path, sourcePath: sourcePath(path, policy), position, kind,
             text: kind === 'comment' && proposal && !text ? undefined : text,
             mentions, quotedText, proposal, check, drawing, device: deviceInfo, screenshot: image, recordingId, authorName: guestAuthorName(), queryKeys: queryKeys(path) }
     }));
@@ -467,7 +470,7 @@ export function useComments(refreshOnMount = false): {
     const { path } = useContext(CommentsBootstrapperContext);
     const client = useQueryClient();
     const drafts = useDrafts();
-    const { currentEnvironment, draftScope, pageState, verificationEnabled } = useProjectViewer();
+    const { currentEnvironment, draftScope, pageState, verificationEnabled, reviewSessionsAvailable, reviewSession } = useProjectViewer();
     const queryKey = commentsQueryKey(path, currentEnvironment, draftScope);
 
     const query = useQuery({
@@ -501,14 +504,30 @@ export function useComments(refreshOnMount = false): {
     const authorName = () => client.getQueryData<Visitor>(pageVisitorQueryKey(path))?.name ?? guestAuthorName() ?? messages().thread.you;
 
     const create = useMutation({
-        mutationFn: (input: CreateCommentInput) => {
+        mutationFn: async (input: CreateIntent) => {
             const key = input.draftKey ?? (input.drawing ? newDrawingDraftKey : input.kind === 'rewrite' ? newRewriteDraftKey : isFeedbackTypeId(input.kind) ? `${feedbackDraftKey}:${input.kind}` : newCommentDraftKey);
             // The same content is the same attempt (a retry the API can recognize), whatever its local id.
             // A drawing is in it by its fingerprint: the attempt is kept in the draft's small record.
-            const { device: _device, screenshot: _screenshot, idempotencyKey: _identity, localId: _local, feedbackType: _type, draftKey: _draft, recording, drawing, ...content } = input;
-            return createComment(path, pageState, { ...input, idempotencyKey: drafts.attempt(key, JSON.stringify({ path, ...content, recordingKey: recording?.key, ...(drawing ? { drawing: drawingFingerprint(drawing) } : {}) })) });
+            const { device: _device, screenshot: _screenshot, idempotencyKey: _identity, localId: _local, feedbackType: _type, draftKey: _draft,
+                reviewAction, activeReview, startAvailable, recording, drawing, ...content } = input;
+            const fingerprint = JSON.stringify({ path, ...content, recordingKey: recording?.key, ...(drawing ? { drawing: drawingFingerprint(drawing) } : {}) });
+            // An uncertain response can arrive after this review was sent in another tab.
+            // Retry with the original destination and key so the saved receipt is still reachable.
+            const prior = reviewAction ? undefined : drafts.commentAttempt(key, fingerprint);
+            const active = reviewAction === 'start'
+                ? activeReview ?? (startAvailable ? required(await writeReviewSession(client, { action: 'start' }) ?? undefined) : undefined)
+                : activeReview;
+            if (reviewAction === 'start' && !active?.draftId)
+                throw new CommentsApiError('review_session_closed', 'The review is closed.', 409);
+            const target = prior ? prior.reviewTarget : reviewAction !== 'post' && active?.draftId
+                ? { reviewSessionId: active.id, reviewDraftId: active.draftId }
+                : undefined;
+            return createComment(path, pageState, {
+                ...input,
+                idempotencyKey: prior?.key ?? drafts.attempt(key, fingerprint, target, Boolean(reviewAction))
+            }, target);
         },
-        onMutate: (input: CreateCommentInput) => {
+        onMutate: (input: CreateIntent) => {
             const comment = optimisticComment(path, input, authorName(), verificationEnabled === true);
             pendingComments.set(comment.id, comment);
             client.setQueryData<CommentItem[]>(queryKey, (current) => [comment, ...(current ?? [])]);
@@ -523,6 +542,7 @@ export function useComments(refreshOnMount = false): {
             client.setQueryData<CommentItem[]>(queryKey, (current) => withComment(current ?? [], saved));
             client.setQueryData<CommentItem[]>(siteCommentsQueryKey, (current) => current && withComment(current, saved));
             client.invalidateQueries({ queryKey: visitorQueryKey });
+            if (comment.reviewSession) void refreshReviewSession(client);
         },
         onError: (error, input, context) => {
             if (context) {
@@ -530,6 +550,7 @@ export function useComments(refreshOnMount = false): {
                 updateAllCachedComments(client, (comments) => comments.filter(c => c.id !== context.localId));
             }
             toastNotSent(input.kind ?? 'comment', error);
+            if (error instanceof CommentsApiError && error.code.startsWith('review_session_')) void refreshReviewSession(client);
         },
         onSettled: handleSettled
     });
@@ -662,7 +683,13 @@ export function useComments(refreshOnMount = false): {
     return {
         path,
         query,
-        create,
+        create: {
+            ...create,
+            // Capture the visible destination at the press, before optimistic state and an
+            // independent viewer refresh can change which review is open.
+            mutate: (input, options) => create.mutate({ ...input, activeReview: reviewSession, startAvailable: reviewSessionsAvailable }, options),
+            mutateAsync: (input, options) => create.mutateAsync({ ...input, activeReview: reviewSession, startAvailable: reviewSessionsAvailable }, options)
+        },
         reply,
         resolve,
         progress,
@@ -828,7 +855,8 @@ export function useCommentsRefresh(expanded: boolean) {
                     if (!active()) break;
                     await Promise.all([
                         client.invalidateQueries({ queryKey: commentsQueryKeyPrefix, refetchType: 'active', predicate: stale }, { cancelRefetch: false }),
-                        client.invalidateQueries({ queryKey: activityQueryKey, predicate: stale }, { cancelRefetch: false })
+                        client.invalidateQueries({ queryKey: activityQueryKey, predicate: stale }, { cancelRefetch: false }),
+                        client.invalidateQueries({ queryKey: reviewSessionDetailPrefix, refetchType: 'active', predicate: stale }, { cancelRefetch: false })
                     ]);
                     // React Query structurally shares unchanged JSON data. Ignore initial loads and
                     // errors; a changed successful response (including edits) restores fast polling.

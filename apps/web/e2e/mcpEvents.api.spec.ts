@@ -1,5 +1,6 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import { test, expect } from '@playwright/test';
+import { sendReviewSession, startReviewSession } from '../src/lib/review/reviewSessions';
 import { z } from 'zod';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import { handleMcp } from '../src/lib/mcp/http';
@@ -562,6 +563,43 @@ test('a burst larger than one scan page keeps every event, including one on a th
         expect(await dispatch(f.project.id)).toMatchObject({ discovered: 2, delivered: 2 });
         expect(receiver.deliveries('feedback.replied').map(entry => entry.json.data.excerpt).sort()).toEqual(['First reply', 'Second reply']);
     } finally { await client.close(); await receiver.stop(); }
+});
+
+test('publishes each review creation once through the MCP event cursor and webhook', async () => {
+    const f = await fixture();
+    const client = await connect(f.token);
+    const receiver = await new WebhookReceiver().start();
+    try {
+        const args = { arguments: { projectId: f.project.id }, name: 'feedback.created' };
+        const initial = await poll(client, { ...args, cursor: null });
+        const secret = newWebhookSecret();
+        receiver.secrets.add(secret);
+        await subscribe(client, { ...args, cursor: null, delivery: { mode: 'webhook', url: receiver.url, secret } });
+        const draft = (await startReviewSession(f.project, f.actor))!;
+        const comment = await createProjectComment(new Request(base), f.project, f.actor, {
+            origin: 'https://events.example', path: '/pricing', kind: 'bug', position: { type: 'page' }, text: 'Held MCP event',
+            idempotencyKey: randomUUID(), reviewSessionId: draft.id, reviewDraftId: draft.draftId
+        });
+        const before = await poll(client, { ...args, cursor: initial.cursor });
+        expect(before.events).toEqual([]);
+        expect(await dispatch(f.project.id)).toMatchObject({ discovered: 0, delivered: 0 });
+        const held = await client.callTool({ name: 'list_feedback', arguments: { projectId: f.project.id, reviewSessionId: draft.id } });
+        expect(data(held).items).toEqual([]);
+        await sendReviewSession(f.project, f.actor, draft.id, { draftId: draft.draftId!, revision: draft.revision, idempotencyKey: randomUUID() });
+        const sent = await poll(client, { ...args, cursor: before.cursor });
+        expect(sent.events).toMatchObject([{ name: 'feedback.created', data: {
+            commentId: comment.id, reviewSession: { id: draft.id, revision: 1, number: 1 }
+        } }]);
+        expect((await poll(client, { ...args, cursor: sent.cursor })).events).toEqual([]);
+        expect(await dispatch(f.project.id)).toMatchObject({ discovered: 1, delivered: 1 });
+        expect(receiver.deliveries()).toHaveLength(1);
+        expect(receiver.deliveries()[0]!.json).toMatchObject({
+            eventId: sent.events[0]!.eventId, timestamp: sent.events[0]!.timestamp, data: sent.events[0]!.data
+        });
+    } finally {
+        await client.close();
+        await receiver.stop();
+    }
 });
 
 test('events/poll starts from now, returns each event once, and still returns a late commit', async () => {

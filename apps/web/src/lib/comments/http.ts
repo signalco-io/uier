@@ -14,6 +14,8 @@ export type ApiErrorCode =
     | 'bot_detected'
     | 'not_found'
     | 'conflict'
+    | 'review_session_closed'
+    | 'review_session_full'
     | 'too_large'
     | 'unsupported_media_type'
     | 'rate_limited'

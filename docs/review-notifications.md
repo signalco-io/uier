@@ -8,6 +8,12 @@ for that member, including targeted activity. The actor never receives their own
 The toolbar and app expose follow/unfollow and project mute/unmute (in the app: the project's Notifications
 settings and Account → Notifications, which lists every project).
 
+Sending a review session creates one digest for each eligible recipient. Comments and discussion
+held in the session create no email until Send. Each resume has its own digest for the new
+comments. Delivery checks current access, mute, follow preferences and whether each comment was
+already read. The digest receipt and email operation ID survive worker retries.
+[Review sessions](review-workflow.md#review-sessions)
+
 Guests can still comment using just a name. After posting, a separate **Email me replies**
 control requests an address. A confirmation email expires in 24 hours and requires an explicit
 button click; opening the link does not subscribe. Confirmation follows only that thread and

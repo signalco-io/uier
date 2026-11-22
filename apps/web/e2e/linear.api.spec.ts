@@ -17,6 +17,8 @@ import { linearGraphql, LinearApiError, validLinearAsset, withLinearRequest } fr
 import type { LinearConnection, LinearGrant, LinearState } from '../src/lib/integrations/linear/model';
 import { startLinearStub, type LinearStub } from './support/linearStub';
 import { setIntegrationTwoWaySync, setIntegrationReplySync } from '../src/lib/integrations/connection';
+import { deliverReviewNow } from '../src/lib/integrations/deliverNow';
+import { releaseIntegrationReview } from './support/reviewSessionIntegration';
 
 const test = base.extend<{ linear: LinearStub }>({ linear: async ({}, use) => {
     process.env.UIER_LOCAL = '1';
@@ -94,6 +96,18 @@ async function retry(f: Fixture) {
     await updateDoc<IntegrationSync>(current.pk, current.id, value => ({ ...value, active: true, status: 'queued', nextAttemptAt: old }));
     await processIntegrationDelivery(current, baseUrl, linearAdapter); return ledger(f);
 }
+
+test('Linear creates the review parent and links the child to its reserved issue ID', async ({ linear }) => {
+    const f = await fixture();
+    await connect(f, linear);
+    const { release } = await releaseIntegrationReview(f.project, f.owner.id);
+    await deliverReviewNow(f.project, release, { baseUrl, deadline: Date.now() + 15_000 });
+    const issues = [...linear.issues.values()];
+    expect(issues).toHaveLength(2);
+    const parent = issues.find(issue => issue.description.includes('Integration review summary'))!;
+    expect(parent.description).toContain(`reviewSessionId=${release.sessionId}`);
+    expect(issues.find(issue => issue.id !== parent.id)?.parent).toEqual({ id: parent.id });
+});
 
 test('two-way status sync follows completion and reopening without writing during polling and respects off', async ({ linear }) => {
     const f = await fixture(); const connection = await connect(f, linear); let current = await dispatch(f);

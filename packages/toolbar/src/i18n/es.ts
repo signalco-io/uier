@@ -11,6 +11,35 @@ const p = (count: number, one: string, other: string) => plural('es', count, one
 const panelPlaces: Record<PanelDock, string> = { left: 'a la izquierda', right: 'a la derecha', 'left-top': 'arriba a la izquierda', 'right-top': 'arriba a la derecha', 'left-bottom': 'abajo a la izquierda', 'right-bottom': 'abajo a la derecha' };
 
 export const es: Messages = {
+    reviewSessions: {
+        label: "Sesión de revisión",
+        start: "Empezar una sesión de revisión",
+        startWithComment: "Iniciar revisión con este comentario",
+        add: "Añadir a la sesión",
+        notSent: "Sin enviar",
+        send: "Enviar revisión",
+        resume: "Reanudar sesión",
+        discard: "Descartar comentarios sin enviar",
+        discardEmpty: "Cerrar la revisión",
+        empty: "Aún no hay comentarios sin enviar. Los que añadas aparecerán aquí.",
+        ended: "Revisión cerrada.",
+        finishDiscard: "Terminar de descartar",
+        postNormally: "Publicar sin sesión",
+        heldHelp: "Los comentarios se guardan aquí hasta que envíes la revisión.",
+        loading: "Cargando comentarios…",
+        title: "Título (opcional)",
+        summary: "Resumen (opcional)",
+        started: "Sesión de revisión iniciada.",
+        resumed: "Sesión de revisión reanudada.",
+        added: "Añadido a la revisión.",
+        sent: "Revisión enviada.",
+        discarded: "Comentarios sin enviar descartados.",
+        closed: "La revisión ha cambiado. Tu borrador se ha guardado.",
+        full: "La revisión tiene 100 comentarios. Envíala para iniciar otra.",
+        number: (number: number) => `Revisión ${number}`,
+        pending: (count: number) => `${count} ${p(count, "comentario sin enviar", "comentarios sin enviar")}`,
+        discardHelp: (count: number) => count === 0 ? "¿Cerrar esta revisión? No se elimina ningún comentario." : `¿Descartar ${count} ${p(count, "comentario y sus respuestas?", "comentarios y sus respuestas?")}`
+    },
     staging: {
         report: "Señalar una discrepancia",
         label: "Comparación de diseño",

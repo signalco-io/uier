@@ -12,7 +12,8 @@ const project = z.object({ id: z.string(), name: z.string() });
 const status = z.object({ id: z.string(), label: z.string(), category: z.enum(statusCategories), description: z.string() });
 const summary = z.object({
     id: z.string(), path: z.string(), statusId: z.string(), createdAt: z.string().nullable(),
-    excerpt: z.string().nullable(), archivedAt: z.string().nullable(), archiveStatusId: z.string().optional()
+    excerpt: z.string().nullable(), archivedAt: z.string().nullable(), archiveStatusId: z.string().optional(),
+    reviewSession: z.object({ id: z.string(), number: z.number().int().positive(), revision: z.number().int().positive() }).optional()
 });
 const message = z.object({
     id: z.string(), createdAt: z.string().nullable(), author: z.string().nullable(),

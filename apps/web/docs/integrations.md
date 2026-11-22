@@ -50,6 +50,26 @@ redirects and failures. `azure-devops.api.spec.ts` covers the connected-project 
 
 ## Synchronization
 
+### Review sessions
+
+The scheduled worker prepares integration signals for committed review releases before discovery.
+The send route can start the same work after responding. Held review comments are excluded from
+discovery, backfill, worker reads and linked copies. Normal thread activity continues after Send.
+
+Review group ledgers use `<provider>-session-sync` in the same project partition as that provider's
+thread ledgers. The connection and destination identity pin the selected delivery mode on the
+first eligible send. A resume adds to that route. Each parent gets the usual lease, provider
+authority checks, and uncertain-write recovery. Child ledgers retain their own copy IDs. Parent
+updates recheck current child visibility and omit free text when the destination cannot see the
+full review. Project deletion and transfer use the existing connection cleanup paths.
+
+Slack puts child cards and enabled reply, status and file delivery under the same root timestamp.
+The app tracks card timestamps separately for updates or deletion. Incoming Slack messages stay in
+the grouped thread. GitHub links verified issues through the sub-issue endpoint, reading back a
+relationship after an uncertain write. Linear sends the parent issue ID. Azure DevOps writes the
+reverse hierarchy link on each child. Notion can populate a mapped rich text or select column.
+The [review sessions design](../../../docs/design/review-sessions.md) describes provider acceptance.
+
 `TwoWaySync` and its admin-only action save the independent, default-off `twoWaySync` connection
 setting for GitHub, Linear, Azure DevOps and Notion. Notion requires a mapped Status/Select property.
 `statusSync.ts` rotates a bounded accepted-ledger scan in the scheduled worker. Status-only delivery

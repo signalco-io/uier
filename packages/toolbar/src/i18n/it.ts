@@ -11,6 +11,35 @@ const p = (count: number, one: string, other: string) => plural('it', count, one
 const panelPlaces: Record<PanelDock, string> = { left: 'a sinistra', right: 'a destra', 'left-top': 'in alto a sinistra', 'right-top': 'in alto a destra', 'left-bottom': 'in basso a sinistra', 'right-bottom': 'in basso a destra' };
 
 export const it: Messages = {
+    reviewSessions: {
+        label: "Sessione di revisione",
+        start: "Avvia sessione di revisione",
+        startWithComment: "Avvia la revisione con questo commento",
+        add: "Aggiungi alla sessione",
+        notSent: "Non inviato",
+        send: "Invia revisione",
+        resume: "Riprendi sessione",
+        discard: "Elimina commenti non inviati",
+        discardEmpty: "Chiudi la revisione",
+        empty: "Ancora nessun commento non inviato. I commenti che aggiungi compaiono qui.",
+        ended: "Revisione chiusa.",
+        finishDiscard: "Completa l’eliminazione",
+        postNormally: "Pubblica senza sessione",
+        heldHelp: "I commenti rimangono qui finché non invii la revisione.",
+        loading: "Caricamento dei commenti…",
+        title: "Titolo (facoltativo)",
+        summary: "Riepilogo (facoltativo)",
+        started: "Sessione di revisione avviata.",
+        resumed: "Sessione di revisione ripresa.",
+        added: "Aggiunto alla revisione.",
+        sent: "Revisione inviata.",
+        discarded: "Commenti non inviati eliminati.",
+        closed: "Questa revisione è cambiata. La bozza è stata salvata.",
+        full: "Questa revisione contiene 100 commenti. Inviala per avviarne un’altra.",
+        number: (number: number) => `Revisione ${number}`,
+        pending: (count: number) => `${count} ${p(count, "commento non inviato", "commenti non inviati")}`,
+        discardHelp: (count: number) => count === 0 ? "Chiudere questa revisione? Nessun commento viene eliminato." : `Eliminare ${count} ${p(count, "commento e le sue risposte?", "commenti e le loro risposte?")}`
+    },
     staging: {
         report: "Segnala una differenza",
         label: "Confronto del design",

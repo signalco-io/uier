@@ -9,7 +9,7 @@ import { Stack } from '@signalco/ui-primitives/Stack';
 import { Row } from '@signalco/ui-primitives/Row';
 import { Divider } from '@signalco/ui-primitives/Divider';
 import { cx } from '@signalco/ui-primitives/cx';
-import { ArrowLeft, Check, Close, ExternalLink, Globe, Layers, LayoutList, LogOut, MoreHorizontal, Reset } from '@signalco/ui-icons';
+import { ArrowLeft, Check, Close, ExternalLink, Globe, Layers, LayoutList, ListTodo, LogOut, MoreHorizontal, Reset } from '@signalco/ui-icons';
 import { BRAND_URL, Mark } from '@uier/brand';
 import { useDrafts } from '../hooks/useDrafts';
 import { useVisitor } from '../hooks/useVisitor';
@@ -29,6 +29,7 @@ import { useMessages, type Messages } from '../i18n';
 import { useLanguageChoice } from '../hooks/useLanguageChoice';
 import { toolbarLanguageNames, toolbarLanguages } from '../languages';
 import { useProjectViewer } from '../project/ProjectGate';
+import { useReviewSessionCommand } from '../project/reviewSessions';
 import { environmentLink, switchableEnvironments } from '../review';
 
 type ToolbarOptionsProps = {
@@ -168,7 +169,9 @@ export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition, shor
     const [showingLanguage, setShowingLanguage] = useState(false);
     // The project's environments in place of the options (Environment), when there is another to open
     const [showingEnvironment, setShowingEnvironment] = useState(false);
-    const environments = switchableEnvironments(useProjectViewer().environments);
+    const { environments: projectEnvironments, reviewSession, reviewSessionsAvailable } = useProjectViewer();
+    const sessionCommand = useReviewSessionCommand();
+    const environments = switchableEnvironments(projectEnvironments);
     const currentEnvironment = environments.find(item => item.origin === window.location.origin);
     const confirmRef = useRef<HTMLButtonElement>(null);
     const shortcutsHeadingRef = useRef<HTMLHeadingElement>(null);
@@ -373,6 +376,17 @@ export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition, shor
                 </Stack>
             ) : (
                 <Stack>
+                    {reviewSessionsAvailable && !reviewSession && <>
+                        <OptionButton icon={<ListTodo size={16} />} disabled={sessionCommand.isPending} onClick={async () => {
+                            try {
+                                await sessionCommand.mutateAsync({ action: 'start' });
+                                handleOpenChange(false);
+                                announce(t.reviewSessions.started);
+                            } catch { /* Keep Options open with the failure. */ }
+                        }}>{t.reviewSessions.start}</OptionButton>
+                        <CommentsErrorMessage error={sessionCommand.error} className="px-2" />
+                        <Divider role="separator" className="my-1" />
+                    </>}
                     {/* Switches first, in their own group */}
                     {showShortcutSwitch && <>
                         {shortcutSwitch}

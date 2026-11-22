@@ -6,6 +6,7 @@ import type { AppI18n } from '../../i18n/types';
 import type { ReplyPayload } from '../replies';
 import { slackLabel } from './config';
 import { englishSlackI18n } from './i18n';
+import type { ReviewGroupProjection } from '../model';
 
 const literal = (value: string) => value.replace(/[\p{Cc}\p{Cf}]/gu, ' ').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const limit = (value: string, max: number) => Array.from(value).slice(0, max).join('');
@@ -67,9 +68,26 @@ export function slackRootMessage(context: FeedbackContext, projectName: string, 
     return { payload, hash: sha256Hex(JSON.stringify(payload)) };
 }
 
-export function slackChangeSummary(status: FeedbackContext['status'] | undefined, replies: number, i18n: AppI18n = englishSlackI18n) {
+export function slackReviewMessage(group: ReviewGroupProjection, project: string, { t, language }: AppI18n) {
+    const format = new Intl.NumberFormat(language);
+    const heading = t('Review {number} by {author} in {project}', { number: format.format(group.number), author: group.author, project });
+    const progress = t('{done} of {count} done', { done: format.format(group.done), count: format.format(group.threads) });
+    const kinds = group.kinds.slice(0, 5).map(({ kind, customLabel, count }) =>
+        `${slackLabel(customLabel) || t(kind === 'bug' ? 'Bug' : kind === 'rewrite' ? 'Suggested rewrite' : 'Feedback')} × ${format.format(count)}`);
+    const pages = group.pages === 1 ? t('1 page') : t('{count} pages', { count: format.format(group.pages) });
+    const details = [...kinds, pages, ...group.environments.slice(0, 3).map(slackLabel), progress].filter(Boolean).join(' · ');
+    const text = [heading, group.title, group.summary, details].filter(Boolean).map(value => literal(value!)).join('\n');
+    const blocks = [
+        { type: 'section', text: { type: 'plain_text', text, emoji: false } },
+        { type: 'actions', elements: [{ type: 'button', text: { type: 'plain_text', text: t('Open in uier'), emoji: false }, url: group.url }] }
+    ];
+    const payload = { text, blocks, mrkdwn: false, parse: 'none', unfurl_links: false, unfurl_media: false };
+    return { payload, hash: sha256Hex(JSON.stringify(payload)) };
+}
+
+export function slackChangeSummary(status: FeedbackContext['status'] | undefined, replies: number, i18n: AppI18n = englishSlackI18n, number?: number) {
     const { t, language } = i18n;
-    const text = [status ? t('Status: {status}.', { status: t(status === 'done' ? 'Done' : 'Open') }) : '',
+    const text = [number ? `#${number}` : '', status ? t('Status: {status}.', { status: t(status === 'done' ? 'Done' : 'Open') }) : '',
         replies ? replies === 1 ? t('1 new reply in uier.') : t('{count} new replies in uier.', { count: new Intl.NumberFormat(language).format(replies) }) : ''].filter(Boolean).join(' ');
     const payload = { text, blocks: [{ type: 'section', text: { type: 'plain_text', text, emoji: false } }],
         mrkdwn: false, parse: 'none', unfurl_links: false, unfurl_media: false, reply_broadcast: false };
@@ -81,7 +99,7 @@ export function slackChangeSummary(status: FeedbackContext['status'] | undefined
  * so it reads apart from the app's other messages (the card's files) that Slack shows under the same name.
  * Only the attribution and link label are translated; author names, text and reconciliation markers stay literal.
  */
-export function slackReplyMessage(payload: ReplyPayload, { t }: AppI18n = englishSlackI18n) {
+export function slackReplyMessage(payload: ReplyPayload, { t }: AppI18n = englishSlackI18n, number?: number) {
     const escape = (value: string) => value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
     // Slack's bold holds no asterisk and does not cross a line, so the name is one line and bold only without one.
     const name = escape(payload.author.replace(/\s+/g, ' ').trim());
@@ -105,5 +123,6 @@ export function slackReplyMessage(payload: ReplyPayload, { t }: AppI18n = englis
         // Every other line is quoted, blank ones too, so a reply of several paragraphs stays one quote.
         body.push(lines[index]!.trim() ? `> ${lines[index]}` : '>');
     }
-    return [`💬 ${t('{author} via uier:', { author })}`, ...body, `<${payload.url}|${t('View in uier')}>`].join('\n');
+    const attribution = number ? t('{author} via uier on #{number}', { author, number }) : t('{author} via uier:', { author });
+    return [`💬 ${attribution}`, ...body, `<${payload.url}|${t('View in uier')}>`].join('\n');
 }

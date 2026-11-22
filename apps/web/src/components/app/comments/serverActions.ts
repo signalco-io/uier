@@ -1,6 +1,8 @@
 'use server';
 import { saveProjectBoardGrouping } from '../../../lib/app/projectBoard';
 import { changeProjectCommentLabels } from '../../../lib/review/threadLabels';
+import { sendReviewSession } from '../../../lib/review/reviewSessions';
+import { sendProjectReviewSchema } from './actionSchemas';
 import { labelsCommentActionSchema } from './actionSchemas';
 
 import { setProjectCommentWorkflowStatus } from '../../../lib/review/comments';
@@ -320,5 +322,18 @@ export async function setBoardGroupingAction(projectId: string, grouped: boolean
         const input = parseActionInput(boardGroupingActionSchema, { projectId, grouped });
         const { project, actor } = await commentContext(input.projectId);
         await saveProjectBoardGrouping(project, actor, labelIds === undefined ? input.grouped : labelIds);
+    });
+}
+
+export async function sendProjectReviewAction(input: z.input<typeof sendProjectReviewSchema>) {
+    return actionResult(async () => {
+        const { projectId, reviewSessionId, ...request } = parseActionInput(sendProjectReviewSchema, input);
+        const { project, actor } = await commentContext(projectId);
+        try {
+            await sendReviewSession(project, actor, reviewSessionId, request);
+        } catch (error) {
+            if (error instanceof ApiError && error.status < 500) throw new UserFacingError(error.message);
+            throw error;
+        }
     });
 }

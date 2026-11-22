@@ -13,6 +13,7 @@ import type { ProjectActor } from '../review/actor';
 import { projectFeedbackExport } from '../review/feedbackContext';
 import { getIntegrationConnection } from './connection';
 import type { IntegrationReply, IntegrationAdapter, IntegrationAttempt, IntegrationConnection, IntegrationDeliveryContext, IntegrationOperation, IntegrationResult, IntegrationState, IntegrationSync } from './model';
+import { projectReviewGroup, registerReviewGroup, reviewGroupFeedback, wakeReviewGroup } from './reviewGroups';
 
 export const INTEGRATION_MAX_FAILURES = 8;
 export const integrationFailureCode = (value: unknown) => typeof value === 'string' && /^[A-Za-z0-9_.-]{1,80}$/.test(value) ? value : 'provider_error';
@@ -48,8 +49,9 @@ async function authority(ledger: IntegrationSync, store: AppStore, comments: Com
     const user = (await store.get<DbUser>(userPk(connection.connectedBy), connection.connectedBy))?.doc;
     if (member?.type !== 'member' || member.role !== 'admin' || member.userId !== connection.connectedBy
         || member.workspaceId !== ledger.workspaceId || !user || user.type !== 'user' || user.id !== connection.connectedBy) return null;
-    const source = (await comments.get(`project:${ledger.projectId}`, ledger.threadId))?.comment ?? null;
+    const source = ledger.reviewGroup ? null : (await comments.get(`project:${ledger.projectId}`, ledger.threadId))?.comment ?? null;
     if (source && (source.projectId !== ledger.projectId || source.domain !== `project:${ledger.projectId}`)) return null;
+    if (project.transfer && (ledger.reviewGroup || source?.reviewSession || ledger.reviewGroupId)) return null;
     const actor: ProjectActor = { kind: 'member', isAdmin: true, userId: user.id, name: user.name };
     return { project, connection, source, actor };
 }
@@ -81,7 +83,7 @@ export async function processIntegrationDelivery(candidate: IntegrationSync, bas
     const deadline = Math.floor(options.deadline ?? now + Math.min(adapter.maxRunMs ?? 60_000, 4 * 60_000));
     const stored = await store.get<IntegrationSync>(candidate.pk, candidate.id);
     const statusOnly = options.statusOnly === true;
-    if (!stored || (statusOnly ? (!adapter.supportsStatusSync && !adapter.supportsReplySync) || stored.doc.status !== 'accepted' || stored.doc.active
+    if (!stored || (statusOnly ? stored.doc.reviewGroup || (!adapter.supportsStatusSync && !adapter.supportsReplySync) || stored.doc.status !== 'accepted' || stored.doc.active
         || stored.doc.attempt || stored.doc.deletion || stored.doc.tombstoned : !stored.doc.active || Date.parse(stored.doc.nextAttemptAt) > now)
         || stored.doc.provider !== adapter.provider
         || (stored.doc.lease && Date.parse(stored.doc.lease.until) > now) || deadline <= now) return;
@@ -114,7 +116,9 @@ export async function processIntegrationDelivery(candidate: IntegrationSync, bas
             return;
         }
         const { connection, project, source, actor } = snapshot;
-        const mode = ledger.deletion || !source || !await canSyncThread(project, source, store) ? 'cleanup' : 'sync';
+        const group = ledger.reviewGroup && await projectReviewGroup(ledger, connection, project, adapter, store, comments, baseUrl);
+        const mode = ledger.reviewGroup ? group ? 'sync' : 'cleanup'
+            : ledger.deletion || !source || !await canSyncThread(project, source, store, comments) ? 'cleanup' : 'sync';
         if (statusOnly && ((!connection.twoWaySync && !connection.replySync?.enabled) || mode !== 'sync' || !source
             || (source.syncVersion ?? 0) > ledger.processedVersion || ledger.requestedVersion > ledger.processedVersion
             || ledger.requestRevision > ledger.processedRequestRevision)) {
@@ -137,8 +141,40 @@ export async function processIntegrationDelivery(candidate: IntegrationSync, bas
             await finish({ status: 'waiting', lastCode: 'source_version_behind', nextAttemptAt: new Date(now + 60_000).toISOString() });
             return;
         }
+        const historical = ledger.reconcileDestinationRevision === connection.destinationRevision
+            && ledger.requestRevision > ledger.processedRequestRevision && Boolean(ledger.reconcileRequestId);
+        let reviewParent: IntegrationDeliveryContext['reviewParent'];
+        let reviewReleasedAt: string | undefined;
+        if (!statusOnly && source?.reviewSession && adapter.supportsSessionGroups && mode === 'sync') {
+            const selected = await registerReviewGroup(project, connection, source, store, comments, { historical, now });
+            if (selected?.waiting) {
+                await finish({ status: 'waiting', lastCode: 'review_session_mapping_required', nextAttemptAt: new Date(now + 60_000).toISOString() });
+                return;
+            }
+            if (!selected?.route) {
+                if (ledger.reviewGroupId) await wakeReviewGroup(ledger, store, now);
+                await finish({ status: 'suppressed', active: false, lastCode: 'historical_baseline' });
+                return;
+            }
+            const { route, release } = selected;
+            reviewReleasedAt = release.submittedAt;
+            if (route.reviewGroup?.grouped) {
+                if (adapter.reviewParentReady && !adapter.reviewParentReady(connection, route)) {
+                    await finish({ status: 'waiting', lastCode: 'session_root_pending', nextAttemptAt: new Date(now + 60_000).toISOString() });
+                    return;
+                }
+                reviewParent = { id: route.id, number: release.number, state: route.state };
+            }
+        }
+        if (statusOnly && adapter.provider === 'slack' && ledger.reviewGroupId) {
+            await finish({});
+            return;
+        }
+        if (!statusOnly && !ledger.reviewGroup && ledger.reviewGroupId && mode === 'cleanup')
+            await wakeReviewGroup(ledger, store, now);
         through = ledger.deletion?.version ?? source?.syncVersion ?? ledger.requestedVersion;
-        const feedback = mode === 'cleanup' || statusOnly ? null : source?.assetTarget
+        const feedback = mode === 'cleanup' || statusOnly ? null : group
+            ? reviewGroupFeedback(ledger, group.projection, group.submittedAt) : source?.assetTarget
             ? proofThreadHandoff(project, source, baseUrl)
             : await (options.exportFeedback ?? projectFeedbackExport)(project, actor, ledger.threadId, undefined, baseUrl);
         if (feedback && (feedback.context.assignee?.agent || feedback.context.assignees)) {
@@ -180,14 +216,17 @@ export async function processIntegrationDelivery(candidate: IntegrationSync, bas
                 throw new IntegrationControlError('temporarily_unavailable');
             if (connectionHash(latest.connection) !== connectionHash(connection)) throw new IntegrationControlError('projection_changed');
             if (latest.connection.pausedUntil && Date.parse(latest.connection.pausedUntil) > clock()) throw new IntegrationControlError('budget_exhausted');
-            const latestMode = ledger.deletion || !latest.source || !await canSyncThread(latest.project, latest.source, store) ? 'cleanup' : 'sync';
+            const liveGroup = ledger.reviewGroup && await projectReviewGroup(ledger, latest.connection, latest.project, adapter, store, comments, baseUrl);
+            const latestMode = ledger.reviewGroup ? liveGroup ? 'sync' : 'cleanup'
+                : ledger.deletion || !latest.source || !await canSyncThread(latest.project, latest.source, store, comments) ? 'cleanup' : 'sync';
             // Old uncertain creates may be reconciled, but clearing their receipt does not grant
             // permission to export an old forced selection into a different destination.
             if (write && latestMode === 'sync' && !ledger.attempt && ledger.reconcileDestinationRevision !== undefined
                 && ledger.reconcileDestinationRevision !== latest.connection.destinationRevision
                 && (ledger.sourceRequestedVersion ?? -1) <= ledger.processedVersion)
                 throw new IntegrationControlError('backfill_destination_changed');
-            if (latestMode !== mode || ((write || statusOnly) && mode === 'sync' && ((latest.source?.syncVersion ?? 0) !== sourceVersion
+            if ((group ? group.hash : undefined) !== (liveGroup ? liveGroup.hash : undefined)
+                || latestMode !== mode || ((write || statusOnly) && mode === 'sync' && ((latest.source?.syncVersion ?? 0) !== sourceVersion
                 || projectHash(latest.project) !== initialProjectHash))) throw new IntegrationControlError('projection_changed');
             // The asynchronous authority reads can themselves outlast the remaining lease/budget.
             if (clock() >= deadline || !ownsLease(ledger)) throw new IntegrationControlError('budget_exhausted');
@@ -197,6 +236,7 @@ export async function processIntegrationDelivery(candidate: IntegrationSync, bas
         const incomingReplies: IntegrationReply[] = [];
         const context: IntegrationDeliveryContext = {
             connection, project, feedback, mode, through, deadline, baseUrl,
+            reviewGroup: group ? group.projection : undefined, reviewParent, reviewReleasedAt,
             statusOnly,
             ...(statusOnly && options.pushedReplies ? { pushedReplies: options.pushedReplies.slice(0, 100) } : {}),
             importedReplies: (source?.thread.items ?? []).filter(item => item.integrationSource?.provider === connection.provider
@@ -247,6 +287,9 @@ export async function processIntegrationDelivery(candidate: IntegrationSync, bas
             },
             async checkpoint(state: IntegrationState, checkpointOptions = {}) {
                 await update(current => ({ ...current, state: structuredClone(state),
+                    ...(reviewParent ? { reviewGroupId: reviewParent.id,
+                        reviewGroupFallback: checkpointOptions.reviewGroupFallback
+                            ?? (current.reviewGroupId === reviewParent.id && current.reviewGroupFallback === true) } : {}),
                     ...(checkpointOptions.clearAttempt ? { attempt: undefined } : {}) }));
             }
         };
@@ -256,7 +299,7 @@ export async function processIntegrationDelivery(candidate: IntegrationSync, bas
             if (result.status === 'accepted') {
                 await boundary(true, false);
                 const current = await comments.get(`project:${project.id}`, ledger.threadId);
-                if (!current || (current.comment.syncVersion ?? 0) !== sourceVersion || !await canSyncThread(project, current.comment, store)) throw new IntegrationControlError('projection_changed');
+                if (!current || (current.comment.syncVersion ?? 0) !== sourceVersion || !await canSyncThread(project, current.comment, store, comments)) throw new IntegrationControlError('projection_changed');
                 const at = new Date(clock()).toISOString();
                 const imported = withImportedReplies(current.comment, connection, { resolved: incomingStatus, replies: incomingReplies, at });
                 const changed = imported.comment; full = imported.full;
@@ -269,6 +312,8 @@ export async function processIntegrationDelivery(candidate: IntegrationSync, bas
             await finish({ lastCode: full ? 'integration_thread_full' : result.code });
             return;
         }
+        if (reviewParent && (result.status === 'accepted' || ledger.reviewGroupFallback))
+            await wakeReviewGroup(ledger, store, clock(), reviewParent.id);
         await applyResult(result, connection);
     } catch (error) {
         if (error instanceof IntegrationControlError && error.code === 'lease_lost') return;

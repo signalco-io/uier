@@ -18,6 +18,7 @@ import * as api from '../src/lib/rest/api';
 import { apiRequestLimit, responses } from '../src/lib/rest/contract';
 import { memberActor } from '../src/lib/review/actor';
 import { createProjectComment, getProjectComment, replyToProjectComment, setProjectCommentPrivate } from '../src/lib/review/comments';
+import { sendReviewSession, startReviewSession } from '../src/lib/review/reviewSessions';
 
 const origin = 'https://reviewed.example';
 const env = { UIER_LOCAL: process.env.UIER_LOCAL, UIER_COMMENTS_SECRET: process.env.UIER_COMMENTS_SECRET };
@@ -51,6 +52,32 @@ function request(token = '', options: { query?: string; method?: string; body?: 
         method: options.method ?? 'GET', headers, body: JSON.stringify(options.body)
     });
 }
+
+test('a review publishes one REST page at Send and protects held direct reads and writes', async () => {
+    const f = await fixture();
+    const ordinary = await f.create('Already published');
+    const review = await startReviewSession(f.project, f.actor);
+    const createHeld = (text: string) => createProjectComment(new Request(origin), f.project, f.actor,
+        { origin, path: '/pricing', kind: 'feedback', position: { type: 'page' }, text,
+            idempotencyKey: randomUUID(), reviewSessionId: review!.id, reviewDraftId: review!.draftId });
+    const [first, second] = [await createHeld('Held first'), await createHeld('Held second')];
+    const list = async (query: string) => responses.listFeedback.parse(await (await api.listFeedback(request(f.token, { query }), params(f.project.id))).json());
+    const target = params(f.project.id, first.id);
+    expect(await list('?limit=1')).toMatchObject({ items: [{ id: ordinary.id }], next: null });
+    expect((await api.getFeedback(request(f.token), target)).status).toBe(404);
+    expect((await api.reply(request(f.token, { method: 'POST', key: randomUUID(), body: { text: 'External reply' } }), target)).status).toBe(404);
+    const query = `?reviewSessionId=${review!.id}&limit=1`;
+    expect(await list(query)).toEqual({ items: [], next: null });
+
+    await sendReviewSession(f.project, f.actor, review!.id,
+        { draftId: review!.draftId!, revision: review!.revision, idempotencyKey: randomUUID() });
+    const page = await list(query);
+    expect(page.items[0]).toMatchObject({ reviewSession: { id: review!.id, revision: 1, number: 1 } });
+    const following = await list(`${query}&before=${encodeURIComponent(page.next!)}`);
+    expect(following.next).toBeNull();
+    expect([...page.items, ...following.items].map(item => item.id).sort()).toEqual([first.id, second.id].sort());
+    expect((await api.getFeedback(request(f.token), target)).status).toBe(200);
+});
 
 test('the REST grant only opens this API and its selected projects', async () => {
     const f = await fixture();
