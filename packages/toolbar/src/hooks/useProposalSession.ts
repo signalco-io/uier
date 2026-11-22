@@ -1,4 +1,4 @@
-import { useLayoutEffect, useState } from 'react';
+import { useCallback, useLayoutEffect, useState } from 'react';
 import type { ChangeProposal } from '../changeProposal';
 import type { CommentItemPosition } from '../components/@types/Comments';
 import { showProposalSession } from '../proposalSession';
@@ -22,5 +22,7 @@ export function useProposalSession(position: CommentItemPosition, proposal: Chan
             stop();
         };
     }, [position, proposal, enabled, requested]);
-    return { result, showOriginal: () => setRequested(false), showProposed: () => setRequested(true) };
+    const showOriginal = useCallback(() => setRequested(false), []);
+    const showProposed = useCallback(() => setRequested(true), []);
+    return { result, showOriginal, showProposed };
 }

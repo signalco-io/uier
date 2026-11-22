@@ -52,7 +52,9 @@ test('an invited reviewer opens a change suggestion from the toolbar Copy link',
         else await page.mouse.click(box.x + 20, box.y + box.height / 2);
         await page.getByRole('button', { name: 'Suggest a change', exact: true }).click();
         await page.getByRole('textbox', { name: /^Replacement text/ }).fill(proposed);
-        await page.getByRole('textbox', { name: 'Side padding', exact: true }).fill('18px');
+        // A heading is text: its padding is under More properties
+        await page.getByRole('button', { name: 'More properties', exact: true }).click();
+        await page.getByRole('textbox', { name: 'Horizontal padding', exact: true }).fill('18px');
         const savedResponse = page.waitForResponse(response => response.request().method() === 'POST'
             && response.url() === `${baseURL}/api/review/${publicId}/comments`);
         await page.getByRole('button', { name: 'Post suggestion', exact: true }).click();
@@ -121,8 +123,9 @@ test('an invited reviewer opens a change suggestion from the toolbar Copy link',
         const reviewerThread = reviewer.page.getByRole('dialog', { name: 'Comment thread', exact: true });
         if (touch) await expect(reviewerThread).toHaveAttribute('data-uier-proposal-sheet', '');
         const saved = reviewerThread.getByRole('region', { name: 'Suggested change', exact: true });
-        const originalButton = saved.getByRole('button', { name: 'Original', exact: true });
-        const proposedButton = saved.getByRole('button', { name: 'Proposed', exact: true });
+        // On a phone the switch is in the sheet's title bar, outside the suggestion
+        const originalButton = reviewerThread.getByRole('button', { name: 'Original', exact: true });
+        const proposedButton = reviewerThread.getByRole('button', { name: 'Proposed', exact: true });
         await expect(reviewer.page).toHaveURL(`${targetUrl}?toolbar-code=${publicId}`);
         const reviewedHeading = reviewer.page.getByRole('heading', { level: 1 });
         const expectHeading = async (text: string, padding: string) => {

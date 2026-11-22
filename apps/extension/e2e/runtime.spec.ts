@@ -612,7 +612,9 @@ test('packaged isolated runtime uses real sign-in, helper and worker under stric
         await reviewed.mouse.click(targetBox.x + 10, targetBox.y + 10);
         await reviewed.getByRole('button', { name: 'Suggest a change', exact: true }).click();
         await reviewed.getByRole('textbox', { name: /^Replacement text/ }).fill(proposed);
-        await reviewed.getByRole('textbox', { name: 'Side padding', exact: true }).fill('24px');
+        // A heading is text: its padding is under More properties
+        await reviewed.getByRole('button', { name: 'More properties', exact: true }).click();
+        await reviewed.getByRole('textbox', { name: 'Horizontal padding', exact: true }).fill('24px');
         const proxiedBeforePost = proxy?.requests.length ?? 0;
         await reviewed.getByRole('button', { name: 'Post suggestion', exact: true }).click();
         await expect(reviewed.getByRole('status').filter({ hasText: 'Suggestion posted' })).toBeVisible();

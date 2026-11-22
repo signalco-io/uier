@@ -1,10 +1,22 @@
 import { changeProposalStyleMaxLength, changeProposalTextMaxLength, changeStyleProperties, isChangeProposal, type ChangeProposal, type ChangeStyleProperty } from './changeProposal';
+import { normalizeStyleValue, sameStyleValue } from './styleValues';
 
 export type ProposalTarget = { text?: string; styles: Partial<Record<ChangeStyleProperty, string>> };
 export type ProposalDraft = { original: ProposalTarget; values: ProposalTarget };
 
-export function hasProposalEdits({ original, values }: ProposalDraft): boolean {
-    return original.text !== values.text || changeStyleProperties.some(property => original.styles[property] !== values.styles[property]);
+/** The fields whose value differs from the captured original: the text, and properties that look different */
+export function proposalEdits({ original, values }: ProposalDraft): (ChangeStyleProperty | 'text')[] {
+    const edits: (ChangeStyleProperty | 'text')[] = original.text !== values.text ? ['text'] : [];
+    for (const property of changeStyleProperties) {
+        const before = original.styles[property];
+        const after = values.styles[property];
+        if (before !== undefined && after !== undefined && !sameStyleValue(property, before, after)) edits.push(property);
+    }
+    return edits;
+}
+
+export function hasProposalEdits(draft: ProposalDraft): boolean {
+    return proposalEdits(draft).length > 0;
 }
 
 function isProposalTarget(value: unknown): value is ProposalTarget {
@@ -33,8 +45,9 @@ export function buildElementProposal({ original, values }: ProposalDraft) {
     const invalid: (ChangeStyleProperty | 'text')[] = [];
     for (const property of changeStyleProperties) {
         const before = original.styles[property];
-        const after = values.styles[property]?.trim();
-        if (before === undefined || after === undefined || before === after) continue;
+        const written = values.styles[property];
+        if (before === undefined || written === undefined || sameStyleValue(property, before, written)) continue;
+        const after = normalizeStyleValue(property, written);
         const change = { original: before, proposed: after };
         if (isChangeProposal({ styles: { [property]: change } }) && CSS.supports(property, after)) styles[property] = change;
         else invalid.push(property);

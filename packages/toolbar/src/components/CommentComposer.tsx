@@ -114,6 +114,11 @@ type CommentComposerProps = {
     onDiscard?: () => void;
     /** Discard shows without text too (a drawing's comment: the drawing is something to discard) */
     discardable?: boolean;
+    /**
+     * The text box stays at the bottom of a scrolling form while the fields above it scroll (a suggestion's editor),
+     * with its Discard and Send in reach
+     */
+    stickyBox?: boolean;
 };
 
 /**
@@ -121,7 +126,7 @@ type CommentComposerProps = {
  * box styled like the kit's `Input` (bordered, radius 8, blue focus ring), with its hint or counter and buttons.
  * Enter sends, Shift+Enter adds a new line; Markdown typed and Ctrl/⌘+B, I, E format the text.
  */
-export function CommentComposer({ ref, label, placeholder, submitLabel, submitIcon, allowEmpty = false, draftKey, quote, autoFocus, pending, holdSubmit = false, submitBlocked, waiting = false, image, recording, attachments, beforeText, tall = false, error, onSubmit, alternativeSubmit, onImageDrop, onDiscard, discardable = false, initialText, initialMentions, commentId, onCancel }: CommentComposerProps) {
+export function CommentComposer({ ref, label, placeholder, submitLabel, submitIcon, allowEmpty = false, draftKey, quote, autoFocus, pending, holdSubmit = false, submitBlocked, waiting = false, image, recording, attachments, beforeText, tall = false, error, onSubmit, alternativeSubmit, onImageDrop, onDiscard, discardable = false, stickyBox = false, initialText, initialMentions, commentId, onCancel }: CommentComposerProps) {
     holdSubmit = holdSubmit || Boolean(recording?.busy);
     const formRef = useRef<HTMLFormElement>(null);
     const editorRef = useRef<MarkdownEditorHandle>(null);
@@ -326,6 +331,7 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, submitIc
                 )}
                 {beforeText}
                 {/* One box: the text, then its hint or counter and the buttons; the box shows the focus */}
+                <div className={cx(stickyBox && 'sticky bottom-0 z-10 -mx-3 border-t bg-card px-3 pb-1 pt-2')} data-uier-sticky-box={stickyBox ? '' : undefined}>
                 <div className={cx('rounded-lg border border-input bg-background', inputFocusRingClassName)}>
                 {recording && <ComposerRecordingPreview recording={recording} disabled={waiting || busy || sharedPending} />}
                 <MarkdownEditor
@@ -420,6 +426,7 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, submitIc
                         </IconButton></IconTooltip>}
                     </Row>
                 </Row>
+                </div>
                 </div>
                 <ComposerFooter keysId={keysId} keyboard={keyboard} submitVerb={onCancel ? 'save' : 'send'} />
                 {showSuggestions && <div id={listId} role="listbox" aria-label={t.composer.mentionPeople} className="max-h-48 overflow-y-auto rounded-xl border p-1">
