@@ -27,6 +27,7 @@ export const KnownPages = {
     Inbox: '/features/inbox',
     Board: '/features/board',
     Brand: '/brand',
+    BrandComponents: '/brand/components',
     Integrations: '/integrations',
     DeveloperApi: '/developers/api',
     FixVerification: '/features/fix-verification',

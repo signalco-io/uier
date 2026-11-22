@@ -13,7 +13,7 @@ const publicPaths = [
     '/compare/userback', '/compare/ruttl', '/guides/wordpress', '/guides/html', '/guides/react', '/guides/webflow', '/guides/shopify', '/guides/mcp', '/use-cases/client-feedback', '/use-cases/bug-reporting', '/use-cases/user-acceptance-testing',
     '/compare', '/compare/website-feedback-tools', '/compare/bugherd', '/compare/marker-io', '/compare/usersnap', '/compare/pastel',
     '/guides', '/guides/browser-extension', '/guides/client-website-reviews', '/guides/nextjs', '/guides/website-review-checklist', '/guides/website-bug-report-template',
-    '/', '/brand', '/browser-extension', '/features/ai', '/features/board', '/features/feedback-triage', '/features/fix-verification', '/features/inbox', '/features/page-checks', '/features/pinned-comments', '/features/screenshots', '/features/threads', '/integrations',
+    '/', '/brand', '/brand/components', '/browser-extension', '/features/ai', '/features/board', '/features/feedback-triage', '/features/fix-verification', '/features/inbox', '/features/page-checks', '/features/pinned-comments', '/features/screenshots', '/features/threads', '/integrations',
     ...Object.keys(integrationCatalog).map(provider => `/integrations/${provider}`),
     '/legal/acceptable-use-policy', '/legal/cookie-policy', '/legal/privacy-policy',
     '/legal/sla', '/legal/terms-of-service', '/open-source', '/security', '/status'
