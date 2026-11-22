@@ -46,12 +46,18 @@ Checked in `apps/web/e2e/toolbar-thread.spec.ts`.
 
 ## Reviewing a saved suggestion
 
-The pin opens with **Original** selected. **Proposed** temporarily shows the suggestion on its target, including
-legacy rewrites whose existing quote and message supply the text. **Exact values** shows both sides and offers
-clipboard controls for text and CSS. A narrow touch screen uses a bottom sheet. Its menus mount inside the
-native dialog, outside the scroll area, so touch and keyboard focus reach them. Escape dismisses the open
-menu before the sheet. `apps/web/e2e/change-proposal-handoff.spec.ts` follows the URL from the toolbar's
-Copy link as an invited reviewer and checks the sheet's copy, status and verification controls.
+The pin, on the element's top-right corner, opens with **Original** selected and the popover beside the element.
+**Proposed** temporarily shows the suggestion on its target, including legacy rewrites whose existing quote and
+message supply the text; holding \ outside a text field shows the original again until it is released. Under
+the suggestion's title and change count, every change is a row (`ProposalChanges.tsx`): the text as a word diff,
+then each style property with its original struck through and its new value (colours with a swatch, in hex;
+opposite paddings that changed alike are one row). **Exact values** (with a chevron, collapsed unless the page no
+longer matches) shows both sides as written, each with Copy icons for its text and CSS. A narrow touch screen uses
+a bottom sheet whose title bar holds the Original/Proposed switch (portalled through `ProposalSwitchSlot`), so it
+stays in reach while the thread scrolls. Its menus mount inside the native dialog, outside the scroll area, so
+touch and keyboard focus reach them. Escape dismisses the open menu before the sheet.
+`apps/web/e2e/change-proposal-handoff.spec.ts` follows the URL from the toolbar's Copy link as an invited reviewer
+and checks the sheet's copy, status and verification controls.
 
 **Changes** under the switch is a word diff of the saved original and the suggestion (`textChanges` in
 `@uier/toolbar/change-proposal`, `TextChanges.tsx`): removed words struck through on a red tint, added ones underlined
@@ -65,10 +71,11 @@ missing or was cut to 1,000 characters (a selection holds 2,000). The app resolv
 are in `rewriteProposal.ts` ([uier #482](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000001&comment=comment_2879wT8igXK7L0lPt5yoG)). `text-changes.api.spec.ts` covers the diff, the states and the original;
 `rewrite.spec.ts` both cases in the thread.
 
-If the saved target or its captured values no longer match the page, the difference remains available to copy
-and the toolbar leaves the page unchanged. The first message's existing **Reattach comment** flow is available
-to reviewers who can edit the anchor on the original page. Thread access and inbox visibility follow the same
-rules as other comments.
+If the saved target or its captured values no longer match the page, the toolbar leaves the page unchanged and a
+warning callout says so and what drifted (`proposalDrift`): each property that is different now with its current
+and saved value, a changed text, or an element that is gone. The difference remains available to copy, and the first
+message's existing **Reattach comment** flow is a button in the callout for reviewers who can edit the anchor on the
+original page. Thread access and inbox visibility follow the same rules as other comments.
 
 ## The header
 

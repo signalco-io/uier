@@ -56,20 +56,24 @@ test('suggest copy and horizontal padding together, restore the draft, and verif
     if (testInfo.project.use.hasTouch) await expectReadableAboveSheet(page);
     await expect(page.getByText('Suggest a change', { exact: true })).toHaveCount(1);
     await expect(changeField(page, 'text')).toHaveAccessibleName('Replacement text');
-    await expect(changeField(page, 'text')).toHaveAccessibleDescription('Original Book a table');
-    await expect(changeField(page, 'side-padding')).toHaveValue('8px');
-    await expect(editor).toContainText('Original 8px');
+    await expect(changeField(page, 'padding-inline')).toHaveValue('8');
+    await expect(page.locator('[data-uier-proposal-unit="padding-inline"]')).toHaveValue('px');
+    // Unchanged fields don't repeat their originals
+    await expect(editor.locator('[data-uier-proposal-field][data-changed]')).toHaveCount(0);
     await expect(page.locator('[data-uier-proposal-color="color"]')).toBeAttached();
     await changeField(page, 'text').fill(replacement);
-    await changeField(page, 'side-padding').fill('24px');
+    await expect(changeField(page, 'text')).toHaveAccessibleDescription('was Book a table');
+    await changeField(page, 'padding-inline').fill('24px');
+    await expect(editor.locator('[data-uier-proposal-field="padding-inline"]')).toContainText('was 8px');
+    await expect(page.locator('[data-uier-proposal-count]')).toHaveText('2 changes');
     await expect(target).toHaveText(replacement);
     await expect(target).toHaveCSS('padding-left', '24px');
     await expect(target).toHaveCSS('padding-right', '24px');
     await expect(target).toHaveCSS('padding-top', '4px');
     if (testInfo.project.use.hasTouch) await expectReadableAboveSheet(page);
-    await editor.locator('[data-uier-proposal-padding-details] summary').click();
+    await editor.locator('[data-uier-proposal-padding-sides]').click();
     await changeField(page, 'padding-right').fill('28px');
-    await expect(changeField(page, 'side-padding')).toHaveValue('');
+    await expect(changeField(page, 'padding-inline')).toHaveCount(0);
     await expect(target).toHaveCSS('padding-right', '28px');
 
     await side(page, 'original').click();
@@ -164,9 +168,11 @@ test('keeps incomplete CSS across reload and blocks inbox, keyboard and direct s
     if (testInfo.project.use.hasTouch) await target.tap();
     else await target.click();
     await page.locator('[data-uier-suggest-change]').click();
+    const editor = page.locator('[data-uier-proposal-editor]');
     await changeField(page, 'text').fill(replacement);
-    await changeField(page, 'color').fill('#ff');
-    await expect(changeField(page, 'color')).toHaveAttribute('aria-invalid', 'true');
+    await changeField(page, 'font-size').fill('1x5');
+    await expect(changeField(page, 'font-size')).toHaveAttribute('aria-invalid', 'true');
+    await expect(editor.locator('[data-uier-proposal-field="font-size"]')).toContainText('Enter a number, like 16.');
     if (testInfo.project.use.hasTouch) await page.locator('[data-uier-proposal-sheet-close]').click();
     else await page.keyboard.press('Escape');
     await expect(page.locator('[data-uier-proposal-editor]')).toBeHidden();
@@ -182,8 +188,8 @@ test('keeps incomplete CSS across reload and blocks inbox, keyboard and direct s
     await expect(draft).toContainText('Enter a supported CSS value');
     await draft.getByRole('button', { name: 'Post suggestion', exact: true }).click();
     await expect(changeField(page, 'text')).toHaveValue(replacement);
-    await expect(changeField(page, 'color')).toHaveValue('#ff');
-    await expect(changeField(page, 'color')).toHaveAttribute('aria-invalid', 'true');
+    await expect(changeField(page, 'font-size')).toHaveValue('1x5');
+    await expect(changeField(page, 'font-size')).toHaveAttribute('aria-invalid', 'true');
     const dialog = page.getByRole('dialog', { name: 'Suggest a change', exact: true });
     const submit = dialog.getByRole('button', { name: 'Post suggestion', exact: true });
     const note = dialog.getByRole('textbox', { name: 'Note (optional)', exact: true });
@@ -194,17 +200,83 @@ test('keeps incomplete CSS across reload and blocks inbox, keyboard and direct s
     await expect(note).toHaveText('Keep the full suggestion');
     expect(posts).toBe(0);
 
-    await changeField(page, 'color').fill('#fff');
+    await changeField(page, 'font-size').fill('20px');
     await expect(submit).toBeEnabled();
     const posting = page.waitForResponse(response => response.request().method() === 'POST' && new URL(response.url()).pathname === `${endpoint}/comments`);
     await submit.click();
     const response = await posting;
     expect(response.status()).toBe(201);
     expect(response.request().postDataJSON()).toMatchObject({ text: 'Keep the full suggestion', proposal: {
-        text: { original, proposed: replacement }, styles: { color: { original: 'rgb(0, 0, 0)', proposed: '#fff' } }
+        text: { original, proposed: replacement }, styles: { 'font-size': { proposed: '20px' } }
     } });
     await expect(commentBubble(page, 1, 1)).toBeVisible();
     expect(posts).toBe(1);
+});
+
+test('picks colours, converts units, steps, resets and keeps the editor beside its element', async ({ page }, testInfo) => {
+    const { endpoint } = await openProposalPage(page);
+    const touch = Boolean(testInfo.project.use.hasTouch);
+    const target = page.locator('#proposal-target');
+    const count = page.locator('[data-uier-proposal-count]');
+    await toolbar(page).getByRole('button', { name: 'Add comment', exact: true }).click();
+    if (touch) await target.tap();
+    else await target.click();
+    await page.locator('[data-uier-suggest-change]').click();
+    const editor = page.locator('[data-uier-proposal-editor]');
+    await expect(editor).toBeVisible();
+    await expect(page.locator('[data-uier-proposal-target]')).toContainText('button');
+
+    // The colour box opens the picker under it; a typed colour counts once CSS reads it
+    const colorBox = page.locator('[data-uier-proposal-color="background-color"]');
+    await colorBox.click();
+    await expect(colorBox).toHaveAttribute('aria-expanded', 'true');
+    await changeField(page, 'background-color').fill('#0f766e');
+    await expect(target).toHaveCSS('background-color', 'rgb(15, 118, 110)');
+    await page.getByRole('slider', { name: 'Hue', exact: true }).focus();
+    await page.keyboard.press('ArrowRight');
+    await expect(target).not.toHaveCSS('background-color', 'rgb(15, 118, 110)');
+    await colorBox.click();
+    await expect(page.getByRole('slider', { name: 'Hue', exact: true })).toBeHidden();
+    await expect(colorBox).toContainText(/^#[0-9a-f]{6}$/);
+
+    // Units convert with the element's font sizes, and the box steps with the arrow keys
+    await changeField(page, 'font-size').fill('20px');
+    await expect(target).toHaveCSS('font-size', '20px');
+    const rootSize = await page.evaluate(() => Number.parseFloat(getComputedStyle(document.documentElement).fontSize));
+    await page.locator('[data-uier-proposal-unit="font-size"]').selectOption('rem');
+    await expect(changeField(page, 'font-size')).toHaveValue(String(Number((20 / rootSize).toFixed(4))));
+    await expect(target).toHaveCSS('font-size', '20px');
+    await page.locator('[data-uier-proposal-unit="font-size"]').selectOption('px');
+    await changeField(page, 'font-size').press('ArrowUp');
+    await expect(changeField(page, 'font-size')).toHaveValue('21');
+    await expect(target).toHaveCSS('font-size', '21px');
+    await expect(count).toHaveText('2 changes');
+
+    // Reset puts one field back; an edit made while the original shows goes back to the proposal
+    await page.locator('[data-uier-proposal-reset="background-color"]').click();
+    await expect(target).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+    await expect(count).toHaveText('1 change');
+    await side(page, 'original').click();
+    await expect(target).not.toHaveCSS('font-size', '21px');
+    await changeField(page, 'font-size').press('ArrowUp');
+    await expect(side(page, 'proposed')).toHaveAttribute('aria-pressed', 'true');
+    await expect(target).toHaveCSS('font-size', '22px');
+
+    // Beside the element, never over it, also once the larger text has made it wider
+    if (!touch) {
+        const element = (await target.boundingBox())!;
+        const dialog = (await page.getByRole('dialog', { name: 'Suggest a change', exact: true }).boundingBox())!;
+        const apart = dialog.x >= element.x + element.width || dialog.x + dialog.width <= element.x
+            || dialog.y >= element.y + element.height || dialog.y + dialog.height <= element.y;
+        expect(apart).toBe(true);
+    }
+
+    const posting = page.waitForRequest(request => request.method() === 'POST' && new URL(request.url()).pathname === `${endpoint}/comments`);
+    await page.getByRole('button', { name: 'Post suggestion', exact: true }).click();
+    expect((await posting).postDataJSON().proposal.styles).toEqual({ 'font-size': { original: expect.any(String), proposed: '22px' } });
+    const thread = page.getByRole('dialog', { name: 'Comment thread', exact: true });
+    await expect(thread.locator('[data-uier-proposal-change="font-size"]')).toContainText('22px');
+    await expect(thread.locator('[data-uier-proposal-values]')).toHaveCount(0);
 });
 
 for (const committed of [false, true]) {
@@ -220,7 +292,7 @@ for (const committed of [false, true]) {
             await target.focus();
             await toolbar(page).getByRole('button', { name: 'Add comment', exact: true }).press('Enter');
             await page.locator('[data-uier-suggest-change]').click();
-            await changeField(page, 'color').fill('#fff');
+            await changeField(page, 'font-size').fill('20px');
         };
 
         await makeSuggestion();

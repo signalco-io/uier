@@ -65,16 +65,53 @@ screen it opens in a scrollable bottom sheet that keeps the target visible above
 
 ### An element suggestion
 
-Point at an element to open its comment, then choose **Suggest a change**. The action follows the project's
-Rewrite tool visibility. The editor shows the captured computed originals, exact CSS inputs with color pickers
-for text and background, replacement text where available, text size and weight, padding and corner radius.
-**Side padding** updates both horizontal sides in one entry. **Padding details** exposes all four sides for
-individual overrides. Each changed value previews on that element and the entire change posts under one pin.
-The note is optional. The scoped draft keeps the captured originals, exact editor values and note across
-closing and reloading, including suggestions with an empty note or an unfinished CSS value. Every posting
-action requires a change and checks all edited fields. For an invalid draft, Post suggestion in the inbox
-reopens the editor so the reviewer can correct the marked fields. On a narrow touch screen the editor uses
-a bottom sheet with a transparent backdrop.
+Point at an element to open its comment, then choose **Suggest a change** (pencil icon). The action follows the
+project's Rewrite tool visibility. `ProposalFields.tsx` is the editor; its inputs are in `components/proposal/` and
+the values they read and write in `src/styleValues.ts`.
+
+- **Where it opens.** The pin moves to the element's top-right corner (any saved element suggestion's pin is
+  there too), and the popover opens beside the element's box, never over it: right of it (clear of the pin), else
+  left, else below or above where it fits (`proposalPlacement` in `CommentBubble`, the box is the Popper's `anchor`).
+  While the editor or thread is open the box never gets smaller than when it opened, so the pin and popover stay
+  still while the preview shrinks the element, and step aside when it grows it. A dashed accent outline with the element's tag and change count
+  (`ProposalTargetOutline.tsx`) follows the element.
+- **Header and footer.** The title (with the element's tag), Back to comment (an icon that removes the suggestion
+  and keeps the note), Expand, the Original/Proposed switch and the change count (counted as the thread's rows, so a
+  padding axis is one change) stay at the top; the note with
+  Attach, Discard and Post suggestion stays at the bottom (`CommentComposer`'s `stickyBox`). Only the fields scroll.
+- **Groups.** Content (the replacement text, and Suggest wording, the AI icon, which opens the rewrite's instruction
+  box and suggestions for it), Text style (size, weight, colour) and Background and spacing (fill, padding, corner
+  radius). An element that reads as text (no fill, border, padding or rounded corners, and not a button or a
+  button-like role, `readProposalElement`) keeps the last group behind **More properties** until one of its values
+  changes.
+- **Fields.** Each row has a short visible label and a full accessible name (`labels` and `properties` in the
+  catalogs; the visible label is part of the name). A changed field gets a dot, "was …" with its original (colours
+  in hex) and a Reset icon; unchanged fields show only their control. An invalid value marks its field and says
+  what it needs under it ("Enter a number, like 16.").
+- **Colours** are one button with the swatch and the value; it shows the picker under it, inside the editor, so it
+  never covers the editor or the element: a saturation and brightness map (arrow keys move it), hue and opacity sliders, the value in Hex, RGB or HSL (hex unless the reviewer writes
+  another format; any CSS colour typed there counts once `CSS.supports` reads it) and the page's ten most used
+  colours (`pageColors.ts`, read when the picker opens), plus None for a background.
+- **Lengths** (text size, padding, corner radius) are a slider and one box with the number and its unit (px, rem,
+  em, and % for a text size). Typing a unit (`1.5rem`) switches to it; choosing another unit converts the value with
+  the element's root, own and parent font sizes; ↑ and ↓ step by 1px, 1/16 rem or em, or 1% (Shift: ten times).
+  The slider is for the pointer (out of the tab order); the box takes the keyboard. A captured value that is not
+  one length (`4px 8px`) gets a plain box. A bare number is sent with px. The sliders are native range inputs: the
+  kit's `Slider` leaves its thumb unnamed.
+- **Weight** is a slider over the named weights with a box for any weight from 1 to 1000 and the nearest name.
+- **Padding** is Vertical and Horizontal, each setting both of its sides; the link icon (Edit each side) shows the
+  four sides instead, and starts so when opposite sides differ. Linking again gives each bottom and right side its
+  top or left value.
+
+Values compare by what they look like (`sameStyleValue`): `#ffffff` and `rgb(255, 255, 255)` are the same colour, so
+choosing a format or picking the original colour back is not a change. A unit change is one: `1rem` is a different
+declaration from `16px`. Each changed value previews on that element and the whole change posts under one pin.
+Every edit shows the proposal, also after comparing with Original, and a draft opened again starts on Proposed.
+Holding \ outside a text field shows the original until it is released. The note is optional. The scoped draft
+keeps the captured originals, exact editor values and note across closing and reloading, including suggestions with
+an empty note or an unfinished value. Every posting action requires a change and checks all edited fields. For an
+invalid draft, Post suggestion in the inbox reopens the editor so the reviewer can correct the marked fields. On a
+narrow touch screen the editor uses a bottom sheet with a transparent backdrop.
 
 The preview starts when the page matches the captured values. Before capturing a screenshot, the toolbar
 restores the page and waits until capture finishes to apply a newly requested preview. Submitting, closing,
@@ -134,8 +171,10 @@ drawing is in memory, [canvas mode](canvas-mode.md)), and each comment's submiss
 - The inbox lists this page's drafts above its threads, newest first (`sidebar/InboxDrafts.tsx`, current through the
   store's `subscribeAll` and `version`): those with text or element changes whose form is closed, under Active and All, while the chosen
   pages include this page, not with the unread or Assigned to me filters, and only those with every word of the
-  search. A card has "Draft comment" (or "Draft rewrite suggestion") and when it last changed, the quoted text, the
-  text without its Markdown and, when its target is not on the page, why; then Resume draft (only while its pin can be
+  search. A card has "Draft comment" (or "Draft rewrite suggestion", "Draft suggestion") and when it last changed, the
+  quoted text, the text without its Markdown and, when its target is not on the page, why. A suggestion's card names
+  its element (its tag while it is on the page, and its captured text) and lists its changes as the thread's rows,
+  with its note under them and a line when a value is invalid; then Resume draft (only while its pin can be
   placed), Post comment (Post suggestion) and Discard, an X named by its tooltip as in the form.
 - Resume draft closes the inbox, unless the draft is on a part of it, and opens the form on its pin with its text,
   focused, like Resume draft above the pill.

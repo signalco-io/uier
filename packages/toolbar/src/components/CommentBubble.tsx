@@ -2,7 +2,7 @@
 
 import { useContext, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type MouseEvent, type PointerEvent, type Ref } from 'react';
 import { Button } from '@signalco/ui-primitives/Button';
-import { Close } from '@signalco/ui-icons';
+import { Close, Edit, Undo } from '@signalco/ui-icons';
 import { Popper } from '@signalco/ui-primitives/Popper';
 import { Divider } from '@signalco/ui-primitives/Divider';
 import { cx } from '@signalco/ui-primitives/cx';
@@ -44,11 +44,13 @@ import { getGuestName } from '../project/projectSession';
 import { CommentDraft, CommentItem, CommentItemPosition, commentTextMaxLength, floatingShadowClassName, isCommentArea, type Mention } from './@types/Comments';
 import { useToolbarFeatures } from '../hooks/useToolbarFeatures';
 import { useProposalSession } from '../hooks/useProposalSession';
-import { readProposalTarget } from '../proposalPreview';
+import { readProposalElement, readProposalTarget } from '../proposalPreview';
 import { revealProposalTarget, stopProposalSession } from '../proposalSession';
 import { buildElementProposal, proposalValues, type ProposalDraft, type ProposalTarget } from '../proposalDraft';
 import { ProposalFields } from './ProposalFields';
-import { ProposalSwitch, rewriteProposal, savedProposal } from './SavedProposal';
+import { ProposalSwitch, ProposalSwitchSlot, rewriteProposal, savedProposal } from './SavedProposal';
+import { ProposalTargetOutline } from './ProposalTargetOutline';
+import { proposalChangeCount, proposalEditCount } from './ProposalChanges';
 import { literalTextToMarkdown } from '../editor/markdownDoc';
 
 // Bubble (the pin) half size, how far its message count badge reaches past the right edge (Pin,
@@ -178,6 +180,26 @@ function popoverPlacement(left: number, top: number, upsideDown: boolean, wide: 
     return { side: 'top', align: 'start', sideOffset: 4 - inset + lift, alignOffset: inset };
 }
 
+/**
+ * Where an element suggestion's popover opens: beside the element's box (the popover's anchor), never over it, so
+ * the preview stays in view. Right of it, clear of its pin on the top-right corner; else left; else below or above,
+ * where it fits; else on the right, shifted by the popover's own collision handling.
+ */
+function proposalPlacement(box: DOMRect): PopoverPlacement {
+    const width = 24 * (Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16);
+    const height = 320;
+    const gap = 12;
+    const pinClearance = bubbleHalfSize * 2 + 8;
+    const { clientWidth, clientHeight } = document.documentElement;
+    if (clientWidth - popoverCollisionPadding.right - box.right - pinClearance >= width) return { side: 'right', align: 'start', sideOffset: pinClearance, alignOffset: 0 };
+    if (box.left - popoverCollisionPadding.left - gap >= width) return { side: 'left', align: 'start', sideOffset: gap, alignOffset: 0 };
+    // Below a short element, past its pin
+    const below = Math.max(gap, pinClearance - box.height);
+    if (clientHeight - popoverCollisionPadding.bottom - box.bottom - below >= height) return { side: 'bottom', align: 'start', sideOffset: below, alignOffset: 0 };
+    if (box.top - popoverCollisionPadding.top - gap >= height) return { side: 'top', align: 'start', sideOffset: gap, alignOffset: 0 };
+    return { side: 'right', align: 'start', sideOffset: pinClearance, alignOffset: 0 };
+}
+
 function prefersReducedMotion() {
     return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
@@ -305,6 +327,10 @@ export function CommentBubble(props: CommentBubbleProps) {
         return rewriteProposal(selectedText, draftText.trim(), mentions);
     }, [rewriting, selectedText, draftText, rewriteMentions]);
     const draftSession = useProposalSession(position, rewriting ? rewriteChanges : elementChanges?.proposal, creating && open, rewriting);
+    // A draft opened again with its edits: the page shows them, as its fields do
+    const { showProposed: showDraftProposed } = draftSession;
+    useEffect(() => { if (open && suggesting) showDraftProposed(); }, [open, suggesting, showDraftProposed]);
+    const editCount = proposalEditor ? proposalEditCount(proposalEditor) : 0;
     useLayoutEffect(() => {
         if (!open || !draftProposal || proposalEditor) return;
         const before = proposalValues(draftProposal, 'original');
@@ -326,9 +352,11 @@ export function CommentBubble(props: CommentBubbleProps) {
         drafts.setDetails(draftKey, { proposalDraft: { original, values: original }, proposal: undefined });
         draftSession.showProposed();
     };
+    // Every edit shows the suggestion on the page, also after comparing with the original
     const updateProposal = (values: ProposalTarget) => {
         if (!proposalEditor) return;
         drafts.setDetails(draftKey, { proposalDraft: { ...proposalEditor, values }, proposal: undefined });
+        draftSession.showProposed();
     };
     const clearProposal = () => {
         stopProposalSession();
@@ -343,6 +371,26 @@ export function CommentBubble(props: CommentBubbleProps) {
     const { rects: placementRects, state: placementState, opener: closedOpener } = useCommentPlacement(position);
     const closedLayer = placementState === 'closed';
     const lastRect = lowestRect(placementRects);
+    // An element suggestion is about the whole element: its pin marks the element's top-right corner instead of the
+    // point that was clicked, and while its editor or thread is open its box keeps at least the size it had when that
+    // opened, so the pin and the popover beside it stay still while the preview resizes the element
+    const elementProposal = position.type === 'point' && !isCommentArea(position) && !isToolbarAnchor(position)
+        && placementState === 'exact' && (suggesting || Boolean(saved));
+    const freezeBox = elementProposal && open;
+    const [frozenSize, setFrozenSize] = useState<{ width: number; height: number }>();
+    useLayoutEffect(() => {
+        const rect = freezeBox ? resolveAnchorElement(position)?.getBoundingClientRect() : undefined;
+        setFrozenSize(rect ? { width: rect.width, height: rect.height } : undefined);
+    }, [freezeBox, position]);
+    const liveBox = elementProposal && lastRect ? resolveAnchorElement(position)?.getBoundingClientRect() : undefined;
+    // Never smaller than when it opened, so a preview that shrinks the element moves nothing; one that grows it
+    // pushes the pin and the popover aside rather than under them
+    const elementBox = liveBox && (frozenSize
+        ? new DOMRect(liveBox.left, liveBox.top, Math.max(frozenSize.width, liveBox.width), Math.max(frozenSize.height, liveBox.height))
+        : liveBox);
+    const pinRect = elementBox ? new DOMRect(elementBox.right - 1, elementBox.top - 1, 1, 1) : lastRect;
+    // Read on each render: the element's font sizes change with the preview
+    const proposalElement = freezeBox ? readProposalElement(position) : null;
     const { create, reply } = useComments();
     const [capture, setCapture] = useState<{ device: ReturnType<typeof getDeviceInfo>; screenshot: Promise<string | undefined> | undefined }>();
     // A draft pin that starts closed (restored, or one of several on the page) is captured when its form opens or it
@@ -498,6 +546,7 @@ export function CommentBubble(props: CommentBubbleProps) {
     const setExpanded = (next: boolean) => { expandedRef.current = next; setExpandedState(next); };
     const separateSurface = expanded || sheet;
     const restoreSheetFocus = useRef(false);
+    const [switchSlot, setSwitchSlot] = useState<HTMLElement | null>(null);
     useLayoutEffect(() => {
         if (open || !restoreSheetFocus.current) return;
         // The closing sheet has unmounted, so the pin can take focus again.
@@ -650,8 +699,8 @@ export function CommentBubble(props: CommentBubbleProps) {
     // Where the pin would be by itself, and how far it moves so it does not overlap the page's other pins
     // (uier #367); the commented element not on the page (anymore) has no pin
     const placed = Boolean(lastRect) || creating;
-    const naturalLeft = bubbleLeft(lastRect);
-    const { top: naturalTop, upsideDown } = bubbleTop(lastRect, naturalLeft, rootElement);
+    const naturalLeft = bubbleLeft(pinRect);
+    const { top: naturalTop, upsideDown } = bubbleTop(pinRect, naturalLeft, rootElement);
     // Whose thread it is: the people in it beside the pin, on the side with room (uier #307)
     const participants = commentItem && !sending ? threadParticipants(commentItem, t.common.guest) : [];
     const participantsReach = bubbleHalfSize - participantsTuck + participantsWidth(participants);
@@ -664,7 +713,9 @@ export function CommentBubble(props: CommentBubbleProps) {
     const pinLeft = naturalLeft + shift.dx;
     const pinTop = naturalTop + shift.dy;
     const wideProposal = suggesting || Boolean(saved);
-    const placement = popoverPlacement(pinLeft, pinTop, upsideDown, wideProposal);
+    // Beside the element while its suggestion is open, else beside the pin
+    const besideElement = elementBox && open && !separateSurface ? elementBox : undefined;
+    const placement = besideElement ? proposalPlacement(besideElement) : popoverPlacement(pinLeft, pinTop, upsideDown, wideProposal);
     const participantsSide = pinLeft + participantsReach <= document.documentElement.clientWidth - bubbleWindowMargin ? 'right' : 'left';
     const participantsText = participants.length
         ? t.pin.participants(new Intl.ListFormat(language, { type: 'conjunction' }).format(participants.map(person => person.isMe ? t.pin.participantsYou : person.name)))
@@ -707,12 +758,11 @@ export function CommentBubble(props: CommentBubbleProps) {
     const proposalSwitch = <ProposalSwitch session={draftSession} position={position} disabled={!(rewriting ? rewriteChanges : elementChanges?.proposal)} />;
     const draftProposalStatus = draftSession.result === 'stale' && <p role="status" className="m-0 text-xs text-muted-foreground">{t.proposal.unavailable}</p>;
     const suggestionControls = suggesting && proposalEditor
-        ? <ProposalFields {...proposalEditor} invalid={elementChanges?.invalid ?? []} onChange={updateProposal}>
-            {proposalSwitch}
-            {draftProposalStatus}
-        </ProposalFields>
+        ? <ProposalFields {...proposalEditor} invalid={elementChanges?.invalid ?? []} onChange={updateProposal}
+            element={proposalElement} suggestions={supportsSuggestions ? rewrite : undefined} />
         : canSuggest && <>
             <Button type="button" size="sm" variant="outlined" data-uier-suggest-change=""
+                startDecorator={<Edit size={14} aria-hidden="true" />}
                 className="self-start pointer-coarse:min-h-11" onClick={openProposalEditor}>{t.proposal.suggest}</Button>
             {proposalUnavailable && <p role="status" className="m-0 text-xs text-muted-foreground">{t.proposal.unavailable}</p>}
         </>;
@@ -722,12 +772,23 @@ export function CommentBubble(props: CommentBubbleProps) {
         <div className="shrink-0" onPaste={attachment.handlePaste}
             onFocusCapture={creating ? undefined : stopProposalSession}>
             {creating && (
+                // A suggestion's title, preview switch and change count stay at the top while its fields scroll
+                <div className={cx(suggesting && 'sticky top-0 z-20 border-b bg-card pb-2')} data-uier-proposal-header={suggesting ? '' : undefined}>
                 <ComposerAttachmentsHeader
-                    title={<span className="text-sm font-semibold text-foreground">{newLabel}</span>}
+                    title={<span className="flex min-w-0 items-baseline gap-1.5">
+                        <span className="shrink-0 text-sm font-semibold text-foreground">{newLabel}</span>
+                        {suggesting && proposalElement && <span className="min-w-0 truncate text-xs text-muted-foreground">
+                            <span className="sr-only">{t.proposal.element}: </span><code className="font-mono">{proposalElement.tag}</code>
+                        </span>}
+                    </span>}
                     attachment={attachment}
                     actions={<>
-                        {suggesting && <Button type="button" size="xs" variant="plain"
-                            className="pointer-coarse:min-h-11" onClick={clearProposal}>{t.proposal.remove}</Button>}
+                        {suggesting && <IconTooltip label={t.proposal.remove}>
+                            <IconButton variant="plain" size="xs" type="button" aria-label={t.proposal.remove} data-uier-proposal-remove=""
+                                className={composerIconButtonClassName} onClick={clearProposal}>
+                                <Undo size={16} aria-hidden="true" />
+                            </IconButton>
+                        </IconTooltip>}
                         {drawingDraft && onEditDrawing && placementState === 'exact' && (
                             <IconTooltip label={t.canvas.editDrawing}>
                                 <IconButton
@@ -744,6 +805,12 @@ export function CommentBubble(props: CommentBubbleProps) {
                         )}
                         {sheet ? sheetClose : <ExpandComposerButton expanded={expanded} onExpandedChange={setExpanded} />}
                     </>} />
+                {suggesting && <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 px-3 pt-2">
+                    {proposalSwitch}
+                    <span className="text-xs text-muted-foreground" data-uier-proposal-count="">{t.proposal.changeCount(editCount)}</span>
+                    {draftProposalStatus}
+                </div>}
+                </div>
             )}
             <CommentComposer
                 commentId={commentItem?.id}
@@ -787,6 +854,7 @@ export function CommentBubble(props: CommentBubbleProps) {
                 </> : suggestionControls}
                 onSubmit={handleSubmit}
                 discardable={drawingDraft || suggesting}
+                stickyBox={suggesting}
                 onDiscard={() => { recording.discard(); if (creating) handleDiscard(); else attachment.remove(); }} />
             {!creating && attachment.error && <p role="alert" className="m-0 px-3 pb-2 text-xs text-destructive">{attachment.error}</p>}
         </div>
@@ -813,13 +881,17 @@ export function CommentBubble(props: CommentBubbleProps) {
             {open && sheet && (
                 <ComposerModal container={rootElement} label={creating ? newLabel : t.pin.thread} onCollapse={closeSheet}
                     onPresented={dialog => revealProposalTarget(position, dialog)} bottomSheet data-uier-proposal-sheet="" {...holdsLayers}>
-                    {commentItem && <div className="flex shrink-0 items-center justify-between border-b px-3 py-1.5">
-                        <span className="text-sm font-semibold">{t.pin.thread}</span>
+                    {commentItem && <div className="flex shrink-0 items-center gap-2 border-b px-3 py-1.5">
+                        <span className="min-w-0 flex-1 truncate text-sm font-semibold">{t.pin.thread}</span>
+                        {/* A suggestion's preview switch, in reach while the thread scrolls (`SavedProposal`) */}
+                        {saved && <div ref={setSwitchSlot} data-uier-proposal-switch-slot="" className="shrink-0" />}
                         {sheetClose}
                     </div>}
                     <ReattachContext value={comment => { handleOpenChange(false); requestReattach(comment); }}>
-                        {thread}
-                        {composer}
+                        <ProposalSwitchSlot value={saved ? switchSlot : null}>
+                            {thread}
+                            {composer}
+                        </ProposalSwitchSlot>
                     </ReattachContext>
                 </ComposerModal>
             )}
@@ -842,6 +914,10 @@ export function CommentBubble(props: CommentBubbleProps) {
                     left={lastRect.left}
                     top={lastRect.top} />
             )}
+            {elementProposal && open && liveBox && (
+                <ProposalTargetOutline rect={liveBox} tag={proposalElement?.tag} count={suggesting ? editCount : proposalChangeCount(saved)}
+                    className={onToolbar ? 'z-[74]' : 'z-[47]'} />
+            )}
             {/* The outline only while the pin is hovered or focused, or its thread is open (or previewed);
                 a drawing marks its area itself, so it keeps showing (uier #375) */}
             {isCommentArea(position) && lastRect && !closedLayer && (open || preview || (!drawing && (creating || pinHovered || pinFocused))) && (
@@ -849,6 +925,10 @@ export function CommentBubble(props: CommentBubbleProps) {
             )}
             <Popper
                 container={rootElement}
+                anchor={besideElement && (
+                    <div aria-hidden="true" className="pointer-events-none fixed"
+                        style={{ left: besideElement.left, top: besideElement.top, width: besideElement.width, height: besideElement.height }} />
+                )}
                 trigger={(
                     <button
                         ref={triggerRef}
