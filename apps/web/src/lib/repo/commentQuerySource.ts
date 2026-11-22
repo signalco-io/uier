@@ -9,7 +9,7 @@ export type CommentQueryMessage = Pick<DbThreadItem, 'id' | 'text' | 'quotedText
 export type CommentQueryCandidate = Pick<DbComment,
     'id' | 'domain' | 'projectId' | 'path' | 'pageStateVersion' | 'sourcePath' | 'origin' | 'private' | 'authorId' |
     'labelIds' | 'assigneeId' | 'assigneeIds' | 'priority' | 'resolved' | 'inProgress' | 'archivedAt' | 'number' | 'kind' |
-    'workflowStatusId' | 'archiveStatusId' | 'feedbackType' | 'check' | 'createdAt' | 'updatedAt' | 'completedAt' | 'activity' | 'manualTitle'> & {
+    'workflowStatusId' | 'archiveStatusId' | 'feedbackType' | 'check' | 'createdAt' | 'updatedAt' | 'completedAt' | 'activity' | 'manualTitle' | 'reviewSession'> & {
     revision: string;
     hasScreenshot: boolean;
     position: { type: 'point' | 'text' | 'page' };
@@ -88,7 +88,7 @@ export function toCommentQueryCandidate(comment: DbComment, revision: string, in
     };
     const fields = ['labelIds', 'projectId', 'pageStateVersion', 'sourcePath', 'origin', 'private', 'authorId', 'assigneeId', 'assigneeIds',
         'priority', 'resolved', 'inProgress', 'archivedAt', 'number', 'kind', 'workflowStatusId', 'archiveStatusId', 'feedbackType', 'check', 'createdAt', 'updatedAt',
-        'completedAt', 'activity', 'manualTitle', 'aiTitle', 'device', 'queryMetadata'] as const;
+        'completedAt', 'activity', 'manualTitle', 'aiTitle', 'device', 'queryMetadata', 'reviewSession'] as const;
     for (const field of fields) {
         if (comment[field] !== undefined && (includeText || field !== 'queryMetadata' && field !== 'device')) Object.assign(candidate, { [field]: structuredClone(comment[field]) });
     }
@@ -105,7 +105,7 @@ export function toCommentQueryCandidate(comment: DbComment, revision: string, in
 export function commentCandidateProjectionFor(includeText = true) {
     return `c.id, c.domain, c.projectId, c.path, c.pageStateVersion, c.sourcePath, c.origin,
  c.labelIds, c.private, c.authorId, c.assigneeId, c.assigneeIds, c.priority, c.resolved, c.inProgress, c.archivedAt, c.number, c.kind,
- c.workflowStatusId, c.archiveStatusId, c.feedbackType, c.check, c.createdAt, c.updatedAt, c.completedAt, c.activity, c.manualTitle, c.aiTitle, ${includeText ? 'c.device, c.queryMetadata,' : ''}
+ c.workflowStatusId, c.archiveStatusId, c.feedbackType, c.check, c.createdAt, c.updatedAt, c.completedAt, c.activity, c.manualTitle, c.aiTitle, c.reviewSession, ${includeText ? 'c.device, c.queryMetadata,' : ''}
  c._etag AS revision, {"type": c.position.type} AS position,
  {"outcome": c.verification.outcome, "fixUrl": c.verification.fixUrl} AS verification,
  IIF((IS_OBJECT(c.screenshot) OR (IS_STRING(c.screenshot) AND c.screenshot != "")), true,

@@ -27,6 +27,7 @@ import { isNotificationParticipant, notificationManageUrl, notificationPk, notif
 import { deliverNotificationEmail, type EmailAttempt } from './transport';
 import { EmailNotConfiguredError, type EmailMessage } from '../email/send';
 import { emailSuppression } from '../email/suppression';
+import { discoverReviewNotifications, reviewNotificationMessage } from './reviewDelivery';
 
 export const DIGEST_WINDOW_MS = 5 * 60 * 1000;
 const MAX_FAILURES = 8;
@@ -35,6 +36,7 @@ export const COMPLETED_DELIVERY_TTL = 30 * 24 * 60 * 60;
 
 /** Atomic outbox entries on the comment, using #83's thread sequence. No copied message content. */
 export type NotificationEvent = { sequence: number; actorId: string; kind: 'workflow-status' | 'archived' | 'restored' | 'comment' | 'reply' | 'resolved' | 'reopened' | 'progress-started' | 'progress-stopped' | 'mention' | 'assignment' | 'agent' | 'verification-requested' | 'verification-confirmed' | 'verification-rejected' | 'verification-canceled'; at: string; recipients?: string[]; agent?: import('../db/schema').AgentSource; verificationOverride?: boolean; verificationId?: string; itemId?: string; assigneeId?: string | null;
+    reviewHeld?: true;
     statusResolved?: boolean; previousStatusId?: string; statusId?: string; statusLabel?: string; statusCategory?: import('../app/statusWorkflow').StatusCategory;
     assigneeIds?: string[]; previousAssigneeIds?: string[]; agentId?: string;
     /** `agent` events: the agent now working under `assigneeId`, or `null` once it was removed. Never emailed. */
@@ -42,10 +44,11 @@ export type NotificationEvent = { sequence: number; actorId: string; kind: 'work
 
 export type NotificationDelivery = AppDoc & {
     type: 'notification-delivery'; projectId: string; threadId: string; actorId: string; userId?: string;
+    reviewReleaseId?: string;
     requestedThrough: number; processedThrough: number; active: boolean;
     failures: number; nextAttemptAt: string;
     lease?: { id: string; until: string };
-    attempt?: EmailAttempt & { through: number; message: EmailMessage; proofSubscriptionVersion?: string };
+    attempt?: EmailAttempt & { through: number; message: EmailMessage; proofSubscriptionVersion?: string; reviewFingerprint?: string };
     status: 'queued' | 'waiting' | 'accepted' | 'suppressed' | 'failed' | 'ambiguous';
     lastCode?: string;
     lastOperationId?: string;
@@ -70,7 +73,7 @@ export async function discoverThreadNotifications(project: DbProject, comment: D
     for (const subscription of subscriptions) if (!subscription.userId && subscription.following && subscription.verifiedAt)
         recipients.set(subscription.actorId, undefined);
     // #91 can target existing authorized members; dispatch still checks mute, follow and visibility.
-    for (const event of comment.notificationEvents ?? []) for (const actorId of event.recipients ?? []) {
+    for (const event of comment.notificationEvents?.filter(event => !event.reviewHeld) ?? []) for (const actorId of event.recipients ?? []) {
         const member = members.find(member => actorId === `user:${member.userId}` && hasProjectAccess(access, member, project));
         if (member) recipients.set(actorId, member.userId);
     }
@@ -117,7 +120,7 @@ async function recipientContext(delivery: NotificationDelivery) {
 
 function eligibleEvents(delivery: NotificationDelivery, context: NonNullable<Awaited<ReturnType<typeof recipientContext>>>) {
     const { comment, actor, subscription, readSequence } = context;
-    return (comment.notificationEvents ?? []).filter(event => event.sequence > delivery.processedThrough && event.sequence <= delivery.requestedThrough
+    return (comment.notificationEvents ?? []).filter(event => !event.reviewHeld && event.sequence > delivery.processedThrough && event.sequence <= delivery.requestedThrough
         && event.sequence > readSequence && event.actorId !== delivery.actorId
         && subscription?.following !== false
         && (!context.memberSince || event.at >= context.memberSince)
@@ -191,7 +194,7 @@ export async function processNotificationDelivery(candidate: NotificationDeliver
     const lease = { id: randomUUID(), until: iso(now + 5 * 60 * 1000) };
     const delivery = { ...stored.doc, lease };
     if (await store.replace(delivery, stored.etag) !== 'ok') return;
-    const thread = (await getCommentsStore().get(`project:${delivery.projectId}`, delivery.threadId))?.comment;
+    const thread = delivery.reviewReleaseId ? undefined : (await getCommentsStore().get(`project:${delivery.projectId}`, delivery.threadId))?.comment;
     const save = async (patch: Partial<NotificationDelivery>) => updateDoc<NotificationDelivery>(delivery.pk, delivery.id, current => {
         if (current.lease?.id !== lease.id) throw new Error('Notification lease lost');
         const { lease: _lease, ...rest } = current;
@@ -199,11 +202,53 @@ export async function processNotificationDelivery(candidate: NotificationDeliver
         if (patch.status === 'accepted' && current.lastCode?.startsWith('ACSReport_')) saved.lastCode = current.lastCode;
         if (saved.status !== 'failed' && saved.status !== 'ambiguous')
             saved.active = Boolean(saved.attempt) || current.requestedThrough > saved.processedThrough;
-        saved.ttl = threadRecordTtl(thread ?? { ttl: -1 } as DbComment,
-            !saved.active && saved.processedThrough >= saved.requestedThrough && ['accepted', 'suppressed'].includes(saved.status) ? COMPLETED_DELIVERY_TTL : -1);
+        const complete = !saved.active && saved.processedThrough >= saved.requestedThrough && ['accepted', 'suppressed'].includes(saved.status);
+        // The release is a durable source. Keep its receipt even if pending discovery was interrupted.
+        saved.ttl = delivery.reviewReleaseId ? -1 : threadRecordTtl(thread ?? { ttl: -1 } as DbComment, complete ? COMPLETED_DELIVERY_TTL : -1);
         return saved;
     }, store);
     try {
+        if (delivery.reviewReleaseId) {
+            const current = await reviewNotificationMessage(delivery, baseUrl, store);
+            if (!current || await emailSuppression(current.message.to, store)) {
+                await save({ processedThrough: 1, attempt: undefined, active: false, status: 'suppressed' });
+                return;
+            }
+            if (delivery.attempt && delivery.attempt.reviewFingerprint !== current.fingerprint) {
+                await save({ active: false, status: 'ambiguous', lastCode: 'review_visibility_changed' });
+                return 'failed';
+            }
+            const attempt = delivery.attempt ?? { operationId: randomUUID(), firstSentAt: iso(now), through: 1,
+                message: current.message, reviewFingerprint: current.fingerprint };
+            if (!delivery.attempt) await updateDoc<NotificationDelivery>(delivery.pk, delivery.id, entry => {
+                if (entry.lease?.id !== lease.id) throw new Error('Notification lease lost');
+                return { ...entry, attempt, lastOperationId: attempt.operationId, lastCode: undefined };
+            }, store);
+            const latest = await reviewNotificationMessage(delivery, baseUrl, store);
+            if (latest?.fingerprint !== attempt.reviewFingerprint || await emailSuppression(attempt.message.to, store)) {
+                if (delivery.attempt) {
+                    await save({ active: false, status: 'ambiguous', lastCode: 'review_visibility_changed' });
+                    return 'failed';
+                }
+                await save({ attempt: undefined, nextAttemptAt: iso(), status: 'queued' });
+                return;
+            }
+            const result = await transport(attempt.message, attempt, Boolean(delivery.attempt));
+            if (result.status === 'sent') {
+                await save({ processedThrough: 1, active: false, failures: 0, attempt: undefined, status: 'accepted', lastCode: result.code });
+            } else if (result.status === 'pending') {
+                await save({ attempt: { ...attempt, resumeFrom: result.resumeFrom }, nextAttemptAt: iso(now + 60_000), status: 'waiting' });
+            } else if (result.status === 'ambiguous') {
+                await save({ active: false, status: 'ambiguous', lastCode: failureCode(result.code) });
+                return 'failed';
+            } else {
+                const failures = delivery.failures + 1;
+                await save({ failures, attempt: undefined, active: failures < MAX_FAILURES, status: failures < MAX_FAILURES ? 'queued' : 'failed',
+                    nextAttemptAt: iso(now + Math.min(3600000, 60000 * 2 ** failures)), lastCode: failureCode(result.code) });
+                return 'failed';
+            }
+            return;
+        }
         const context = await recipientContext(delivery);
         const events = context ? eligibleEvents(delivery, context) : [];
         if (!context?.email || !events.length) {
@@ -284,6 +329,10 @@ export async function runNotificationWorker(baseUrl: string, transport = deliver
     const remaining = Math.max(0, (options.deadline ?? Infinity) - now());
     const discoveryDeadline = (options.deadline ?? Infinity) - Math.min(60_000, remaining / 3);
     const canDiscover = () => now() < discoveryDeadline;
+    for (const release of canDiscover() ? await getCommentsStore().listReviewReleasesPending('email') : []) {
+        if (!canDiscover()) break;
+        await discoverReviewNotifications(release, store);
+    }
     // Adopt expiry for old completed ledgers in bounded batches. Preserve a replay floor before
     // making any pre-checkpoint ledger eligible to expire; an etag race retries on the next run.
     for (const status of ['accepted', 'suppressed']) {

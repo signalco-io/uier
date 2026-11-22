@@ -7,6 +7,7 @@ import { isLocalRuntime } from '../src/lib/comments/environment';
 import { PUBLIC_PROJECT_ID } from '../src/lib/comments/publicProject';
 import { getIntegrationConnection } from '../src/lib/integrations/connection';
 import { integrationSyncId } from '../src/lib/integrations/discovery';
+import { reviewGroupIdentityForDestination } from '../src/lib/integrations/reviewGroups';
 import { integrationProviders, type IntegrationConnection, type IntegrationSync } from '../src/lib/integrations/model';
 import { resolveGitHubCreate } from '../src/lib/integrations/github';
 import type { GitHubState } from '../src/lib/integrations/github/model';
@@ -97,9 +98,12 @@ async function currentAuthority(input: IntegrationAdminInput, store: AppStore) {
     return { project, connection };
 }
 function ownsLedger(input: IntegrationAdminInput, connection: IntegrationConnection, ledger: IntegrationSync) {
-    return ledger.type === `${input.provider}-sync` && ledger.provider === input.provider && ledger.workspaceId === input.workspaceId
+    const validId = ledger.type === `${input.provider}-session-sync` && ledger.reviewGroup
+        ? reviewGroupIdentityForDestination(connection, ledger.threadId, ledger.reviewGroup.destination).id
+        : ledger.type === `${input.provider}-sync` ? integrationSyncId(input.provider, connection.id, input.projectId, ledger.threadId) : undefined;
+    return ledger.provider === input.provider && ledger.workspaceId === input.workspaceId
         && ledger.projectId === input.projectId && ledger.connectionId === connection.id && ledger.pk === `${input.provider}:${input.projectId}`
-        && ledger.id === integrationSyncId(input.provider, connection.id, input.projectId, ledger.threadId);
+        && ledger.id === validId;
 }
 
 export async function executeIntegrationAdmin(value: unknown, options: { store?: AppStore; now?: () => number;
@@ -119,8 +123,8 @@ export async function executeIntegrationAdmin(value: unknown, options: { store?:
     const record = input.ledgerId ? await store.get<IntegrationSync>(pk, input.ledgerId) : null;
     if (input.ledgerId && (!record || !ownsLedger(input, connection, record.doc))) throw new IntegrationAdminError('ledger_not_found');
     if (input.action === 'status') {
-        const rows = record ? [record.doc] : await store.query<IntegrationSync>({ type: `${input.provider}-sync`, pk,
-            where: { connectionId: connection.id }, limit: 1000, orderBy: 'id' });
+        const rows = record ? [record.doc] : (await Promise.all(([`${input.provider}-sync`, `${input.provider}-session-sync`] as const).map(type =>
+            store.query<IntegrationSync>({ type, pk, where: { connectionId: connection.id }, limit: 1000, orderBy: 'id' })))).flat();
         return { provider: input.provider, workspaceId: input.workspaceId, projectId: input.projectId, connectionId: connection.id,
             capped: !record && rows.length >= 1000, ledgers: rows.filter(row => ownsLedger(input, connection, row)).slice(0, 1000).map(ledgerView),
             ...(input.provider === 'slack' ? { rateReviewMethods: await (options.slackRateReviews ?? listSlackRateReviews)(project, input.userId).catch(() => undefined) } : {}) };
@@ -151,6 +155,7 @@ export async function executeIntegrationAdmin(value: unknown, options: { store?:
         try {
             await (options.slackRecovery ?? resolveSlackUncertainPost)(project, input.userId, record!.doc.threadId, {
                 operationId: input.operationId, decision: input.decision.kind === 'adopt' ? 'adopt' : 'absent', confirmed: true,
+                ...(record!.doc.reviewGroup ? { reviewGroupLedgerId: record!.doc.id } : {}),
                 ...(input.decision.kind === 'adopt' ? { ts: input.decision.ts } : {}) });
         } catch { throw new IntegrationAdminError('recovery_unavailable'); }
     } else if (input.action === 'slack-resume-notification') {

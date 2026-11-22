@@ -216,4 +216,5 @@ export function clearReviewerCache(client: QueryClient) {
     client.removeQueries({ queryKey: ['screenshot'] });
     client.removeQueries({ queryKey: ['review-labels'] });
     client.removeQueries({ queryKey: ['staging-pair'] });
+    client.removeQueries({ queryKey: ['review-session'] });
 }

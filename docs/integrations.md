@@ -85,6 +85,25 @@ identity, private notes, preview files and named decisions stay in uier. The per
 reader's current file permissions. Making a thread private or deleting it or its file queues
 cleanup of reachable copies. Transferring a project disconnects its old destinations.
 
+## Review sessions
+
+Review comments become eligible for connected services when the reviewer sends the session.
+The **Group review sessions** setting applies to future reviews. Resuming a review keeps the
+delivery mode and parent at the same destination. After changing destinations, older feedback
+can be copied using an explicit backfill.
+
+- Slack posts one channel message with the review summary and adds each comment as a thread reply.
+  Incoming Slack replies stay in that thread. Existing connections using reply sync start with
+  individual delivery. An admin can choose grouped delivery in the connection settings.
+- GitHub creates one parent issue and attaches the feedback as sub-issues. If GitHub refuses an
+  attachment, the parent can link to the visible child issue.
+- Linear and Azure DevOps create a parent issue or work item and attach the feedback beneath it.
+- Notion groups pages using a mapped **Review session** text or select property.
+
+The same visibility and permission checks govern each child and the feedback used in a parent
+summary. See the [review sessions design](design/review-sessions.md) for the delivery and recovery
+contracts.
+
 ## Two-way status sync
 
 GitHub, Linear, Azure DevOps and Notion each have an independent **Enable two-way status sync**

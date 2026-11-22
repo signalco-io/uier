@@ -5,6 +5,7 @@ Read the note for the area you change, and update it in the same pull request. A
 
 - [Anchor recovery](anchor-recovery.md): re-finding a comment's anchor after the page changed, and reattaching it.
 - [Review brief](review-brief.md): showing the project brief in the toolbar.
+- [Review sessions](review-sessions.md) covers collection, sending, resuming and draft recovery.
 - [Feedback export](feedback-export.md): Copy issue and the shared feedback context packet.
 - [Optimistic status changes](optimistic-status.md): optimistic status changes and rollback.
 - [Packaged extension adapter](extension-adapter.md): the packaged browser extension adapter.

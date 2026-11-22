@@ -14,6 +14,7 @@ import { messageAgentView } from './messageAgent';
 import { canTriageProject, canDeleteComment, canDeleteItem, canEditComment, canEditItem, canResolveComment } from './comments';
 
 import { assignedUserIds } from './assignments';
+import type { ReviewSessionCommentView } from './reviewSessions';
 
 const memberPrefix = 'user:';
 
@@ -47,6 +48,7 @@ export function messageMentions(item: DbThreadItem, names: Map<string, string>) 
 export type ReviewAssignee = { id?: string; name: string; isMe: boolean; unavailable: boolean; agent?: import('@uier/toolbar/agents').AssigneeAgentView; agents?: import('@uier/toolbar/agents').AssigneeAgentView[] };
 
 export type ReviewCommentDto = CommentDto & {
+    reviewSession?: ReviewSessionCommentView;
     labelIds?: string[];
     hasDesignReference?: true;
     verificationEnabled?: boolean;
@@ -69,7 +71,7 @@ export type ReviewCommentDto = CommentDto & {
  * A project comment for the toolbar: the public comment shape (`CommentDto`) with project names
  * and permissions. Detailed reproduction context is member-only; author ids are never exposed.
  */
-export function toReviewCommentDto(comment: DbComment, actor: ProjectActor, names: Map<string, string>, origins: readonly string[] = [], readSequence = 0, participants = names, project?: DbProject): ReviewCommentDto | null {
+export function toReviewCommentDto(comment: DbComment, actor: ProjectActor, names: Map<string, string>, origins: readonly string[] = [], readSequence = 0, participants = names, project?: DbProject, reviewSession?: ReviewSessionCommentView): ReviewCommentDto | null {
     const authorId = actorAuthorId(actor);
     const assignees: ReviewAssignee[] = assignedUserIds(comment).map(id => {
         const agents = actor.kind === 'member' ? assigneeAgentViews(comment, id) : undefined;
@@ -84,6 +86,7 @@ export function toReviewCommentDto(comment: DbComment, actor: ProjectActor, name
     const items = Array.isArray(comment.thread?.items) ? comment.thread.items : [];
     return {
         ...dto,
+        ...(reviewSession ? { reviewSession } : {}),
         ...(actor.kind === 'member' && comment.stagingDesign ? { hasDesignReference: true as const } : {}),
         verificationEnabled: project?.verificationEnabled === true,
         workflowStatusId: comment.workflowStatusId, archiveStatusId: comment.archiveStatusId,

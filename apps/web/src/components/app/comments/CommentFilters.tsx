@@ -22,6 +22,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { ToggleGroup, ToggleGroupItem } from '@/src/components/ui/toggle-group';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/src/components/ui/tooltip';
 import type { EnvironmentOption } from '../../../lib/app/environments';
+import type { CommentReviewGroup } from '../../../lib/app/projectCommentPaging';
 import { activeStatusFilters, boardStatusFilter, boardStatusFilters, isActiveStatusFilter, peopleFilterLabels, statusFilterLabels, type AuthorFilter, type CommentsView, type PeopleFilter, type StatusFilter } from './commentLabels';
 import { LocationFilter, type PageCount } from './LocationFilter';
 import { pageFilterBase } from './pageFilter';
@@ -67,8 +68,10 @@ export type FilterProject = { id: string; name: string; url?: string };
  * Comments of several projects (My work) pass `projects` for a Project filter (`?project=`) and leave out what only
  * one project has (`environments`, `statusCounts`).
  */
-export function CommentFilters({ className, unread, unreadCount, view, onView, archive, status, statusCounts, statusUnread, people, page, pages = [], environment, environments, historySources, author, search, onSearch, priority, countLine, project, projects, labels, label, verificationEnabled = false, grouping }: {
+export function CommentFilters({ className, unread, unreadCount, view, onView, archive, status, statusCounts, statusUnread, people, page, pages = [], environment, environments, historySources, author, search, onSearch, priority, countLine, project, projects, labels, label, verificationEnabled = false, grouping, reviewGroups = [], reviewSessionId }: {
     grouping?: React.ReactNode;
+    reviewGroups?: CommentReviewGroup[];
+    reviewSessionId?: string;
     /** The header's width: the list's or the board's (ProjectComments) */
     verificationEnabled?: boolean;
     className?: string;
@@ -139,8 +142,14 @@ export function CommentFilters({ className, unread, unreadCount, view, onView, a
     const projectLabel = project ? projects?.find(option => option.id === project)?.name : undefined;
     // Leaving the Archive goes back to the list's default status; a thread open there stays behind
     const leaveArchive = { archive: undefined, status: undefined, comment: undefined };
+    const reviewOptions = reviewGroups.map(group => ({ value: group.id, label: group.number
+        ? t('Review {number}', { number: group.number }) : t('Unsent review by {name}', { name: group.reviewer }) }));
+    if (reviewSessionId && !reviewOptions.some(option => option.value === reviewSessionId)) {
+        reviewOptions.push({ value: reviewSessionId, label: t('Review session') });
+    }
     const chips = [
         label && { key: 'label', name: t('Label'), value: labels?.find(item => item.id === label)?.name ?? t('Unavailable label'), clear: () => go({ label: undefined }) },
+        reviewSessionId && { key: 'reviewSessionId', value: reviewOptions.find(option => option.value === reviewSessionId)?.label ?? t('Review session'), clear: () => go({ reviewSessionId: undefined }) },
         projectLabel && { key: 'project', name: t('Project'), value: projectLabel, clear: () => go({ project: undefined }) },
         boardStatus && { key: 'status', name: t('Status'), value: t(statusFilterLabels[boardStatus]), clear: () => go({ status: undefined }) },
         priority && { key: 'priority', name: t('Priority'), value: t(priorityLabels[priority]), clear: () => go({ priority: undefined }) },
@@ -237,6 +246,17 @@ export function CommentFilters({ className, unread, unreadCount, view, onView, a
                                     </Select>
                                 </Field>
                             )}
+                            {reviewOptions.length > 0 && <Field>
+                                <FieldLabel htmlFor="filter-review-session">{t('Review session')}</FieldLabel>
+                                <Select value={reviewSessionId ?? 'all'} items={[{ value: 'all', label: t('All reviews') }, ...reviewOptions]}
+                                    onValueChange={value => go({ reviewSessionId: value === 'all' ? undefined : value ?? undefined })}>
+                                    <SelectTrigger id="filter-review-session" className="w-full pointer-coarse:min-h-11"><SelectValue /></SelectTrigger>
+                                    <SelectContent><SelectGroup>
+                                        <SelectItem value="all" className="pointer-coarse:min-h-11">{t('All reviews')}</SelectItem>
+                                        {reviewOptions.map(option => <SelectItem key={option.value} value={option.value} className="pointer-coarse:min-h-11">{option.label}</SelectItem>)}
+                                    </SelectGroup></SelectContent>
+                                </Select>
+                            </Field>}
                             <Field>
                                 <FieldLabel htmlFor="filter-priority">{t("Priority")}</FieldLabel>
                                 <Select items={{ all: t("All priorities"), ...Object.fromEntries(Object.entries(priorityLabels).map(([key, label]) => [key, t(label)])) }} value={priority ?? 'all'} onValueChange={value => go({ priority: value === 'all' ? undefined : value ?? undefined })}>
@@ -299,7 +319,7 @@ export function CommentFilters({ className, unread, unreadCount, view, onView, a
                             )}
                             {active > 0 && (
                                 <Button variant="ghost" size="sm" className="self-start pointer-coarse:min-h-11"
-                                    onClick={() => { go({ priority: undefined, unread: undefined, environment: undefined, page: undefined, people: undefined, author: undefined, ...(boardStatus ? { status: undefined } : {}), ...(projects ? { project: undefined } : {}), ...(archive?.pressed ? leaveArchive : {}) }); setFiltersOpen(false); }}>
+                                    onClick={() => { go({ priority: undefined, unread: undefined, environment: undefined, page: undefined, people: undefined, author: undefined, label: undefined, reviewSessionId: undefined, ...(boardStatus ? { status: undefined } : {}), ...(projects ? { project: undefined } : {}), ...(archive?.pressed ? leaveArchive : {}) }); setFiltersOpen(false); }}>
                                     {t("Clear filters")}
                                 </Button>
                             )}

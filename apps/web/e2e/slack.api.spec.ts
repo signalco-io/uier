@@ -1,5 +1,5 @@
 import type { FeedbackContext } from '@uier/toolbar/feedback-context';
-import { setIntegrationReplySync } from '../src/lib/integrations/connection';
+import { setIntegrationGroupSessions, setIntegrationReplySync } from '../src/lib/integrations/connection';
 import { createHmac, randomUUID } from 'node:crypto';
 import { expect, test as base } from '@playwright/test';
 import { memberId, projectRefPk, userPk, workspacePk, type DbMember, type DbProject, type DbProjectRef, type DbUser, type DbWorkspace } from '../src/lib/app/model';
@@ -29,6 +29,10 @@ import { receiveSlackEvent } from '../src/lib/integrations/slack/events';
 import { findSlackThread } from '../src/lib/integrations/slack/threads';
 import { deliverThreadNow } from '../src/lib/integrations/deliverNow';
 import { startSlackStub, type SlackStub } from './support/slackStub';
+import { memberActor } from '../src/lib/review/actor';
+import { createProjectComment, setProjectCommentPrivate } from '../src/lib/review/comments';
+import { prepareReviewReleases, resumeReviewSession, sendReviewSession, startReviewSession } from '../src/lib/review/reviewSessions';
+import { reviewGroupIdentity } from '../src/lib/integrations/reviewGroups';
 
 const test = base.extend<{ slack: SlackStub }>({ slack: async ({}, use) => {
     process.env.UIER_LOCAL = '1'; const stub = await startSlackStub();
@@ -114,6 +118,76 @@ async function saveRecording(f: Fixture, bytes: Buffer, itemId?: string): Promis
 }
 /** Files people can see in Slack. An upload that was never completed is discarded there. */
 const liveFiles = (slack: SlackStub) => [...slack.files.values()].filter(file => file.completed && !file.deleted);
+
+test('Slack keeps resumed review comments under the recovered root and removes a private child only', async ({ slack }) => {
+    const f = await fixture();
+    const connection = await connect(f, slack);
+    const project = await fresh(f);
+    const actor = (await memberActor(project, f.owner.id))!;
+    const started = (await startReviewSession(project, actor, f.comments))!;
+    const request = new Request('http://127.0.0.1/review');
+    const add = (draft: typeof started, text: string) => createProjectComment(request, project, actor, {
+        kind: 'comment', position: { type: 'page' }, path: '/pricing', origin: 'https://reviewed.example', text,
+        idempotencyKey: randomUUID(), reviewSessionId: draft.id, reviewDraftId: draft.draftId!
+    });
+    const send = (draft: typeof started, summary: string) => sendReviewSession(project, actor, draft.id, {
+        draftId: draft.draftId!, revision: draft.revision, idempotencyKey: randomUUID(), summary
+    }, f.comments);
+    const identity = reviewGroupIdentity(project, connection, started.id);
+    const group = () => f.store.get<IntegrationSync>(identity.pk, identity.id);
+    const child = (id: string) => f.store.get<IntegrationSync>(identity.pk, integrationSyncId('slack', connection.id, project.id, id));
+    const discover = async (id: string) => discoverThreadIntegrationSync(project, (await f.comments.get(f.source.domain, id))!.comment, { adapters: [slackAdapter] });
+    const deliver = async (stored: Awaited<ReturnType<typeof group>>) => {
+        await processIntegrationDelivery(stored!.doc, baseUrl, slackAdapter, { now: () => Date.now() + 70_000 });
+    };
+    const first = await add(started, 'Preserve this grouped feedback');
+    const second = await add(started, 'Only this child should be removed');
+    expect(await discover(first.id)).toBe(false);
+    expect(await group()).toBeNull();
+    expect(slack.messages.size).toBe(0);
+    await send(started, 'First batch');
+    await prepareReviewReleases(f.comments);
+    await discover(first.id);
+    await discover(second.id);
+    slack.fault('chat.postMessage', 'lost');
+    await deliver(await group());
+    const root = [...slack.messages.values()][0]!;
+    const operationId = (await group())!.doc.attempt!.operationId;
+    expect((await group())!.doc.status).toBe('ambiguous');
+    await deliver(await child(first.id));
+    expect((await child(first.id))!.doc.lastCode).toBe('session_root_pending');
+    expect(slack.messages.size).toBe(1);
+    await resolveSlackUncertainPost(project, f.owner.id, started.id, {
+        operationId, decision: 'adopt', ts: root.ts, confirmed: true, reviewGroupLedgerId: identity.id
+    });
+    await deliver(await group());
+    await updateDoc<IntegrationSync>(identity.pk, (await child(first.id))!.doc.id, doc => ({ ...doc, nextAttemptAt: old }));
+    await deliver(await child(first.id));
+    await deliver(await child(second.id));
+    expect([...slack.messages.values()].filter(message => message.threadTs === root.ts)).toHaveLength(2);
+
+    await setIntegrationGroupSessions(project, 'slack', f.owner.id, false);
+    const resumed = (await resumeReviewSession(project, actor, started.id, f.comments))!;
+    const third = await add(resumed, 'Follow-up in the same review');
+    await send(resumed, 'Updated review summary');
+    await prepareReviewReleases(f.comments);
+    await discover(third.id);
+    await deliver(await group());
+    await deliver(await child(third.id));
+    await setProjectCommentPrivate(project, actor, second.id, true);
+    await discover(second.id);
+    await deliver(await child(second.id));
+    await deliver(await group());
+
+    const messages = [...slack.messages.values()];
+    expect(messages.filter(message => !message.threadTs).map(message => message.ts)).toEqual([root.ts]);
+    expect(messages.filter(message => message.threadTs === root.ts).map(message => message.payload.text)).toEqual([
+        expect.stringContaining('Preserve this grouped feedback'), expect.stringContaining('Follow-up in the same review')
+    ]);
+    expect(messages.find(message => message.ts === root.ts)?.payload.text).toContain('0 of 2 done');
+    expect(messages.find(message => message.ts === root.ts)?.payload.text).not.toContain('Updated review summary');
+    expect(await findSlackThread(root.channel === slack.channelId ? slack.teamId : '', root.channel, root.ts)).toBeNull();
+});
 
 test('Slack OAuth is single-use, bot-only, rotating, encrypted and off until a channel is explicitly selected', async ({ slack }) => {
     const f = await fixture();

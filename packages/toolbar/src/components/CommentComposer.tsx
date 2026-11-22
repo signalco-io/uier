@@ -69,6 +69,7 @@ type CommentComposerProps = {
     label: string;
     placeholder: string;
     submitLabel: string;
+    submitIcon?: ReactNode;
     /** A valid structured suggestion can be posted with an empty note. */
     allowEmpty?: boolean;
     /** Unsent text is kept under this key (see hooks/useDrafts.tsx) */
@@ -80,6 +81,7 @@ type CommentComposerProps = {
     pending?: boolean;
     /** Part of what it sends is not ready (an attached image is still being read): Enter and the send button wait */
     holdSubmit?: boolean;
+    submitBlocked?: string;
     /**
      * Not ready for text yet (a reply to a comment that is still being saved): the text box keeps
      * its place and can have the focus, but is read-only
@@ -105,6 +107,7 @@ type CommentComposerProps = {
      * failure puts the text back (the toast says why).
      */
     onSubmit: (text: string, mentions?: Mention[]) => Promise<unknown>;
+    alternativeSubmit?: { label: string; icon?: ReactNode; submit: CommentComposerProps['onSubmit'] };
     /** An image file dropped on the text (the form's Attach image takes it) */
     onImageDrop?: (file: File) => void;
     /** Shows a "Discard" button while there is text (new comments) */
@@ -123,7 +126,7 @@ type CommentComposerProps = {
  * box styled like the kit's `Input` (bordered, radius 8, blue focus ring), with its hint or counter and buttons.
  * Enter sends, Shift+Enter adds a new line; Markdown typed and Ctrl/⌘+B, I, E format the text.
  */
-export function CommentComposer({ ref, label, placeholder, submitLabel, allowEmpty = false, draftKey, quote, autoFocus, pending, holdSubmit = false, waiting = false, image, recording, attachments, beforeText, tall = false, error, onSubmit, onImageDrop, onDiscard, discardable = false, stickyBox = false, initialText, initialMentions, commentId, onCancel }: CommentComposerProps) {
+export function CommentComposer({ ref, label, placeholder, submitLabel, submitIcon, allowEmpty = false, draftKey, quote, autoFocus, pending, holdSubmit = false, submitBlocked, waiting = false, image, recording, attachments, beforeText, tall = false, error, onSubmit, alternativeSubmit, onImageDrop, onDiscard, discardable = false, stickyBox = false, initialText, initialMentions, commentId, onCancel }: CommentComposerProps) {
     holdSubmit = holdSubmit || Boolean(recording?.busy);
     const formRef = useRef<HTMLFormElement>(null);
     const editorRef = useRef<MarkdownEditorHandle>(null);
@@ -168,6 +171,7 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, allowEmp
     // Editing waits for the save; new comments, replies and feedback never block the form
     const instant = !onCancel;
     const busy = !instant && (pending || submitting || sharedPending);
+    const cannotSubmit = (!trimmedText && !allowEmpty) || busy || holdSubmit || waiting || sharedPending;
 
     // The editor reports the Markdown with each mention's range (its mentions move with the text)
     const setText = (value: string, next: EditorMention[]) => {
@@ -222,8 +226,7 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, allowEmp
         }
     };
 
-    const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-        e.preventDefault();
+    const submit = async (action: CommentComposerProps['onSubmit']) => {
         // The draft's text, not this render's: a second Enter before the form re-rendered would send it again
         const text = drafts.get(draftKey) ?? initialText ?? '';
         const mentions = drafts.details(draftKey)?.mentions ?? (text === initialText ? initialMentions ?? noMentions : noMentions);
@@ -245,14 +248,14 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, allowEmp
         const leading = text.length - text.trimStart().length;
         const selected = mentions.filter(mention => mention.end <= text.trimEnd().length).map(mention => ({ userId: mention.userId, start: mention.start - leading, end: mention.end - leading }));
         if (instant) {
-            await sendInBackground(text, mentions, () => onSubmit(trimmedText, selected));
+            await sendInBackground(text, mentions, () => action(trimmedText, selected));
             return;
         }
 
         submittingRef.current = true;
         setSubmitting(true);
         try {
-            await drafts.run(draftKey, () => onSubmit(trimmedText, selected));
+            await drafts.run(draftKey, () => action(trimmedText, selected));
             drafts.delete(draftKey);
         } catch {
             // Shown by `error`; keep the text so it can be sent again
@@ -260,6 +263,10 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, allowEmp
             submittingRef.current = false;
             setSubmitting(false);
         }
+    };
+    const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        if (!submitBlocked) void submit(onSubmit);
     };
 
     const selectMention = (person: Participant) => {
@@ -390,6 +397,14 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, allowEmp
                                 <Close size={14} />
                             </IconButton></IconTooltip>
                         )}
+                        {alternativeSubmit?.icon && <IconTooltip label={alternativeSubmit.label}>
+                            <IconButton variant="plain" size="xs" type="button"
+                                className="size-7 rounded-md pointer-coarse:size-11"
+                                aria-label={alternativeSubmit.label} disabled={cannotSubmit}
+                                onClick={() => void submit(alternativeSubmit.submit)}>
+                                {alternativeSubmit.icon}
+                            </IconButton>
+                        </IconTooltip>}
                         {onCancel ? (
                             <IconTooltip label={submitLabel}><IconButton
                                 variant="plain"
@@ -406,8 +421,8 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, allowEmp
                             type="submit"
                             className="size-7 rounded-md pointer-coarse:size-11"
                             aria-label={submitLabel}
-                            disabled={(!trimmedText && !allowEmpty) || busy || holdSubmit || waiting || sharedPending}>
-                            <Send size={14} />
+                            disabled={cannotSubmit || Boolean(submitBlocked)}>
+                            {submitIcon ?? <Send size={14} aria-hidden="true" />}
                         </IconButton></IconTooltip>}
                     </Row>
                 </Row>
@@ -422,7 +437,13 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, allowEmp
                     </Button>)}
                 </div>}
                 {query && participants.error && <p role="status" className="m-0 text-xs text-muted-foreground">{t.composer.peopleNotLoaded}</p>}
-                <CommentsErrorMessage error={error} />
+                {submitBlocked
+                    ? <p role="status" className="m-0 text-sm text-muted-foreground">{submitBlocked}</p>
+                    : <CommentsErrorMessage error={error} />}
+                {alternativeSubmit && !alternativeSubmit.icon && <Button type="button" size="sm" variant="plain"
+                    className="self-start text-xs pointer-coarse:min-h-11"
+                    disabled={cannotSubmit}
+                    onClick={() => void submit(alternativeSubmit.submit)}>{alternativeSubmit.label}</Button>}
                 {!storageAvailable && text.length > 0 && <p role="status" className="m-0 text-xs text-muted-foreground">{t.composer.storageUnavailable}</p>}
                 {error != null && <p className="m-0 text-xs text-muted-foreground">{t.composer.draftKept}</p>}
                 {recoveries > 0 && <div className="text-xs text-muted-foreground"><p role="status">{t.composer.recoveryKept}</p>

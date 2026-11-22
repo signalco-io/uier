@@ -12,6 +12,7 @@ import { threadPullRequestLinks } from '../comments/pullRequestLinks';
 import { getAppStore } from './store';
 import { notificationPk, type NotificationSubscription } from '../notifications/preferences';
 import { getCommentsStore } from '../repo/commentsStore';
+import { reviewSessionDocumentId } from '../review/reviewSessionRelease';
 import type { CommentQueryCandidate } from '../repo/commentQuerySource';
 import { commentVisibilityFilter } from '../review/comments';
 import { threadTitle } from '../titles/model';
@@ -36,10 +37,10 @@ import type { AppTranslator } from '../i18n/types';
 import { readSidebarCommentSummary, type SidebarCommentSummary } from './sidebarProjects';
 
 export { PROJECT_COMMENT_PAGE_SIZE } from './projectCommentPaging';
-import { labelLaneKey, PROJECT_COMMENT_MAX_DEPTH, PROJECT_COMMENT_PAGE_SIZE, projectCommentPageKey, type CommentLane, type CommentPage, type ProjectCommentPaging, type ProjectCommentPageInput } from './projectCommentPaging';
+import { compareReviewGroups, labelLaneKey, PROJECT_COMMENT_MAX_DEPTH, PROJECT_COMMENT_PAGE_SIZE, projectCommentPageKey, type CommentLane, type CommentPage, type CommentReviewGroup, type ProjectCommentPaging, type ProjectCommentPageInput } from './projectCommentPaging';
 export type { ProjectCommentPageInput } from './projectCommentPaging';
 
-type Pivot = Pick<ProjectCommentView, 'id' | 'number' | 'createdAt' | 'updatedAt' | 'completedAt' | 'archivedAt'> & { priority?: ProjectCommentView['priority']; labelIds?: string[] };
+type Pivot = Pick<ProjectCommentView, 'id' | 'number' | 'createdAt' | 'updatedAt' | 'completedAt' | 'archivedAt'> & { priority?: ProjectCommentView['priority']; labelIds?: string[]; reviewSession?: { id: string } };
 type Cursor = { key: string; after: Pivot; expires: number };
 const stages = feedbackStages;
 const filters: StatusFilter[] = ['active', ...stages, 'all'];
@@ -104,6 +105,7 @@ export async function loadProjectCommentPages(context: AppContext, project: DbPr
     const titles = aiTitlesEnabled(context.workspace, project), labels = effectiveThreadLabels(context.workspace, project);
     const matches = (comment: CommentQueryCandidate) => {
         if (query.label && !labelsForComment(labels, comment).some(label => label.id === query.label)) return false;
+        if (query.reviewSessionId && comment.reviewSession?.id !== query.reviewSessionId) return false;
         if (query.priority && commentPriority(comment.priority) !== query.priority) return false;
         if (query.page && !pageMatches(query.page, commentPath(comment))) return false;
         const assignees = comment.assigneeIds ?? (comment.assigneeId ? [comment.assigneeId] : []);
@@ -148,7 +150,12 @@ export async function loadProjectCommentPages(context: AppContext, project: DbPr
             const index = groupLabels ? groupLabels.findIndex(id => row.labelIds?.includes(id)) : -1;
             return index < 0 ? (groupLabels ? groupLabels.length : 0) : index;
         };
-        const compare = (a: Pivot, b: Pivot) => (!board && groupLabels ? groupIndex(a) - groupIndex(b) : 0) || (sort ? boardSortOrders[sort](a, b) : compareCommentOrder(a, b)) || compareCommentOrder(a, b) || a.id.localeCompare(b.id);
+        const groupOrder = (a: Pivot, b: Pivot) => {
+            if (board) return 0;
+            if (query.groupBy === 'reviewSession') return compareReviewGroups(a.reviewSession?.id, b.reviewSession?.id);
+            return groupLabels ? groupIndex(a) - groupIndex(b) : 0;
+        };
+        const compare = (a: Pivot, b: Pivot) => groupOrder(a, b) || (sort ? boardSortOrders[sort](a, b) : compareCommentOrder(a, b)) || compareCommentOrder(a, b) || a.id.localeCompare(b.id);
         const rows = (board ? rowsByLane.get(lane)! : inScope.filter(comment => statusMatches(query.status, stage(comment)))).sort(compare);
         const binding = keyedHash('project-comment-page-binding', JSON.stringify([key, lane, viewerId, project.id, context.isAdmin, project.access, project.urls, query.unread ? input.openId : undefined]));
         const cursor = input.cursor ? readCursor(input.cursor, binding) : undefined;
@@ -158,7 +165,8 @@ export async function loadProjectCommentPages(context: AppContext, project: DbPr
         const size = input.allIds ? Math.max(rows.length, 1) : depth * PROJECT_COMMENT_PAGE_SIZE;
         const page = remaining.slice(0, size), last = page.at(-1);
         const after = last && { id: last.id, priority: last.priority ?? 'normal', number: last.number, createdAt: last.createdAt,
-            labelIds: last.labelIds, updatedAt: last.updatedAt, completedAt: last.completedAt, archivedAt: last.archivedAt };
+            labelIds: last.labelIds, reviewSession: last.reviewSession && { id: last.reviewSession.id },
+            updatedAt: last.updatedAt, completedAt: last.completedAt, archivedAt: last.archivedAt };
         lanes[lane] = { ids: page.map(row => row.id), total: rows.length,
             nextCursor: remaining.length > size && after ? signCursor({ key: binding, after, expires: cursor?.expires ?? Date.now() + 15 * 60_000 }) : null };
         for (const row of page) selected.add(row.id);
@@ -170,9 +178,40 @@ export async function loadProjectCommentPages(context: AppContext, project: DbPr
         const path = commentPath(comment); paths.set(path, (paths.get(path) ?? 0) + 1);
     }
     const archiveRows = archived ? inScope : matching.filter(comment => comment.archivedAt);
+    const visibleSessions = new Map<string, CommentQueryCandidate[]>();
+    for (const comment of scope) if (comment.reviewSession) {
+        const id = comment.reviewSession.id;
+        const threads = visibleSessions.get(id);
+        if (threads) threads.push(comment);
+        else visibleSessions.set(id, [comment]);
+    }
+    const revisionSessionIds = [...visibleSessions.keys()].sort().slice(0, 100);
+    const relevantSessions = new Set(revisionSessionIds);
+    if (!input.revisionOnly) for (const comment of scope) {
+        if (comment.reviewSession && (selected.has(comment.id) || comment.id === input.openId)) relevantSessions.add(comment.reviewSession.id);
+    }
+    if (query.reviewSessionId && visibleSessions.has(query.reviewSessionId)) relevantSessions.add(query.reviewSessionId);
+    const reviewerNames = new Map(members.map(({ member, name }) => [member.userId, name]));
+    const reviewGroups: CommentReviewGroup[] = [];
+    const ids = [...relevantSessions];
+    const store = getCommentsStore();
+    const records = await store.listReviewSessionRecords(domain, ids.map(reviewSessionDocumentId));
+    for (const session of records) {
+        const id = session.id.slice(reviewSessionDocumentId('').length);
+        const threads = visibleSessions.get(id)!;
+        const pending = new Set(session.pendingThreadIds);
+        const pendingCount = threads.filter(comment => pending.has(comment.id)).length;
+        const reviewer = session.authorId.startsWith('user:') ? reviewerNames.get(session.authorId.slice(5)) ?? t('Former member')
+            : session.authorName ?? threads.find(comment => comment.authorId === session.authorId)?.thread.items[0]?.authorName ?? t('Guest');
+        reviewGroups.push({ id, number: session.number, reviewer, count: threads.length, pendingCount, submittedAt: session.submittedAt,
+            ...(pendingCount && session.state === 'open' && session.draftId && (context.isAdmin || session.authorId === viewerId)
+                ? { send: { draftId: session.draftId, revision: session.revision } } : {}) });
+    }
+    reviewGroups.sort((a, b) => (b.number ?? Infinity) - (a.number ?? Infinity) || a.id.localeCompare(b.id));
     const paging: ProjectCommentPaging = { key, lanes, statusCounts, statusUnread, archiveCount: archiveRows.length,
         archiveUnread: archiveRows.filter(comment => readActivity(comment, viewerId, reads.get(comment.id)).unread).length, scopeTotal: scope.length, matchedTotal: matching.length,
         pages: [...paths].map(([path, count]) => ({ path, count })),
+        ...(reviewGroups.length ? { reviewGroups } : {}),
         historySources: [...new Set(scope.map(comment => feedbackSource(project, comment.origin).environment).filter(id => id === 'removed' || id === 'unknown'))],
         unreadCount: inScope.filter(comment => (board ? !boardStatus || stage(comment) === boardStatus : statusMatches(query.status, stage(comment))) && readActivity(comment, viewerId, reads.get(comment.id)).unread).length };
     const [views, openedComment, sidebarSummary] = await Promise.all([
@@ -189,7 +228,7 @@ export async function loadProjectCommentPages(context: AppContext, project: DbPr
     const revision = keyedHash('app-comments-paged-snapshot', JSON.stringify({
         scope: scope.map(comment => [comment.id, comment.revision, reads.get(comment.id) ?? 0,
             [...(comment.assigneeAgents ?? (comment.assigneeAgent ? [comment.assigneeAgent] : []))].map(agent => agentIsWorking(agent.workingUntil))]).sort(([a], [b]) => String(a).localeCompare(String(b))),
-        members, subscriptions, project, user: context.user, workspace: context.workspace, actor
+        reviews: reviewGroups.filter(group => revisionSessionIds.includes(group.id)), members, subscriptions, project, user: context.user, workspace: context.workspace, actor
     }));
     const byId = new Map(views.map(view => [view.id, view]));
     if (!input.revisionOnly) for (const lane of Object.values(lanes)) if (lane) lane.ids = lane.ids.filter(id => byId.has(id));

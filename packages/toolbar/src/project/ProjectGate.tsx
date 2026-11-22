@@ -13,12 +13,15 @@ import { checkInstallationReady } from './installationCheck';
 import { defaultPageStatePolicy, pagePath, type PageStatePolicy } from '../pageState';
 import { applyLanguageInfo, languageReady, useMessages } from '../i18n';
 import type { ToolbarLanguageInfo } from '../languages';
+import type { ReviewSessionView } from './reviewSessionTypes';
 
 /** GET /api/review/<project> (apps/web/src/lib/review/routes.ts) */
 export type ReviewInfo = {
     project: { verificationEnabled?: boolean; id: string; name: string; access: 'invited' | 'guests' | 'disabled'; brief?: string; feedbackTypes?: FeedbackType[]; toolbarFeatures?: ToolbarFeature[]; pageState?: PageStatePolicy; environments?: { origin: string; label: string; group?: string }[]; environmentOptions?: { id: string; label: string }[] };
     viewer: { kind: 'member' | 'guest' | 'anonymous'; name?: string; isAdmin?: boolean; draftScope?: string };
     canComment: boolean;
+    reviewSessionsAvailable?: boolean;
+    reviewSession?: ReviewSessionView;
     /** Review link of the project on uier: signs in and comes back (add `url`) */
     signInUrl: string;
     /** The toolbar's language: the project's default and a member's own choice (older APIs send none: English) */
@@ -83,6 +86,8 @@ export type ProjectViewer = {
     feedbackTypes?: FeedbackType[];
     toolbarFeatures?: ToolbarFeature[];
     isMember?: boolean;
+    reviewSessionsAvailable?: boolean;
+    reviewSession?: ReviewSessionView;
     environment?: string;
     currentEnvironment?: string;
     environmentLabel?: string;
@@ -237,6 +242,7 @@ function ProjectEnvironmentProvider({ info, children }: PropsWithChildren<{ info
         toolbarFeatures: info.project.toolbarFeatures,
         verificationEnabled: info.project.verificationEnabled === true, access: info.project.access, brief: info.project.brief, feedbackTypes: info.project.feedbackTypes,
         isMember: info.viewer.kind === 'member', draftScope: info.viewer.draftScope,
+        reviewSessionsAvailable: info.reviewSessionsAvailable, reviewSession: info.reviewSession,
         needsName: info.viewer.kind !== 'member', pageState: info.project.pageState ?? defaultPageStatePolicy,
         currentEnvironment, environment, environmentLabel: current?.label, environmentOptions: options, setEnvironment,
         environments: info.project.environments

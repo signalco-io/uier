@@ -3,7 +3,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { pathToFileURL } from 'node:url';
 
 export type StubLinearIssue = { id: string; identifier: string; url: string; title: string; description: string; creator: { id: string };
-    team: { id: string }; project: { id: string } | null; state: { id: string; type?: string }; labels: { nodes: { id: string }[] }; trashed: boolean; archivedAt: string | null };
+    team: { id: string }; project: { id: string } | null; parent?: { id: string } | null; state: { id: string; type?: string }; labels: { nodes: { id: string }[] }; trashed: boolean; archivedAt: string | null };
 export type StubLinearComment = { id: string; body: string; user: { id: string }; issue: { id: string }; createdAt?: string; updatedAt?: string };
 export type LinearFault = 'rate_limit' | 'partial' | 'lost' | 'forbidden' | 'invalid_success' | 'unauthenticated' | 'invalid_input';
 export type LinearStub = Awaited<ReturnType<typeof startLinearStub>>;
@@ -151,9 +151,11 @@ export async function startLinearStub(port = 0) {
                 const input = v.input as Record<string, unknown>;
                 if (issues.has(input.id as string)) return gqlError(response, 'CONFLICT');
                 if (input.teamId !== teamId || !String(input.description).includes('uier-source:')) return gqlError(response, 'BAD_REQUEST');
+                if (input.parentId && !issues.has(input.parentId as string)) return gqlError(response, 'BAD_REQUEST');
                 const issue: StubLinearIssue = { id: input.id as string, identifier: `TEST-${++sequence}`, url: `https://linear.app/test/issue/TEST-${sequence}`,
                     title: input.title as string, description: input.description as string, team: { id: teamId }, creator: { id: appUserId },
-                    project: input.projectId ? { id: input.projectId as string } : null, state: { id: input.stateId as string },
+                    project: input.projectId ? { id: input.projectId as string } : null, parent: input.parentId ? { id: input.parentId as string } : null,
+                    state: { id: input.stateId as string },
                     labels: { nodes: (input.labelIds as string[] ?? []).map(id => ({ id })) }, trashed: false, archivedAt: null };
                 issues.set(issue.id, issue); result = { issueCreate: { success: true, issue } };
             } else if (name === 'UierLinearIssueUpdate') {
@@ -161,6 +163,11 @@ export async function startLinearStub(port = 0) {
                 const input = v.input as Record<string, unknown>;
                 for (const key of ['title', 'description'] as const) if (typeof input[key] === 'string') issue[key] = input[key];
                 if (typeof input.stateId === 'string') issue.state = { id: input.stateId };
+                if (input.parentId === null) issue.parent = null;
+                else if (typeof input.parentId === 'string') {
+                    if (!issues.has(input.parentId)) return gqlError(response, 'BAD_REQUEST');
+                    issue.parent = { id: input.parentId };
+                }
                 const labels = new Set(issue.labels.nodes.map(node => node.id));
                 for (const id of input.addedLabelIds as string[] ?? []) labels.add(id);
                 for (const id of input.removedLabelIds as string[] ?? []) labels.delete(id);

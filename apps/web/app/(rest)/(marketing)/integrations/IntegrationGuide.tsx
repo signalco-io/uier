@@ -40,7 +40,7 @@ export function IntegrationGuide({ provider }: { provider: IntegrationProviderId
         {/* The same features as the project's page for the service in the app (IntegrationFeatures) */}
         <PageSection id="features" title="What it does" lead="Optional features stay off until an admin turns them on for the project.">
             <Panel className="sm:grid-cols-2">
-                {integration.features.map(feature => <Tile key={feature.key} title={feature.title} label={feature.optional ? 'Optional' : undefined}>
+                {integration.features.filter(feature => !feature.appOnly).map(feature => <Tile key={feature.key} title={feature.title} label={feature.optional ? 'Optional' : undefined}>
                     <p>{feature.detail}</p>
                 </Tile>)}
             </Panel>

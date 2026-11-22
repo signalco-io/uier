@@ -23,7 +23,7 @@ const reviewExitedKey = 'uier:review-exited';
 /** Letters, digits, `-` and `_`, up to 64 characters */
 const projectCodePattern = /^[A-Za-z0-9_-]{1,64}$/;
 
-export type ReviewSession = {
+export type ReviewLink = {
     /** Project code from the review link (`?toolbar-code=`), when it had one */
     projectCode?: string;
 };
@@ -33,7 +33,7 @@ export function isValidProjectCode(code: string | null | undefined): code is str
 }
 
 /** The review the URL starts, if it is a review link */
-export function readReviewLink(url: URL): ReviewSession | null {
+export function readReviewLink(url: URL): ReviewLink | null {
     const code = url.searchParams.get(toolbarCodeParamKey)?.trim();
     if (isValidProjectCode(code)) {
         return { projectCode: code };
@@ -45,7 +45,7 @@ export function readReviewLink(url: URL): ReviewSession | null {
     return url.searchParams.get(reviewParamKey) === 'true' ? {} : null;
 }
 
-function readSavedSession(): ReviewSession | null {
+function readSavedSession(): ReviewLink | null {
     try {
         const saved = window.sessionStorage.getItem(reviewSessionStorageKey);
         if (!saved) {
@@ -63,7 +63,7 @@ function readSavedSession(): ReviewSession | null {
     }
 }
 
-function saveSession(session: ReviewSession) {
+function saveSession(session: ReviewLink) {
     try {
         window.sessionStorage.setItem(reviewSessionStorageKey, JSON.stringify(session));
     } catch {
@@ -72,7 +72,7 @@ function saveSession(session: ReviewSession) {
 }
 
 /** Background member sign-in may start a review, until the reviewer exits it in this tab. */
-export function startBackgroundReview(projectCode: string): ReviewSession | null {
+export function startBackgroundReview(projectCode: string): ReviewLink | null {
     try { if (window.sessionStorage.getItem(reviewExitedKey)) return null; } catch { /* Page only. */ }
     const session = { projectCode };
     saveSession(session);
@@ -87,7 +87,7 @@ export function backgroundReviewExited() {
  * The review of this page: started by a review link in the URL, or continued from earlier in
  * this tab. `null` when the page is not being reviewed.
  */
-export function resolveReviewSession(): ReviewSession | null {
+export function resolveReviewSession(): ReviewLink | null {
     const fromLink = readReviewLink(new URL(window.location.href));
     if (fromLink) {
         try { window.sessionStorage.removeItem(reviewExitedKey); } catch { /* Page only. */ }
@@ -126,7 +126,7 @@ export const commentLinkParamKey = 'uier-comment';
  * Always on this page's origin: the stored path only replaces the path, so a path like `//host` or
  * `/\host` (which a browser would read as another site) can't lead away.
  */
-export function commentLink(comment: { id: string; path: string; sourcePath?: string; source?: { origin?: string; available: boolean } }, review: ReviewSession | null | undefined) {
+export function commentLink(comment: { id: string; path: string; sourcePath?: string; source?: { origin?: string; available: boolean } }, review: ReviewLink | null | undefined) {
     if (comment.source && !comment.source.available) return undefined;
     const origin = comment.source?.origin ?? window.location.origin;
     const parsed = new URL(origin);
@@ -161,7 +161,7 @@ export function switchableEnvironments<T extends { origin: string }>(environment
  * stay. In a review it carries the review link too. The path is set on its own, so a path like `//host`
  * can't lead to another site.
  */
-export function environmentLink(origin: string, review: ReviewSession | null | undefined, location: Pick<Location, 'pathname' | 'search' | 'hash'> = window.location) {
+export function environmentLink(origin: string, review: ReviewLink | null | undefined, location: Pick<Location, 'pathname' | 'search' | 'hash'> = window.location) {
     if (!openableOrigin(origin)) return undefined;
     const url = new URL(origin);
     url.pathname = location.pathname;

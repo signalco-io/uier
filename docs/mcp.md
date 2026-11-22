@@ -481,7 +481,7 @@ against the live connection.
 | `list_feedback_labels` | `feedback:read` | Effective label IDs, names, brand colors, optional icons and descriptions |
 | `set_feedback_labels` | `feedback:assign` | Add/remove approved label IDs with a stable retry key |
 | `list_feedback_statuses` | `feedback:read` | Effective ordered status IDs, categories, labels, descriptions and new-comment/Done/Archive defaults |
-| `list_feedback` | `feedback:read` | Routing summaries with page, environment, anchor, assignment, author kind, unread and screenshot filters within a 1000-thread window |
+| `list_feedback` | `feedback:read` | Routing summaries with page, environment, anchor, assignment, author kind, unread, screenshot and review session filters within a 1000-thread window |
 | `get_feedback` | `feedback:read` or `proofs:read` with `assetId` | Thread, anchor, original reproduction context and authorized screenshot reference |
 | `show_feedback` | `feedback:read` or `proofs:read` with `assetId` | The same thread packet, with an optional read-only [MCP App card](#thread-cards) |
 | `get_feedback_batch` | `feedback:read` or `proofs:read` with `assetId` | The same full packets for 1–10 distinct thread ids, in request order, within 256 KiB |

@@ -21,6 +21,8 @@ import { azureDevOpsConnection, currentAzureDevOpsGrant } from '../src/lib/integ
 import { azureDevOpsProjection } from '../src/lib/integrations/azure-devops/workItem';
 import type { AzureDevOpsConnection, AzureDevOpsState } from '../src/lib/integrations/azure-devops/model';
 import { startAzureDevOpsStub, type AzureDevOpsStub } from './support/azureDevOpsStub';
+import { deliverReviewNow } from '../src/lib/integrations/deliverNow';
+import { releaseIntegrationReview } from './support/reviewSessionIntegration';
 
 const test = base.extend<{ ado: AzureDevOpsStub }>({ ado: async ({}, use) => {
     process.env.UIER_LOCAL = '1';
@@ -87,6 +89,20 @@ async function retry(f: Fixture) {
     await processIntegrationDelivery(current, baseUrl, azureDevOpsAdapter); return ledger(f);
 }
 const workItem = async (f: Fixture, ado: AzureDevOpsStub) => ado.workItems.get(((await ledger(f)).state as AzureDevOpsState).item!.id!)!;
+
+test('Azure DevOps creates the review parent and a hierarchy link from its child', async ({ ado }) => {
+    const f = await fixture();
+    await connect(f, ado);
+    const { release } = await releaseIntegrationReview(f.project, f.owner.id);
+    await deliverReviewNow(f.project, release, { baseUrl, deadline: Date.now() + 15_000 });
+    const items = [...ado.workItems.values()];
+    expect(items).toHaveLength(2);
+    const parent = items.find(item => String(item.fields['Microsoft.VSTS.TCM.ReproSteps']).includes('Integration review summary'))!;
+    expect(String(parent.fields['Microsoft.VSTS.TCM.ReproSteps'])).toContain(`reviewSessionId=${release.sessionId}`);
+    expect(items.find(item => item.id !== parent.id)?.relations).toEqual([
+        { rel: 'System.LinkTypes.Hierarchy-Reverse', url: `https://dev.azure.com/${ado.organization}/_apis/wit/workItems/${parent.id}` }
+    ]);
+});
 
 test('PR state reads use the connected organization/project, never widen older grants, and preserve their refresh', async ({ ado }) => {
     const f = await fixture(); const connection = await connect(f, ado);

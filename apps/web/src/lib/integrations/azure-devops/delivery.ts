@@ -6,9 +6,10 @@ import { AzureDevOpsApiError, azureDevOpsRequest, azureDevOpsUrl, bounded, objec
 import { guid, isAzureDevOpsConfigured, validOrganization } from './config';
 import { azureDevOpsAccessToken, AzureDevOpsSetupError, currentAzureDevOpsGrant, pauseAzureDevOpsGrant } from './connection';
 import type { AzureDevOpsConnection, AzureDevOpsDestination, AzureDevOpsGrant, AzureDevOpsState, AzureDevOpsWorkItem } from './model';
-import { azureDevOpsMarker, azureDevOpsProjection, removedProjection } from './workItem';
+import { azureDevOpsMarker, azureDevOpsProjection, azureDevOpsReview, removedProjection } from './workItem';
 
-type RemoteWorkItem = { id: number; projectName: string; type: string; state: string; body: string };
+type RemoteWorkItem = { id: number; revision?: number; projectName: string; type: string; state: string; body: string; parentUrl?: string };
+const parentLinkType = 'System.LinkTypes.Hierarchy-Reverse';
 const bodyFields = ['System.Description', 'Microsoft.VSTS.TCM.ReproSteps'];
 /** A create that left without a response may still commit; after this long an empty search means it did not. */
 const CREATE_SETTLE_MS = 2 * 60_000;
@@ -34,7 +35,10 @@ function workItemDecoder(bodyField: string) {
         const fields = body.fields;
         if (typeof fields['System.TeamProject'] !== 'string' || typeof fields['System.WorkItemType'] !== 'string' || typeof fields['System.State'] !== 'string')
             throw new AzureDevOpsApiError('invalid_work_item');
-        return { id: body.id as number, projectName: fields['System.TeamProject'], type: fields['System.WorkItemType'], state: fields['System.State'],
+        const parent = Array.isArray(body.relations) ? body.relations.find(value => object(value) && value.rel === parentLinkType) : undefined;
+        return { id: body.id as number, revision: Number.isSafeInteger(body.rev) ? Number(body.rev) : undefined,
+            parentUrl: object(parent) && typeof parent.url === 'string' ? parent.url : undefined,
+            projectName: fields['System.TeamProject'], type: fields['System.WorkItemType'], state: fields['System.State'],
             body: typeof fields[bodyField] === 'string' ? fields[bodyField] : '' };
     };
 }
@@ -60,8 +64,9 @@ async function deliver(context: IntegrationDeliveryContext): Promise<Integration
             } catch (error) { if (error instanceof AzureDevOpsApiError && error.definitive) await checkpoint(true); throw error; }
         });
         const fieldList = (copy: AzureDevOpsWorkItem) => ['System.Id', 'System.TeamProject', 'System.WorkItemType', 'System.State', copy.bodyField].join(',');
-        const maybeWorkItem = async (copy: AzureDevOpsWorkItem) => {
-            try { return await read(azureDevOpsUrl(copy.organization, `_apis/wit/workitems/${copy.id}`, { fields: fieldList(copy) }), workItemDecoder(copy.bodyField)); }
+        const maybeWorkItem = async (copy: AzureDevOpsWorkItem, withRelations = false) => {
+            const query: Record<string, string> = withRelations ? { '$expand': 'relations' } : { fields: fieldList(copy) };
+            try { return await read(azureDevOpsUrl(copy.organization, `_apis/wit/workitems/${copy.id}`, query), workItemDecoder(copy.bodyField)); }
             catch (error) { if (error instanceof AzureDevOpsApiError && error.code === 'not_found') return null; throw error; }
         };
         /** Same work item, project and type as saved. A renamed project is matched through its id. */
@@ -246,35 +251,50 @@ async function deliver(context: IntegrationDeliveryContext): Promise<Integration
         if (!state.item) {
             const generation = (state.visibilityGeneration ?? 0) + 1;
             state.visibilityGeneration = generation;
-            state.item = { generation, marker: azureDevOpsMarker(connection.id, context.project.id, context.ledger.threadId, generation),
+            state.item = { generation, marker: azureDevOpsMarker(connection.id, context.project.id, context.reviewGroup ? context.ledger.id : context.ledger.threadId, generation),
                 organization: config.organization, projectId: config.projectId, projectName: config.projectName, workItemType: config.workItemType,
                 bodyField: config.bodyField, destinationRevision: connection.destinationRevision };
             await checkpoint();
         }
         const copy = state.item;
-        let remote = copy.id ? await maybeWorkItem(copy) : null;
+        const parent = context.reviewParent ? (context.reviewParent.state as AzureDevOpsState).item : undefined;
+        let remote = copy.id ? await maybeWorkItem(copy, Boolean(parent)) : null;
         // A work item removed or moved by someone in Azure DevOps is never silently recreated or taken back.
         if (copy.id && !remote) return { status: 'ambiguous', code: 'work_item_missing' };
         if (remote) await owned(remote, copy);
-        const projection = azureDevOpsProjection(replyBodyContext(context, copy.replySync), copy.marker);
+        if (parent?.id && !remote?.parentUrl) {
+            const parentRemote = await maybeWorkItem(parent);
+            if (!parentRemote) return { status: 'waiting', code: 'session_root_pending' };
+            await owned(parentRemote, parent);
+            if (!parentRemote.body.includes(parent.marker)) return { status: 'ambiguous', code: 'external_work_item_changed' };
+        }
+        const relation = parent?.id && !remote?.parentUrl ? { op: 'add' as const, path: '/relations/-',
+            value: { rel: parentLinkType, url: `https://dev.azure.com/${copy.organization}/_apis/wit/workItems/${parent.id}` } } : undefined;
+        const projection = context.reviewGroup ? azureDevOpsReview(context.reviewGroup, copy.marker)
+            : azureDevOpsProjection(replyBodyContext(context, copy.replySync), copy.marker);
         const bodyHash = sha256Hex(JSON.stringify({ title: projection.title, html: projection.html, field: copy.bodyField }));
         const status = context.feedback.context.status;
         const desiredState = status === 'done' ? config.doneState : config.openState;
+        const creating = !remote;
         if (!remote) {
             copy.createStartedAt = new Date().toISOString(); await checkpoint();
             remote = await write('create_work_item', 'POST', azureDevOpsUrl(copy.organization, `${copy.projectId}/_apis/wit/workitems/$${encodeURIComponent(copy.workItemType)}`),
                 [{ op: 'add', path: '/fields/System.Title', value: projection.title }, { op: 'add', path: `/fields/${copy.bodyField}`, value: projection.html },
-                    ...(config.areaPath ? [{ op: 'add', path: '/fields/System.AreaPath', value: config.areaPath }] : [])],
+                    ...(config.areaPath ? [{ op: 'add', path: '/fields/System.AreaPath', value: config.areaPath }] : []),
+                    ...(relation ? [relation] : [])],
                 workItemDecoder(copy.bodyField), { generation: copy.generation }, false);
             copy.id = remote.id; copy.bodyHash = bodyHash; copy.createStartedAt = undefined;
             await checkpoint(true);
         }
-        const changes: { op: 'add'; path: string; value: string }[] = [];
+        const changes: { op: 'add' | 'test'; path: string; value: string | number | { rel: string; url: string } }[] = [];
+        if (relation && !creating && remote.revision !== undefined) {
+            changes.push({ op: 'test', path: '/rev', value: remote.revision }, relation);
+        }
         if (copy.bodyHash !== bodyHash) changes.push({ op: 'add', path: '/fields/System.Title', value: projection.title },
             { op: 'add', path: `/fields/${copy.bodyField}`, value: projection.html });
         // The mapped state follows uier's status changes only, so a team's own board moves are kept.
         if (copy.status !== status && remote.state !== desiredState
-            && (!connection.twoWaySync || await remoteResolved(remote, copy, config) !== (status === 'done')))
+            && (context.reviewGroup || !connection.twoWaySync || await remoteResolved(remote, copy, config) !== (status === 'done')))
             changes.push({ op: 'add', path: '/fields/System.State', value: desiredState });
         if (changes.length) {
             await write('update_work_item', 'PATCH', azureDevOpsUrl(copy.organization, `_apis/wit/workitems/${copy.id}`), changes,
@@ -322,7 +342,11 @@ async function deliver(context: IntegrationDeliveryContext): Promise<Integration
     }
 }
 
-export const azureDevOpsAdapter: IntegrationAdapter = { provider: 'azure-devops', isConfigured: isAzureDevOpsConfigured, maxRunMs: 4 * 60_000, maxCalls: 100, supportsStatusSync: true, supportsReplySync: true,
+export const azureDevOpsAdapter: IntegrationAdapter = { provider: 'azure-devops', isConfigured: isAzureDevOpsConfigured, maxRunMs: 4 * 60_000, maxCalls: 100, supportsStatusSync: true, supportsReplySync: true, supportsSessionGroups: true,
+    reviewParentReady(connection, ledger) {
+        const parent = (ledger.state as AzureDevOpsState).item;
+        return Boolean(parent?.id && !parent.cleaned && parent.destinationRevision === connection.destinationRevision);
+    },
     deliver, externalLink(connection, ledger) {
         const copy = stateFrom(ledger.state).item;
         const config = (connection as AzureDevOpsConnection).config;

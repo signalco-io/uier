@@ -3,7 +3,7 @@ export const queryFields = [
     'status', 'priority', 'labels', 'assignee', 'openedBy', 'author', 'mentions', 'agents', 'project',
     'environment', 'page', 'title', 'text', 'unread', 'private', 'screenshot', 'replies',
     'fixLink', 'created', 'updated', 'completed', 'archived', 'number', 'kind', 'verification',
-    'device', 'browser', 'width', 'height'
+    'device', 'browser', 'width', 'height', 'reviewSessionId'
 ] as const;
 export type FieldId = typeof queryFields[number];
 export type FieldType = 'enum' | 'set' | 'string' | 'number' | 'boolean' | 'date';
@@ -75,6 +75,7 @@ export const fieldRegistry: Readonly<Record<FieldId, QueryField>> = {
     mentions: { type: 'set', operators: setOperators, sortable: false, relativeMe: true },
     agents: { type: 'set', operators: setOperators, sortable: false },
     project: { type: 'enum', operators: enumOperators, sortable: true },
+    reviewSessionId: { type: 'enum', operators: enumOperators, sortable: true },
     environment: { type: 'enum', operators: enumOperators, sortable: true },
     page: { type: 'string', operators: [...stringOperators, 'isPage', 'inSection'], sortable: true },
     title: { type: 'string', operators: stringOperators, sortable: true },

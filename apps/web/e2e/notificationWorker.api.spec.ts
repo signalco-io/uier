@@ -39,6 +39,7 @@ test.beforeAll(async () => {
         '../src/lib/notifications/delivery': 'export async function retryNotificationDelivery() { console.log("CALL retry"); } export async function runNotificationWorker() { console.log("CALL email"); return JSON.parse(process.env.UIER_WORKER_TEST_DELIVERY || \'{"checked":0,"failed":0,"blocked":0,"review":[]}\'); }',
         '../src/lib/app/deployment': 'export function configuredAppBaseUrl() { return "https://uier.io"; }',
         '../src/lib/integrations/worker': 'export async function runIntegrationWorker() { console.log("CALL integrations"); return {discovered:{checked:0,deferred:0},providers:[],blocked:0}; }',
+        '../src/lib/review/reviewSessions': 'export async function prepareReviewReleases(_store, _limit, _deadline, options) { console.log("CALL review releases"); if (!options.integrationsOnly) console.log("CALL review discards"); return 0; }',
         '../src/lib/mcp/events/delivery': 'export async function runMcpEventWorker() { console.log("CALL mcp-events"); if (process.env.UIER_WORKER_TEST_EVENTS_FAILURE === "1") throw new TypeError("isolated event endpoint detail"); return {projects:1,discovered:2,delivered:1,retrying:1,failed:0,skipped:0,terminated:0,deferred:0}; }'
     };
     const resolvedModules = new Map(Object.entries(modules).map(([path, contents]) => [resolve('scripts', path), { path, contents }]));
@@ -77,6 +78,8 @@ async function run(integrationsOnly: boolean, retry = '', overrides: Record<stri
 test('integration-only runs do not invoke email discovery, sending or retry', async () => {
     const result = await run(true);
     expect(result.stdout).toContain('CALL integrations');
+    expect(result.stdout).toContain('CALL review releases');
+    expect(result.stdout).not.toContain('CALL review discards');
     // MCP event webhooks are not email: they are delivered on integration-only runs too.
     expect(result.stdout).toContain('CALL mcp-events');
     expect(result.stdout).not.toMatch(/CALL account deletions|CALL email|CALL retry|CALL cleanup|CALL deletions|CALL transfers|CALL migrate|CALL blobs|CALL recordings|CALL proof cleanup|CALL approval mail/);
@@ -95,6 +98,7 @@ test('normal scheduled runs retain email retries and integration delivery', asyn
     expect(result.stdout).toMatch(/CALL deletions[\s\S]*CALL transfers[\s\S]*CALL cleanup/);
     expect(result.stdout).toContain('CALL retry');
     expect(result.stdout).toContain('CALL email');
+    expect(result.stdout).toMatch(/CALL review releases[\s\S]*CALL review discards[\s\S]*CALL integrations/);
     expect(result.stdout).toContain('CALL approval mail');
     // Events imported by integrations this run are delivered in the same run.
     expect(result.stdout).toMatch(/CALL integrations[\s\S]*CALL mcp-events/);

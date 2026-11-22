@@ -3,10 +3,13 @@ import type { AppStore } from '../app/store';
 import { isPrivateAppFeedback } from '../comments/publicProject';
 import type { DbComment } from '../db/schema';
 import { proofStore } from '../proofs/store';
+import type { CommentsStore } from '../repo/commentsStore';
+import { isReviewCommentReleased } from '../review/reviewSessionRelease';
 
 /** The same source gate applies to backfill, provider calls, inbound updates and member links. */
-export async function canSyncThread(project: DbProject, source: DbComment, store: AppStore) {
+export async function canSyncThread(project: DbProject, source: DbComment, store: AppStore, comments?: CommentsStore) {
     if (source.private || isPrivateAppFeedback(source)) return false;
+    if (source.reviewSession && !await isReviewCommentReleased(source, comments)) return false;
     const target = source.assetTarget;
     if (!target) return true;
     if (project.transfer || source.projectId !== project.id || source.domain !== `project:${project.id}`) return false;

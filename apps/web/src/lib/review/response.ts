@@ -6,13 +6,14 @@ import { authorNames, participantNames, toReviewCommentDto } from './dto';
 import type { ReviewApiContext } from './http';
 import type { DbComment } from '../db/schema';
 import { loadIntegrationLinks } from '../integrations/links';
+import { reviewSessionCommentViews } from './reviewSessions';
 
 export async function commentResponse(context: ReviewApiContext, comment: DbComment | null, status = 200) {
     if (!comment)
         return new Response(null, { status: 204 });
     const actorId = actorAuthorId(context.actor);
-    const [names, participants, readSequence] = await Promise.all([authorNames([comment]), participantNames(context.project), actorId ? getReadSequence(comment.domain, actorId, comment.id) : 0]);
-    const dto = toReviewCommentDto(comment, context.actor, names, projectOrigins(context.project), readSequence, participants, context.project);
+    const [names, participants, readSequence, sessions] = await Promise.all([authorNames([comment]), participantNames(context.project), actorId ? getReadSequence(comment.domain, actorId, comment.id) : 0, reviewSessionCommentViews([comment], context.actor)]);
+    const dto = toReviewCommentDto(comment, context.actor, names, projectOrigins(context.project), readSequence, participants, context.project, sessions.get(comment.id));
     if (!dto)
         throw new Error(`Comment ${comment.id} can't be represented`);
     const [notifications, links] = await Promise.all([threadNotificationStates(context.project, context.actor, [comment]),

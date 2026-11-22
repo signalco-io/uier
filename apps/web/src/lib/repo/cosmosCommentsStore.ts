@@ -14,6 +14,9 @@ import { cosmosMeasurement, cosmosPoint, cosmosQueryAll } from '../db/diagnostic
 import { syncPendingPageLimit, type AppendResult, type CommentsStore, type ConditionalWriteResult, type StoredComment } from './commentsStore';
 import { candidateBudget, commentCandidateProjectionFor, CommentQueryBudgetError, normalizeCandidate, throwIfQueryAborted, validateCandidatePredicate, type CommentQueryCandidate } from './commentQuerySource';
 import { withCommentQueryMetadata } from './queryMetadata';
+import type { DbReviewRelease, DbReviewSession, DbReviewSessionRecord } from '../db/schema';
+import type { ReviewSessionSummaryRecord, ReviewSessionWrite } from './commentsStore';
+import { heldReviewWrite, withReviewRelease } from '../review/reviewSessionRelease';
 
 function errorCode(error: unknown): number | string | undefined {
     return typeof error === 'object' && error !== null && 'code' in error
@@ -38,6 +41,35 @@ function pathParameters(path: string): SqlParameter[] {
 }
 
 export function createCosmosCommentsStore(getContainer: () => Container = cosmosDataContainerComments, getBlobs: () => ScreenshotBlobStore = getScreenshotBlobStore): CommentsStore {
+    function reviewOperation(write: ReviewSessionWrite): OperationInput {
+        if (write.operation === 'create') return { operationType: 'Create', resourceBody: write.doc };
+        if (write.operation === 'replace') return { operationType: 'Replace', id: write.doc.id, resourceBody: write.doc, ifMatch: write.etag };
+        const deletion: DeleteOperation = { operationType: 'Delete', id: write.id, ifMatch: write.etag };
+        return deletion;
+    }
+
+    async function batch(domain: string, operations: OperationInput[]) {
+        try {
+            const result = await getContainer().items.batch(operations, domain);
+            const failed = result.result?.find(entry => entry.statusCode >= 400 && entry.statusCode !== 424)?.statusCode;
+            const code = failed ?? result.code;
+            if ([404, 409, 412].includes(code ?? 0)) return 'conflict' as const;
+            if (!code || code < 200 || code >= 300 || result.result?.length !== operations.length || result.result.some(entry => entry.statusCode >= 400))
+                throw new Error(`Review transaction failed (${code})`);
+            return 'ok' as const;
+        } catch (error) {
+            if ([404, 409, 412].includes(Number(errorCode(error)))) return 'conflict' as const;
+            throw error;
+        }
+    }
+
+    async function queryReviewWork<T>(query: string, limit: number) {
+        const resources = await cosmosQueryAll(getContainer().items.query<Record<string, unknown>>({
+            query, parameters: [{ name: '@limit', value: syncPendingPageLimit({ limit }) }]
+        }), { operation: 'comments.review-work', container: getContainer().id, partition: 'cross' });
+        return resources.map(withoutSystemProperties<T>);
+    }
+
     async function queryAll<T>(operation: string, domain: string, query: string, parameters: SqlParameter[]) {
         const resources = await cosmosQueryAll(getContainer().items.query<T>({
             query,
@@ -46,6 +78,52 @@ export function createCosmosCommentsStore(getContainer: () => Container = cosmos
         return resources;
     }
     const store: CommentsStore = {
+        async reviewSessionRecord<T extends DbReviewSessionRecord>(domain: string, id: string) {
+            try {
+                const { resource, etag } = await getContainer().item(id, domain).read<Record<string, unknown>>();
+                return resource && etag ? { doc: withoutSystemProperties<T>(resource), etag } : null;
+            } catch (error) {
+                if (errorCode(error) === 404) return null;
+                throw error;
+            }
+        },
+        async listReviewSessions(domain, { limit, before, authorId }) {
+            return (await queryAll<Record<string, unknown>>('review-sessions', domain,
+                `SELECT TOP @limit * FROM c WHERE c.domain = @domain AND c.type = 'review-session'${before ? ' AND c.id < @before' : ''}${authorId ? ' AND c.authorId = @authorId' : ''} ORDER BY c.id DESC`,
+                [{ name: '@limit', value: limit }, ...(before ? [{ name: '@before', value: before }] : []), ...(authorId ? [{ name: '@authorId', value: authorId }] : [])]))
+                .map(withoutSystemProperties<DbReviewSession>);
+        },
+        async listReviewSessionRecords(domain, ids) {
+            if (!ids.length) return [];
+            return queryAll<ReviewSessionSummaryRecord>('review-session-records', domain,
+                "SELECT c.id, c.type, c.number, c.authorId, c.authorName, c.pendingThreadIds, c.threadCount, c.revision, c.draftId, c.state, c.submittedAt FROM c WHERE c.domain = @domain AND c.type = 'review-session' AND ARRAY_CONTAINS(@ids, c.id)",
+                [{ name: '@ids', value: [...ids] }]);
+        },
+        async listReviewReleases(domain, { since, limit = 1000 } = {}) {
+            return (await queryAll<Record<string, unknown>>('review-releases', domain,
+                `SELECT TOP @limit * FROM c WHERE c.domain = @domain AND c.type = 'review-release'${since === undefined ? '' : ' AND c.submittedAt >= @since'} ORDER BY c.submittedAt ASC`,
+                [{ name: '@limit', value: syncPendingPageLimit({ limit }) }, ...(since === undefined ? [] : [{ name: '@since', value: new Date(since).toISOString() }])]))
+                .map(withoutSystemProperties<DbReviewRelease>);
+        },
+        listReviewReleasesPending(kind, limit = 20) {
+            const field = kind === 'integrations' ? 'integrationPending' : 'emailPending';
+            return queryReviewWork<DbReviewRelease>(`SELECT TOP @limit * FROM c WHERE c.type = 'review-release' AND c.${field} = true ORDER BY c.submittedAt ASC`, limit);
+        },
+        listReviewDiscards(limit = 20) {
+            return queryReviewWork<DbReviewSession>("SELECT TOP @limit * FROM c WHERE c.type = 'review-session' AND c.state = 'discarding' ORDER BY c.lastActivityAt ASC", limit);
+        },
+        async writeReviewSessionBatch(domain, operations) {
+            return batch(domain, operations.map(reviewOperation));
+        },
+        async deleteReviewSessions(domain) {
+            const records = await queryAll<{ id: string }>('review-delete', domain,
+                "SELECT c.id FROM c WHERE c.domain = @domain AND c.type IN ('review-session', 'review-release', 'review-session-open', 'review-session-number', 'review-session-receipt', 'review-session-discard')", []);
+            for (const { id } of records) try {
+                await getContainer().item(id, domain).delete();
+            } catch (error) {
+                if (errorCode(error) !== 404) throw error;
+            }
+        },
         async queryCandidates(domain, options = {}) {
             validateCandidatePredicate(options.predicate);
             const budget = candidateBudget(options);
@@ -181,16 +259,17 @@ export function createCosmosCommentsStore(getContainer: () => Container = cosmos
                 [...filter.parameters, ...author.parameters, { name: '@limit', value: limit }]);
             return resources.map(resource => withoutSystemProperties<DbComment>(resource));
         },
-        async listPage(domain, { limit, before, path, originFilter, authorId, archive, visibility, proof, stagingPairingId }) {
+        async listPage(domain, { limit, before, path, originFilter, authorId, archive, visibility, proof, stagingPairingId, reviewSessionId }) {
             const origin = originSql(originFilter);
             const author = authorSql(authorId);
             const visible = visibilitySql(visibility);
             const target = proofThreadSql(proof);
             const cursor = commentPageCursorSql(before);
             const where = `c.domain = @domain AND IS_STRING(c.path) AND IS_STRING(c.createdAt)${path === undefined ? '' : ` AND ${pathFilter}`}`
-                + `${target.clause}${visible.clause}${origin.clause}${author.clause}${archiveSql(archive)}${cursor.clause}${stagingPairingId ? ' AND c.stagingDesign.pairingId = @stagingPairingId' : ''}`;
+                + `${target.clause}${visible.clause}${origin.clause}${author.clause}${archiveSql(archive)}${cursor.clause}${stagingPairingId ? ' AND c.stagingDesign.pairingId = @stagingPairingId' : ''}${reviewSessionId ? ' AND c.reviewSession.id = @reviewSessionId' : ''}`;
             const parameters = [...target.parameters, ...visible.parameters, ...origin.parameters, ...author.parameters, ...cursor.parameters,
                 ...(stagingPairingId ? [{ name: '@stagingPairingId', value: stagingPairingId }] : []),
+                ...(reviewSessionId ? [{ name: '@reviewSessionId', value: reviewSessionId }] : []),
                 ...(path === undefined ? [] : pathParameters(path)), { name: '@limit', value: Math.max(1, Math.min(1000, Math.trunc(limit))) }];
             const read = async (operation: string, query: string, extra: SqlParameter[] = []) =>
                 (await queryAll<Record<string, unknown>>(operation, domain, query, [...parameters, ...extra])).map(resource => withoutSystemProperties<DbComment>(resource));
@@ -220,7 +299,7 @@ export function createCosmosCommentsStore(getContainer: () => Container = cosmos
                 // The partition's counters, sequence and screenshots are not comments
                 if (!response.resource || !response.etag || !isCommentDocument(response.resource))
                     return null;
-                return { comment: withoutSystemProperties(response.resource), etag: response.etag };
+                return { comment: await withReviewRelease(withoutSystemProperties(response.resource), store), etag: response.etag };
             } catch (error) {
                 if (errorCode(error) === 404)
                     return null;
@@ -236,7 +315,9 @@ export function createCosmosCommentsStore(getContainer: () => Container = cosmos
                 throw error;
             }
         },
-        async commitSubmission(receipt, comment, etag, screenshot, recording) {
+        async commitSubmission(receipt, comment, etag, screenshot, recording, reviewWrite) {
+            const write = reviewWrite ?? await heldReviewWrite(store, comment);
+            if (write === null) return 'conflict';
             const image = screenshot ? await storeScreenshotBytes(screenshot, getBlobs()) : undefined;
             const prepared = withCommentQueryMetadata(comment);
             const operations: OperationInput[] = [
@@ -245,7 +326,8 @@ export function createCosmosCommentsStore(getContainer: () => Container = cosmos
                     ? { operationType: 'Replace', id: comment.id, resourceBody: prepared, ifMatch: etag }
                     : { operationType: 'Create', resourceBody: prepared },
                 ...(image ? [{ operationType: 'Create' as const, resourceBody: image }] : []),
-                ...(recording ? [{ operationType: 'Replace' as const, id: recording.doc.id, resourceBody: recording.doc, ifMatch: recording.etag }] : [])
+                ...(recording ? [{ operationType: 'Replace' as const, id: recording.doc.id, resourceBody: recording.doc, ifMatch: recording.etag }] : []),
+                ...(write ? [reviewOperation(write)] : [])
             ];
             try {
                 const response = await getContainer().items.batch(operations, receipt.domain);
@@ -291,6 +373,12 @@ export function createCosmosCommentsStore(getContainer: () => Container = cosmos
             await getContainer().items.create<DbComment>(withCommentQueryMetadata(comment));
         },
         async replace(comment, etag): Promise<ConditionalWriteResult> {
+            const review = await heldReviewWrite(store, comment);
+            if (review === null) return 'conflict';
+            if (review) return batch(comment.domain, [
+                { operationType: 'Replace', id: comment.id, resourceBody: withCommentQueryMetadata(comment), ifMatch: etag },
+                reviewOperation(review)
+            ]);
             try {
                 await getContainer().item(comment.id, comment.domain).replace<DbComment>(withCommentQueryMetadata(comment), {
                     accessCondition: { type: 'IfMatch', condition: etag }
@@ -305,7 +393,11 @@ export function createCosmosCommentsStore(getContainer: () => Container = cosmos
                 throw error;
             }
         },
-        async delete(domain, id, etag): Promise<ConditionalWriteResult> {
+        async delete(domain, id, etag, reviewWrite): Promise<ConditionalWriteResult> {
+            if (reviewWrite) {
+                const deletion: DeleteOperation = { operationType: 'Delete', id, ifMatch: etag };
+                return batch(domain, [deletion, reviewOperation(reviewWrite)]);
+            }
             try {
                 await getContainer().item(id, domain).delete({
                     accessCondition: { type: 'IfMatch', condition: etag }
@@ -381,19 +473,22 @@ export function createCosmosCommentsStore(getContainer: () => Container = cosmos
             await getContainer().items.create<DbScreenshot>(await storeScreenshotBytes(screenshot, getBlobs()));
         },
         async replaceScreenshot(comment, etag, screenshot) {
+            const review = await heldReviewWrite(store, comment);
+            if (review === null) return 'conflict';
             const previous = await store.getScreenshot(comment.domain, comment.id);
             const image = await storeScreenshotBytes(screenshot, getBlobs());
             // Only references participate in Cosmos; uncommitted immutable blobs are swept later.
             try {
                 const response = await getContainer().items.batch([
                     { operationType: 'Replace', id: comment.id, resourceBody: withCommentQueryMetadata(comment), ifMatch: etag },
-                    { operationType: 'Upsert', resourceBody: image }
+                    { operationType: 'Upsert', resourceBody: image },
+                    ...(review ? [reviewOperation(review)] : [])
                 ], comment.domain);
                 const codes = [response.code, ...(response.result ?? []).map(result => result.statusCode)]
                     .filter((code): code is number => typeof code === 'number');
                 if (codes.includes(412)) return 'conflict';
                 if (codes.includes(404)) return 'not_found';
-                if (response.result?.length !== 2 || codes.some(code => code < 200 || code >= 300))
+                if (response.result?.length !== (review ? 3 : 2) || codes.some(code => code < 200 || code >= 300))
                     throw new Error('Screenshot replacement transaction failed.');
                 if (previous?.blob && previous.blob !== image.blob) {
                     await getBlobs().delete(previous.blob).catch(() => console.error('[screenshots] Previous blob cleanup needs retry'));

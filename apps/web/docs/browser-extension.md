@@ -34,6 +34,9 @@ transport from syntactically valid enabled extension origins, while all identity
 live token. No web origin gets that transport grant.
 No app cookie reaches the worker. Read [the design and remaining gates](../../../docs/browser-extension.md).
 
+Review sessions use the same project scope, verification and shared review services for an
+extension as for an embed. The shared allowlist names each session route and HTTP method.
+
 Consent also offers explicit selection among live browser accounts. An optional validated
 `siteOrigin` query hints which projects to show per account, labelled with workspace names; it
 grants no access and contains no page path. Discovery shares the member-filtered matching-project

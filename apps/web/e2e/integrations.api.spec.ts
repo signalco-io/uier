@@ -96,6 +96,7 @@ test('public and in-app feature lists offer the sync options each adapter suppor
         const features = integrationCatalog[adapter.provider].features;
         expect(features.some(feature => feature.key === 'two-way-status'), adapter.provider).toBe(adapter.supportsStatusSync === true);
         expect(features.some(feature => feature.key === 'reply-sync'), adapter.provider).toBe(adapter.supportsReplySync === true);
+        expect(features.some(feature => feature.key === 'review-sessions' && feature.appOnly), adapter.provider).toBe(adapter.supportsSessionGroups === true);
         expect(features.filter(feature => ['two-way-status', 'reply-sync'].includes(feature.key)).every(feature => feature.optional), adapter.provider).toBe(true);
         expect(new Set(features.map(feature => feature.key)).size, adapter.provider).toBe(features.length);
     }

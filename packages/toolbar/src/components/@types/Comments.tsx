@@ -1,5 +1,5 @@
 import type { ToolbarMode } from '../../config';
-import type { ReviewSession } from '../../review';
+import type { ReviewLink } from '../../review';
 
 export const popoverWidth = 288;
 export const popoverWindowMargin = 8;
@@ -179,6 +179,7 @@ export type CommentItem = {
     /** Authorized member-only history; no raw actor, account or connector identifiers. */
     history?: { id: string; at: string; description: string }[];
     integrationLinks?: import('../../feedbackContext').ExternalFeedbackLink[];
+    reviewSession?: import('../../project/reviewSessionTypes').CommentReviewSession;
     source?: { environment: string; label: string; origin?: string; available: boolean };
     notifications?: { member: boolean; eligible: boolean; following: boolean; verified: boolean; pending: boolean; muted: boolean };
     activity?: CommentActivity;
@@ -271,7 +272,7 @@ export type CommentDraft = {
 export type CommentsGlobalProps = {
     mode: ToolbarMode;
     /** The review this page is part of (`review` mode, see review.ts) */
-    review?: ReviewSession | null;
+    review?: ReviewLink | null;
     rootElement?: HTMLElement;
     /** Ends the review and removes the toolbar from the page (`review` mode only) */
     onExitReview?: () => void;

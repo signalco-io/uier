@@ -29,6 +29,7 @@ export const toolbarParts = {
     'uier-screenshot': 'screenshot',
     'uier-feedback': 'feedback form',
     'uier-profile': 'profile',
+    'uier-review-session': 'review session',
     'uier-options': 'options',
     'uier-locations': 'location filter',
     'uier-status-filter-menu': 'status filter',

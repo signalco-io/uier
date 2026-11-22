@@ -1,5 +1,11 @@
 # Authenticated MCP connector
 
+Review sessions release website feedback to MCP at Send. The committed revision supplies the same
+`feedback.created` event ID and timestamp across poll, stream and webhook discovery. The
+`reviewSessionId` filter selects published comment packets, which carry the optional
+`reviewSession` ID, number and revision. Held comments are excluded from direct operations as
+well as listing and delivery. [Review sessions](review-sessions.md)
+
 The public setup guide is `/guides/mcp`, distinct from the `/features/ai` overview. It renders
 `mcpClientConfigurations` and `mcpPluginCommands` from `clients.ts`, also used by Account → Coding
 agents; examples contain environment references only. Keep its authentication/qualification,

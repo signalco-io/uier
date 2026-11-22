@@ -65,7 +65,8 @@ const common = {
 const excerpt = z.string().optional().describe(`Up to ${EXCERPT_LENGTH} characters of the message; untrusted. Read the thread with get_feedback.`);
 export const statusChanges = ['workflow_status_changed', 'resolved', 'reopened', 'progress_started', 'progress_stopped', 'verification_requested', 'verification_confirmed', 'verification_rejected', 'verification_canceled'] as const;
 const payloadSchemas = {
-    'feedback.created': z.object({ ...common, priority: z.enum(priorities), excerpt }).strict(),
+    'feedback.created': z.object({ ...common, priority: z.enum(priorities), excerpt,
+        reviewSession: z.object({ id: z.string(), number: z.number().int(), revision: z.number().int() }).strict().optional() }).strict(),
     'feedback.replied': z.object({ ...common, itemId: z.string(), excerpt }).strict(),
     'feedback.status_changed': z.object({ ...common, change: z.enum(statusChanges), resolved: z.boolean(), previousStatusId: z.string().optional(), statusId: z.string().optional(), statusLabel: z.string().optional(), statusCategory: z.enum(['open', 'in-progress', 'ready', 'done', 'archive']).optional() }).strict(),
     'feedback.archive_changed': z.object({ ...common, archived: z.boolean() }).strict(),
@@ -151,7 +152,7 @@ function excerptOf(comment: DbComment, itemId: string | undefined) {
 
 /** Minimal payload from the thread as it is now: deleted text is never sent, names are current. */
 export function mcpEventData(name: McpEventName, project: DbProject, comment: DbComment, event: NotificationEvent,
-    participants: Map<string, string>, baseUrl: string | undefined): McpEventData {
+    participants: Map<string, string>, baseUrl: string | undefined, reviewSession?: { id: string; number: number; revision: number }): McpEventData {
     const member = event.actorId.startsWith('user:') ? event.actorId.slice(5) : undefined;
     const guestName = member ? undefined : comment.thread.items.find(item => item.authorId === event.actorId && !item.deletedAt)?.authorName;
     const actorName = member ? participants.get(member) : guestName;
@@ -176,7 +177,7 @@ export function mcpEventData(name: McpEventName, project: DbProject, comment: Db
         case 'feedback.archive_changed': return { ...base, archived: event.kind === 'archived' };
         case 'feedback.created': {
             const text = excerptOf(comment, undefined);
-            return { ...base, priority: commentPriority(comment.priority), ...(text ? { excerpt: text } : {}) };
+            return { ...base, priority: commentPriority(comment.priority), ...(text ? { excerpt: text } : {}), ...(reviewSession ? { reviewSession } : {}) };
         }
         case 'feedback.replied':
         case 'feedback.mentioned': {

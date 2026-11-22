@@ -11,6 +11,7 @@ export type GitHubDestination = {
     /** Unknown creates detached during cleanup so unrelated known copies can be removed. */
     uncertainCreates?: IntegrationAttempt[];
     cleaned?: boolean;
+    reviewParentIssue?: { id: string; number: number };
 };
 export type GitHubState = { active?: GitHubDestination; retired: GitHubDestination[] };
 export type GitHubConnection = IntegrationConnection & { provider: 'github'; type: 'github-connection'; config: {

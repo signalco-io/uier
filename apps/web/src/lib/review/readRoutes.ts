@@ -19,6 +19,7 @@ import { threadNotificationStates } from '../notifications/preferences';
 import { bulkReadSchema, MAX_BULK_READ_BYTES } from '../comments/bulkRead';
 import { markProjectThreadsRead } from './bulkRead';
 import { loadIntegrationLinks } from '../integrations/links';
+import { reviewSessionCommentViews } from './reviewSessions';
 
 const listQuerySchema = z.object({ path: reviewPathSchema });
 
@@ -51,12 +52,12 @@ export async function listReviewComments({ request, project, actor, siteOrigin }
         : unread
         ? (await unreadComments(`project:${project.id}`, actorAuthorId(actor), visible, archive)).slice(0, MAX_LIST_COMMENTS)
         : (await listProjectComments(project, actor, path, filter, undefined, undefined, archive)).slice(0, MAX_LIST_COMMENTS);
-    const [names, reads, participants, notifications, links] = await Promise.all([
+    const [names, reads, participants, notifications, links, sessions] = await Promise.all([
         authorNames(comments), loadReadSequences(`project:${project.id}`, actorAuthorId(actor)), participantNames(project), threadNotificationStates(project, actor, comments),
-        loadIntegrationLinks(project, actor, comments)
+        loadIntegrationLinks(project, actor, comments), reviewSessionCommentViews(comments, actor)
     ]);
     const listed = comments.flatMap(comment => {
-        const dto = toReviewCommentDto(comment, actor, names, projectOrigins(project), reads.get(comment.id), participants, project);
+        const dto = toReviewCommentDto(comment, actor, names, projectOrigins(project), reads.get(comment.id), participants, project, sessions.get(comment.id));
         return dto ? [{ comment, dto: { ...dto, notifications: notifications.get(comment.id), ...(links.has(comment.id) ? { integrationLinks: links.get(comment.id) } : {}) } }] : [];
     });
     // As many as fit into the comments API's response size

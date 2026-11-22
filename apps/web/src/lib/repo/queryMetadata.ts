@@ -7,6 +7,7 @@ import { currentAiTitle, manualThreadTitle } from '../titles/model';
 /** Internal query fields, refreshed in the same conditional write as the canonical comment. */
 export type CommentQueryMetadata = {
     version: 1;
+    reviewSessionId?: string;
     status: 'open' | 'in-progress' | 'ready' | 'done';
     statusRank: number;
     priority: 'urgent' | 'high' | 'normal' | 'low';
@@ -48,7 +49,7 @@ const distinct = (values: (string | undefined)[]) => [...new Set(values.filter((
 
 type QueryMetadataComment = Pick<DbComment, 'thread' | 'activity' | 'priority' | 'resolved' | 'inProgress' |
     'createdAt' | 'updatedAt' | 'completedAt' | 'archivedAt' | 'manualTitle' | 'aiTitle' | 'authorId' |
-    'assigneeId' | 'assigneeIds' | 'path' | 'number'> & {
+    'assigneeId' | 'assigneeIds' | 'path' | 'number' | 'reviewSession'> & {
     screenshot?: unknown;
     hasScreenshot?: boolean;
     verification?: Pick<NonNullable<DbComment['verification']>, 'outcome' | 'fixUrl'>;
@@ -71,6 +72,7 @@ export function commentQueryMetadata(comment: QueryMetadataComment): CommentQuer
     const actors = Object.entries(threadActivity(comment).byActor).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
     return {
         version: 1,
+        ...(comment.reviewSession ? { reviewSessionId: comment.reviewSession.id } : {}),
         status, statusRank: ['open', 'in-progress', 'ready', 'done'].indexOf(status),
         priority, priorityRank: ['urgent', 'high', 'normal', 'low'].indexOf(priority),
         created, updated, completed, archived,

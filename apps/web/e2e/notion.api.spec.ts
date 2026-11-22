@@ -23,6 +23,8 @@ import type { NotionConnection, NotionGrant, NotionState } from '../src/lib/inte
 import { pngImage, jpegImage } from './support/images';
 import { startNotionStub } from './support/notionStub';
 import { setIntegrationTwoWaySync, setIntegrationReplySync } from '../src/lib/integrations/connection';
+import { canStartReviewSessions } from '../src/lib/integrations/reviewGroups';
+import { releaseIntegrationReview } from './support/reviewSessionIntegration';
 
 let stub: Awaited<ReturnType<typeof startNotionStub>>;
 const client = new NotionClient();
@@ -79,6 +81,25 @@ function page(ledger: IntegrationSync) { return stub.pages.get((ledger.state as 
 function texts(ledger: IntegrationSync) {
     const p = page(ledger); return p.children.map((id: string) => stub.blocks.get(id)!).filter((block: Record<string, any>) => !block.in_trash).map((block: Record<string, any>) => richText(block[block.type]?.rich_text)).join('\n');
 }
+
+test('Notion groups published review feedback in a mapped property', async () => {
+    const f = await fixture();
+    const fresh = async () => (await f.store.get<DbProject>(f.project.pk, f.project.id))!.doc;
+    expect(await canStartReviewSessions(await fresh())).toBe(false);
+    Object.assign(f.dataSource.schema, { 'Review session': { id: 'review', name: 'Review session', type: 'select', select: { options: [] } } });
+    const { mapping } = await loadNotionSchema(await fresh(), f.owner.id, f.dataSource.id);
+    expect(mapping.reviewSession).toEqual({ type: 'select', property: 'review' });
+    await saveNotionMapping(await fresh(), f.owner.id, { dataSourceId: f.dataSource.id, mapping });
+    const project = await fresh();
+    expect(await canStartReviewSessions(project)).toBe(true);
+    const { thread, release } = await releaseIntegrationReview(project, f.owner.id);
+    const copy = await sync(f, thread);
+    expect(pageProperty(page(copy), 'review')).toMatchObject({ select: { name: `Review ${release.number}` } });
+    const connection = (await f.store.get<NotionConnection>(project.pk, notionConnectionId(project.id)))!.doc;
+    const routes = await f.store.query<IntegrationSync>({ type: 'notion-session-sync', pk: copy.pk, where: { connectionId: connection.id } });
+    expect(routes).toHaveLength(1);
+    expect(routes[0]).toMatchObject({ active: false, reviewGroup: { grouped: true, threadIds: [thread.id] } });
+});
 
 test('two-way status sync uses the selected Notion property and mappings, requires a mapping and respects off', async () => {
     const f = await fixture(); const comment = await source(f); let current = await sync(f, comment);

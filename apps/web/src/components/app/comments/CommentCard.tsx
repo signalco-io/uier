@@ -1,4 +1,5 @@
 'use client';
+import { ReviewSessionChip } from './ReviewSessionChip';
 
 import { useAppI18n } from '@/src/lib/i18n/client';
 
@@ -597,6 +598,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                         )}
                         {comment.archivedAt && <Badge variant="outline" className="text-muted-foreground">{t("Archived")}</Badge>}
                         {comment.private && <PrivateBadge />}
+                        <ReviewSessionChip review={comment.reviewSession} />
                     </div>
                     <div className="-mr-1.5 flex shrink-0 items-center gap-0.5">
                         <CopyMenu copyIssue={copyIssue} canCopyLink={source.available} onCopyLink={copyLink} />

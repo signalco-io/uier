@@ -5,6 +5,8 @@ export type CommentsQuery = {
     q?: string;
     priority?: CommentPriority;
     label?: string;
+    reviewSessionId?: string;
+    groupBy?: 'reviewSession';
     environment?: string;
     author?: string;
     unread?: boolean;
@@ -32,6 +34,8 @@ export function parseCommentsQuery(params: Record<string, string | string[] | un
         q: value('q')?.slice(0, MAX_FEEDBACK_SEARCH) || undefined,
         priority: priorities.includes(value('priority') as CommentPriority) ? commentPriority(value('priority')) : undefined,
         label: /^label_[a-zA-Z0-9_-]{1,64}$/.test(value('label') ?? '') ? value('label') : undefined,
+        reviewSessionId: /^[a-zA-Z0-9_-]{1,72}$/.test(value('reviewSessionId') ?? '') ? value('reviewSessionId') : undefined,
+        groupBy: value('groupBy') === 'reviewSession' ? 'reviewSession' : undefined,
         environment: value('environment'),
         author: value('author'),
         unread: value('unread') === 'true',

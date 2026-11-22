@@ -3,6 +3,8 @@ import type { DbComment } from '../../db/schema';
 import type { NotificationEvent } from '../../notifications/delivery';
 import { getCommentsStore, type CommentsStore } from '../../repo/commentsStore';
 import type { ProjectActor } from '../../review/actor';
+import type { DbReviewRelease } from '../../db/schema';
+import { releasedThreads } from './reviewReleases';
 import { canSeeComment, projectPartition } from '../../review/comments';
 import { participantNames } from '../../review/dto';
 import type { McpIdentity } from '../credentials';
@@ -100,25 +102,37 @@ export async function pollProjectEvents(request: FeedRequest): Promise<FeedPage>
     if (floor < now - REPLAY_LIMIT_MS) { floor = now - REPLAY_LIMIT_MS; truncated = true; }
     if (request.maxAgeMs !== undefined && floor < now - request.maxAgeMs) { floor = now - request.maxAgeMs; truncated = true; }
     const seenBefore = cursor.seen.filter(([, at]) => at > floor);
-    const changed = await (request.comments ?? getCommentsStore()).listChangedSince(projectPartition(request.project.id), floor - SETTLE_MS, MAX_THREADS);
+    const store = request.comments ?? getCommentsStore();
+    const domain = projectPartition(request.project.id);
+    const [changed, releases] = await Promise.all([
+        store.listChangedSince(domain, floor - SETTLE_MS, MAX_THREADS),
+        store.listReviewReleases(domain, { since: Math.max(floor + 1, cursor.from ?? 0), limit: MAX_THREADS })
+    ]);
     // Too much changed to read in one request: start again from now. The client re-reads state with tools.
-    if (changed.length >= MAX_THREADS) return fresh(now, true, request.positions);
+    if (changed.length >= MAX_THREADS || releases.length >= MAX_THREADS) return fresh(now, true, request.positions);
 
     const seen = new Set(seenBefore.map(([id]) => id));
-    const candidates: { eventId: string; at: number; name: McpEventName; comment: DbComment; event: NotificationEvent }[] = [];
-    for (const { comment } of changed) {
-        if (!canSeeComment(comment, request.actor)) continue;
-        for (const event of comment.notificationEvents ?? []) {
+    const candidates: { eventId: string; at: number; name: McpEventName; comment: DbComment; event: NotificationEvent; release?: DbReviewRelease }[] = [];
+    const collect = (comment: DbComment, events: readonly NotificationEvent[], release?: DbReviewRelease) => {
+        if (!canSeeComment(comment, request.actor)) return;
+        for (const event of events) {
             const at = Date.parse(event.at);
             // Never echo the connection's own changes: an agent would loop on its replies.
-            if (!(at > floor) || (cursor.from !== undefined && at < cursor.from) || event.agent?.credentialId === request.identity.connection.id) continue;
+            if (event.reviewHeld || !(at > floor) || (cursor.from !== undefined && at < cursor.from) || event.agent?.credentialId === request.identity.connection.id) continue;
             for (const name of request.names) {
                 if (!eventMatches(name, { projectId: request.project.id, ...request.args }, event, comment.id,
                     request.actor.kind === 'member' ? request.actor.userId : request.identity.user.id)) continue;
                 const eventId = mcpEventId(request.project.id, comment.id, event, name);
-                if (!seen.has(shortId(eventId))) candidates.push({ eventId, at, name, comment, event });
+                if (!seen.has(shortId(eventId))) candidates.push({ eventId, at, name, comment, event, release });
             }
         }
+    };
+    for (const { comment } of changed) collect(comment, comment.notificationEvents ?? []);
+    let releaseThreads = 0;
+    if (request.names.includes('feedback.created')) for (const release of releases) {
+        releaseThreads += release.threadIds.length;
+        if (releaseThreads > MAX_THREADS) return fresh(now, true, request.positions);
+        for await (const { comment, event } of releasedThreads(store, release)) collect(comment, [event], release);
     }
     // Time, then a thread's own activity order: events of one millisecond keep their thread's sequence.
     candidates.sort((a, b) => a.at - b.at || a.comment.id.localeCompare(b.comment.id) || a.event.sequence - b.event.sequence
@@ -147,7 +161,9 @@ export async function pollProjectEvents(request: FeedRequest): Promise<FeedPage>
     const participants = returned.length ? await participantNames(request.project) : new Map<string, string>();
     return {
         events: returned.map(entry => ({ eventId: entry.eventId, name: entry.name, timestamp: entry.event.at,
-            data: mcpEventData(entry.name, request.project, entry.comment, entry.event, participants, request.baseUrl) })),
+            data: mcpEventData(entry.name, request.project, entry.comment, entry.event, participants, request.baseUrl, entry.release && {
+                id: entry.release.sessionId, revision: entry.release.revision, number: entry.release.number
+            }) })),
         cursor: end.cursor, truncated, hasMore: candidates.length > returned.length, nextPollMs: NEXT_POLL_MS,
         ...(request.positions ? { start: encodeFeedCursor({ watermark: floor, from: cursor.from !== undefined && cursor.from > floor ? cursor.from : undefined, seen: seenBefore }),
             positions: returned.map((_, index) => position(index + 1).cursor) } : {})

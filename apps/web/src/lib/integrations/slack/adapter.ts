@@ -6,7 +6,7 @@ import { SlackApiError, slackRequest, type SlackMethod } from './client';
 import { isSlackConfigured, slackId, slackLabel, slackNameScopes, slackTimestamp } from './config';
 import { currentSlackGrant, invalidateSlackGrant, recoverSlackSetups, SlackConnectionError, slackAccessToken } from './connection';
 import { cleanupSlackFiles, syncSlackFiles } from './files';
-import { slackChangeSummary, slackReplyMessage, slackRootMessage } from './message';
+import { slackChangeSummary, slackReplyMessage, slackReviewMessage, slackRootMessage } from './message';
 import { englishSlackI18n, loadSlackI18n } from './i18n';
 import type { SlackConnection, SlackMessage, SlackState, SlackUncertainPost } from './model';
 import { SlackRateWait, withSlackRateLimit } from './rate';
@@ -14,7 +14,9 @@ import { eligibleChannel } from './settings';
 import { indexSlackThread } from './threads';
 
 const invalid = () => new SlackConnectionError('invalid_ledger');
-function validMessage(value: SlackMessage) { return slackTimestamp(value.ts) && slackId(value.teamId) && slackId(value.channelId); }
+function validMessage(value: SlackMessage) {
+    return slackTimestamp(value.ts) && (!value.threadTs || slackTimestamp(value.threadTs)) && slackId(value.teamId) && slackId(value.channelId);
+}
 function stateFrom(context: IntegrationDeliveryContext): SlackState {
     const state = structuredClone(context.ledger.state) as SlackState;
     if ((state.root && !validMessage(state.root)) || [...(state.notifications ?? []), ...(state.retired ?? [])].some(value => !validMessage(value))
@@ -28,7 +30,8 @@ function unknownAttempt(context: IntegrationDeliveryContext): SlackUncertainPost
     if (!attempt || attempt.repeatable || !['post_root', 'post_summary'].includes(attempt.step)) return;
     if (!slackId(attempt.metadata.channelId) || !slackId(attempt.metadata.teamId)) throw invalid();
     return { operationId: attempt.operationId, step: attempt.step, channelId: attempt.metadata.channelId,
-        teamId: attempt.metadata.teamId, destinationRevision: attempt.destinationRevision, firstSentAt: attempt.firstSentAt, planHash: attempt.planHash };
+        teamId: attempt.metadata.teamId, destinationRevision: attempt.destinationRevision, firstSentAt: attempt.firstSentAt, planHash: attempt.planHash,
+        ...(slackTimestamp(attempt.metadata.threadTs) ? { threadTs: attempt.metadata.threadTs } : {}) };
 }
 function rememberUnknown(state: SlackState, post: SlackUncertainPost) {
     const all = state.uncertainPosts ?? [];
@@ -41,6 +44,11 @@ export function validSlackLink(url: URL, connection: SlackConnection, root: Slac
 }
 
 export const slackAdapter: IntegrationAdapter = { provider: 'slack', isConfigured: isSlackConfigured, maxRunMs: 3 * 60_000, maxCalls: 60, supportsReplySync: true,
+    supportsSessionGroups: true,
+    reviewParentReady(connection, ledger) {
+        const parent = (ledger.state as SlackState).root;
+        return Boolean(parent && validMessage(parent) && parent.teamId === connection.config.teamId && parent.channelId === connection.config.channelId);
+    },
     deliversAfterChange(ledger) {
         const state = ledger.state as SlackState;
         return Boolean(state.root && !state.suppressed && !state.missing);
@@ -123,12 +131,13 @@ export const slackAdapter: IntegrationAdapter = { provider: 'slack', isConfigure
             }
             const replyIO = (root: SlackMessage): ReplyTransport => {
                 if (root.teamId !== grant!.teamId) throw new SlackConnectionError('reply_authority_changed');
+                const threadTs = root.threadTs ?? root.ts;
                 const decode = (raw: unknown): NativeReply => {
                     if (!raw || typeof raw !== 'object') throw new SlackConnectionError('invalid_reply');
                     const message = raw as Record<string, unknown>;
                     // A message that only shares a file, such as the app's own screenshot copies, may carry no text.
                     const body = typeof message.text === 'string' ? message.text : Array.isArray(message.files) && message.text === undefined ? '' : undefined;
-                    if (!slackTimestamp(message.ts) || body === undefined || (message.ts !== root.ts && message.thread_ts !== root.ts)) throw new SlackConnectionError('invalid_reply');
+                    if (!slackTimestamp(message.ts) || body === undefined || (message.ts !== threadTs && message.thread_ts !== threadTs)) throw new SlackConnectionError('invalid_reply');
                     const profile = message.user_profile && typeof message.user_profile === 'object' ? message.user_profile as Record<string, unknown> : {};
                     return { id: message.ts, text: body, fingerprint: body,
                         authorId: typeof message.user === 'string' ? message.user : String(message.bot_id ?? 'Slack reviewer'),
@@ -137,11 +146,11 @@ export const slackAdapter: IntegrationAdapter = { provider: 'slack', isConfigure
                         createdAt: new Date(Number(message.ts) * 1000).toISOString(),
                         own: message.ts === root.ts || message.user === grant!.botId || message.app_id === process.env.SLACK_APP_ID };
                 };
-                const text = (payload: ReplyPayload) => slackReplyMessage(payload, i18n);
-                return { target: `${root.teamId}:${root.channelId}:${root.ts}`, defaultAuthor: t('Reviewer'),
+                const text = (payload: ReplyPayload) => slackReplyMessage(payload, i18n, root.threadTs ? context.feedback?.context.identity.number : undefined);
+                return { target: `${root.teamId}:${root.channelId}:${threadTs}`, defaultAuthor: t('Reviewer'),
                     contentHash: payload => sha256Hex(text(payload)),
                     async list(cursor) {
-                        const response = await read('conversations.replies', { channel: root.channelId, ts: root.ts, limit: 50, ...(cursor ? { cursor } : {}) });
+                        const response = await read('conversations.replies', { channel: root.channelId, ts: threadTs, limit: 50, ...(cursor ? { cursor } : {}) });
                         if (!Array.isArray(response.messages) || response.messages.length > 50) throw new SlackConnectionError('invalid_reply_page');
                         const metadata = response.response_metadata as { next_cursor?: unknown } | undefined;
                         if (metadata?.next_cursor && typeof metadata.next_cursor !== 'string') throw new SlackConnectionError('invalid_reply_page');
@@ -157,7 +166,7 @@ export const slackAdapter: IntegrationAdapter = { provider: 'slack', isConfigure
                             return decode(found);
                         } catch (error) { if (error instanceof SlackApiError && ['thread_not_found', 'message_not_found'].includes(error.code)) return null; throw error; }
                     },
-                    async create(payload, metadata) { return String((await write('chat.postMessage', 'create_native_reply', { channel: root.channelId, thread_ts: root.ts,
+                    async create(payload, metadata) { return String((await write('chat.postMessage', 'create_native_reply', { channel: root.channelId, thread_ts: threadTs,
                         text: text(payload), parse: 'none', mrkdwn: true, reply_broadcast: false, link_names: false, unfurl_links: false, unfurl_media: false }, false, metadata)).ts); },
                     async update(id, payload) { await write('chat.update', 'update_native_reply', { channel: root.channelId, ts: id, text: text(payload), parse: 'none', link_names: false }, true); },
                     async remove(id) { await write('chat.delete', 'delete_native_reply', { channel: root.channelId, ts: id }, true); }
@@ -220,7 +229,10 @@ export const slackAdapter: IntegrationAdapter = { provider: 'slack', isConfigure
             }
             if (!context.feedback) throw new SlackConnectionError('feedback_unavailable');
             const feedback = context.feedback.context;
-            const changedDestination = state.destination && (state.destination.teamId !== teamId || state.destination.channelId !== channelId);
+            const groupRoot = context.reviewParent ? (context.reviewParent.state as SlackState).root : undefined;
+            const threadTs = groupRoot?.ts;
+            const changedDestination = state.destination && (state.destination.teamId !== teamId || state.destination.channelId !== channelId
+                || (state.root && state.root.threadTs !== threadTs));
             if (changedDestination) {
                 state.retired = [...(state.retired ?? []), ...(state.root ? [state.root] : []), ...(state.notifications ?? [])];
                 state.root = undefined; state.notifications = []; state.missing = undefined; state.baselineOnly = true;
@@ -232,24 +244,27 @@ export const slackAdapter: IntegrationAdapter = { provider: 'slack', isConfigure
             const historical = context.ledger.reconcileRequestId && context.ledger.requestRevision > context.ledger.processedRequestRevision
                 && context.ledger.reconcileDestinationRevision === connection.destinationRevision;
             if ((state.uncertainPosts ?? []).some(post => !post.resolved)) return { status: 'ambiguous', code: 'post_uncertain' };
-            const created = Date.parse(feedback.feedback?.createdAt ?? '');
-            if (!state.root && ((!resuming && (state.suppressed || state.missing))
-                || (!resuming && !historical && (!Number.isFinite(created) || created <= Date.parse(connection.config.since))))) {
+            const created = Date.parse(context.reviewReleasedAt ?? feedback.feedback?.createdAt ?? '');
+            const grouped = Boolean(threadTs || context.reviewGroup);
+            if (!state.root && ((!resuming && ((state.suppressed && !context.reviewGroup) || state.missing))
+                || (!grouped && !context.reviewReleasedAt && !resuming && !historical && (!Number.isFinite(created) || created <= Date.parse(connection.config.since))))) {
                 state.baselineOnly = true; state.lastNotifiedStatus = feedback.status; state.notifiedReplyIds = replyIds;
                 await context.checkpoint(state); return { status: 'suppressed', code: state.suppressed ? 'privacy_suppressed' : state.missing ? 'message_missing' : 'historical_baseline' };
             }
-            const projection = slackRootMessage(feedback, context.project.name, context.baseUrl, i18n);
+            const projection = context.reviewGroup ? slackReviewMessage(context.reviewGroup, context.project.name, i18n)
+                : slackRootMessage(feedback, context.project.name, context.baseUrl, i18n);
             const initial = !state.root;
             if (initial) {
-                const response = await write('chat.postMessage', 'post_root', { channel: channelId, ...projection.payload, reply_broadcast: false }, false);
+                const response = await write('chat.postMessage', 'post_root', { channel: channelId, ...projection.payload,
+                    ...(threadTs ? { thread_ts: threadTs } : {}), reply_broadcast: false }, false, threadTs ? { threadTs } : {});
                 if (response.channel !== channelId || !slackTimestamp(response.ts)) throw new SlackApiError(200, 'response_uncertain', undefined, false);
-                state.root = { ts: response.ts, teamId, channelId, payloadHash: projection.hash };
+                state.root = { ts: response.ts, threadTs, teamId, channelId, payloadHash: projection.hash };
                 state.suppressed = false; state.baselineOnly = false; state.missing = false;
                 if (resuming) state.resume = { ...state.resume!, completed: true };
                 // Initial roots include the current state; they never emit an extra historical summary.
                 state.lastNotifiedStatus = feedback.status; state.notifiedReplyIds = replyIds;
                 await context.checkpoint(state, { clearAttempt: true });
-                if (connection.replySync?.enabled) await indexSlackThread(context.ledger, state.root).catch(() => undefined);
+                if (!grouped && connection.replySync?.enabled) await indexSlackThread(context.ledger, state.root).catch(() => undefined);
             } else if (state.root!.payloadHash !== projection.hash) {
                 try { await write('chat.update', 'update_root', { channel: channelId, ts: state.root!.ts, ...projection.payload }, true); }
                 catch (error) {
@@ -265,10 +280,10 @@ export const slackAdapter: IntegrationAdapter = { provider: 'slack', isConfigure
             }
             const changedStatus = connection.config.statusSummaries && state.lastNotifiedStatus !== feedback.status;
             const newReplies = connection.config.replySummaries && !connection.replySync?.enabled ? replyIds.filter(id => !state.notifiedReplyIds?.includes(id)).length : 0;
-            if (!initial && !state.resolvedSummary && (changedStatus || newReplies)) {
+            if (!context.reviewGroup && !initial && !state.resolvedSummary && (changedStatus || newReplies)) {
                 if ((state.notifications?.length ?? 0) >= 1000) return { status: 'failed', code: 'summary_limit' };
-                const summary = slackChangeSummary(changedStatus ? feedback.status : undefined, newReplies, i18n);
-                const response = await write('chat.postMessage', 'post_summary', { channel: channelId, thread_ts: state.root!.ts, ...summary.payload }, false);
+                const summary = slackChangeSummary(changedStatus ? feedback.status : undefined, newReplies, i18n, threadTs ? feedback.identity.number : undefined);
+                const response = await write('chat.postMessage', 'post_summary', { channel: channelId, thread_ts: threadTs ?? state.root!.ts, ...summary.payload }, false);
                 if (response.channel !== channelId || !slackTimestamp(response.ts)) throw new SlackApiError(200, 'response_uncertain', undefined, false);
                 state.notifications = [...(state.notifications ?? []), { ts: response.ts, teamId, channelId, payloadHash: summary.hash }];
                 await context.checkpoint(state, { clearAttempt: true });

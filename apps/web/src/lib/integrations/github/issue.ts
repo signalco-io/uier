@@ -2,6 +2,7 @@ import { verificationDescription } from '@uier/toolbar/verification';
 import { commentPriority, priorityLabels } from '@uier/toolbar/triage';
 import { feedbackMarkdown, type FeedbackContext, type FeedbackMessage } from '@uier/toolbar/feedback-context';
 import { sha256Hex } from '../../app/tokens';
+import type { ReviewGroupProjection } from '../model';
 
 const mentions = (value: string) => value.replace(/@/g, '@\u200b');
 const label = (value: string) => mentions(value).replace(/[\p{Cc}\p{Cf}]/gu, ' ').replace(/([\\`*_{}\[\]<>()#!|>~])/g, '\\$1');
@@ -36,6 +37,19 @@ export function githubIssueProjection(context: FeedbackContext, marker: string) 
     return { title: mentions(context.title).replace(/[\p{Cc}]/gu, ' ').slice(0, 120) || 'Feedback from uier',
         body: `${body.trim()}\n\nThis issue is managed from uier. External edits may be replaced by later uier changes.\n\n${marker}`,
         state: context.status === 'done' ? 'closed' as const : 'open' as const, truncated };
+}
+
+export function githubReviewIssue(group: ReviewGroupProjection, marker: string) {
+    const title = mentions(group.title || `Review ${group.number} by ${group.author}`).replace(/[\p{Cc}]/gu, ' ').slice(0, 120);
+    const body = [
+        `Review ${group.number} by ${label(group.author)}`,
+        group.summary ? literal(group.summary) : '',
+        `${group.done} of ${group.threads} done across ${group.pages} ${group.pages === 1 ? 'page' : 'pages'}.`,
+        `[Open in uier](<${group.url}>)`,
+        ...group.links.map(link => `- [Related feedback](<${link}>)`),
+        marker
+    ].filter(Boolean).join('\n\n');
+    return { title, body, state: group.done === group.threads ? 'closed' as const : 'open' as const, truncated: false };
 }
 
 export function githubReplyProjection(item: FeedbackMessage, marker: string) {

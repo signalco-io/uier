@@ -1,5 +1,18 @@
 // English source phrases for project, workspace, client and access management.
 const messages = {
+    "Group review sessions": "Group review sessions",
+    "Post one Slack thread for each review.": "Post one Slack thread for each review.",
+    "Group feedback pages by review in your Notion database.": "Group feedback pages by review in your Notion database.",
+    "Create one parent for each review and link its feedback underneath.": "Create one parent for each review and link its feedback underneath.",
+    "This setting applies to future reviews. Resumed reviews keep their delivery mode.": "This setting applies to future reviews. Resumed reviews keep their delivery mode.",
+    "Replies in a grouped Slack thread stay in Slack.": "Replies in a grouped Slack thread stay in Slack.",
+    "Map a Notion review session field first.": "Map a Notion review session field first.",
+    "Review session grouping is saved.": "Review session grouping is saved.",
+    "This integration does not support review groups.": "This integration does not support review groups.",
+    "Send feedback together when the review is ready.": "Send feedback together when the review is ready.",
+    "Review {number} by {author} in {project}": "Review {number} by {author} in {project}",
+    "{done} of {count} done": "{done} of {count} done",
+    "{author} via uier on #{number}": "{author} via uier on #{number}",
     "Enable fix verification": "Enable fix verification",
     "Ask a reviewer to confirm fixes before marking them done. When off, pending checks stay in Open or In progress and can be marked done.": "Ask a reviewer to confirm fixes before marking them done. When off, pending checks stay in Open or In progress and can be marked done.",
     "Labels": "Labels",

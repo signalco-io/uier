@@ -13,6 +13,8 @@ export function selectedGroupLabels(project: { boardGroupByLabel?: boolean; boar
 }
 export const labelLaneMatches = (labels: { id: string }[] | undefined, label: string, selected?: string[]) => label === 'unlabeled' ? !labels?.some(value => !selected || selected.includes(value.id)) : Boolean(labels?.some(value => value.id === label));
 export type CommentPage = { ids: string[]; total: number; nextCursor: string | null };
+export type CommentReviewGroup = { id: string; number?: number; reviewer: string; count: number; pendingCount: number;
+    submittedAt?: string; send?: { draftId: string; revision: number } };
 export type ProjectCommentPaging = {
     key: string;
     lanes: Partial<Record<CommentLane, CommentPage>>;
@@ -26,6 +28,7 @@ export type ProjectCommentPaging = {
     scopeTotal: number;
     matchedTotal: number;
     unreadCount: number;
+    reviewGroups?: CommentReviewGroup[];
 };
 export type ProjectCommentPageInput = { lane?: CommentLane; cursor?: string; depths?: Partial<Record<CommentLane, number>>; archiveExpanded?: boolean; openId?: string; signal?: AbortSignal; revisionOnly?: boolean; budgetFallback?: boolean;
     /** Every id in `lane`, not one page of it (Archive all in a board column, uier #357); with `revisionOnly`, no rows are read */
@@ -33,5 +36,14 @@ export type ProjectCommentPageInput = { lane?: CommentLane; cursor?: string; dep
 
 /** No open-thread id in the ordinary key: opening a card must not restart its column. */
 export function projectCommentPageKey(query: CommentsQuery, sorts: Record<BoardColumn, BoardSort>, workflow: StatusWorkflow = defaultStatusWorkflow, projectId = '', groupByLabel: false | string[] = false) {
-    return JSON.stringify([projectId, query.environment ?? 'all', query.author ?? '', query.q ?? '', query.priority ?? '', query.label ?? '', Boolean(query.unread), query.people, query.page ?? '', query.status, query.view, query.archive, sorts, workflow, groupByLabel]);
+    return JSON.stringify([projectId, query.environment ?? 'all', query.author ?? '', query.q ?? '', query.priority ?? '', query.label ?? '',
+        Boolean(query.unread), query.people, query.page ?? '', query.status, query.view, query.archive, sorts, workflow, groupByLabel,
+        query.reviewSessionId, query.groupBy]);
+}
+
+export function compareReviewGroups(a?: string, b?: string) {
+    if (a === b) return 0;
+    if (!a) return 1;
+    if (!b) return -1;
+    return a.localeCompare(b);
 }

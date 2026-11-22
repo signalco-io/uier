@@ -12,6 +12,8 @@ import { commentStatus, type CommentStatus } from './CommentStatus';
 import { LayoutMotion } from './LayoutMotion';
 import { VirtualCommentList, revealVirtualComment, type CommentPageControl } from './VirtualCommentList';
 import { PagedCommentCard } from './PagedCommentCard';
+import { ReviewSessionHeading } from './ReviewSessionHeading';
+import { compareReviewGroups, type CommentReviewGroup } from '../../../lib/app/projectCommentPaging';
 import { shortcutLetter } from '@uier/toolbar/keyboard';
 import { isShortcutTarget, useShortcutsEnabled } from '../keyboard/keys';
 
@@ -84,8 +86,9 @@ export function useOpenComment(container: RefObject<HTMLElement | null>) {
  * phone, until a row is chosen) it stays unread. The keys pass threads faster than that, so only the
  * one the reader stops on is read.
  */
-export function CommentInbox({ projectId, comments, allComments, assignees, userId, label, keeps, readLeaves, openComment, paging, detailRevision, groupLabels }: {
+export function CommentInbox({ projectId, comments, allComments, assignees, userId, label, keeps, readLeaves, openComment, paging, detailRevision, groupLabels, reviewGroups }: {
     groupLabels?: import("../../../lib/app/threadLabel").ThreadLabel[];
+    reviewGroups?: CommentReviewGroup[];
     detailRevision?: string;
     paging?: CommentPageControl;
     projectId: string;
@@ -110,6 +113,8 @@ export function CommentInbox({ projectId, comments, allComments, assignees, user
         return index < 0 ? groupLabels?.length ?? 0 : index;
     };
     if (groupLabels) comments = [...comments].sort((a, b) => groupIndex(a) - groupIndex(b));
+    if (reviewGroups) comments = [...comments].sort((a, b) => compareReviewGroups(a.reviewSession?.id, b.reviewSession?.id));
+    const groupById = reviewGroups && new Map(reviewGroups.map(group => [group.id, group]));
 
     const opened = openId ? allComments.find(comment => comment.id === openId) : undefined;
     // Comment id → the status it is leaving for; it stays hidden only while it has another one
@@ -247,6 +252,8 @@ export function CommentInbox({ projectId, comments, allComments, assignees, user
                                 leaves && 'grid-rows-[0fr] -translate-y-2 opacity-0')}>
                             <div className={cn('min-h-0', leaves && 'overflow-hidden')}>
                                 {groupLabels && (_index === 0 || groupOf(comments[_index - 1]!)?.id !== groupOf(comment)?.id) && <h2 data-label-section={groupOf(comment)?.id ?? 'unlabeled'} className="px-3 py-2 text-sm font-medium">{groupOf(comment)?.name ?? t('Ungrouped')}</h2>}
+                                {groupById && projectId && (_index === 0 || comments[_index - 1]?.reviewSession?.id !== comment.reviewSession?.id)
+                                    && <ReviewSessionHeading projectId={projectId} group={groupById.get(comment.reviewSession?.id ?? '')} />}
                                 <CommentRow comment={comment} projectId={projectId} href={hrefFor(comment.id)} tabbable={comment.id === tabStop?.id}
                                     selected={comment.id === opened?.id ? 'opened' : comment.id === selected?.id ? 'beside' : undefined}
                                     onOpen={event => open(comment.id, event)} />

@@ -1,6 +1,19 @@
 import type en from './en';
 
 const messages: Record<keyof typeof en, string> = {
+    "Group review sessions": "Agrupar sesiones de revisión",
+    "Post one Slack thread for each review.": "Publica un hilo de Slack por revisión.",
+    "Group feedback pages by review in your Notion database.": "Agrupa las páginas de comentarios por revisión en tu base de datos de Notion.",
+    "Create one parent for each review and link its feedback underneath.": "Crea un elemento principal por revisión y enlaza sus comentarios debajo.",
+    "This setting applies to future reviews. Resumed reviews keep their delivery mode.": "Este ajuste se aplica a futuras revisiones. Las revisiones reanudadas mantienen su modo de envío.",
+    "Replies in a grouped Slack thread stay in Slack.": "Las respuestas en un hilo agrupado de Slack se quedan en Slack.",
+    "Map a Notion review session field first.": "Primero asigna un campo de Notion a la sesión de revisión.",
+    "Review session grouping is saved.": "Se guardó la agrupación de sesiones de revisión.",
+    "This integration does not support review groups.": "Esta integración no admite grupos de revisión.",
+    "Send feedback together when the review is ready.": "Envía los comentarios juntos cuando la revisión esté lista.",
+    "Review {number} by {author} in {project}": "Revisión {number} de {author} en {project}",
+    "{done} of {count} done": "{done} de {count} completados",
+    "{author} via uier on #{number}": "{author} vía uier en el comentario #{number}",
     "Enable fix verification": "Activar la verificación de correcciones",
     "Ask a reviewer to confirm fixes before marking them done. When off, pending checks stay in Open or In progress and can be marked done.": "Pide a una persona revisora que confirme las correcciones antes de marcarlas como hechas. Si desactivas esta opción, las comprobaciones pendientes permanecen en Abierto o En curso y puedes marcarlas como hechas.",
     "Labels": "Etiquetas",

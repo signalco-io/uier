@@ -1,4 +1,5 @@
 'use client';
+import { ReviewSessionChip } from './ReviewSessionChip';
 import { createContext, useContext } from 'react';
 
 import { useAppI18n } from '@/src/lib/i18n/client';
@@ -160,6 +161,7 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, prev
                         </span>
                     </p>
                     <div className="flex min-h-5 shrink-0 items-center gap-2">
+                        <ReviewSessionChip review={comment.reviewSession} interactive={Boolean(projectId) && !project && !preview} />
                         {comment.private && <LockIcon aria-label={t("Private")} className="size-3 shrink-0" />}
                         {/* Hovering or tapping the mark shows the pull requests; the dragged copy of a card and a row without its project keep the plain mark */}
                         {pullRequests.length > 0 && (preview || !projectId

@@ -9,6 +9,7 @@ import { AI_TITLE_MODEL, generateAiTitle, isAiTitleConfigured, type AiTitleInput
 import { AI_TITLE_CLEANUP, aiTitleSource, needsAiTitle } from './model';
 import { aiTitlesEnabled } from './settings';
 import type { AiTitleOutcome, AiTitleTrigger } from './telemetry';
+import { isReviewCommentReleased } from '../review/reviewSessionRelease';
 
 /** Most threads one list render or change asks titles for; the rest wait for a later one */
 export const AI_TITLE_BATCH = 10;
@@ -95,7 +96,7 @@ export async function makeAiTitle(ref: CommentRef, trigger: AiTitleTrigger, opti
     const now = options.now ?? Date.now;
     const stored = await store.get(ref.domain, ref.id);
     if (!stored) return 'gone';
-    if (!needsAiTitle(stored.comment)) return 'current';
+    if (!needsAiTitle(stored.comment) || !await isReviewCommentReleased(stored.comment, store)) return 'current';
     const source = aiTitleSource(stored.comment.thread.items[0]!.text);
     const result = await (options.service ?? generateAiTitle)(titleInput(stored.comment), trigger);
     if (!result.title) {

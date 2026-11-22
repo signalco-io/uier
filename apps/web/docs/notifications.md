@@ -1,5 +1,10 @@
 # Review notifications
 
+Review session digests use the committed release and one durable ledger per revision and
+recipient. Held events preserve their activity sequence for unread checks and stay outside
+ordinary thread delivery. A new send can queue another digest while an earlier revision is
+still in flight. [Review sessions](review-sessions.md)
+
 Review notifications live in `src/lib/notifications/`. Event metadata is part of the same comment
 write as the shared unread activity cursor. Never send email from a toolbar client or detached
 promise. A private Vercel Schedule named `review-notifications` runs the awaited Cosmos-backed

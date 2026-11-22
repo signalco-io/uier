@@ -2,13 +2,16 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import type { DbProject } from '../../app/model';
 import { getAppStore, updateDoc, type AppStore } from '../../app/store';
 import { findProject } from '../../app/projects';
-import type { DbComment } from '../../db/schema';
+import type { DbComment, DbReviewRelease } from '../../db/schema';
+import type { NotificationEvent } from '../../notifications/delivery';
 import { getCommentsStore, type CommentsStore } from '../../repo/commentsStore';
 import { canSeeComment, projectPartition } from '../../review/comments';
 import { participantNames } from '../../review/dto';
+import { getCommentReviewRelease } from '../../review/reviewSessionRelease';
 import { currentMcpConnection, type McpIdentity } from '../credentials';
 import { eventMatches, mcpEventData, mcpEventId } from './catalog';
 import { watermarkCursor } from './feed';
+import { releasedThreads, reviewCreatedEvent } from './reviewReleases';
 import { activeProjectSubscriptions, currentEventAccess, eventsPk, isSubscriptionActive, mcpEventErrorCodes, subscriptionSecrets, type McpEventSubscription } from './subscriptions';
 import { cursorId, loadSubscriptionPosition, subscriptionWatermark, type McpEventCursor, type McpEventDelivery, type SubscriptionPosition } from './watermark';
 import { MAX_WEBHOOK_BODY_BYTES, postWebhook, responseFailure, type CallbackFailure, type WebhookPost } from './webhook';
@@ -95,7 +98,9 @@ async function discover(project: DbProject, subscriptions: McpEventSubscription[
     const eventFloor = Math.min(scan.floor, stored.doc.eventFloor ?? scan.floor);
     let created = 0;
     try {
-        await scanThreads(comments, project, scan, options.deadline, async comment => { created += await discoverThread(project, comment, subscriptions, eventFloor, store, now()); });
+        await scanThreads(comments, project, scan, options.deadline, async (comment, events) => {
+            created += await discoverThread(project, comment, subscriptions, eventFloor, store, now(), events);
+        });
         if (scan.skipped) await Promise.all(subscriptions.map(subscription => markGap(store, subscription)));
     } finally {
         await updateDoc<McpEventCursor>(pk, cursorId, current => {
@@ -110,11 +115,23 @@ async function discover(project: DbProject, subscriptions: McpEventSubscription[
 type Scan = { floor: number; complete: boolean; skipped: boolean };
 
 /** Visits the threads written at or after `scan.floor`, oldest write first, until none are left or the deadline passes; `scan` keeps the progress. */
-async function scanThreads(comments: CommentsStore, project: DbProject, scan: Scan, deadline: number, visit: (comment: DbComment) => Promise<void>) {
+async function scanThreads(comments: CommentsStore, project: DbProject, scan: Scan, deadline: number,
+    visit: (comment: DbComment, events: readonly NotificationEvent[]) => Promise<void>) {
+    const domain = projectPartition(project.id);
     let limit = SCAN_PAGE;
     while (Date.now() < deadline) {
-        const page = await comments.listChangedSince(projectPartition(project.id), scan.floor, limit);
-        for (const { comment } of page) await visit(comment);
+        const [threads, releases] = await Promise.all([
+            comments.listChangedSince(domain, scan.floor, limit),
+            comments.listReviewReleases(domain, { since: Math.floor(scan.floor / 1000) * 1000, limit })
+        ]);
+        const page = [...releases.map(release => ({ release, changedAt: Math.floor(Date.parse(release.submittedAt) / 1000) * 1000 })), ...threads]
+            .sort((a, b) => a.changedAt - b.changedAt).slice(0, limit);
+        for (const entry of page) {
+            if (Date.now() >= deadline) return;
+            if ('release' in entry) {
+                for await (const { comment, event } of releasedThreads(comments, entry.release)) await visit(comment, [event]);
+            } else await visit(entry.comment, entry.comment.notificationEvents ?? []);
+        }
         if (page.length < limit) { scan.complete = true; return; }
         const first = page[0]!.changedAt;
         const last = page.at(-1)!.changedAt;
@@ -139,8 +156,8 @@ async function replaySubscription(project: DbProject, subscription: McpEventSubs
     const scan: Scan = { floor: subscription.replay!.floor, complete: false, skipped: false };
     let created = 0;
     try {
-        await scanThreads(comments, project, scan, options.deadline, async comment => {
-            created += await discoverThread(project, comment, [subscription], Date.parse(subscription.since) + COMMIT_LAG_MS, store, Date.now());
+        await scanThreads(comments, project, scan, options.deadline, async (comment, events) => {
+            created += await discoverThread(project, comment, [subscription], Date.parse(subscription.since) + COMMIT_LAG_MS, store, Date.now(), events);
         });
     } finally {
         const saved = await updateDoc<McpEventSubscription>(subscription.pk, subscription.id, current => {
@@ -159,11 +176,11 @@ async function markGap(store: AppStore, subscription: McpEventSubscription) {
     await updateDoc<McpEventSubscription>(subscription.pk, subscription.id, current => current.gap ? current : { ...current, gap: true }, store).catch(() => undefined);
 }
 
-async function discoverThread(project: DbProject, comment: DbComment, subscriptions: McpEventSubscription[], floor: number, store: AppStore, now: number) {
+async function discoverThread(project: DbProject, comment: DbComment, subscriptions: McpEventSubscription[], floor: number, store: AppStore, now: number, events: readonly NotificationEvent[]) {
     let created = 0;
-    for (const event of comment.notificationEvents ?? []) {
+    for (const event of events) {
         const at = Date.parse(event.at);
-        if (!(at >= floor - COMMIT_LAG_MS)) continue;
+        if (event.reviewHeld || !(at >= floor - COMMIT_LAG_MS)) continue;
         for (const subscription of subscriptions) {
             // Never echo a connection's own actions back to it: that loops an agent on its replies.
             if (at < Date.parse(subscription.since) || !isSubscriptionActive(subscription, now) || event.agent?.credentialId === subscription.connectionId
@@ -296,7 +313,11 @@ async function deliver(context: Context, candidate: McpEventDelivery): Promise<'
     catch { await finish(context, delivery, lease.id, {}); return null; }
     if (!actor) { await terminate(context, subscription); return skip(); }
     const comment = (await comments.get(projectPartition(context.project.id), delivery.threadId))?.comment;
-    const event = comment?.notificationEvents?.find(entry => entry.sequence === delivery.sequence && entry.kind === delivery.eventKind && entry.at === delivery.eventAt
+    const release: DbReviewRelease | null | undefined = comment?.reviewSession && delivery.eventKind === 'comment'
+        ? await getCommentReviewRelease(comment, comments) : undefined;
+    const creation = comment && release ? reviewCreatedEvent(comment, release) : undefined;
+    const event = (creation ? [creation] : comment?.notificationEvents ?? []).find(entry => !entry.reviewHeld
+        && entry.sequence === delivery.sequence && entry.kind === delivery.eventKind && entry.at === delivery.eventAt
         && (entry.agentId ?? undefined) === delivery.agentId);
     // A deleted thread, or one the account can no longer see, is not delivered.
     if (!comment || !event || !canSeeComment(comment, actor) || Date.parse(event.at) < Date.parse(subscription.since)
@@ -304,7 +325,8 @@ async function deliver(context: Context, candidate: McpEventDelivery): Promise<'
 
     context.participants ??= participantNames(context.project);
     const body = JSON.stringify({ eventId: delivery.eventId, name: delivery.name, timestamp: event.at,
-        data: mcpEventData(delivery.name, context.project, comment, event, await context.participants, context.options.baseUrl),
+        data: mcpEventData(delivery.name, context.project, comment, event, await context.participants, context.options.baseUrl,
+            release ? { id: release.sessionId, number: release.number, revision: release.revision } : undefined),
         cursor: await position(context, subscription) });
     let secrets: string[];
     try { secrets = subscriptionSecrets(subscription, now()); }

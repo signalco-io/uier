@@ -12,6 +12,8 @@ function deferredAdapter(provider: IntegrationProviderId, resolve: () => Integra
         get maxRunMs() { return resolve().maxRunMs; }, get maxCalls() { return resolve().maxCalls; },
         get supportsStatusSync() { return resolve().supportsStatusSync; },
         get supportsReplySync() { return resolve().supportsReplySync; },
+        get supportsSessionGroups() { return resolve().supportsSessionGroups; },
+        reviewParentReady: (connection, ledger) => resolve().reviewParentReady?.(connection, ledger) ?? true,
         deliver: context => resolve().deliver(context),
         maintenance: options => resolve().maintenance?.(options) ?? Promise.resolve({ calls: 0 }),
         deliversAfterChange: ledger => resolve().deliversAfterChange?.(ledger) ?? false,

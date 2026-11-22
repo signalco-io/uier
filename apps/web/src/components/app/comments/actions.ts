@@ -31,3 +31,4 @@ export const setCommentPullRequestAction = refreshCommentsAfter(server.setCommen
 export const setCommentWorkflowStatusAction = refreshCommentsAfter(server.setCommentWorkflowStatusAction);
 export const changeCommentLabelsAction = refreshCommentsAfter(server.changeCommentLabelsAction);
 export const setBoardGroupingAction = refreshCommentsAfter(server.setBoardGroupingAction);
+export const sendProjectReviewAction = refreshCommentsAfter(server.sendProjectReviewAction);

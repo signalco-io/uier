@@ -1,6 +1,6 @@
 'use client';
 import { CommentGrouping } from './CommentGrouping';
-import { selectedGroupLabels } from '../../../lib/app/projectCommentPaging';
+import { compareReviewGroups, selectedGroupLabels } from '../../../lib/app/projectCommentPaging';
 import { labelLaneKey, labelLaneMatches } from '../../../lib/app/projectCommentPaging';
 import { setBoardGroupingAction } from './actions';
 import { LabelBoards } from './LabelBoards';
@@ -68,6 +68,7 @@ const emptyStatus: Record<StatusFilter, { title: string; description: string }> 
 export function applyFilters(comments: ProjectCommentView[], query: CommentsQuery, userId: string, openId?: string) {
     return comments.filter(comment => {
         if (query.label && !comment.labels?.some(label => label.id === query.label)) return false;
+        if (query.reviewSessionId && comment.reviewSession?.id !== query.reviewSessionId) return false;
         if (query.priority && comment.priority !== query.priority) return false;
         if (!matchesFeedbackSearch({ path: comment.path, number: comment.number, context: comment.title ? [comment.title] : undefined, messages: [{ text: comment.text, quotedText: comment.quotedText, deleted: comment.deleted }, ...comment.replies] }, query.q ?? '')) return false;
         if (query.unread && !comment.activity?.unread && comment.id !== openId) return false;
@@ -161,7 +162,7 @@ function ProjectCommentsView({ labels = [], workflow = defaultStatusWorkflow, pr
     const commitSearch = () => { setUrlSearchParams({ q: search || undefined }); };
     const clearFilters = () => {
         setSearchDraft({ url: urlKey, value: '' });
-        setUrlSearchParams({ q: undefined, label: undefined, priority: undefined, status: undefined, archive: query.archive, people: undefined, page: undefined, unread: undefined }, { history: 'push' });
+        setUrlSearchParams({ q: undefined, label: undefined, reviewSessionId: undefined, priority: undefined, status: undefined, archive: query.archive, people: undefined, page: undefined, unread: undefined }, { history: 'push' });
         document.getElementById('feedback-search')?.focus();
     };
     const [{ groupIds: confirmedGroups, ...confirmedSorts }, confirmBoardSettings] = useConfirmedBoardSettings(
@@ -294,6 +295,9 @@ function ProjectCommentsView({ labels = [], workflow = defaultStatusWorkflow, pr
     // The board's status filter (uier #335) narrows its columns to one; the others stay, empty, as drop targets
     const boardStatus = board ? boardStatusFilter(query.status) : undefined;
     const shown = filtered.filter(comment => inArchive(comment) && (board ? !boardStatus || commentStatus(comment) === boardStatus : statusMatches(query.status, commentStatus(comment))));
+    const groupedByReview = !board && query.groupBy === 'reviewSession';
+    if (groupedByReview) shown.sort((a, b) => compareReviewGroups(a.reviewSession?.id, b.reviewSession?.id));
+    const reviewGroups = pager.data.paging.reviewGroups ?? [];
     // Hide filters on narrow screens only while the opened thread is actually shown.
     // A status change can remove it from the current list while the scope still retains it.
     const threadOnly = !board && shown.some(comment => comment.id === openComment.openId);
@@ -324,7 +328,7 @@ function ProjectCommentsView({ labels = [], workflow = defaultStatusWorkflow, pr
     );
     const inOrder = board ? commentStatuses.flatMap(status => columns[status]) : shown;
     const unreadActions = unreadShown > 0 && <MarkAllRead projectId={projectId} shownOnly={unreadShown > inOrder.filter(comment => comment.activity?.unread).length} threads={inOrder.flatMap(comment => comment.activity?.unread ? [{ id: comment.id, sequence: comment.activity.sequence }] : [])} />;
-    const selectionScope = JSON.stringify([projectId, userId, query.environment, query.author, query.unread, query.people, query.page, query.status, query.archive, query.q, query.priority, query.label, query.view]);
+    const selectionScope = JSON.stringify([projectId, userId, query.environment, query.author, query.unread, query.people, query.page, query.status, query.archive, query.q, query.priority, query.label, query.view, query.reviewSessionId, query.groupBy]);
     const empty = archived && query.status === 'all'
         ? { title: 'Nothing archived', description: 'Archived comments stay here until you restore them.' }
         : archived ? emptyStatus.all : emptyStatus[query.status];
@@ -345,7 +349,13 @@ function ProjectCommentsView({ labels = [], workflow = defaultStatusWorkflow, pr
             {/* Group by only shows once the project has labels to group on (uier #429); without them it leaves no gap */}
             <CommentFilters className={filtersDivider} archive={{ pressed: archived, count: budgetExceeded ? undefined : archiveCount, unread: archiveUnread,
                 sort: archived && canSortBoard ? <BoardSortMenu label={t('Archive')} status="archive" sort={boardSorts.archive} onChange={sort => changeSort('archive', sort)} className="mx-0 after:hidden pointer-coarse:min-h-11 pointer-coarse:min-w-11" /> : undefined }}
-                grouping={labels.length > 0 && <CommentGrouping labels={labels} selected={groupIds || []} disabled={!canSortBoard || sorting} onChange={ids => startSorting(async () => {
+                reviewGroups={reviewGroups} reviewSessionId={query.reviewSessionId}
+                grouping={(labels.length > 0 || reviewGroups.length > 0 || groupedByReview) && <CommentGrouping
+                    labels={labels} selected={groupedByReview ? [] : groupIds || []} disabled={!canSortBoard || sorting}
+                    review={groupedByReview} onReviewChange={reviewGroups.length || groupedByReview ? enabled => setUrlSearchParams({
+                        groupBy: enabled ? 'reviewSession' : undefined, ...(enabled ? { view: 'list' } : {})
+                    }, { history: 'push' }) : undefined} onChange={ids => startSorting(async () => {
+                    if (groupedByReview) setUrlSearchParams({ groupBy: undefined }, { history: 'push' });
                     showGrouping(ids);
                     const result = await setBoardGroupingAction(projectId, ids.length > 0, ids).catch(() => ({ ok: false as const, error: t("Could not save the board. Try again.") }));
                     if (result && !result.ok) toast.error(result.error);
@@ -394,7 +404,8 @@ function ProjectCommentsView({ labels = [], workflow = defaultStatusWorkflow, pr
                     allComments={scopeComments} userId={userId} openComment={openComment}
                     detailRevision={pager.data.revision} paging={Object.fromEntries(orderedStatuses(workflow).filter(status => status.category !== 'archive').map(status => [status.id, pageControl(group ? labelLaneKey(status.id, group) : status.id)]))} />} />
             ) : (
-                <CommentInbox groupLabels={groupIds !== false ? groupedLabels : undefined} projectId={projectId} comments={shown} allComments={scopeComments} assignees={assignees} userId={userId} label={t("Comments")}
+                <CommentInbox groupLabels={!groupedByReview && groupIds !== false ? groupedLabels : undefined}
+                    reviewGroups={groupedByReview ? reviewGroups : undefined} projectId={projectId} comments={shown} allComments={scopeComments} assignees={assignees} userId={userId} label={t("Comments")}
                     keeps={status => statusMatches(query.status, status)} readLeaves={Boolean(query.unread)} openComment={openComment} detailRevision={pager.data.revision} paging={pageControl('list')} />
             )}
             </TriageSelection>

@@ -35,6 +35,10 @@ the owner's current project access and thread visibility. Use the
 [MCP file handoff](mcp.md#hand-off-file-feedback) for file threads.
 Inaccessible resources return 404. Token revocation takes effect on subsequent calls.
 
+Use `reviewSessionId` on the list endpoint to select comments in a sent review. Feedback in a
+sent review includes `reviewSession: { id, number, revision }`. Send makes the revision eligible
+for both list and direct access. [Review sessions](#review-sessions)
+
 For writes, send `Content-Type: application/json` and a fresh `Idempotency-Key` (a UUID works).
 A reply takes `{"text":"Fixed in the latest build."}`. A status update takes `{"statusId":"…"}`
 using an ID from the project's statuses endpoint. Send `{ archived: true }` or
@@ -224,6 +228,33 @@ or deleted. Removal deletes the passkey first, so it stops working at once. Sign
 signature counter that does not move forward unless both counters are zero, and updates the passkey
 conditionally on its version. Options (60) and verifications (30) are limited per IP address per
 10 minutes.
+
+### Review sessions
+
+`GET /api/review/<code>` returns `reviewSessionsAvailable` and the current reviewer's open
+`reviewSession`, when present. A session has an opaque ID, an optional review number, its
+published revision, state, and comment counts. Authorized managers receive its draft ID.
+The detail response also includes the manager's pending comments. Comments can include
+`reviewSession: { id, revision, number?, held, canResume }`.
+
+The following paths are relative to `/api/review/<code>`. All writes use the same origin and
+verification checks as other review writes.
+
+| Request | What |
+| --- | --- |
+| `POST /review-sessions` | Start a review or return the existing open one. |
+| `GET /review-sessions?limit=20&before=<id>` | A page of visible sessions as `{ sessions, next }`. |
+| `GET /review-sessions/<id>` | The review's state and visible details. |
+| `PATCH /review-sessions/<id>` | Set the author's optional `title` and `summary` with the current `draftId`. Send an empty string to clear a field. |
+| `POST /review-sessions/<id>/submit` | Publish that draft. Supply `draftId`, the current published `revision` (initially 0) and an `idempotencyKey`. The author may include a title and summary. |
+| `POST /review-sessions/<id>/resume` | Reopen a sent review as its author and obtain a new draft ID. |
+| `DELETE /review-sessions/<id>/held` | Discard this draft by `draftId`. Returns the previously sent review or `null`. |
+
+To add a comment, include `reviewSessionId`, `reviewDraftId` and `idempotencyKey` on the usual
+comment create. A stale draft returns `409 review_session_closed`. A review holds up to 100
+comments across sends and returns `409 review_session_full` at capacity. A lost Send response
+can be retried with exactly the same body and key. Existing thread privacy applies to held
+comments in uier. Public REST, MCP, mail and connected services see them after publication.
 
 ### Public project identifiers
 

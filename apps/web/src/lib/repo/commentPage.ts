@@ -25,6 +25,7 @@ export type CommentPageOptions = {
     visibility?: VisibilityFilter;
     proof?: ProofThreadFilter;
     stagingPairingId?: string;
+    reviewSessionId?: string;
 };
 
 type Keyed = { id: string; createdAt?: string };

@@ -1,6 +1,17 @@
 import type en from './en';
 
 const messages: Record<keyof typeof en, string> = {
+    "Review session": "Sesija pregleda",
+    "Review {number}": "Pregled {number}",
+    "Not sent": "Nije poslano",
+    "All reviews": "Svi pregledi",
+    "Unsent review by {name}": "Neposlani pregled korisnika {name}",
+    "{count} not sent": "Neposlano: {count}",
+    "Send now": "Pošalji sada",
+    "Review sent.": "Pregled je poslan.",
+    "Send review": "Pošalji pregled",
+    "Could not send the review. Try again.": "Pregled nije poslan. Pokušajte ponovno.",
+    "Send the pending comments to eligible recipients and connected services?": "Poslati komentare na čekanju primateljima s pristupom i povezanim uslugama?",
     "Add comment": "Dodajte komentar",
     "After": "Poslije",
     "Before": "Prije",

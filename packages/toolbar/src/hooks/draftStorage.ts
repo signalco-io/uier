@@ -3,6 +3,7 @@ const storage = () => runtimeAdapters()?.draftStorage ?? localStorage;
 import type { CommentAnchor, Mention } from '../components/@types/Comments';
 import { isChangeProposal, type ChangeProposal } from '../changeProposal';
 import { hasProposalEdits, isProposalDraft, type ProposalDraft } from '../proposalDraft';
+import type { ReviewSessionTarget } from '../project/reviewSessionTypes';
 
 export const draftStoragePrefix = 'uier:draft:v1:';
 const maxDraftRecordLength = 64_000;
@@ -21,7 +22,7 @@ export const hasDraftContent = (value: (DraftDetails & { text: string }) | undef
     Boolean(value && (value.text.trim() || value.proposal || (value.proposalDraft && hasProposalEdits(value.proposalDraft))));
 /** Text being sent in the background: the form is empty, the text stays here until the send settles */
 type Sending = { id: string; text: string; mentions?: Mention[]; anchor?: string; proposal?: string };
-type Attempt = { content: string; key: string };
+type Attempt = { content: string; key: string; reviewTarget?: ReviewSessionTarget };
 type Recovery = { text: string; mentions?: Mention[]; attempt?: Attempt };
 /**
  * `unsettled`: trimmed message texts for the legacy recovery check (`CommentsGlobal`). Element suggestions
@@ -49,7 +50,7 @@ function recoverSending(value: RecordValue): RecordValue {
         for (const entry of [...sending].reverse()) {
             if (entry && typeof entry.text === 'string' && entry.text.length <= maxTextLength) {
                 recovered = withSentText(recovered, entry.text, Array.isArray(entry.mentions) ? entry.mentions : undefined);
-                if (!entry.proposal && !hasDraftProposal(value)) unsettled.push(entry.text.trim());
+                if (!entry.proposal && !hasDraftProposal(value) && !value.attempt?.reviewTarget) unsettled.push(entry.text.trim());
             }
         }
     }
@@ -261,7 +262,8 @@ export function createDraftStore(scope: string[], onWrite?: () => void, persiste
             }
             if (saved) { write(key, rest); return; }
             const failed: RecordValue = { ...withSentText(rest, entry.text, entry.mentions), updatedAt: Date.now() };
-            write(key, leaving && !entry.proposal ? { ...failed, unsettled: [...(failed.unsettled ?? []), entry.text.trim()] } : failed);
+            write(key, leaving && !entry.proposal && !failed.attempt?.reviewTarget
+                ? { ...failed, unsettled: [...(failed.unsettled ?? []), entry.text.trim()] } : failed);
         },
         available: () => available,
         pending: (key: string) => pendingSends.has(prefix + key),
@@ -274,11 +276,18 @@ export function createDraftStore(scope: string[], onWrite?: () => void, persiste
             write(key, { ...value, text: first.text, mentions: first.mentions, attempt: first.attempt, updatedAt: Date.now(),
                 recoveries: [...rest, ...(value.text.trim() ? [{ text: value.text, mentions: value.mentions, attempt: value.attempt }] : [])] });
         },
-        attempt(key: string, content: string) {
+        commentAttempt(key: string, content: string) {
+            const attempt = read(key)?.attempt;
+            if (attempt?.content !== content || !/^[A-Za-z0-9_-]{16,128}$/.test(attempt.key)) return undefined;
+            const target = attempt.reviewTarget;
+            if (target && [target.reviewSessionId, target.reviewDraftId].some(value => typeof value !== 'string' || !/^[A-Za-z0-9_$-]{1,100}$/.test(value))) return undefined;
+            return attempt;
+        },
+        attempt(key: string, content: string, reviewTarget?: ReviewSessionTarget, replace = false) {
             const previous = read(key);
-            if (previous?.attempt?.content === content && /^[A-Za-z0-9_-]{16,128}$/.test(previous.attempt.key)) return previous.attempt.key;
+            if (!replace && previous?.attempt?.content === content && /^[A-Za-z0-9_-]{16,128}$/.test(previous.attempt.key)) return previous.attempt.key;
             const identity = Array.from(crypto.getRandomValues(new Uint8Array(16)), value => value.toString(16).padStart(2, '0')).join('');
-            write(key, { ...previous, text: previous?.text ?? '', updatedAt: Date.now(), attempt: { content, key: identity } });
+            write(key, { ...previous, text: previous?.text ?? '', updatedAt: Date.now(), attempt: { content, key: identity, reviewTarget } });
             return identity;
         },
         async run<T>(key: string, send: () => Promise<T>): Promise<T> {

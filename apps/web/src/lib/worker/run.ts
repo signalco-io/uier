@@ -13,6 +13,7 @@ import { sweepProjectTransfers } from '../app/projectTransfer';
 import { retryNotificationDelivery, runNotificationWorker } from '../notifications/delivery';
 import { configuredAppBaseUrl } from '../app/deployment';
 import { runIntegrationWorker } from '../integrations/worker';
+import { prepareReviewReleases } from '../review/reviewSessions';
 import { runMcpEventWorker } from '../mcp/events/delivery';
 import { getAppStore, type AppStore } from '../app/store';
 import { acquireWorkerLease, releaseWorkerLease, WORKER_BUDGET_MS } from './lease';
@@ -48,7 +49,9 @@ export async function verifyWorkerAccess(previewMaintenance = false) {
 }
 
 function phasesFor(options: WorkerOptions, baseUrl: string, now: () => number): WorkerPhase[] {
-    const phases: WorkerPhase[] = [];
+    const phases: WorkerPhase[] = [{ name: 'review-sessions', async run(deadline) {
+        return prepareReviewReleases(undefined, 20, Math.min(deadline, now() + 60_000), { integrationsOnly: options.integrationsOnly });
+    } }];
     if (!options.integrationsOnly) {
         const comments = getCommentsStore();
         phases.push({ name: 'production-images', async run() {

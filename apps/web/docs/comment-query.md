@@ -1,5 +1,9 @@
 # Comment query backend
 
+The member query registry exposes `reviewSessionId` as a scalar enum. It uses the thread's
+session ID and existing visibility predicate. Sessions can also be selected in the project
+inbox and grouped before cursor paging. [Review sessions](review-sessions.md)
+
 The version 1 read API supports typed nested All/Any/Not conditions, literal search, ordinary
 or archived collections, page/environment locations, relative people and dates, and up to eight
 sort rules. The toolbar has not switched to it yet. Project Board/List use a separate app paging adapter over

@@ -16,6 +16,9 @@ import { boardSortInputSchema } from '../../../lib/app/boardSortSchema';
 export const pullRequestUrlSchema = z.string().trim().min(1).max(2048);
 export const commentIdSchema = z.string().refine(isValidId);
 export const commentActionSchema = z.object({ projectId: projectIdSchema, commentId: commentIdSchema });
+export const sendProjectReviewSchema = z.object({ projectId: projectIdSchema,
+    reviewSessionId: z.string().regex(/^[a-zA-Z0-9_-]{1,72}$/),
+    draftId: z.string().regex(/^[a-zA-Z0-9_-]{1,72}$/), revision: z.number().int().nonnegative(), idempotencyKey: idempotencyKeySchema });
 export const pullRequestCommentActionSchema = commentActionSchema.extend({ url: pullRequestUrlSchema, remove: z.boolean() });
 /** Open, In progress or Done; Ready to verify is a fix check request (`verificationCommentAction`) */
 export const statusCommentActionSchema = commentActionSchema.extend({ status: z.enum(feedbackStatusTargets) });

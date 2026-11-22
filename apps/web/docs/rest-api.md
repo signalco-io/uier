@@ -1,5 +1,10 @@
 # Public REST API
 
+The feedback list accepts `reviewSessionId`. It fills each page from readable, published
+threads before calculating the continuation. Feedback in a sent review includes
+`reviewSession: { id, number, revision }`. Direct reads and writes return 404 for held
+threads. [Review sessions](review-sessions.md)
+
 The [integration contract and quick start](../../../docs/api.md#public-rest-api-for-custom-integrations)
 describe the supported operations. Each route under `app/api/v1/projects` calls a handler in
 `src/lib/rest/api.ts`. Handlers authenticate the dedicated bearer, check its scope and budget,

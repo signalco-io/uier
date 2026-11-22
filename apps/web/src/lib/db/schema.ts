@@ -174,7 +174,58 @@ export type DbVerification = {
     decision?: { kind: 'confirm' | 'reject' | 'cancel'; actorId: string; at: string; override: boolean };
 };
 
+export type DbReviewSession = {
+    type: 'review-session';
+    id: string;
+    domain: string;
+    projectId: string;
+    authorId: string;
+    authorName?: string;
+    number?: number;
+    revision: number;
+    draftId?: string;
+    state: 'open' | 'discarding' | 'submitted';
+    title?: string;
+    summary?: string;
+    pendingThreadIds: string[];
+    publishedThreadIds: string[];
+    threadCount: number;
+    openedAt: string;
+    lastActivityAt: string;
+    submittedAt?: string;
+    discardedBy?: string;
+};
+
+export type DbReviewRelease = {
+    type: 'review-release';
+    id: string;
+    domain: string;
+    projectId: string;
+    sessionId: string;
+    revision: number;
+    number: number;
+    authorId: string;
+    authorName?: string;
+    submittedBy: string;
+    submittedAt: string;
+    title?: string;
+    summary?: string;
+    threadIds: string[];
+    threadCount: number;
+    integrationGroups?: Partial<Record<import('../integrations/model').IntegrationProviderId, { connectionId: string; destination: string; grouped: boolean }>>;
+    integrationPending?: true;
+    emailPending?: true;
+};
+
+export type DbReviewSessionRecord = DbReviewSession | DbReviewRelease
+    | { type: 'review-session-open'; id: string; domain: string; sessionId: string }
+    | { type: 'review-session-number'; id: string; domain: string; value: number }
+    | { type: 'review-session-discard'; id: string; domain: string; sessionId: string; authorId: string; discardedBy: string; discardedAt: string; ttl: number }
+    | { type: 'review-session-receipt'; id: string; domain: string; releaseId: string; fingerprint: string; ttl: number };
+
 export type DbComment = {
+    reviewSession?: { id: string; revision: number; number?: number; releasedAt?: string };
+    reviewSessionIndexed?: true;
     /** An ordinary website thread may refer to one immutable approved design surface. */
     stagingDesign?: import('../proofs/stagingModel').StagingDesignReference;
     /** File threads are canonical project comments with an immutable original and separate relocations. */

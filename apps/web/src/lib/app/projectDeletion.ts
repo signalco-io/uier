@@ -128,6 +128,7 @@ export async function runProjectDeletion(intent: ProjectDeletion, { app = getApp
     }
     await deleteProjectThreads(intent, comments);
     await comments.deleteSequence(projectPartition(intent.id));
+    await comments.deleteReviewSessions(projectPartition(intent.id));
     await deleteProjectRecords(intent, app);
     if (!await deleteProjectProofs(intent.id, app)) return;
     const current = await app.get<ProjectDeletion>(deletionPk, intent.id);
@@ -183,7 +184,7 @@ async function deleteProjectThreads(intent: ProjectDeletion, comments: CommentsS
                 if (!stored) continue;
                 const matching = stored.comment.projectId === undefined || stored.comment.projectId === intent.id;
                 const result = matching
-                    ? await deleteProjectThread(comments, project, stored.comment, stored.etag)
+                    ? await deleteProjectThread(comments, project, stored.comment, stored.etag, true)
                     : await comments.delete(domain, thread.id, stored.etag);
                 if (result !== 'ok') continue;
                 deleted++;

@@ -41,3 +41,6 @@ reject requests; they never truncate result sets or remove clauses.
 The member-only `labels` set field uses stable label IDs with the standard set operators and
 cannot be sorted. Server adapters resolve current definitions and enforce member capability
 before evaluating it; the pure contract stores no label definitions or authorization.
+
+`reviewSessionId` is a sortable scalar enum for session membership. The server applies the
+member capability and thread visibility rules before projecting it.

@@ -2,7 +2,8 @@ import { createHash, randomUUID } from 'node:crypto';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { pathToFileURL } from 'node:url';
 
-export type StubWorkItem = { id: number; rev: number; projectId: string; type: string; createdDate: string; deleted: boolean; fields: Record<string, unknown> };
+export type StubWorkItem = { id: number; rev: number; projectId: string; type: string; createdDate: string; deleted: boolean;
+    fields: Record<string, unknown>; relations?: { rel: string; url: string }[] };
 export type AzureDevOpsFault = 'rate_limit' | 'lost' | 'unanswered' | 'forbidden' | 'unauthenticated' | 'bad_request' | 'server_error' | 'not_found';
 export type AzureDevOpsStub = Awaited<ReturnType<typeof startAzureDevOpsStub>>;
 
@@ -45,11 +46,25 @@ export async function startAzureDevOpsStub(port = 0) {
     const typeOf = (name: string) => types.find(type => type.name.toLowerCase() === name.toLowerCase());
     const itemDto = (item: StubWorkItem, fields?: string[]) => ({ id: item.id, rev: item.rev, url: `${url}/devops/${organization}/_apis/wit/workItems/${item.id}`,
         fields: Object.fromEntries(Object.entries({ ...item.fields, 'System.Id': item.id, 'System.TeamProject': currentProjectName,
-            'System.WorkItemType': item.type, 'System.CreatedDate': item.createdDate }).filter(([key]) => !fields || fields.includes(key))) });
+            'System.WorkItemType': item.type, 'System.CreatedDate': item.createdDate }).filter(([key]) => !fields || fields.includes(key))),
+        ...(item.relations?.length ? { relations: item.relations } : {}) });
     function applyPatch(item: StubWorkItem, operations: unknown) {
         if (!Array.isArray(operations)) return false;
         const type = typeOf(item.type)!;
         for (const operation of operations as { op: string; path: string; value: unknown }[]) {
+            if (operation.op === 'test' && operation.path === '/rev') {
+                if (operation.value !== item.rev) return false;
+                continue;
+            }
+            if (operation.op === 'add' && operation.path === '/relations/-') {
+                const relation = operation.value as { rel?: unknown; url?: unknown };
+                const parentId = typeof relation.url === 'string' ? Number(relation.url.split('/').at(-1)) : NaN;
+                if (relation.rel !== 'System.LinkTypes.Hierarchy-Reverse'
+                    || relation.url !== `https://dev.azure.com/${organization}/_apis/wit/workItems/${parentId}`
+                    || !workItems.has(parentId) || item.relations?.length) return false;
+                item.relations = [{ rel: relation.rel, url: relation.url }];
+                continue;
+            }
             const field = operation.path.replace(/^\/fields\//, '');
             if (operation.op !== 'add' || !operation.path.startsWith('/fields/') || !type.fields.includes(field) || typeof operation.value !== 'string') return false;
             if (field === 'System.State' && !type.states.some(([name]) => name === operation.value)) return false;

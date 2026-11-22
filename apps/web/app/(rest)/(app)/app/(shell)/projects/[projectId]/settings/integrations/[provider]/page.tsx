@@ -22,6 +22,8 @@ import { getIntegrationConnection } from '@/src/lib/integrations/connection';
 import { configuredIntegrationAdapters } from '@/src/lib/integrations/registry';
 import { TwoWaySync } from '@/src/components/app/integrations/TwoWaySync';
 import { ReplySync } from '@/src/components/app/integrations/ReplySync';
+import { GroupReviewSessions } from '@/src/components/app/integrations/GroupReviewSessions';
+import { groupReviewSessions, notionReviewSessionProperty } from '@/src/lib/integrations/reviewGroups';
 import { SlackFiles } from '@/src/components/app/slack/SlackFiles';
 import { IntegrationFeatures } from '@/src/components/app/integrations/IntegrationFeatures';
 import { getAppStore } from '@/src/lib/app/store';
@@ -48,7 +50,7 @@ async function ProjectIntegrationSettingsPageContent({ params, searchParams }: P
         notFound();
     const query = await searchParams;
     const adapter = configuredIntegrationAdapters.find(value => value.provider === provider);
-    const connection = adapter?.supportsStatusSync || adapter?.supportsReplySync ? await getIntegrationConnection(project, provider) : null;
+    const connection = adapter ? await getIntegrationConnection(project, provider) : null;
     const grant = provider === 'slack' && connection?.grantId ? (await getAppStore().get<SlackGrant>(connection.pk, connection.grantId))?.doc : null;
     const needsReplyPermissions = provider === 'slack' && (!grant || !slackReplyScopes.every(scope => grant.scopes.includes(scope)));
     const missingSlackNames = provider === 'slack' && Boolean(grant) && !slackNameScopes.every(scope => grant!.scopes.includes(scope));
@@ -65,6 +67,8 @@ async function ProjectIntegrationSettingsPageContent({ params, searchParams }: P
             {connection && adapter?.supportsReplySync && <ReplySync key={`replies:${connection.id}`} projectId={project.id} provider={provider}
                 enabled={connection.replySync?.enabled === true} canEnable={adapter.isConfigured() && connection.status === 'connected'} needsPermissions={needsReplyPermissions}
                 missingNames={missingSlackNames} />}
+            {connection && adapter?.supportsSessionGroups && <GroupReviewSessions projectId={project.id} provider={provider}
+                enabled={groupReviewSessions(connection)} mapped={provider !== 'notion' || notionReviewSessionProperty(connection)} />}
             {/* Files go to the chosen channel, so the option appears once there is one */}
             {connection && provider === 'slack' && typeof connection.config.channelId === 'string' && <SlackFiles key={`files:${connection.id}`} projectId={project.id}
                 enabled={connection.config.files === true} canEnable={adapter!.isConfigured() && connection.status === 'connected'} needsPermission={needsFilePermission} />}

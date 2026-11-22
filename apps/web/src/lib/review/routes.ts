@@ -53,6 +53,8 @@ import { ownOrigin, type ReviewApiContext } from './http';
 import { stagingForReview, stagingPairingId } from '../proofs/staging';
 
 import { assigneeIdsSchema, assignmentModeSchema } from './assignments';
+import { openReviewSession, reviewSessionsAvailable } from './reviewSessions';
+import { reviewSessionIdSchema } from './reviewSessionRoutes';
 
 // The review API (app/api/review/[projectId]/...): the toolbar of a project. Mirrors the public
 // comments API (/api/comments) so the toolbar uses the same requests on another base URL.
@@ -98,11 +100,16 @@ export async function getReviewInfo({ project, actor }: ReviewApiContext) {
     const publicProject = await ensureProjectPublicId(project);
     const { publicId } = publicProject;
     const canComment = project.access === 'guests' || (project.access === 'invited' && actor.kind === 'member');
-    const [workspace, user] = await Promise.all([getWorkspace(project.workspaceId), actor.kind === 'member' ? getUser(actor.userId) : null]);
+    const [workspace, user, reviewSessionsEnabled, reviewSession] = await Promise.all([
+        getWorkspace(project.workspaceId), actor.kind === 'member' ? getUser(actor.userId) : null,
+        canComment && reviewSessionsAvailable(project, actor), canComment ? openReviewSession(project, actor) : null
+    ]);
     return Response.json({
         project: reviewProjectDto(publicProject, canComment, canComment ? await loadFeedbackTypes(project) : [], actor.kind === 'member'),
         viewer: { ...viewerDto(actor), draftScope: keyedHash('draft-scope', actorAuthorId(actor) ?? 'anonymous') },
         canComment,
+        reviewSessionsAvailable: reviewSessionsEnabled,
+        ...(reviewSession ? { reviewSession } : {}),
         // Also before anyone can comment: the notices are in it too. A member's own choice comes with it.
         language: toolbarLanguageInfo(workspace, project, actor.kind === 'member' ? user ?? {} : undefined),
         // Review links sign people in and come back to the page (the toolbar adds `url`)
@@ -125,7 +132,7 @@ export async function setReviewLanguage({ request, actor }: ReviewApiContext) {
 const sessionSchema = z.object({ code: z.string().max(128) });
 
 /** POST /api/review/<code>/session: exchanges the review link's single-use code for a review token */
-export async function createReviewSession({ request, project }: ReviewApiContext) {
+export async function createReviewToken({ request, project }: ReviewApiContext) {
     const { code } = await parseJsonBody(request, sessionSchema);
     const session = await exchangeReviewCode(project, code);
     if (!session)
@@ -135,7 +142,8 @@ export async function createReviewSession({ request, project }: ReviewApiContext
 
 // Query field names seen on the page, for the page state suggestions in settings; invalid names are dropped, not refused
 const queryKeysSchema = z.array(z.string().max(64)).max(12).transform(keys => pageStatePolicy({ queryParameters: keys }).queryParameters);
-const createSchema = createCommentSchema.safeExtend({ path: reviewPathSchema, authorName: guestNameSchema.optional(), mentions: mentionsSchema.optional(), queryKeys: queryKeysSchema.optional(), stagingPairingId: stagingPairingId.optional() });
+const createSchema = createCommentSchema.safeExtend({ path: reviewPathSchema, authorName: guestNameSchema.optional(), mentions: mentionsSchema.optional(), queryKeys: queryKeysSchema.optional(), stagingPairingId: stagingPairingId.optional(),
+    reviewSessionId: reviewSessionIdSchema.optional(), reviewDraftId: reviewSessionIdSchema.optional() });
 
 export async function createReviewComment(context: ReviewApiContext) {
     const { request, project, actor, siteOrigin } = context;

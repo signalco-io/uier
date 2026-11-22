@@ -190,7 +190,7 @@ function NotionDestination({ projectId, settings, sources, loadSources, loadingS
     </FieldGroup>;
 }
 
-type MappingKey = Exclude<keyof NotionMapping, 'status'>;
+type MappingKey = Exclude<keyof NotionMapping, 'status' | 'reviewSession'>;
 const mappedFields: { key: MappingKey; label: string; type: string; required?: boolean }[] = [
     { key: 'title', label: 'Title (required)', type: 'title', required: true }, { key: 'uierId', label: 'uier id (required)', type: 'rich_text', required: true },
     { key: 'kind', label: 'Kind', type: 'select' }, { key: 'environment', label: 'Environment', type: 'select' },
@@ -204,6 +204,7 @@ function initialMapping(options: SchemaOptions, settings: NotionSettingsView) {
         const value = source[field.key]; if (value && options.schema[value]?.type === field.type) result[field.key] = value;
     }
     if (source.status && options.schema[source.status.property]?.type === source.status.type) result.status = source.status;
+    if (source.reviewSession && options.schema[source.reviewSession.property]?.type === source.reviewSession.type) result.reviewSession = source.reviewSession;
     return result;
 }
 /** The saved mapping comes back in the form when its database is the saved one */
@@ -214,7 +215,7 @@ function NotionMappingForm({ projectId, settings, options, save, pending, error,
     const id = useId(); const form = useRef<HTMLFormElement>(null); const confirmed = useRef(false);
     const [mapping, setMapping] = useState(() => initialMapping(options, settings));
     const [confirming, setConfirming] = useState(false);
-    const chosen = [...mappedFields.map(field => mapping[field.key]).filter(Boolean), mapping.status?.property].filter(Boolean);
+    const chosen = [...mappedFields.map(field => mapping[field.key]).filter(Boolean), mapping.status?.property, mapping.reviewSession?.property].filter(Boolean);
     const duplicates = new Set(chosen.filter((value, index) => chosen.indexOf(value) !== index));
     const invalid = !mapping.title || !mapping.uierId || duplicates.size > 0 || Boolean(mapping.status && (!mapping.status.open || !mapping.status.done || mapping.status.open === mapping.status.done));
     const statusField = mapping.status && options.schema[mapping.status.property];
@@ -237,6 +238,10 @@ function NotionMappingForm({ projectId, settings, options, save, pending, error,
                         onChange={value => setMapping(current => ({ ...current, [field.key]: value === 'none' ? '' : value }))} />)}
                         <PropertyChoice id={`${id}-status`} label={t("Status")} schema={options.schema} types={['status', 'select']} value={mapping.status?.property ?? ''}
                             disabled={pending} invalid={duplicates.has(mapping.status?.property ?? '')} onChange={chooseStatus} />
+                        <PropertyChoice id={`${id}-review-session`} label={t("Review session")} schema={options.schema} types={['rich_text', 'select']}
+                            value={mapping.reviewSession?.property ?? ''} disabled={pending} invalid={duplicates.has(mapping.reviewSession?.property ?? '')}
+                            onChange={value => setMapping(current => ({ ...current, reviewSession: value === 'none' ? undefined
+                                : { property: value, type: options.schema[value]!.type as 'rich_text' | 'select' } }))} />
                         {mapping.status && <>
                             {(['open', 'done'] as const).map(value => <Field key={value} data-invalid={mapping.status!.open === mapping.status!.done}>
                                 <FieldLabel htmlFor={`${id}-${value}`}>{value === 'open' ? t("Status for open feedback") : t("Status for done feedback")}</FieldLabel>

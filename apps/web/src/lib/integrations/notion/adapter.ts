@@ -20,7 +20,7 @@ const pathId = (id: string) => encodeURIComponent(notionId(id));
 
 /** All network calls go through the shared lease/authority/budget boundary. */
 export function createNotionAdapter(services: NotionServices = {}): IntegrationAdapter {
-    return { provider: 'notion', isConfigured: isNotionConfigured, maxRunMs: 8 * 60_000, maxCalls: 150, supportsStatusSync: true, supportsReplySync: true,
+    return { provider: 'notion', isConfigured: isNotionConfigured, maxRunMs: 8 * 60_000, maxCalls: 150, supportsStatusSync: true, supportsReplySync: true, supportsSessionGroups: true,
         maintenance: input => probeNotionConnections(input, services),
         revokeAdmin: (workspaceId, userId) => revokeNotionAdmin(workspaceId, userId, services.store),
         externalLink(connection, ledger) {
@@ -435,7 +435,7 @@ export function createNotionAdapter(services: NotionServices = {}): IntegrationA
                     const metadata = { dataSourceId, databaseId: config.databaseId, notionWorkspaceId: grant.notionWorkspaceId, botId: grant.botId, mapping };
                     if (matches.length) { adoptCreated(matches[0]!, metadata); await persist(); }
                     else {
-                        const properties = notionProperties(ctx.feedback.context, mapping);
+                        const properties = notionProperties(ctx.feedback.context, mapping, undefined, ctx.reviewParent?.number);
                         const actual = await write('create_page', 'POST', '/v1/pages', { parent: { type: 'data_source_id', data_source_id: dataSourceId }, properties },
                             { ...metadata, propertiesHash: notionHash(canonicalProperties(properties)) });
                         adoptCreated(actual, metadata); state.page!.propertiesHash = notionHash(canonicalProperties(properties)); state.rebuild = false; await persist(true);
@@ -483,7 +483,7 @@ export function createNotionAdapter(services: NotionServices = {}): IntegrationA
                     }
                     state.rebuild = false; await persist(true);
                 }
-                const properties = notionProperties(ctx.feedback.context, mapping, screenshot?.fileUploadId);
+                const properties = notionProperties(ctx.feedback.context, mapping, screenshot?.fileUploadId, ctx.reviewParent?.number);
                 const propertiesHash = notionHash(canonicalProperties(properties));
                 if (page.propertiesHash !== propertiesHash) {
                     await verifyPage(page, true);

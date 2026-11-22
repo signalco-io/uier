@@ -1,5 +1,16 @@
 // App discussion and page-check source phrases. Translate wording, never saved member content.
 const messages = {
+    "Review session": "Review session",
+    "Review {number}": "Review {number}",
+    "Not sent": "Not sent",
+    "All reviews": "All reviews",
+    "Unsent review by {name}": "Unsent review by {name}",
+    "{count} not sent": "{count} not sent",
+    "Send now": "Send now",
+    "Review sent.": "Review sent.",
+    "Send review": "Send review",
+    "Could not send the review. Try again.": "Could not send the review. Try again.",
+    "Send the pending comments to eligible recipients and connected services?": "Send the pending comments to eligible recipients and connected services?",
     "Add comment": "Add comment",
     "After": "After",
     "Before": "Before",

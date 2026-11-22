@@ -62,6 +62,7 @@ Product contracts, API references and runbooks stay in the repository's [`docs/`
 - [Read state and activity](read-state-and-activity.md): bounded thread history, read cursors, bulk read, adaptive refresh.
 - [File proof API](proof-api.md): asset access, immutable versions, uploads, derivatives, sharing and storage maintenance.
 - [Review API and comment records](review-api.md): anchors on uier's pages, review SSO, edits, image replacement, page state.
+- [Review sessions](review-sessions.md) covers draft persistence, publication, access and delivery.
 - [Anchor updates](anchor-updates.md): reattaching a comment's anchor.
 - [Project review briefs](project-review-briefs.md): the project brief.
 - [Feedback export](feedback-export.md): the shared feedback context packet.

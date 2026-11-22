@@ -2,7 +2,7 @@
 
 import { useContext, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type MouseEvent, type PointerEvent, type Ref } from 'react';
 import { Button } from '@signalco/ui-primitives/Button';
-import { Close, Edit, Undo } from '@signalco/ui-icons';
+import { Add, Close, Edit, ListTodo, Undo } from '@signalco/ui-icons';
 import { Popper } from '@signalco/ui-primitives/Popper';
 import { Divider } from '@signalco/ui-primitives/Divider';
 import { cx } from '@signalco/ui-primitives/cx';
@@ -17,6 +17,8 @@ import { newCommentDraftKey, newDrawingDraftKey, newRewriteDraftKey, useDrafts }
 import { hasDraftContent } from '../hooks/draftStorage';
 import { CommentThread } from './CommentThread';
 import { CommentComposer, type CommentComposerHandle } from './CommentComposer';
+import { isReviewSessionRejection } from './CommentsErrorMessage';
+import { reviewSessionIsFull } from '../project/reviewSessionTypes';
 import { CommentSelectionHighlight } from './CommentSelectionHighlight';
 import { CommentAreaHighlight } from './CommentAreaHighlight';
 import { ReattachContext } from './CommentAnchorDetails';
@@ -434,7 +436,7 @@ export function CommentBubble(props: CommentBubbleProps) {
     const pinStatus = commentItem && pinStage && pinStage !== 'open' ? selectedWorkflowStatus(commentItem, pinStage, workflowStatuses.data) : undefined;
     const statusName = pinStage && pinStage !== 'open' ? (pinStatus ? statusLabel(pinStatus, t) : t.status[pinStage]) : undefined;
 
-    const handleSubmit = async (text: string, mentions?: Mention[]) => {
+    const handleSubmit = async (text: string, mentions?: Mention[], reviewAction?: 'start' | 'post') => {
         stopProposalSession();
         if (props.commentItem) {
             const sentImage = attachment.image;
@@ -451,7 +453,7 @@ export function CommentBubble(props: CommentBubbleProps) {
             return;
         }
 
-        await createComment(text, mentions, capture, false);
+        await createComment(text, mentions, capture, false, reviewAction);
     };
 
     // Read from the store at submission time, including when the editor has not been mounted.
@@ -465,7 +467,7 @@ export function CommentBubble(props: CommentBubbleProps) {
     };
 
     // `quiet`: sent from the inbox, its form closed (`send`)
-    const createComment = async (text: string, mentions: Mention[] | undefined, sent: typeof capture, quiet: boolean) => {
+    const createComment = async (text: string, mentions: Mention[] | undefined, sent: typeof capture, quiet: boolean, reviewAction?: 'start' | 'post') => {
         const pointProposal = pointProposalForSend(drafts.details(draftKey));
         if (pointProposal.blocked) throw new Error(t.proposal.invalid);
         const draft = props.draft!;
@@ -483,6 +485,7 @@ export function CommentBubble(props: CommentBubbleProps) {
         const posting = create.mutateAsync({
             localId,
             draftKey,
+            reviewAction,
             stagingPairingId: draft.stagingPairingId,
             position,
             kind: rewriting ? 'rewrite' : proposal ? 'comment' : undefined,
@@ -499,18 +502,18 @@ export function CommentBubble(props: CommentBubbleProps) {
         // The draft pin makes way for the comment's, shown at once with its thread open (unless sent from the inbox)
         onCreated?.(localId, quiet);
         try {
-            await posting;
+            const posted = await posting;
+            announce(posted.reviewSession?.held ? t.reviewSessions.added : rewriting || proposal ? t.pin.suggestionPosted : t.pin.commentPosted);
         } catch (error) {
             // After the composer (or `send`) has put the text back
             window.setTimeout(() => onSendFailed?.(error, { omitScreenshot, image: attachment.image, recording: recording.current(), drawing: draft.drawing }, quiet), 0);
             throw error;
         }
-        announce(rewriting || proposal ? t.pin.suggestionPosted : t.pin.commentPosted);
     };
 
     // Sent from the inbox, as the composer sends it: the form's text moves into the send (`startSend`) and comes back
     // if it fails. A guest without a name, or an image still being read, needs the form.
-    const { needsName } = useProjectViewer();
+    const { needsName, reviewSession, reviewSessionsAvailable } = useProjectViewer();
     useImperativeHandle(props.ref, () => ({
         send: () => {
             if (!creating) return false;
@@ -652,6 +655,10 @@ export function CommentBubble(props: CommentBubbleProps) {
     // On uier's own pages: a comment on a part of the toolbar, whose pin, thread and composer keep
     // that part's popover open, above the toolbar's popovers and menus (toolbarReview.ts)
     const onToolbar = isToolbarAnchor(position);
+    const composerError = mutation.error ?? props.draft?.sendError;
+    const sessionRejected = creating && isReviewSessionRejection(composerError);
+    const addToSession = creating && Boolean(reviewSession?.draftId);
+    const fullReview = creating && reviewSessionIsFull(reviewSession);
     const holdsLayers = onToolbar ? { [holdsLayersAttribute]: '' } : {};
 
     // The thread opens (and takes the focus, its reply box) once the pin is on the page; a pin
@@ -817,7 +824,9 @@ export function CommentBubble(props: CommentBubbleProps) {
                 ref={composerRef}
                 label={rewriting ? t.pin.suggestedText : suggesting ? t.proposal.note : (creating ? t.pin.comment : t.pin.reply)}
                 placeholder={rewriting ? t.pin.suggestionPlaceholder : suggesting ? t.proposal.note : (creating ? t.pin.commentPlaceholder : t.thread.replyPlaceholder)}
-                submitLabel={rewriting || suggesting ? t.pin.postSuggestion : (creating ? t.pin.postComment : t.thread.postReply)}
+                submitLabel={addToSession ? t.reviewSessions.add : rewriting || suggesting ? t.pin.postSuggestion : (creating ? t.pin.postComment : t.thread.postReply)}
+                submitIcon={addToSession ? <Add size={16} aria-hidden="true" /> : undefined}
+                submitBlocked={fullReview ? t.reviewSessions.full : undefined}
                 allowEmpty={suggesting && Boolean(elementChanges?.proposal)}
                 draftKey={draftKey}
                 quote={selectedText}
@@ -825,7 +834,7 @@ export function CommentBubble(props: CommentBubbleProps) {
                 // Escape): the focus, and a page selection made meanwhile, stay where they are
                 autoFocus={open && !reading && !suggesting && (!sheet || creating)}
                 tall={expanded && !sheet}
-                error={mutation.error ?? props.draft?.sendError}
+                error={composerError}
                 holdSubmit={attachment.reading || (suggesting && (!elementChanges?.proposal || Boolean(elementChanges.invalid.length)))}
                 recording={{ ...recording, start: () => { stopProposalSession(); setExpanded(false); return recording.start(); } }}
                 // Replies wait until the comment is saved (they need its id); the reply box
@@ -852,7 +861,13 @@ export function CommentBubble(props: CommentBubbleProps) {
                     <p className="m-0 text-sm text-muted-foreground">{t.staging.linkedComment}</p>
                     {suggestionControls}
                 </> : suggestionControls}
-                onSubmit={handleSubmit}
+                onSubmit={(text, mentions) => handleSubmit(text, mentions, sessionRejected ? (addToSession ? 'start' : 'post') : undefined)}
+                alternativeSubmit={(sessionRejected || fullReview) && addToSession ? {
+                    label: t.reviewSessions.postNormally, submit: (text, mentions) => handleSubmit(text, mentions, 'post')
+                } : creating && reviewSessionsAvailable && !reviewSession && (!composerError || sessionRejected) ? {
+                    label: t.reviewSessions.startWithComment, icon: <ListTodo size={16} aria-hidden="true" />,
+                    submit: (text, mentions) => handleSubmit(text, mentions, 'start')
+                } : undefined}
                 discardable={drawingDraft || suggesting}
                 stickyBox={suggesting}
                 onDiscard={() => { recording.discard(); if (creating) handleDiscard(); else attachment.remove(); }} />
@@ -945,7 +960,9 @@ export function CommentBubble(props: CommentBubbleProps) {
                             : sending
                                 ? t.pin.commentSending
                                 : t.pin.label(commentItem.number, messagesCount, statusName)}
-                        aria-description={participantsText}
+                        aria-description={commentItem?.reviewSession?.held
+                            ? [t.reviewSessions.notSent, participantsText].filter(Boolean).join(' · ')
+                            : participantsText}
                         onFocus={handleFocus}
                         onBlur={() => setPinFocused(false)}
                         onPointerEnter={handlePreviewEnter}
@@ -979,6 +996,11 @@ export function CommentBubble(props: CommentBubbleProps) {
                                 style={{ display: 'block' }} />
                             {/* Its status at a glance, but Open (uier #364) */}
                             {pinStage && pinStage !== 'open' && <PinStatus stage={pinStage} />}
+                            {/* Not sent: an amber dot with the status dot's white ring, on the round left corner the sharp tip
+                                leaves free; the pin's description says it (no `title`: the preview is the hover) */}
+                            {commentItem?.reviewSession?.held && <span aria-hidden="true" data-uier-pin-held=""
+                                className={cx('dark pointer-events-none absolute -left-px size-2 rounded-full bg-[hsl(var(--brand-warning))] ring-[1.5px] ring-foreground',
+                                    upsideDown ? '-top-px' : '-bottom-px')} />}
                         </span>
                         <PinParticipants people={participants} side={participantsSide} />
                     </button>

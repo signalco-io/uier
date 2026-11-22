@@ -9,6 +9,9 @@ import { canSyncThread } from './source';
 import { integrationTargets } from './syncSignal';
 import { integrationRegistry } from './registry';
 import type { IntegrationAdapter, IntegrationConnection, IntegrationProviderId, IntegrationSync } from './model';
+import { getIntegrationConnection } from './connection';
+import { registerReviewGroup } from './reviewGroups';
+import { isReviewCommentReleased } from '../review/reviewSessionRelease';
 
 export const integrationPk = (provider: IntegrationProviderId, projectId: string) => `${provider}:${projectId}`;
 export const integrationSyncId = (provider: IntegrationProviderId, connectionId: string, projectId: string, threadId: string) =>
@@ -77,6 +80,7 @@ export async function discoverThreadIntegrationSync(project: DbProject, source: 
     if (isUierFeedbackProject(project.id) || source.projectId !== project.id || source.domain !== `project:${project.id}`) return false;
     const registry = integrationRegistry(options.adapters);
     const tombstone = 'type' in source && source.type === 'tombstone' ? source : null;
+    if (!tombstone && 'reviewSession' in source && source.reviewSession && !await isReviewCommentReleased(source, comments)) return false;
     const projectTargets = integrationTargets(project);
     const targets = tombstone
         ? [...new Map([...tombstone.targets, ...projectTargets].map(target => [`${target.provider}:${target.connectionId}`, target])).values()]
@@ -84,7 +88,13 @@ export async function discoverThreadIntegrationSync(project: DbProject, source: 
     const version = source.syncVersion ?? 0;
     let unavailable = false;
     for (const target of targets) {
-        if (!registry.has(target.provider)) { unavailable = true; continue; }
+        const adapter = registry.get(target.provider);
+        if (!adapter) { unavailable = true; continue; }
+        if (!tombstone && 'reviewSession' in source && source.reviewSession && adapter.supportsSessionGroups) {
+            const connection = await getIntegrationConnection(project, target.provider, store);
+            if (connection?.id === target.connectionId && await canSyncThread(project, source, store, comments))
+                await registerReviewGroup(project, connection, source, store, comments, { now: (options.now ?? Date.now)() });
+        }
         await enqueueIntegrationSync(project, target.provider, target.connectionId, tombstone ? tombstone.commentId : source.id,
             version, { store, cleanup: !tombstone && ('private' in source && source.private === true),
                 ...(tombstone ? { deletion: { version, deletedAt: tombstone.deletedAt } } : {}) });

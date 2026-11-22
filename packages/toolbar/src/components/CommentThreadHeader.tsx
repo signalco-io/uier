@@ -8,7 +8,7 @@ import { Row } from '@signalco/ui-primitives/Row';
 import { Stack } from '@signalco/ui-primitives/Stack';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { cx } from '@signalco/ui-primitives/cx';
-import { Check, ExpandDown } from '@signalco/ui-icons';
+import { Check, ExpandDown, Play } from '@signalco/ui-icons';
 import { Popper } from '@signalco/ui-primitives/Popper';
 import { Button } from '@signalco/ui-primitives/Button';
 import { newLocalId, useComments, useReadComment, useUnreadComment } from '../hooks/useComments';
@@ -16,6 +16,7 @@ import { commentPriority, type CommentPriority as CommentPriorityValue } from '.
 import { commentLink } from '../review';
 import { toolbarConfig } from '../config';
 import { useProjectViewer } from '../project/ProjectGate';
+import { useReviewSessionCommand } from '../project/reviewSessions';
 import { CommentsBootstrapperContext, useToolbarPortalContainer } from './CommentsBootstrapperContext';
 import { CommentsErrorMessage } from './CommentsErrorMessage';
 import { useAnnounce } from './Announcer';
@@ -246,12 +247,15 @@ export function CommentThreadHeader({ comment, message, onMarkedUnread, onReques
     optionsRef?: RefObject<HTMLButtonElement | null>;
 }) {
     const { review } = useContext(CommentsBootstrapperContext);
-    const { isMember } = useProjectViewer();
+    const { isMember, reviewSession, reviewSessionsAvailable } = useProjectViewer();
     const t = useMessages();
     const { resolve, progress, archive, prioritize, verification: verificationMutation } = useComments();
     const read = useReadComment();
     const unreadMutation = useUnreadComment();
     const announce = useAnnounce();
+    const reviewCommand = useReviewSessionCommand();
+    const reviewInfo = comment.reviewSession;
+    const canResumeReview = reviewSessionsAvailable && !reviewSession && reviewInfo?.canResume;
     const [uncopiedLink, setUncopiedLink] = useState<string>();
     const stage = feedbackStage(comment);
     const custom = useWorkflowStatus();
@@ -392,6 +396,25 @@ export function CommentThreadHeader({ comment, message, onMarkedUnread, onReques
                     )}
                     {unread && <UnreadDot disabled={read.isPending} onRead={() => read.mutate(comment)} />}
                     {comment.archivedAt && <span className="text-xs text-muted-foreground">{t.thread.archivedLabel}</span>}
+                    {(reviewInfo?.number !== undefined || canResumeReview) && <span className="inline-flex shrink-0 items-center gap-1">
+                        {reviewInfo.number !== undefined &&
+                            <span className="text-xs font-medium text-muted-foreground">{t.reviewSessions.number(reviewInfo.number)}</span>}
+                        {canResumeReview && <IconTooltip label={t.reviewSessions.resume}>
+                            <IconButton type="button" variant="plain" size="xs" className={`${threadActionClassName} pointer-coarse:size-11`}
+                                aria-label={t.reviewSessions.resume} disabled={reviewCommand.isPending} onClick={async () => {
+                                    try {
+                                        await reviewCommand.mutateAsync({ action: 'resume', id: reviewInfo.id });
+                                        announce(t.reviewSessions.resumed);
+                                        // The button goes with the open review: the focus stays in the thread
+                                        optionsRef?.current?.focus();
+                                    } catch { /* Keep the action available and show the error. */ }
+                                }}>
+                                <Play size={14} aria-hidden="true" />
+                            </IconButton>
+                        </IconTooltip>}
+                    </span>}
+                    {comment.reviewSession?.held &&
+                        <span className="rounded-full border px-2 py-0.5 text-xs text-muted-foreground">{t.reviewSessions.notSent}</span>}
                     <PriorityBadge comment={comment} />
                     {/* Wraps under the status as one piece when the line is too narrow for it */}
                     {message?.author && <span className="flex min-w-0 max-w-full items-center gap-1" data-uier-thread-author="">{message.author}</span>}
@@ -434,6 +457,7 @@ export function CommentThreadHeader({ comment, message, onMarkedUnread, onReques
                     </>}
                 </Row>
             </Row>
+            <CommentsErrorMessage error={reviewCommand.error} />
             {assigning && comment.permissions?.assign && (
                 <CommentAssigneeOptions comment={comment} autoFocus={assigning === 'key'} onAssigned={() => { setAssigning(false); optionsRef?.current?.focus(); }} />
             )}

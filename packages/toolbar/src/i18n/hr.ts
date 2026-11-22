@@ -11,6 +11,35 @@ const p = (count: number, one: string, few: string, other: string) => pluralHr(c
 const panelPlaces: Record<PanelDock, string> = { left: 'lijevo', right: 'desno', 'left-top': 'gore lijevo', 'right-top': 'gore desno', 'left-bottom': 'dolje lijevo', 'right-bottom': 'dolje desno' };
 
 export const hr: Messages = {
+    reviewSessions: {
+        label: "Sesija pregleda",
+        start: "Pokreni sesiju pregleda",
+        startWithComment: "Pokreni pregled ovim komentarom",
+        add: "Dodaj u sesiju",
+        notSent: "Nije poslano",
+        send: "Pošalji pregled",
+        resume: "Nastavi sesiju",
+        discard: "Odbaci neposlane komentare",
+        discardEmpty: "Zatvori pregled",
+        empty: "Još nema neposlanih komentara. Ovdje se prikazuju komentari koje dodate.",
+        ended: "Pregled je zatvoren.",
+        finishDiscard: "Dovrši odbacivanje",
+        postNormally: "Objavi izvan sesije",
+        heldHelp: "Komentari ostaju ovdje do slanja pregleda.",
+        loading: "Učitavanje komentara…",
+        title: "Naslov (neobavezno)",
+        summary: "Sažetak (neobavezno)",
+        started: "Sesija pregleda je pokrenuta.",
+        resumed: "Sesija pregleda je nastavljena.",
+        added: "Dodano u pregled.",
+        sent: "Pregled je poslan.",
+        discarded: "Neposlani komentari su odbačeni.",
+        closed: "Pregled se promijenio. Nacrt je spremljen.",
+        full: "Ovaj pregled ima 100 komentara. Pošaljite ga za početak novog pregleda.",
+        number: (number: number) => `Pregled ${number}`,
+        pending: (count: number) => `${count} ${p(count, 'neposlani komentar', 'neposlana komentara', 'neposlanih komentara')}`,
+        discardHelp: (count: number) => count === 0 ? "Zatvoriti ovaj pregled? Nijedan komentar se ne briše." : `Odbaciti ${count} ${p(count, 'komentar i odgovore?', 'komentara i odgovore?', 'komentara i odgovore?')}`
+    },
     staging: {
         report: "Prijavi odstupanje",
         label: "Usporedba dizajna",

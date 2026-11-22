@@ -98,6 +98,27 @@ export async function setIntegrationReplySync(project: DbProject, provider: Inte
     }, store);
 }
 
+/** Pin delivery for existing reviews. The switch is a default for later reviews. */
+export async function setIntegrationGroupSessions(project: DbProject, provider: IntegrationProviderId, userId: string,
+    enabled: boolean, store = getAppStore()) {
+    const member = await getMember(project.workspaceId, userId);
+    const current = (await store.get<DbProject>(project.pk, project.id))?.doc;
+    if (member?.role !== 'admin' || current?.type !== 'project' || current.workspaceId !== project.workspaceId
+        || !await isLiveProject(current) || isUierFeedbackProject(current.id)) throw new IntegrationAccessError();
+    if (!configuredIntegrationAdapters.find(adapter => adapter.provider === provider)?.supportsSessionGroups)
+        throw new UserFacingError('This integration does not support review groups.');
+    const connection = await getIntegrationConnection(current, provider, store);
+    if (!connection) throw new UserFacingError('Connect this integration first.');
+    await updateDoc<IntegrationConnection>(connection.pk, connection.id, saved => {
+        if (saved.destinationRevision !== connection.destinationRevision || saved.grantId !== connection.grantId
+            || saved.connectedBy !== connection.connectedBy) throw new UserFacingError('The connection changed. Reload and try again.');
+        const mapping = saved.config.mapping as { reviewSession?: unknown } | undefined;
+        if (enabled && provider === 'notion' && !mapping?.reviewSession)
+            throw new UserFacingError('Map a Notion review session field first.');
+        return { ...saved, config: { ...saved.config, groupSessions: enabled }, updatedAt: new Date().toISOString() };
+    }, store);
+}
+
 /** A pause retains the destination and uncertain delivery identities for safe reconciliation. */
 export async function setIntegrationEnabled(project: DbProject, provider: IntegrationProviderId, userId: string, enabled: boolean,
     store = getAppStore()) {
@@ -117,10 +138,11 @@ export async function setIntegrationEnabled(project: DbProject, provider: Integr
     }, store);
     if (enabled) {
         // Existing attempts remain intact. The worker rechecks authority before every call.
-        for (const ledger of await store.query<IntegrationSync>({ type: `${provider}-sync`, pk: `${provider}:${project.id}`,
-            where: { connectionId: connection.id, active: true }, limit: 1000 }))
-            await updateDoc<IntegrationSync>(ledger.pk, ledger.id, current => ({ ...current,
-                nextAttemptAt: new Date().toISOString() }), store);
+        for (const type of [`${provider}-sync`, `${provider}-session-sync`] as const)
+            for (const ledger of await store.query<IntegrationSync>({ type, pk: `${provider}:${project.id}`,
+                where: { connectionId: connection.id, active: true }, limit: 1000 }))
+                await updateDoc<IntegrationSync>(ledger.pk, ledger.id, current => ({ ...current,
+                    nextAttemptAt: new Date().toISOString() }), store);
     }
     return updated;
 }
@@ -135,9 +157,10 @@ export async function disconnectIntegration(project: DbProject, provider: Integr
         return { ...current, enabled: false, status: 'needs_reconnect', statusCode: 'disconnected', updatedAt: new Date().toISOString() };
     }, store);
     await setIntegrationBinding(project.workspaceId, project.id, provider, null, store, connection.id);
-    for (const ledger of await store.query<IntegrationSync>({ type: `${provider}-sync`, pk: `${provider}:${project.id}`, where: { connectionId: connection.id } }))
-        await updateDoc<IntegrationSync>(ledger.pk, ledger.id, current => ({ ...current,
-            active: false, status: 'suppressed', lastCode: 'disconnected' }), store);
+    for (const type of [`${provider}-sync`, `${provider}-session-sync`] as const)
+        for (const ledger of await store.query<IntegrationSync>({ type, pk: `${provider}:${project.id}`, where: { connectionId: connection.id } }))
+            await updateDoc<IntegrationSync>(ledger.pk, ledger.id, current => ({ ...current,
+                active: false, status: 'suppressed', lastCode: 'disconnected' }), store);
     // Retain the disabled record and external ids for reconciliation. Provider credential cleanup
     // uses the grant service and never deletes another project's shared installation.
 }

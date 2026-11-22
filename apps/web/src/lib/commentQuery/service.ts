@@ -26,7 +26,7 @@ export type QueryExecutionContext = { sources: QuerySource[]; scope: QueryDocume
 export type QueryPage = { size?: number; cursor?: string };
 export type QueryItem = { id: string; scopeKey: string; projectId?: string; number?: number; path: string; title?: { text: string; ai: boolean }; excerpt: string; status: string; priority: string; unread: boolean; replies: number; screenshot: boolean; private: boolean; createdAt?: string; updatedAt?: string; completedAt?: string; archivedAt?: string; environment: string; revision: string };
 type Row = { record: QueryRecord; item: QueryItem };
-const memberOnly: readonly FieldId[] = ['labels', 'assignee', 'mentions', 'agents'];
+const memberOnly: readonly FieldId[] = ['labels', 'assignee', 'mentions', 'agents', 'reviewSessionId'];
 const identifiedOnly: readonly FieldId[] = ['openedBy', 'author', 'unread'];
 const adminOnly: readonly FieldId[] = ['device', 'browser', 'width', 'height'];
 const admin = (sources: QuerySource[]) => sources.every(s => s.actor.kind === 'member' && s.actor.isAdmin);
@@ -103,7 +103,7 @@ export function queryRow(candidate: CommentQueryCandidate, source: QuerySource, 
         mentions: [...new Set(items.flatMap(item => item.mentions?.map(mention => person(mention.userId)) ?? []))],
         agents: [...new Set((candidate.assigneeAgents ?? (candidate.assigneeAgent ? [candidate.assigneeAgent] : []))
             .filter(agent => assignees.includes(agent.assigneeId)).map(agent => agent.kind))],
-        project: source.project?.id ?? candidate.projectId, environment, page: candidate.path,
+        project: source.project?.id ?? candidate.projectId, reviewSessionId: candidate.reviewSession?.id, environment, page: candidate.path,
         title: title?.text, text, unread, private: candidate.private === true, screenshot: candidate.hasScreenshot,
         replies: Math.max(0, candidate.thread.items.length - 1), fixLink: hasVisibleFixLink(candidate, source),
         created, updated, completed, archived, number: candidate.number, kind: candidate.kind ?? 'comment',
