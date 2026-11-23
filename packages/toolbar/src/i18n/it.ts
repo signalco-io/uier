@@ -487,7 +487,7 @@ export const it: Messages = {
         }
     },
     attachments: {
-        imageLimits: 'PNG, JPEG o WebP, fino a 512 KB e 4096 pixel per lato.',
+        imageLimits: 'PNG, JPEG o WebP, fino a 25 MB. Le immagini grandi vengono ridotte.',
         imageInstead: (name: string) => `La tua immagine ${name} verrà allegata al posto di uno screenshot.`,
         reading: 'Lettura dell’immagine…',
         noScreenshot: 'Non verrà allegato nessuno screenshot.',
@@ -516,10 +516,9 @@ export const it: Messages = {
     },
     imageProblems: {
         type: 'Scegli un’immagine PNG, JPEG o WebP.',
-        size: 'Scegli un’immagine di massimo 512 KB.',
+        size: 'Scegli un’immagine di massimo 25 MB.',
         read: 'Non è stato possibile leggere l’immagine. Caricala di nuovo.',
-        open: 'Non è stato possibile aprire questa immagine. Scegli un’immagine PNG, JPEG o WebP valida.',
-        dimensions: 'Scegli un’immagine di massimo 4096 pixel per lato.'
+        open: 'Non è stato possibile aprire questa immagine. Scegli un’immagine PNG, JPEG o WebP valida.'
     },
     pin: {
         label: (number: number | undefined, messages: number | undefined, status: string | undefined) =>
@@ -587,7 +586,7 @@ export const it: Messages = {
         alt: 'Screenshot della parte commentata della pagina',
         imageAlt: 'Parte commentata della pagina',
         replyImageAlt: 'Immagine allegata alla risposta',
-        limits: 'PNG, JPEG o WebP. Fino a 512 KB e 4096 pixel per lato.',
+        limits: 'PNG, JPEG o WebP. Fino a 25 MB. Le immagini grandi vengono ridotte.',
         replaced: 'Screenshot sostituito.',
         notSaved: 'Non è stato possibile salvare l’immagine.',
         notConfirmed: (reason: string) => `${reason} La sostituzione non è stata confermata. Ricarica per controllare l’immagine salvata o riprova.`,

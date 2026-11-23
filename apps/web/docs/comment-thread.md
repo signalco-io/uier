@@ -193,7 +193,7 @@ assignee card, with Open in T3 Code or another desktop session link, at the top 
   Pending messages never count as saved receipts, and replaying the same pending ID from list/detail
   adds it only once. Other adopted fields use [shared successful-write retention](optimistic-status.md).
   Reply's Attach image and image paste use the same memory-only browser reader (`@uier/toolbar/attachments`)
-  as new toolbar comments: one PNG, JPEG or WebP up to 512 KB and 4096 px per side. The file name replaces
+  as new toolbar comments: one PNG, JPEG or WebP up to 25 MB, made smaller there when over 512 KB or 4096 px per side. The file name replaces
   the attach button, with Remove; reading holds Enter/send, Discard clears the image, and failed sends restore
   it unless a newer image was attached. Image bytes never enter draft or idempotency storage. Reply images
   use the same thumbnail/expanded dialog (`MessageImage`) as the first message, each through its authorized

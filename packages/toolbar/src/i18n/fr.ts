@@ -486,7 +486,7 @@ export const fr: Messages = {
         }
     },
     attachments: {
-        imageLimits: 'PNG, JPEG ou WebP, jusqu’à 512 Ko et 4096 pixels de côté.',
+        imageLimits: 'PNG, JPEG ou WebP, jusqu’à 25 Mo. Les grandes images sont réduites.',
         imageInstead: (name: string) => `Votre image ${name} sera jointe à la place d’une capture d’écran.`,
         reading: 'Lecture de votre image…',
         noScreenshot: 'Aucune capture d’écran ne sera jointe.',
@@ -515,10 +515,9 @@ export const fr: Messages = {
     },
     imageProblems: {
         type: 'Choisissez une image PNG, JPEG ou WebP.',
-        size: 'Choisissez une image de 512 Ko au plus.',
+        size: 'Choisissez une image de 25 Mo au plus.',
         read: 'L’image n’a pas pu être lue. Importez-la à nouveau.',
-        open: 'Cette image n’a pas pu être ouverte. Choisissez une image PNG, JPEG ou WebP valide.',
-        dimensions: 'Choisissez une image de 4096 pixels de côté au plus.'
+        open: 'Cette image n’a pas pu être ouverte. Choisissez une image PNG, JPEG ou WebP valide.'
     },
     pin: {
         label: (number: number | undefined, messages: number | undefined, status: string | undefined) =>
@@ -586,7 +585,7 @@ export const fr: Messages = {
         alt: 'Capture d’écran de la partie commentée de la page',
         imageAlt: 'Partie commentée de la page',
         replyImageAlt: 'Image jointe à la réponse',
-        limits: 'PNG, JPEG ou WebP. Jusqu’à 512 Ko et 4096 pixels de côté.',
+        limits: 'PNG, JPEG ou WebP. Jusqu’à 25 Mo. Les grandes images sont réduites.',
         replaced: 'Capture d’écran remplacée.',
         notSaved: 'L’image n’a pas pu être enregistrée.',
         notConfirmed: (reason: string) => `${reason} Le remplacement n’a pas été confirmé. Rechargez pour vérifier l’image enregistrée, ou réessayez.`,

@@ -12,7 +12,8 @@ apply to every toolbar change (capture, the composer's screenshot, attached imag
 - The scroll is a negative margin, so fixed elements stay.
 - Fonts are inlined.
 - The content of `data-uier-decorative` elements is left out; they keep their `min-height`.
-- It is encoded under the API's limits, with `toBlob` (#319).
+- It is encoded under the API's limits, with `toBlob` (#319): `src/screenshotEncoding.ts`, which also makes the reviewer's
+  own large images smaller ([saved images](#saved-images)).
 
 Capture starts from the feedback event, where the window and its scroll are read; inner scroll is recorded
 after the composer's first paint ([capture responsiveness](composer-popovers.md#capture-responsiveness)). The page
@@ -58,6 +59,12 @@ Record screen and Upload recording are items of the same Attach menu; a recordin
 `hooks/useReplaceScreenshot.ts`:
 
 - Saved evidence can be uploaded or pasted, and redacted with opaque rectangles, using the shared API limits.
+- `suppliedScreenshot` checks every image the reviewer supplies (Attach image, a paste, Upload image, replies in the
+  app): PNG, JPEG or WebP of at most 25 MB (`MAX_SUPPLIED_IMAGE_BYTES`). It is decoded from the file
+  (`createImageBitmap`, so a host's `img-src` does not apply). One within the API's 512 KB and 4096 px on a side is
+  sent as it is. A larger one, as most full-screen screenshots are, is drawn at most 2400 px on a side and encoded
+  like a capture (WebP of at most 480 KB; JPEG on white where the browser makes no WebP, so transparent window
+  shadows do not turn black).
 - `CommentScreenshot` keeps the thumbnail alone. Upload image and Paste image are in its expanded view beside
   Redact screenshot. A comment without a screenshot shows nothing for it: no "No screenshot" row.
 - **Attach to comment** (`components/CommentAttach.tsx`, [uier #473](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects&comment=comment_qLw4Rx21hSb1QWTtYlSeN)) adds what a saved
@@ -110,7 +117,7 @@ attached image ([uier #497](https://uier.io/app/review/uier00000002?url=https%3A
 
 ## Tests
 
-`apps/web/e2e/screenshots.spec.ts`: Attach, the screenshot's thumbnail, its preview and Remove screenshot in the text box, an attached image's thumbnail and preview.
+`apps/web/e2e/screenshots.spec.ts`: Attach, the screenshot's thumbnail, its preview and Remove screenshot in the text box, an attached image's thumbnail and preview, and pasted images too large for the API made smaller.
 `toolbar-review.spec.ts`: the viewer above a toolbar comment's thread, dragged by its header, and that thread kept open;
 moved with the keyboard and back to the middle; a comment on it, whose Attach menu and pin are above it. `thread-attachments.spec.ts`:
 Attach to comment on a saved thread; `screenshot-replacement.spec.ts`: saved images, their errors and redaction. `screenshot-performance.spec.ts`: capture yields
