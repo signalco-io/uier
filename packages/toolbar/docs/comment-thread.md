@@ -87,7 +87,8 @@ their own, at the right, rather than cover the status. `e2e/toolbar-thread.spec.
 
 - The status: a menu like the app's `StateMenu` (Open, In progress, Ready to verify, Done) for those who may
   change it, else a badge ([status changes](optimistic-status.md)). Its dot glows like the app's status chip
-  (`GlowingStatusDot`, the app's `GlowingStateDot`, [uier #462](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_nq7Ckm6_THp5pfj30OEra)); the menu's options do not.
+  (`GlowingStatusDot`, the app's `GlowingStateDot`, [uier #462](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_nq7Ckm6_THp5pfj30OEra)); the menu's options do not. The menu's button
+  has no chevron, the outlined badge alone ([uier #501](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_a7dt7dpFEV6aNbnjhWEeD)).
 - `#id`, then the blue unread dot, which marks the thread read.
 - A priority other than Normal.
 - The first message's author (no avatar), "via" its agent and its time.

@@ -83,7 +83,7 @@ test('on a phone the header\'s actions never cover the status, and Thread option
         await page.getByRole('dialog', { name: 'Status', exact: true }).getByRole('button', { name: 'In progress', exact: true }).tap();
         const status = thread.getByRole('button', { name: 'Status: In progress. Change status', exact: true });
         await expect(status).toBeVisible();
-        // Every control stays on screen, and every point of the status (its chevron too) is the status: the actions wrap instead of covering it
+        // Every control stays on screen, and every point of the status (its right end too) is the status: the actions wrap instead of covering it
         for (const name of ['Copy', 'Add reaction', 'Thread options'])
             await expect(thread.getByRole('button', { name, exact: true })).toBeInViewport();
         const hits = await status.evaluate(element => {

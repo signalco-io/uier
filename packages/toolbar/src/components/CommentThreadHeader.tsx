@@ -8,7 +8,7 @@ import { Row } from '@signalco/ui-primitives/Row';
 import { Stack } from '@signalco/ui-primitives/Stack';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { cx } from '@signalco/ui-primitives/cx';
-import { Check, ExpandDown, Play } from '@signalco/ui-icons';
+import { Check, Play } from '@signalco/ui-icons';
 import { Popper } from '@signalco/ui-primitives/Popper';
 import { Button } from '@signalco/ui-primitives/Button';
 import { newLocalId, useComments, useReadComment, useUnreadComment } from '../hooks/useComments';
@@ -88,7 +88,8 @@ export function CommentStatusBadge({ stage, label }: { stage: FeedbackStage; lab
  * The status badge as a menu with every status, like the app's `StateMenu`: each is enabled when the
  * person may move the thread there (`allowed`). Ready to verify opens the Request verification form
  * (again while a check is pending); from Ready to verify, Done says Done without verification. S moves
- * the focus to the badge (`data-uier-status`); Enter or Space opens it, the current status focused.
+ * the focus to the badge (`data-uier-status`); Enter or Space opens it, the current status focused. The badge has no
+ * chevron (uier #501): its outline and name say it is a control.
  */
 function CommentStatusMenu({ stage, allowed, pending, shortcut, onChange, statuses, selectedId, verificationEnabled }: {
     stage: FeedbackStage;
@@ -157,7 +158,6 @@ function CommentStatusMenu({ stage, allowed, pending, shortcut, onChange, status
                     <GlowingStatusDot stage={stage} />
                     <span className="sr-only">{t.thread.statusPrefix}</span>
                     {label}
-                    <ExpandDown aria-hidden="true" size={12} className="text-muted-foreground" />
                 </Button>
             )}
             {...contentProps}>
