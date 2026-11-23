@@ -12,6 +12,7 @@ import {
     type DbProjectRef,
     type DbRetiredProjectRef
 } from './model';
+import { matchesProjectNameConfirmation } from './projectNameConfirmation';
 import { isProjectId } from './projects';
 import { retireProjectPublicIds } from './projectPublicIds';
 import {
@@ -76,7 +77,7 @@ export async function deleteProject(context: AppContext, projectId: string, conf
     const member = (await app.get<DbMember>(workspacePk(context.workspace.id), memberId(context.user.id)))?.doc;
     if (member?.type !== 'member' || member.role !== 'admin')
         throw new UserFacingError('Only workspace admins can delete projects.');
-    if (confirmation.trim() !== project.name)
+    if (!matchesProjectNameConfirmation(confirmation, project.name))
         throw new UserFacingError('Type the project name exactly as it is shown.');
     // A transfer that is not running any more is finished or given up first
     const transfer = await pendingProjectTransfer(projectId, app);

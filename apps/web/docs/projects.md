@@ -40,6 +40,9 @@
   acts as `SYSTEM_ACTOR` (`accessMutations.ts`), which may only remove access. A new workspace-keyed record
   type that names a project must be handled by the transfer and [project transfer](../../../docs/project-transfer.md);
   `e2e/project-transfer{,.api}.spec.ts` cover it.
+- The deletion and transfer dialogs display the saved project name with its spacing preserved.
+  `projectNameConfirmation.ts` applies the same case-sensitive comparison in the browser and on the server.
+  It treats a run of ordinary spaces as one space when confirming.
 - Project links (`DbProject.links`, [project settings](project-settings.md)) live on the project document: deletion removes
   them with it and a transfer copies them. They are member-only: no review API, guest page, export or MCP output includes them.
 - **Files only** creates a named project with no site address. Its first visit opens
