@@ -121,7 +121,7 @@ function prepare(root) {
     const main = git(root, 'rev-parse', 'HEAD');
     const result = plan(root, { force: process.env.FORCE === 'true' });
     if (result.state === 'current') {
-        report(`Toolbar unchanged since ${result.tag}. No version bump or release.`);
+        report(`Shipped toolbar and kit paths unchanged since ${result.tag}. No version bump or release.`);
         return;
     }
     const { version } = result;

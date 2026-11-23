@@ -4,9 +4,27 @@ import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'nod
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { nextVersion, plan, pullRequestBody, recordedVersions, setVersion } from './release-plan.mjs';
+import { nextVersion, plan, pullRequestBody, recordedVersions, setVersion, shippedPaths } from './release-plan.mjs';
 
 const repository = resolve(import.meta.dirname, '../../..');
+
+test('shipped kit paths match the toolbar workspace dependency closure', () => {
+    const kitSources = new Set();
+    const manifests = ['packages/toolbar/package.json'];
+    for (const manifest of manifests) {
+        const { dependencies, devDependencies, optionalDependencies, peerDependencies } =
+            JSON.parse(readFileSync(resolve(repository, manifest), 'utf8'));
+        for (const [name, version] of Object.entries({ ...dependencies, ...devDependencies, ...optionalDependencies, ...peerDependencies })) {
+            if (!version.startsWith('workspace:') || name === '@uier/brand') continue;
+            const directory = `packages/${name.replace(/^@uier\//, '')}`;
+            if (kitSources.has(`${directory}/src`)) continue;
+            kitSources.add(`${directory}/src`);
+            manifests.push(`${directory}/package.json`);
+        }
+    }
+    assert.deepEqual(shippedPaths.filter(path => !path.startsWith('packages/toolbar/') && path.endsWith('/src')).sort(),
+        [...kitSources].sort());
+});
 
 test('every recorded version on this branch is the same', () => {
     const versions = recordedVersions(repository);
@@ -23,6 +41,8 @@ test('a release is due only after shipped source changes and never skips an unta
         for (const app of ['extension', 'extension-firefox']) write(`apps/${app}/package.json`, '{\n  "name": "app",\n  "version": "0.1.4",\n  "private": true\n}\n');
         write('apps/web/src/lib/extension/release.ts', "export const latestExtensionVersion = '0.1.4';\n");
         write('packages/toolbar/src/index.ts', 'export {};\n');
+        write('packages/js/src/index.ts', 'export {};\n');
+        write('packages/js/package.json', '{"name":"@uier/js"}\n');
         commit('Initial'); git('tag', 'extension-v0.1.4'); git('tag', 'extension-v0.1.10-broken');
         assert.equal(plan(root).state, 'current');
         assert.deepEqual({ ...plan(root, { force: true }), changes: [] }, { state: 'due', version: '0.1.5', tag: 'extension-v0.1.4', changes: [] });
@@ -31,8 +51,18 @@ test('a release is due only after shipped source changes and never skips an unta
         assert.equal(plan(root).state, 'current');
         write('packages/extension/src/worker.ts', 'export {};\n'); commit('fix(extension): transport only');
         write('packages/toolbar/docs/notes.md', 'Toolbar documentation only.\n'); commit('docs(toolbar): notes');
+        write('packages/ui/src/index.ts', 'export {};\n'); commit('feat(ui): public site kit change');
+        write('packages/brand/src/index.ts', 'export {};\n'); commit('feat(brand): brand change');
+        write('packages/js/package.json', '{"name":"@uier/js","dependencies":{"helper":"1.0.0"}}\n'); commit('chore(js): update dependencies');
         write('pnpm-lock.yaml', 'Dependency-only update.\n'); commit('chore(deps): update');
         assert.equal(plan(root).state, 'current');
+        write('packages/js/src/index.ts', 'export const value = 1;\n'); commit('fix(js): change a bundled helper');
+        const kitDue = plan(root);
+        assert.equal(kitDue.state, 'due');
+        assert.equal(kitDue.version, '0.1.5');
+        assert.deepEqual(kitDue.changes.map(change => change.slice(change.indexOf(' ') + 1)), ['fix(js): change a bundled helper']);
+        write('packages/js/src/index.ts', 'export {};\n'); commit('revert: bundled helper change');
+        assert.equal(plan(root).state, 'current', 'A reverted kit change must not produce an empty release');
         write('packages/toolbar/src/index.ts', 'export const value = 1;\n'); commit('feat(toolbar): temporary change');
         write('packages/toolbar/src/index.ts', 'export {};\n'); commit('revert: temporary toolbar change');
         assert.equal(plan(root).state, 'current', 'A reverted toolbar change must not produce an empty release');

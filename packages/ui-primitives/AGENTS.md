@@ -23,6 +23,10 @@ modules the repository imports were copied, each whole. This guide covers all se
   (`apps/web/app/global.css`, `packages/toolbar/src/index.css`). A new kit package needs its
   `transpilePackages` entry and, when it has class names, its `@source` lines. `pnpm dev` rebuilds
   the toolbar when `packages/ui-primitives/src` or `packages/ui-icons/src` changes (`dev:build`).
+- **Extension releases.** Net source changes in the toolbar's bundled kit packages trigger the
+  [daily extension release](../../docs/browser-extension-release.md#regular-releases).
+  Update `shippedPaths` in `apps/extension/scripts/release-plan.mjs` when the toolbar's kit
+  dependency closure changes. The release planner test checks the list against the manifests.
 - **Who uses what.** Public pages, the toolbar and the extension popup use this kit. The signed-in
   app (`/app`) uses the shadcn/ui components in `apps/web/src/components/ui`. Do not mix the two on
   one surface and do not build parallel buttons, inputs or menus.

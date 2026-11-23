@@ -226,12 +226,14 @@ Native Edge Add-ons and other browser/mobile/guest-extension work remain separat
 
 ## Regular releases
 
-The extension packages the toolbar, so releases follow the toolbar. Every day at **07:17 UTC**,
-**Extension release prepare** compares toolbar implementation and build configuration (`shippedPaths`
-in `apps/extension/scripts/release-plan.mjs`) on main with the newest `extension-v*` tag. With no net
-toolbar changes it exits without a branch, version bump, build or submission. Documentation-only,
-website-only, extension-only and dependency-only changes wait for the next toolbar release; a manual
-run with **force** supports maintenance releases. Reverted toolbar changes do not create empty releases.
+Every day at **07:17 UTC**, **Extension release prepare** compares the toolbar implementation,
+its build configuration and the source of the kit packages it bundles (`shippedPaths` in
+`apps/extension/scripts/release-plan.mjs`) on main with the newest `extension-v*` tag. The kit paths
+cover `@uier/ui-icons`, `@uier/ui-primitives`, `@uier/ui-themes-minimal` and the transitive
+dependency `@uier/js`. With no net changes to those paths, including when a change was reverted,
+the run exits without a branch, version bump, build or submission. Documentation, website and
+extension changes, brand changes, unbundled kit changes and dependency updates in package manifests
+or the lockfile ride the next release. A manual run with **force** supports maintenance releases.
 Comparing with the release tag also includes changes left waiting after an interrupted daily run.
 
 When changes exist, the job opens `chore(extension): release X.Y.Z` from `extension-release/vX.Y.Z`

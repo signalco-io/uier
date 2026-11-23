@@ -6,7 +6,7 @@ Manual dispatch selects `all`, `chrome` or `firefox`; `dry_run` defaults to true
 Dry runs use no store credentials and perform no store writes. Firefox has its own repository flag
 and protected environment, separate from Chrome. The [daily release automation](browser-extension-release.md#regular-releases)
 merges and tags version PRs after CI and submits both browser packages without manual environment
-approval. Unchanged toolbar source does not create a new version.
+approval. Scheduled runs create a version when the shipped toolbar or kit paths change.
 
 After adding credentials, run **Extension Firefox account check** from `main` and approve its
 protected environment. This reads Mozilla's private upload list without making store writes.
