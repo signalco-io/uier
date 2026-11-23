@@ -272,6 +272,8 @@ const messages: Record<keyof typeof en, string> = {
     "Light": "Hell",
     "Link": "Verknüpfen",
     "Link a pull request": "Pull Request verknüpfen",
+    "No linked pull request": "Kein verknüpfter Pull Request",
+    "No linked pull request. Link a pull request": "Kein verknüpfter Pull Request. Pull Request verknüpfen",
     "Link copied. It opens the page at this comment.": "Link kopiert. Er öffnet die Seite bei diesem Kommentar.",
     "Linked pull request": "Verknüpfter Pull Request",
     "List": "Liste",

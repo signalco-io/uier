@@ -272,6 +272,8 @@ const messages: Record<keyof typeof en, string> = {
     "Light": "Chiaro",
     "Link": "Collega",
     "Link a pull request": "Collega una pull request",
+    "No linked pull request": "Nessuna pull request collegata",
+    "No linked pull request. Link a pull request": "Nessuna pull request collegata. Collega una pull request",
     "Link copied. It opens the page at this comment.": "Link copiato. Apre la pagina su questo commento.",
     "Linked pull request": "Pull request collegata",
     "List": "Elenco",
