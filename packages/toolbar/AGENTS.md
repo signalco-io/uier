@@ -80,6 +80,7 @@ every change in the package.
   Each language but English (`dist/language-<code>.js`) is pinned in the review script the same way ([docs/localization.md](docs/localization.md)).
   The review script's closing license comment keeps each distinct notice once per bundled file (`withDistinctLicenses`):
   a dependency that is itself a bundle repeats a notice for every file it bundled.
+  The UI kit's MIT notice (signalco) closes the script after them (`../ui-primitives/src/notice`, `e2e/toolbar-assets.api.spec.ts`).
   The web build publishes default/pinned loaders and the review, audit and language assets, retaining them in its archive. Keep
   production pins/API compatibility for one year after last release as current (docs/api.md).
 - UI-kit `next/link` imports in the embedded IIFE resolve to `components/ToolbarLink.tsx`, a

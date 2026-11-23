@@ -1,5 +1,6 @@
 import { publicPageMetadata } from '@/src/lib/metadata';
 import { Button } from '@uier/ui-primitives/Button';
+import { kitLicense, kitPackages } from '@uier/ui-primitives/notice';
 import { brand } from '@uier/brand';
 import { InlineLink, PageHeader, PageSection, Panel, Tile } from '../../../../src/components/marketing/ContentPage';
 
@@ -26,6 +27,12 @@ const packages = [
         what: 'The review toolbar that runs on the reviewed page',
         license: 'MIT',
         licenseHref: blob('packages/toolbar/package.json')
+    },
+    {
+        path: 'packages/ui-primitives',
+        what: 'The UI kit of the public pages and the toolbar, with the packages beside it',
+        license: 'MIT',
+        licenseHref: blob('packages/ui-primitives/LICENSE')
     },
     {
         path: 'packages/brand',
@@ -67,7 +74,7 @@ export default function OpenSourcePage() {
                     ))}
                 </Panel>
                 <Panel className="md:grid-cols-2">
-                    <Tile title="MIT: the toolbar, the brand, the infrastructure">
+                    <Tile title="MIT: the toolbar, the UI kit, the brand, the infrastructure">
                         <p>Use, change and ship them anywhere, in open or closed products, as long as you keep the copyright and license notice.</p>
                     </Tile>
                     <Tile title="AGPL-3.0: the web app">
@@ -77,6 +84,18 @@ export default function OpenSourcePage() {
                 <p className="max-w-[720px] text-sm text-muted-foreground">
                     This is a summary. The license texts decide: <InlineLink href="https://www.gnu.org/licenses/agpl-3.0.html">GNU AGPL-3.0</InlineLink> and <InlineLink href="https://opensource.org/license/mit">MIT</InlineLink>.
                 </p>
+            </PageSection>
+
+            <PageSection
+                id="third-party"
+                title="Third-party notices"
+                lead={<>The UI kit is based on <InlineLink href="https://github.com/signalco-io/signalco">signalco&rsquo;s UI packages</InlineLink>, used under the MIT license. This notice ships with the website, the toolbar script and the browser extensions.</>}>
+                <Panel>
+                    <Tile title="UI kit">
+                        <p className="font-mono text-xs">{kitPackages.join(', ')}</p>
+                        <pre className="whitespace-pre-wrap font-mono text-xs leading-relaxed">{kitLicense.trim()}</pre>
+                    </Tile>
+                </Panel>
             </PageSection>
 
             <PageSection

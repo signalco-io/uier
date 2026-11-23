@@ -7,7 +7,7 @@ modules the repository imports were copied, each whole. This guide covers all se
 
 | Package | Import | What | Copied from |
 | --- | --- | --- | --- |
-| `packages/ui-primitives` | `@uier/ui-primitives/<Name>` | `Avatar`, `Button`, `Checkbox`, `Chip`, `Container`, `Divider`, `IconButton`, `Input`, `Link`, `List`, `ListItem`, `Popper`, `Row`, `Skeleton`, `Stack`, `Typography`, `cx` and the `theme` types | `@signalco/ui-primitives` 0.6.5 |
+| `packages/ui-primitives` | `@uier/ui-primitives/<Name>` | `Avatar`, `Button`, `Checkbox`, `Chip`, `Container`, `Divider`, `IconButton`, `Input`, `Link`, `List`, `ListItem`, `Popper`, `Row`, `Skeleton`, `Stack`, `Typography`, `cx`, the `theme` types and the kit's `notice` | `@signalco/ui-primitives` 0.6.5 |
 | `packages/ui` | `@uier/ui/Nav` | `PageNav`, the public pages' header | `@signalco/ui` 0.2.10 |
 | `packages/ui-icons` | `@uier/ui-icons` | Lucide icons under the kit's names (`Close`, `Add`, `Delete`, `LoaderSpinner`) | `@signalco/ui-icons` 0.2.2 |
 | `packages/ui-notifications` | `@uier/ui-notifications` | `NotificationsContainer`, the public layout's Sonner region | `@signalco/ui-notifications` 0.2.0 |
@@ -53,3 +53,9 @@ modules the repository imports were copied, each whole. This guide covers all se
   kit would call it. Lucide only, outlined ([BRAND.md](../brand/BRAND.md)).
 - **Notifications.** `NotificationsContainer` has its own toaster id: it shows only toasts sent with
   `toasterId: notificationsToasterId`, never the app's `toast()` calls, which the app's toaster shows.
+- **The MIT notice ships with every artifact.** `src/notice` holds signalco's notice (the text of each
+  package's `LICENSE`) and the kit's package names. The review script ends with it in a legal comment
+  (`packages/toolbar/tsup.config.ts`), the browser extensions package it in `THIRD-PARTY-NOTICES.txt`
+  (`packages/extension/scripts/notices.mjs`; validation refuses a package without it) and the website
+  shows it on `/open-source`. A new kit package gets the same `LICENSE` and a `kitPackages` entry; a
+  new artifact that ships kit code carries the notice too.

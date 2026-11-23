@@ -17,6 +17,9 @@ The audit asset (axe-core and the on-demand page checks) is the packaged audit.j
 toolbar's checks/auditEntry.ts and never bundled into another entry (build.mjs fails on it). The
 worker runs it in the bound document's isolated world on the content runtime's `audit` message; it
 hands over through that world's global only, never a script element, DOM event or web-accessible resource.
+Each package carries THIRD-PARTY-NOTICES.txt beside LICENSE (scripts/notices.mjs): the bundled UI kit's
+MIT notice (signalco, packages/ui-primitives/AGENTS.md), then every notice esbuild kept in the scripts.
+validate.mjs refuses a package without the kit's notice; keep it when changing what the build writes.
 
 worker.ts is the sole credential owner. Chromium storage.session and local access stay TRUSTED_CONTEXTS.
 Firefox session storage stays private by default; persistent refresh credentials use extension-origin

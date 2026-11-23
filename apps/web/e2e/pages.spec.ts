@@ -3,6 +3,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, test } from '@playwright/test';
 import { brand } from '@uier/brand';
+import { kitLicense, kitPackages } from '@uier/ui-primitives/notice';
 import { assertAccessibility } from './accessibility';
 import { MAX_BODY_BYTES, MAX_BULK_READ_BYTES, MAX_COMMENT_BODY_BYTES, MAX_NEW_COMMENT_BODY_BYTES } from '../src/lib/comments/limits';
 
@@ -55,12 +56,17 @@ test('open source page links the repository, licenses and contribution guide', a
 
     // Each package shows the license its package.json declares
     const licenses = page.getByRole('region', { name: 'Licenses' });
-    for (const path of ['apps/web', 'packages/toolbar', 'packages/brand', 'infra']) {
+    for (const path of ['apps/web', 'packages/toolbar', 'packages/ui-primitives', 'packages/brand', 'infra']) {
         const license = declaredLicense(path);
         const row = licenses.getByRole('listitem').filter({ has: page.getByRole('link', { name: path, exact: true }) });
         await expect(row.getByRole('link', { name: path, exact: true })).toHaveAttribute('href', `${brand.repository}/tree/main/${path}`);
         await expect(row.getByRole('link', { name: license, exact: true })).toBeVisible();
     }
+
+    // The UI kit's MIT notice (signalco) is served with the website, whole
+    const notices = page.getByRole('region', { name: 'Third-party notices' });
+    for (const name of kitPackages) await expect(notices).toContainText(name);
+    await expect(notices.locator('pre')).toHaveText(kitLicense.trim(), { useInnerText: true });
 });
 
 test('security page is accessible', ({ page }) => assertAccessibility(page, '/security'));

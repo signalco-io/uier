@@ -9,6 +9,7 @@ import { createHash } from 'node:crypto';
 import { createManifest } from './manifest.mjs';
 import { brand, MARK_PATH } from '../../../packages/brand/src/brand.ts';
 import { assertNoInlineRem, uiKitInlineRem } from '../../toolbar/shadowRootIsolation.mjs';
+import { noticesFile, thirdPartyNotices } from './notices.mjs';
 const sharedRoot = resolve(import.meta.dirname, '..');
 export async function buildExtension({ root, browser = 'chrome', test = process.argv.includes('--test'), hostedTest = process.argv.includes('--hosted-test') }) {
 if (!['chrome', 'firefox'].includes(browser)) throw new Error('Unknown browser target.');
@@ -94,4 +95,8 @@ for (const [size, inset] of [[16, 0], [32, 0], [48, 0], [128, 16]]) {
 }
 await writeFile(resolve(dest, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
 await cp(resolve(root, '../../LICENSE'), resolve(dest, 'LICENSE'));
+// The bundled software's notices travel with the package: the UI kit's MIT notice (signalco) and what
+// esbuild kept at the end of each script (notices.mjs). validate.mjs refuses a package without them.
+const scripts = Object.fromEntries(await Promise.all(Object.keys(entries).map(async name => [name, await readFile(resolve(dest, `${name}.js`), 'utf8')])));
+await writeFile(resolve(dest, noticesFile), thirdPartyNotices(scripts));
 }
