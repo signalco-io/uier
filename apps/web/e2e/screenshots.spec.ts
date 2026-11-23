@@ -86,6 +86,12 @@ test('screenshots: capture automatically, show a thumbnail in the composer and e
     await page.keyboard.press('Enter');
     const expanded = page.getByRole('dialog', { name: 'Screenshot', exact: true });
     await expect(expanded.getByRole('img', { name: 'Expanded screenshot' })).toBeVisible();
+    // Escape closes only the viewer, not the thread it opened from; Close is an X named by its tooltip (uier #497)
+    await page.keyboard.press('Escape');
+    await expect(expanded).toBeHidden();
+    await expect(thread).toBeVisible();
+    await expect(thumbnail).toBeFocused();
+    await page.keyboard.press('Enter');
     await expanded.getByRole('button', { name: 'Close screenshot' }).click();
     await expect(expanded).toBeHidden();
     await expect(thumbnail).toBeFocused();

@@ -159,3 +159,26 @@
         opacity: 0;
     }
 }
+
+/* The screenshot viewer (components/ScreenshotViewer.tsx) is in the middle of the window, not by its
+   thumbnail: its popover's positioned wrapper fills the window instead (`!important` wins over the
+   wrapper's inline position) and is the viewer's blurred backdrop, like the composer modal's. A press
+   on it is outside the viewer, which closes it. On uier's own pages presses go through, so the pill's
+   Add comment can still pick the viewer. Its own z-index is the viewer's (Radix copies it). */
+[data-radix-popper-content-wrapper]:has(> [data-uier-viewer]) {
+    inset: 0 !important;
+    transform: none !important;
+    min-width: 0 !important;
+    display: grid !important;
+    place-items: center;
+    background: rgb(0 0 0 / 0.1);
+    backdrop-filter: blur(4px);
+}
+
+[data-radix-popper-content-wrapper]:has(> [data-uier-viewer="review"]) {
+    pointer-events: none;
+}
+
+[data-uier-viewer] {
+    pointer-events: auto;
+}

@@ -31,8 +31,8 @@ New comment and feedback forms render `ComposerAttachmentsHeader` above (not ins
 box's bottom-left corner after Attach ([uier #391](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_napwWAvckuKEmZr-J0GGQ), [uier #476](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2F&comment=comment_MHq-BrZmONnqI7ugzvoOX)):
 
 - A small thumbnail of the capture (the row's 28 px height, 44 px on touch screens), a button named **Preview
-  screenshot** with the read-out capture status as its description. It opens a larger preview in a popover
-  (**Screenshot**, with Close screenshot; Escape closes it and the focus goes back to the thumbnail). The thumbnail is
+  screenshot** with the read-out capture status as its description. It opens the capture in [the viewer](#the-viewer)
+  (**Screenshot**; Escape or its X closes it and the focus goes back to the thumbnail). The thumbnail is
   the capture as it will be sent, with the comment's drawing. Like the rest of the comment being written, the preview
   is not a reviewable toolbar part (no `toolbarSurface`).
 - While it is being taken, a placeholder of the thumbnail's size (`data-image-placeholder`, still with reduced motion)
@@ -79,12 +79,30 @@ Record screen and Upload recording are items of the same Attach menu; a recordin
 - A comment or reply that is still sending with a screenshot or image shows the thumbnail's placeholder
   (`data-image-placeholder`, the thumbnail's fixed size) at once; the image is fetched once the saved message
   replaces it ([uier #409](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_ZGmj2h7nGoa5E6mpHV0zU)).
-- Saved thumbnails expand in a popover in the shadow root. Redaction opens only from the expanded saved details,
+- Saved thumbnails expand in [the viewer](#the-viewer) (the reviewable `uier-screenshot` part), as wide as the image
+  and at most the window, at the full width while redacting. Redaction opens only from the expanded saved details,
   never from the composer's preview.
 - A replacement invalidates cached originals and updates every comment list.
 
+## The viewer
+
+`components/ScreenshotViewer.tsx` shows every larger image: a saved thumbnail's and the composer's screenshot ([uier #497](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects&comment=comment_ZARYEuzrlcExd87wEYnaI), [uier #500](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_5VhIq3zftw4fCxaXVLMEW)):
+
+- In the middle of the window over a blurred backdrop like the composer modal's; a press on the backdrop closes it.
+  It is still the UI kit's popover, so Escape closes only it (not the thread or form it opened from) and the focus
+  goes back to its thumbnail; it takes the focus itself when it opens, so Close's tooltip does not show at once.
+  `toolbar-theme.css` fills the window with its popover's positioned wrapper, which is the backdrop.
+- Above every toolbar popover: `z-[78]`, the threads of comments on the toolbar, and later in the shadow root than the
+  thread it opened from, so above that one too. Tooltips and point mode stay above it; pins under it.
+- A header with its title and Close, an X icon button with a tooltip (**Close screenshot**). The
+  header drags it, with a mouse, pen or touch; part of the header always stays in the window, and every opening starts
+  in the middle again.
+- On uier's own pages presses go through the backdrop, so the pill's Add comment reaches the viewer, and a press in
+  the viewer keeps the toolbar's other popovers open (`data-uier-holds-layers`).
+
 ## Tests
 
-`apps/web/e2e/screenshots.spec.ts`: Attach, the screenshot's thumbnail, its preview and Remove screenshot in the text box. `thread-attachments.spec.ts`:
+`apps/web/e2e/screenshots.spec.ts`: Attach, the screenshot's thumbnail, its preview and Remove screenshot in the text box.
+`toolbar-review.spec.ts`: the viewer above a toolbar comment's thread, dragged by its header, and that thread kept open. `thread-attachments.spec.ts`:
 Attach to comment on a saved thread; `screenshot-replacement.spec.ts`: saved images, their errors and redaction. `screenshot-performance.spec.ts`: capture yields
 to the browser ([capture responsiveness](composer-popovers.md#capture-responsiveness)).

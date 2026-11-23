@@ -193,6 +193,22 @@ test('uier pages can comment on an open thread: it stays open, and the comment o
     const pin = page.locator(`[data-uier-comment="${comment.id}"]`);
     await expect.poll(async () => contains((await copy.boundingBox())!, (await pin.boundingBox())!, 40)).toBe(true);
 
+    // Its screenshot opens above every toolbar popover, this thread too (uier #500); its header drags it (uier #497)
+    await reply.getByRole('button', { name: 'Screenshot of the commented part of the page' }).click();
+    const viewer = page.getByRole('dialog', { name: 'Screenshot', exact: true });
+    await expect(viewer.getByRole('img', { name: 'Expanded screenshot' })).toBeVisible();
+    const [threadX, threadY] = await middleOf(reply);
+    await page.mouse.move(...await middleOf(viewer.locator('[data-uier-viewer-handle] span')));
+    await page.mouse.down();
+    await page.mouse.move(threadX, threadY, { steps: 5 });
+    await page.mouse.up();
+    expect(await viewer.evaluate((element, [x, y]) => element.contains((element.getRootNode() as ShadowRoot).elementFromPoint(x!, y!)), [threadX, threadY])).toBe(true);
+    // Presses in it keep the thread the comment is about open
+    await viewer.getByRole('button', { name: 'Close screenshot' }).click();
+    await expect(viewer).toBeHidden();
+    await expect(reply).toBeVisible();
+    await expect(thread).toBeVisible();
+
     // Closed, the comment's pin is beside the pin that opens the thread
     await page.keyboard.press('Escape');
     await expect(reply).toHaveCount(0);
