@@ -3,7 +3,7 @@
 # Runs a Pulumi command for the "uier" project (infra/) against its production stack.
 #
 # Callers must grant the job that calls this workflow:
-#   contents: read, id-token: write (Azure OIDC login)
+#   contents: read (checkout and plugin download), id-token: write (Azure OIDC login)
 #   pull-requests: write            (only for `preview` on pull requests, to comment the result)
 # The jobs below declare no permissions of their own, so they get exactly what the caller grants.
 
@@ -107,7 +107,7 @@ jobs:
 
       # pulumi/actions skips its download (~12s) when the `pulumi` on PATH already satisfies
       # pulumi-version, and installs into ~/.pulumi/bin otherwise, which is what gets cached here.
-      # Plugins are not cached: they download in about a second, faster than restoring them.
+      # Cache the CLI only. The Vercel plugin is installed separately with a release URL fallback.
       - name: Cache Pulumi CLI
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
@@ -122,6 +122,29 @@ jobs:
           if [ ! -x "$HOME/.pulumi/bin/pulumi" ]; then
             curl --fail --silent --show-error --location https://get.pulumi.com | sh -s -- --version "$PULUMI_VERSION"
           fi
+
+      - name: Install the Vercel resource plugin
+        working-directory: infra
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          version="$(node -p 'require("./package.json").dependencies["@pulumiverse/vercel"]')"
+          if pulumi plugin install resource vercel "$version" --exact --non-interactive \
+            --server github://api.github.com/pulumiverse; then
+            exit 0
+          fi
+
+          # The public release URL bypasses the GitHub REST API rate limit on a cold runner.
+          server="https://github.com/pulumiverse/pulumi-vercel/releases/download/v$version"
+          for delay in 5 10 20; do
+            echo "::warning::Vercel plugin install failed; retrying from the public release in ${delay}s"
+            sleep "$delay"
+            if pulumi plugin install resource vercel "$version" --exact --non-interactive --server "$server"; then
+              exit 0
+            fi
+          done
+          echo "::error::Could not install the Vercel resource plugin v$version"
+          exit 1
 
       - name: Azure login (OIDC)
         uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3
