@@ -938,6 +938,8 @@ function ToastSpecimen() {
             <State label="Message"><Button variant="outline" onClick={() => toast('Link copied')}>Show</Button></State>
             <State label="Success"><Button variant="outline" onClick={() => toast.success('Comment deleted')}>Show</Button></State>
             <State label="Error"><Button variant="outline" onClick={() => toast.error('Could not save. Try again.')}>Show</Button></State>
+            <State label="Warning"><Button variant="outline" onClick={() => toast.warning('The page changed since this comment')}>Show</Button></State>
+            <State label="Info"><Button variant="outline" onClick={() => toast.info('Comments sync every minute')}>Show</Button></State>
             <State label="With action">
                 <Button variant="outline" onClick={() => toast('4 threads archived', { action: { label: 'Undo', onClick: () => toast('Archive undone') } })}>Show</Button>
             </State>

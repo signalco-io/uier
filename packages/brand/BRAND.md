@@ -157,6 +157,11 @@ amber and red. Each dot or ring is at least 3:1 against its surface in both mode
 (`--brand-success`), Merged violet (`--brand-ready`), Closed red (`--destructive`), Draft muted grey
 (`--muted-foreground`). It is the one other place violet appears; it is still a state, never the accent.
 
+**Toasts** (the app's Sonner toaster) take their state's colour: success green (`--brand-success`, circle
+check), warning amber (`--brand-warning`, triangle alert), error red (`--destructive`, octagon), each as the
+icon's colour with the surface tinted 8 % and the border 35 % towards it. The text stays the popover's
+foreground. Info and plain messages stay neutral (info a muted grey icon), since blue is the accent.
+
 ### Theme tokens
 
 `tokens.css` overrides the signalco minimal theme (`--foreground`, `--border`, `--muted`,
