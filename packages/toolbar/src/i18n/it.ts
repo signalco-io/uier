@@ -504,6 +504,9 @@ export const it: Messages = {
         replyImageRemove: 'La tua immagine è allegata alla risposta. Seleziona per rimuoverla.',
         imageRemove: 'La tua immagine è allegata al posto di uno screenshot. Seleziona per rimuoverla.',
         removeImage: (name: string) => `Rimuovi l’immagine allegata ${name}`,
+        previewImage: (name: string) => `Anteprima dell’immagine allegata ${name}`,
+        expandedImage: (name: string) => `Immagine allegata ${name}`,
+        closeImage: 'Chiudi l’immagine',
         attachToReply: 'Allega un’immagine alla tua risposta.',
         attachInstead: 'Allega una tua immagine al posto dello screenshot.',
         attachImage: 'Allega immagine',
@@ -607,6 +610,8 @@ export const it: Messages = {
         label: 'Screenshot',
         expand: 'Ingrandisci lo screenshot',
         close: 'Chiudi lo screenshot',
+        move: 'Sposta lo screenshot',
+        moveHelp: 'Spostalo con i tasti freccia. Tieni premuto Maiusc per passi più grandi. Invio lo riporta al centro.',
         expanded: 'Screenshot ingrandito',
         redact: 'Oscura parti dello screenshot',
         uploadInput: 'Carica un’immagine come screenshot'

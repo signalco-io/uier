@@ -516,6 +516,9 @@ export const en = {
         replyImageRemove: 'Your image is attached to the reply. Select to remove it.',
         imageRemove: 'Your image is attached instead of a screenshot. Select to remove it.',
         removeImage: (name: string) => `Remove attached image ${name}`,
+        previewImage: (name: string) => `Preview attached image ${name}`,
+        expandedImage: (name: string) => `Attached image ${name}`,
+        closeImage: 'Close image',
         attachToReply: 'Attach an image to your reply.',
         attachInstead: 'Attach your own image instead of the screenshot.',
         attachImage: 'Attach image',
@@ -626,6 +629,8 @@ export const en = {
         label: 'Screenshot',
         expand: 'Expand screenshot',
         close: 'Close screenshot',
+        move: 'Move screenshot',
+        moveHelp: 'Use the arrow keys to move it. Hold Shift for larger steps. Enter puts it back in the middle.',
         expanded: 'Expanded screenshot',
         redact: 'Redact screenshot',
         uploadInput: 'Upload screenshot image'

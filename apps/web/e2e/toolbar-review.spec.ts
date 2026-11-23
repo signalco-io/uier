@@ -193,6 +193,22 @@ test('uier pages can comment on an open thread: it stays open, and the comment o
     const pin = page.locator(`[data-uier-comment="${comment.id}"]`);
     await expect.poll(async () => contains((await copy.boundingBox())!, (await pin.boundingBox())!, 40)).toBe(true);
 
+    // Its screenshot opens above every toolbar popover, this thread too (uier #500); its header drags it (uier #497)
+    await reply.getByRole('button', { name: 'Screenshot of the commented part of the page' }).click();
+    const viewer = page.getByRole('dialog', { name: 'Screenshot', exact: true });
+    await expect(viewer.getByRole('img', { name: 'Expanded screenshot' })).toBeVisible();
+    const [threadX, threadY] = await middleOf(reply);
+    await page.mouse.move(...await middleOf(viewer.getByText('Screenshot', { exact: true })));
+    await page.mouse.down();
+    await page.mouse.move(threadX, threadY, { steps: 5 });
+    await page.mouse.up();
+    expect(await viewer.evaluate((element, [x, y]) => element.contains((element.getRootNode() as ShadowRoot).elementFromPoint(x!, y!)), [threadX, threadY])).toBe(true);
+    // Presses in it keep the thread the comment is about open
+    await viewer.getByRole('button', { name: 'Close screenshot' }).click();
+    await expect(viewer).toBeHidden();
+    await expect(reply).toBeVisible();
+    await expect(thread).toBeVisible();
+
     // Closed, the comment's pin is beside the pin that opens the thread
     await page.keyboard.press('Escape');
     await expect(reply).toHaveCount(0);
@@ -212,6 +228,59 @@ test('uier pages can comment on an open thread: it stays open, and the comment o
     await expect(reply.getByRole('textbox', { name: 'Reply' })).toBeFocused();
     await expect(reply.getByText('to see the comment in place')).toHaveCount(0);
     await expect.poll(async () => contains((await copy.boundingBox())!, (await pin.boundingBox())!, 40)).toBe(true);
+    await context.close();
+});
+
+test('uier pages can comment on the screenshot viewer: its pin is above it, and it moves with the keyboard', async ({ browser }, testInfo) => {
+    const { context, page } = await newVisitor(browser, testInfo);
+    await openLanding(page, isolatedOrigin(testInfo), { dismissHint: true });
+    await toolbar(page).getByRole('button', { name: 'Add comment' }).click();
+    await page.mouse.click(...await middleOf(page.getByRole('heading', { level: 1 })));
+    await send(page, 'The heading could be shorter.');
+    const thread = threadWith(page, 'The heading could be shorter.');
+    await thread.getByRole('button', { name: 'Screenshot of the commented part of the page' }).click();
+    const viewer = page.getByRole('dialog', { name: 'Screenshot', exact: true });
+    const image = viewer.getByRole('img', { name: 'Expanded screenshot' });
+    await expect(image).toBeVisible();
+    await animationsFinished(viewer);
+
+    // Without dragging: Move takes the arrow keys, and Enter puts it back in the middle
+    const middle = (await viewer.boundingBox())!;
+    const move = viewer.getByRole('button', { name: 'Move screenshot' });
+    await expect(move).toHaveAccessibleDescription(/arrow keys/);
+    await move.focus();
+    await page.keyboard.press('ArrowLeft');
+    await page.keyboard.press('Shift+ArrowDown');
+    await expect.poll(async () => { const box = (await viewer.boundingBox())!; return [middle.x - box.x, box.y - middle.y]; }).toEqual([16, 64]);
+    await page.keyboard.press('Enter');
+    await expect.poll(async () => { const box = (await viewer.boundingBox())!; return [box.x, box.y]; }).toEqual([middle.x, middle.y]);
+    await expect(viewer).toBeVisible();
+
+    // A comment on the viewer: the new comment's Attach menu and the saved comment's pin are above it
+    const topmost = (element: Element) => {
+        const box = element.getBoundingClientRect();
+        return element.contains((element.getRootNode() as ShadowRoot).elementFromPoint(box.x + box.width / 2, box.y + box.height / 2));
+    };
+    await toolbar(page).getByRole('button', { name: 'Add comment' }).click();
+    await expect(viewer).toBeVisible();
+    await pointAt(page, image);
+    const draft = page.getByRole('dialog', { name: 'New comment', exact: true });
+    await draft.getByRole('button', { name: 'Attach', exact: true }).click();
+    const attachMenu = page.getByRole('dialog', { name: 'Attach', exact: true });
+    await expect(attachMenu).toBeVisible();
+    // Over the viewer, where it is drawn above it
+    expect(contains((await viewer.boundingBox())!, (await attachMenu.boundingBox())!)).toBe(true);
+    expect(await attachMenu.evaluate(topmost)).toBe(true);
+    await page.keyboard.press('Escape');
+    await expect(attachMenu).toBeHidden();
+    await draft.getByRole('textbox', { name: 'Comment', exact: true }).focus();
+    const comment = await send(page, 'The image could be larger.');
+    expect(comment.position.selector).toMatch(/^#uier-toolbar>>>div\.uier-screenshot>/);
+    await expect(viewer).toBeVisible();
+    const pin = page.locator(`[data-uier-comment="${comment.id}"]`);
+    await expect(pin).toBeVisible();
+    expect(contains((await viewer.boundingBox())!, (await pin.boundingBox())!)).toBe(true);
+    expect(await pin.evaluate(topmost)).toBe(true);
     await context.close();
 });
 

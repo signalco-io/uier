@@ -3,7 +3,6 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { Button } from '@signalco/ui-primitives/Button';
-import { Popper } from '@signalco/ui-primitives/Popper';
 import { cx } from '@signalco/ui-primitives/cx';
 import { Close } from '@signalco/ui-icons';
 import { useAttachedImage } from '../useAttachedImage';
@@ -11,7 +10,8 @@ import { ScreenshotImage } from '../screenshotImage';
 import { IconTooltip, useIconTooltip } from './IconTooltip';
 import { useToolbarPortalContainer } from './CommentsBootstrapperContext';
 import { useInkContainer } from './InkScope';
-import { destructiveTextClassName, floatingShadowClassName } from './@types/Comments';
+import { destructiveTextClassName } from './@types/Comments';
+import { ScreenshotViewer, viewerImageClassName } from './ScreenshotViewer';
 import { useMessages } from '../i18n';
 
 export { useAttachedImage, type AttachedImage } from '../useAttachedImage';
@@ -48,6 +48,59 @@ export function CameraIcon({ off, size = 16 }: { off?: boolean; size?: number })
             </>}
         </svg>
     );
+}
+
+/** The start of what a thumbnail shows: the top-left corner of the commented part, as on the page */
+const thumbnailClassName = 'block h-7 w-10 rounded-l-md object-cover object-left-top pointer-coarse:h-11 pointer-coarse:w-16';
+
+/**
+ * A small thumbnail of an image in a form, the first part of its chip: the automatic screenshot
+ * ({@link ComposerScreenshot}) and an attached image (`ComposerAttachMenu`, uier #506). Named by its
+ * button; pressing it opens the image in the {@link ScreenshotViewer}. The chip's X follows it.
+ */
+export function ComposerThumbnail({ data, label, viewerLabel, closeLabel, expandedAlt, describedBy, open: controlledOpen, onOpenChange, ...rest }: {
+    /** The image as a data URL */
+    data: string;
+    /** The button's name */
+    label: string;
+    viewerLabel: string;
+    closeLabel: string;
+    expandedAlt: string;
+    describedBy?: string;
+    /** Controlled by a form that closes it itself (Remove screenshot); open on its own otherwise */
+    open?: boolean;
+    onOpenChange?: (open: boolean) => void;
+} & Record<`data-${string}`, string>) {
+    const container = useToolbarPortalContainer(useInkContainer());
+    const [ownOpen, setOwnOpen] = useState(false);
+    const open = controlledOpen ?? ownOpen;
+    const tip = useIconTooltip(label);
+    return <>
+        {tip.tooltip}
+        <ScreenshotViewer
+            container={container}
+            open={open}
+            onOpenChange={next => { setOwnOpen(next); onOpenChange?.(next); }}
+            label={viewerLabel}
+            closeLabel={closeLabel}
+            className="w-fit min-w-64 max-w-[min(40rem,calc(100vw-2rem))]"
+            trigger={(
+                <Button
+                    variant="plain"
+                    type="button"
+                    {...tip.triggerProps}
+                    {...rest}
+                    aria-label={label}
+                    aria-describedby={describedBy}
+                    className="block h-auto shrink-0 cursor-zoom-in overflow-hidden rounded-none rounded-l-md p-0">
+                    {/* Named by the button; the viewer has the image's own name */}
+                    <span aria-hidden="true"><ScreenshotImage src={data} alt="" className={thumbnailClassName} /></span>
+                </Button>
+            )}>
+            {/* At most its own size: a small image is not blown up */}
+            <ScreenshotImage src={data} alt={expandedAlt} className={viewerImageClassName} />
+        </ScreenshotViewer>
+    </>;
 }
 
 /** A compact icon button of a composer's header or text box */
@@ -97,9 +150,7 @@ export function ComposerScreenshot({ screenshot, page, omitted, onOmittedChange,
     const { state, data } = useCapture(screenshot);
     const statusId = useId();
     const t = useMessages();
-    const container = useToolbarPortalContainer(useInkContainer());
     const [previewing, setPreviewing] = useState(false);
-    const previewTip = useIconTooltip(t.attachments.previewScreenshot);
     const attachRef = useRef<HTMLButtonElement>(null);
     const removeRef = useRef<HTMLButtonElement>(null);
     // Removed or attached again with its own button: the focus moves to the one that takes its place
@@ -128,8 +179,6 @@ export function ComposerScreenshot({ screenshot, page, omitted, onOmittedChange,
                         : page
                             ? t.attachments.pageScreenshot
                             : t.attachments.regionScreenshot;
-    // The start of what it shows: the top-left corner of the commented part, as on the page
-    const thumbnailClassName = 'block h-7 w-10 rounded-l-md object-cover object-left-top pointer-coarse:h-11 pointer-coarse:w-16';
     return (
         <>
             <p id={statusId} role="status" className="sr-only">{message}</p>
@@ -152,34 +201,18 @@ export function ComposerScreenshot({ screenshot, page, omitted, onOmittedChange,
             ) : state !== 'failed' && (
                 // One chip, so its X reads as the screenshot's own, not as Discard's; an outline takes no room from the 44 px targets
                 <span data-uier-screenshot="" className="flex shrink-0 items-center rounded-md bg-background ring-1 ring-border">
-                    {data ? <>
-                        {previewTip.tooltip}
-                        <Popper
-                            container={container}
+                    {data ? (
+                        <ComposerThumbnail
+                            data={data}
+                            label={t.attachments.previewScreenshot}
+                            viewerLabel={t.screenshot.label}
+                            closeLabel={t.screenshot.close}
+                            expandedAlt={t.screenshot.expanded}
+                            describedBy={statusId}
                             open={previewing}
                             onOpenChange={setPreviewing}
-                            side="top"
-                            align="start"
-                            aria-label={t.screenshot.label}
-                            className={cx('z-[80] flex max-h-[min(var(--radix-popover-content-available-height),85vh)] w-auto min-w-48 max-w-[min(88vw,40rem)] flex-col gap-2 overflow-auto rounded-xl p-3', floatingShadowClassName)}
-                            trigger={(
-                                <Button
-                                    variant="plain"
-                                    type="button"
-                                    {...previewTip.triggerProps}
-                                    aria-label={t.attachments.previewScreenshot}
-                                    aria-describedby={statusId}
-                                    data-uier-screenshot-preview=""
-                                    className="block h-auto shrink-0 cursor-zoom-in overflow-hidden rounded-none rounded-l-md p-0">
-                                    {/* Named by the button; the preview has the image's own name */}
-                                    <span aria-hidden="true"><ScreenshotImage src={data} alt="" className={thumbnailClassName} /></span>
-                                </Button>
-                            )}>
-                            <Button variant="plain" type="button" className="min-h-11 self-end" onClick={() => setPreviewing(false)}>{t.screenshot.close}</Button>
-                            {/* At most its own size: a small capture is not blown up */}
-                            <ScreenshotImage src={data} alt={t.screenshot.expanded} className="block h-auto max-w-full self-center rounded-md border object-contain" />
-                        </Popper>
-                    </> : (
+                            data-uier-screenshot-preview="" />
+                    ) : (
                         // Being taken: its place is kept, and it can be removed already (its work stops)
                         <span aria-hidden="true" data-image-placeholder="" className={cx(thumbnailClassName, 'animate-pulse bg-muted motion-reduce:animate-none')} />
                     )}

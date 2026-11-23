@@ -504,6 +504,9 @@ export const es: Messages = {
         replyImageRemove: 'Tu imagen está adjunta a la respuesta. Selecciona para quitarla.',
         imageRemove: 'Tu imagen está adjunta en lugar de una captura de pantalla. Selecciona para quitarla.',
         removeImage: (name: string) => `Quitar la imagen adjunta ${name}`,
+        previewImage: (name: string) => `Ver la imagen adjunta ${name}`,
+        expandedImage: (name: string) => `Imagen adjunta ${name}`,
+        closeImage: 'Cerrar la imagen',
         attachToReply: 'Adjunta una imagen a tu respuesta.',
         attachInstead: 'Adjunta tu propia imagen en lugar de la captura de pantalla.',
         attachImage: 'Adjuntar imagen',
@@ -607,6 +610,8 @@ export const es: Messages = {
         label: 'Captura de pantalla',
         expand: 'Ampliar la captura de pantalla',
         close: 'Cerrar la captura de pantalla',
+        move: 'Mover la captura de pantalla',
+        moveHelp: 'Muévela con las teclas de flecha. Mantén Mayús para pasos más grandes. Intro la devuelve al centro.',
         expanded: 'Captura de pantalla ampliada',
         redact: 'Ocultar partes de la captura',
         uploadInput: 'Subir imagen de captura de pantalla'

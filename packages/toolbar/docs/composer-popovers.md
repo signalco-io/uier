@@ -18,8 +18,8 @@ thumbnail with Remove screenshot (`ComposerScreenshot`, `CommentComposer`'s `att
 ([uier #391](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_napwWAvckuKEmZr-J0GGQ)). Attach is one button with a menu of what can be added now: Attach image, Record screen
 (where the browser can capture) and Upload recording; an item leaves the menu once its kind is attached, and the
 button goes when nothing is left. The menu renders in the expanded modal's dialog when there is one, else in the ink
-scope or the shadow root. Once an image is attached, its name with a remove button follows Attach and the screenshot
-toggle makes way (the image replaces the screenshot). Screenshot
+scope or the shadow root. Once an image is attached, its thumbnail (which opens it in the screenshot viewer) with a
+remove button follows Attach and the screenshot toggle makes way (the image replaces the screenshot). Screenshot
 rules: [review workflow](../../../docs/review-workflow.md#screenshots). Discard (once there is text) and Send are
 icon buttons in the box's bottom-right corner, an X and a paper plane, each named by its tooltip (`IconTooltip`),
 like every icon button in the form ([uier #289](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_5pAm5RcV57oGHBohkQrzH)).

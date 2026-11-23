@@ -504,6 +504,9 @@ export const hr: Messages = {
         replyImageRemove: 'Vaša je slika priložena odgovoru. Odaberite kako biste je uklonili.',
         imageRemove: 'Vaša je slika priložena umjesto snimke zaslona. Odaberite kako biste je uklonili.',
         removeImage: (name: string) => `Ukloni priloženu sliku ${name}`,
+        previewImage: (name: string) => `Pregledaj priloženu sliku ${name}`,
+        expandedImage: (name: string) => `Priložena slika ${name}`,
+        closeImage: 'Zatvori sliku',
         attachToReply: 'Priložite sliku svom odgovoru.',
         attachInstead: 'Priložite vlastitu sliku umjesto snimke zaslona.',
         attachImage: 'Priloži sliku',
@@ -607,6 +610,8 @@ export const hr: Messages = {
         label: 'Snimka zaslona',
         expand: 'Povećaj snimku zaslona',
         close: 'Zatvori snimku zaslona',
+        move: 'Pomakni snimku zaslona',
+        moveHelp: 'Pomičite je strelicama. Držite Shift za veće korake. Enter je vraća u sredinu.',
         expanded: 'Povećana snimka zaslona',
         redact: 'Zacrni dijelove snimke',
         uploadInput: 'Prenesi sliku snimke zaslona'

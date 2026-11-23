@@ -2,7 +2,6 @@ import { ScreenshotImage } from '../screenshotImage';
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Popper } from '@signalco/ui-primitives/Popper';
 import { Button } from '@signalco/ui-primitives/Button';
 import { Upload } from '@signalco/ui-icons';
 import { Input } from '@signalco/ui-primitives/Input';
@@ -17,6 +16,7 @@ import { SuppliedImageError, suppliedScreenshot } from '../suppliedScreenshot';
 import { screenshotContentTypes } from '../screenshotPolicy';
 import { useReplaceScreenshot } from '../hooks/useReplaceScreenshot';
 import { ScreenshotRedaction } from './ScreenshotRedaction';
+import { ScreenshotViewer, viewerImageClassName } from './ScreenshotViewer';
 import { toolbarSurface } from '../toolbarReview';
 
 
@@ -155,32 +155,35 @@ export function CommentScreenshot({ comment, itemId }: { comment: CommentItem; i
         {isError ? <span className="mr-1 text-xs text-muted-foreground">{t.screenshot.unavailable}</span>
             : data
         ? (
-            <Popper
+            <ScreenshotViewer
                 container={container}
                 open={open}
                 onOpenChange={value => { if (!busy) { setOpen(value); if (!value) setEditing(false); } }}
-                aria-label={t.screenshot.label}
-                {...toolbarSurface('uier-screenshot', 'z-[70] flex max-h-[min(var(--radix-popover-content-available-height),85vh)] w-[min(88vw,64rem)] flex-col gap-2 overflow-auto rounded-xl p-3')}
+                label={t.screenshot.label}
+                closeLabel={t.screenshot.close}
+                closeDisabled={busy}
+                surface={toolbarSurface('uier-screenshot')}
+                // Its image's size, at most the window's; redaction draws over the image at the full width
+                className={editing ? 'w-[min(64rem,calc(100vw-2rem))]' : 'w-fit min-w-[min(24rem,calc(100vw-2rem))] max-w-[min(64rem,calc(100vw-2rem))]'}
                 trigger={(
                     <Button variant="plain" className="mr-1 block h-auto w-24 cursor-zoom-in overflow-hidden rounded-lg p-0" aria-label={label} title={t.screenshot.expand}>
                         <ScreenshotImage src={data} width={size.width} height={size.height} alt={alt}
                             className="block h-16 w-24 rounded-lg border object-contain" />
                     </Button>
                 )}>
-                <Button variant="plain" className="min-h-11 self-end" disabled={busy} onClick={() => { setOpen(false); setEditing(false); }}>{t.screenshot.close}</Button>
                 {editing ? <ScreenshotRedaction key={comment.screenshot?.revision ?? 'original'} data={data} pending={replacement.isPending}
                     onSave={replace} onCancel={() => setEditing(false)} /> : <>
                     <ScreenshotImage src={data} width={size.width} height={size.height} alt={t.screenshot.expanded}
-                        className="block min-h-0 w-full object-contain" />
+                        className={viewerImageClassName} />
                     {canReplace && (
                         <div className="flex flex-wrap items-center gap-1">
-                            <Button variant="plain" className="min-h-11" disabled={busy} onClick={() => { setMessage(''); setEditing(true); }}>{t.screenshot.redact}</Button>
+                            <Button variant="plain" size="xs" disabled={busy} onClick={() => { setMessage(''); setEditing(true); }}>{t.screenshot.redact}</Button>
                             {replaceActions}
                         </div>
                     )}
                 </>}
                 {open && notices}
-            </Popper>
+            </ScreenshotViewer>
         )
         : (
             <div

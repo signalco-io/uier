@@ -503,6 +503,9 @@ export const de: Messages = {
         replyImageRemove: 'Ihr Bild ist an die Antwort angehängt. Wählen Sie dies, um es zu entfernen.',
         imageRemove: 'Ihr Bild ist statt eines Screenshots angehängt. Wählen Sie dies, um es zu entfernen.',
         removeImage: (name: string) => `Angehängtes Bild ${name} entfernen`,
+        previewImage: (name: string) => `Vorschau des angehängten Bildes ${name}`,
+        expandedImage: (name: string) => `Angehängtes Bild ${name}`,
+        closeImage: 'Bild schließen',
         attachToReply: 'Ein Bild an Ihre Antwort anhängen.',
         attachInstead: 'Ein eigenes Bild statt des Screenshots anhängen.',
         attachImage: 'Bild anhängen',
@@ -606,6 +609,8 @@ export const de: Messages = {
         label: 'Screenshot',
         expand: 'Screenshot vergrößern',
         close: 'Screenshot schließen',
+        move: 'Screenshot verschieben',
+        moveHelp: 'Mit den Pfeiltasten verschieben. Mit gedrückter Umschalttaste in größeren Schritten. Die Eingabetaste setzt ihn zurück in die Mitte.',
         expanded: 'Vergrößerter Screenshot',
         redact: 'Screenshot schwärzen',
         uploadInput: 'Screenshot-Bild hochladen'

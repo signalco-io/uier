@@ -503,6 +503,9 @@ export const fr: Messages = {
         replyImageRemove: 'Votre image est jointe à la réponse. Sélectionnez pour la retirer.',
         imageRemove: 'Votre image est jointe à la place d’une capture d’écran. Sélectionnez pour la retirer.',
         removeImage: (name: string) => `Retirer l’image jointe ${name}`,
+        previewImage: (name: string) => `Aperçu de l’image jointe ${name}`,
+        expandedImage: (name: string) => `Image jointe ${name}`,
+        closeImage: 'Fermer l’image',
         attachToReply: 'Joindre une image à votre réponse.',
         attachInstead: 'Joindre votre propre image à la place de la capture d’écran.',
         attachImage: 'Joindre une image',
@@ -606,6 +609,8 @@ export const fr: Messages = {
         label: 'Capture d’écran',
         expand: 'Agrandir la capture d’écran',
         close: 'Fermer la capture d’écran',
+        move: 'Déplacer la capture d’écran',
+        moveHelp: 'Déplacez-la avec les flèches. Maintenez Maj pour des pas plus grands. Entrée la remet au centre.',
         expanded: 'Capture d’écran agrandie',
         redact: 'Masquer des parties de la capture',
         uploadInput: 'Importer une image de capture d’écran'

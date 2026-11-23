@@ -31,7 +31,9 @@ the anchor, the end of a text selection or the opener, whenever the request has 
   opener, never an anchor the picker chooses.
 - The outline, drawn area and pointer are above every toolbar popover on uier's own pages (`z-[95]`);
   pins of comments on the toolbar are above the popovers (`z-[75]`), and their threads above those
-  (`z-[78]`).
+  (`z-[78]`). The screenshot viewer shares the threads' level and opens after them, so it is above the
+  thread it opened from; the pins of comments on the viewer are above it (`z-[79]`)
+  ([screenshots](screenshots.md#the-viewer)).
 
 ## Popovers stay open while they are reviewed
 
