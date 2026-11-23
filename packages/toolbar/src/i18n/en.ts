@@ -499,7 +499,7 @@ export const en = {
         }
     },
     attachments: {
-        imageLimits: 'PNG, JPEG or WebP, up to 512 KB and 4096 pixels on each side.',
+        imageLimits: 'PNG, JPEG or WebP, up to 25 MB. Large images are made smaller.',
         imageInstead: (name: string) => `Your image ${name} will be attached instead of a screenshot.`,
         reading: 'Reading your image…',
         noScreenshot: 'No screenshot will be attached.',
@@ -530,10 +530,9 @@ export const en = {
     },
     imageProblems: {
         type: 'Choose a PNG, JPEG or WebP image.',
-        size: 'Choose an image of at most 512 KB.',
+        size: 'Choose an image of at most 25 MB.',
         read: 'The image could not be read. Try uploading it again.',
-        open: 'This image could not be opened. Choose a valid PNG, JPEG or WebP image.',
-        dimensions: 'Choose an image of at most 4096 pixels on each side.'
+        open: 'This image could not be opened. Choose a valid PNG, JPEG or WebP image.'
     },
     pin: {
         /** A pin's name, like the app's: "Comment #6, 3 messages, In progress" (the status but Open, as on the pin) */
@@ -606,7 +605,7 @@ export const en = {
         /** What the thumbnail shows, without "Screenshot of": screen readers already announce an image */
         imageAlt: 'Commented part of the page',
         replyImageAlt: 'Image attached to reply',
-        limits: 'PNG, JPEG or WebP. Up to 512 KB and 4096 pixels on each side.',
+        limits: 'PNG, JPEG or WebP. Up to 25 MB. Large images are made smaller.',
         replaced: 'Screenshot replaced.',
         notSaved: 'The image could not be saved.',
         notConfirmed: (reason: string) => `${reason} Replacement was not confirmed. Reload to check the saved image, or try again.`,

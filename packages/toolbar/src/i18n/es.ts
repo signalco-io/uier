@@ -487,7 +487,7 @@ export const es: Messages = {
         }
     },
     attachments: {
-        imageLimits: 'PNG, JPEG o WebP, hasta 512 KB y 4096 píxeles por lado.',
+        imageLimits: 'PNG, JPEG o WebP, hasta 25 MB. Las imágenes grandes se reducen.',
         imageInstead: (name: string) => `Tu imagen ${name} se adjuntará en lugar de una captura de pantalla.`,
         reading: 'Leyendo tu imagen…',
         noScreenshot: 'No se adjuntará ninguna captura de pantalla.',
@@ -516,10 +516,9 @@ export const es: Messages = {
     },
     imageProblems: {
         type: 'Elige una imagen PNG, JPEG o WebP.',
-        size: 'Elige una imagen de 512 KB como máximo.',
+        size: 'Elige una imagen de 25 MB como máximo.',
         read: 'No se pudo leer la imagen. Súbela de nuevo.',
-        open: 'No se pudo abrir esta imagen. Elige una imagen PNG, JPEG o WebP válida.',
-        dimensions: 'Elige una imagen de 4096 píxeles por lado como máximo.'
+        open: 'No se pudo abrir esta imagen. Elige una imagen PNG, JPEG o WebP válida.'
     },
     pin: {
         label: (number: number | undefined, messages: number | undefined, status: string | undefined) =>
@@ -587,7 +586,7 @@ export const es: Messages = {
         alt: 'Captura de pantalla de la parte comentada de la página',
         imageAlt: 'Parte comentada de la página',
         replyImageAlt: 'Imagen adjunta a la respuesta',
-        limits: 'PNG, JPEG o WebP. Hasta 512 KB y 4096 píxeles por lado.',
+        limits: 'PNG, JPEG o WebP. Hasta 25 MB. Las imágenes grandes se reducen.',
         replaced: 'Captura de pantalla sustituida.',
         notSaved: 'No se pudo guardar la imagen.',
         notConfirmed: (reason: string) => `${reason} La sustitución no se confirmó. Recarga para comprobar la imagen guardada o inténtalo de nuevo.`,

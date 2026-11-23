@@ -496,8 +496,10 @@ a camera, then takes its place and the status reads "No screenshot will be attac
 stays with an open or returned (failed send) draft in memory, and the next comment, a reload or sent feedback start with
 the automatic screenshot again. **Attach image**, in the menu of Attach in the bottom-left corner of the text box ([uier #155](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2F7z6v9829ezdc%2Fsettings&comment=comment_zoNUoCT0BH5rPguGnKI4t)) so it reads as a part of the comment,
 or an image file pasted into the form without text, sends the reviewer's own image as `screenshot` instead of the
-capture. It is checked in the browser with the saved-evidence formats and limits (`suppliedScreenshot`) and on the
-server like every screenshot (`parseScreenshot`, `sanitizeScreenshot`). In the toolbar a thumbnail of it takes its place, which
+capture. It is checked in the browser with the saved-evidence formats (`suppliedScreenshot`): a file of up to 25 MB is
+accepted, and one over the API's 512 KB or 4096 px on a side, as most full-screen screenshots are, is made smaller like
+a capture (at most 2400 px on a side, WebP of at most 480 KB). The server checks it like every screenshot
+(`parseScreenshot`, `sanitizeScreenshot`). In the toolbar a thumbnail of it takes its place, which
 opens it in the screenshot viewer ([uier #506](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_gkdJSkWPR3jhvVCFEOmab)), with an X that removes it; the image stays in memory with a returned draft and is never stored in browser storage. While a chosen or pasted image is still being read and checked, Enter and the send button wait, so the automatic screenshot is never sent in its place. The image belongs to the send it goes with: feedback opened again while one is on its way starts without it, and a failed send brings its image (and the screenshot choice) back only when no newer image was attached meanwhile; a new comment started meanwhile keeps its own image. Upload, paste and redaction on saved feedback are unchanged. Submitting waits for the capture attempt, with a 15-second limit; failures keep the text and show an unavailable
 image state on saved feedback. Image-capacity or image-storage failures also preserve the text. Images are saved only with successfully posted feedback. Replies keep the original
 capture and can attach one separate image through Attach image or image paste in the toolbar and app.
@@ -521,7 +523,7 @@ the toolbar. Without a screenshot, **Attach to comment** (a paperclip among the 
 was left on, also when other addresses share its feedback), **Attach image**
 and **Paste image**, and a screen recording while the comment has none. With a screenshot, **Upload image** and
 **Paste image** are in the expanded screenshot next to Redact screenshot. Keyboard image paste also works while
-one of these controls has focus. PNG, JPEG and WebP images use the same 512 KB / 4096 px limits as automatic evidence;
+one of these controls has focus. PNG, JPEG and WebP images of up to 25 MB are accepted and made smaller like a new comment's own image;
 invalid images and denied clipboard access show an error and keep the saved feedback. Nothing is previewed
 in a composer. Images are not persisted with drafts or in browser storage.
 

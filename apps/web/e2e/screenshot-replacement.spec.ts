@@ -53,8 +53,9 @@ test('saved evidence: upload fallback, validation, denied clipboard and failed r
     await expect(thread.getByRole('alert')).toContainText('Choose a PNG, JPEG or WebP');
     await input.setInputFiles({ name: 'broken.png', mimeType: 'image/png', buffer: Buffer.from('broken') });
     await expect(thread.getByRole('alert')).toContainText('could not be opened');
-    await input.setInputFiles({ name: 'large.png', mimeType: 'image/png', buffer: Buffer.alloc(512 * 1024 + 1) });
-    await expect(thread.getByRole('alert')).toContainText('at most 512 KB');
+    // Larger images are made smaller (screenshots.spec.ts), up to a point
+    await input.setInputFiles({ name: 'large.png', mimeType: 'image/png', buffer: Buffer.alloc(25 * 1024 * 1024 + 1) });
+    await expect(thread.getByRole('alert')).toContainText('at most 25 MB');
     // Paste image asks the browser for the clipboard; a denied read says so and leaves the comment as it is
     await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { read: async () => { throw new DOMException('Denied', 'NotAllowedError'); } } }));
     await attach.click();

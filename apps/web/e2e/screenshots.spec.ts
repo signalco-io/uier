@@ -436,7 +436,7 @@ test('screenshots: the reviewer attaches their own image instead, from the text 
     expect(toggleBox.x).toBeGreaterThan(attachBox.x);
     await attach.click();
     const menu = page.getByRole('dialog', { name: 'Attach', exact: true });
-    await expect(menu.getByRole('button', { name: 'Attach image', exact: true })).toHaveAccessibleDescription(/PNG, JPEG or WebP, up to 512 KB/);
+    await expect(menu.getByRole('button', { name: 'Attach image', exact: true })).toHaveAccessibleDescription(/PNG, JPEG or WebP, up to 25 MB\. Large images are made smaller\./);
     await page.keyboard.press('Escape');
     await expect(menu).toBeHidden();
     await expect(draft).toBeVisible();
@@ -487,6 +487,65 @@ test('screenshots: the reviewer attaches their own image instead, from the text 
     await page.getByRole('button', { name: 'Send feedback' }).click();
     await expect(dialog.getByRole('button', { name: 'Remove screenshot' })).toBeVisible();
     await expect(dialog.getByRole('button', { name: 'Attach', exact: true })).toBeVisible();
+    await context.close();
+});
+
+/**
+ * Pastes a PNG drawn in the page, like a copied screenshot: `noise` (random pixels) compresses badly, so it is
+ * many times 512 KB, as a full-screen screenshot of a high-density display is. Returns its size in bytes.
+ */
+async function pasteDrawnImage(target: Locator, image: { width: number; height: number; noise: boolean }) {
+    return target.evaluate(async (element, { width, height, noise }) => {
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const context = canvas.getContext('2d')!;
+        if (noise) {
+            const pixels = context.createImageData(width, height);
+            for (let index = 0; index < pixels.data.length; index++) pixels.data[index] = index % 4 === 3 ? 255 : Math.random() * 256;
+            context.putImageData(pixels, 0, 0);
+        } else {
+            context.fillStyle = 'rgb(200, 40, 40)';
+            context.fillRect(0, 0, width, height);
+        }
+        const blob = await new Promise<Blob>(resolve => canvas.toBlob(blob => resolve(blob!), 'image/png'));
+        const transfer = new DataTransfer();
+        transfer.items.add(new File([blob], 'image.png', { type: 'image/png' }));
+        element.dispatchEvent(new ClipboardEvent('paste', { clipboardData: transfer, bubbles: true, composed: true, cancelable: true }));
+        return blob.size;
+    }, image);
+}
+
+test('screenshots: a pasted image larger than the API allows is made smaller before it is sent', async ({ browser }, testInfo) => {
+    const { context, page } = await newVisitor(browser, testInfo);
+    await openLanding(page, isolatedOrigin(testInfo), { dismissHint: true });
+    const dialog = page.getByRole('dialog', { name: 'Send feedback' });
+    const textbox = dialog.getByRole('textbox');
+    const send = async (text: string, image: { width: number; height: number; noise: boolean }) => {
+        await toolbar(page).getByRole('button', { name: 'Send feedback' }).click();
+        const bytes = await pasteDrawnImage(textbox, image);
+        await expect(dialog.getByRole('button', { name: 'Remove attached image image.png' })).toBeVisible();
+        await textbox.fill(text);
+        await expect(dialog.getByRole('alert')).toHaveCount(0);
+        const created = page.waitForResponse(response => response.request().method() === 'POST' && new URL(response.url()).pathname === '/api/comments');
+        await dialog.getByRole('button', { name: 'Send feedback' }).click();
+        const response = await created;
+        expect(response.ok()).toBe(true);
+        const screenshot = (response.request().postDataJSON() as { screenshot: string }).screenshot;
+        return { bytes, screenshot, sent: Buffer.from(screenshot.split(',')[1]!, 'base64').length, saved: (await savedComment(page, text)).screenshot! };
+    };
+
+    // Many times the API's 512 KB: encoded like an automatic screenshot, in proportion
+    const heavy = await send('A heavy screenshot.', { width: 1600, height: 1000, noise: true });
+    expect(heavy.bytes).toBeGreaterThan(2 * 512 * 1024);
+    expect(heavy.screenshot).toMatch(/^data:image\/(webp|jpeg);base64,/);
+    expect(heavy.sent).toBeLessThanOrEqual(480 * 1024);
+    expect(heavy.saved.width / heavy.saved.height).toBeCloseTo(1.6, 1);
+
+    // Wider than the API's 4096 pixels, though small: at most 2400 on a side
+    const wide = await send('A wide screenshot.', { width: 6000, height: 300, noise: false });
+    expect(wide.bytes).toBeLessThan(512 * 1024);
+    expect(wide.saved).toMatchObject({ width: 2400, height: 120 });
     await context.close();
 });
 

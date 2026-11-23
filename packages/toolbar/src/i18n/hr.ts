@@ -487,7 +487,7 @@ export const hr: Messages = {
         }
     },
     attachments: {
-        imageLimits: 'PNG, JPEG ili WebP, do 512 KB i 4096 piksela po stranici.',
+        imageLimits: 'PNG, JPEG ili WebP, do 25 MB. Velike slike se smanjuju.',
         imageInstead: (name: string) => `Vaša slika ${name} bit će priložena umjesto snimke zaslona.`,
         reading: 'Čitanje vaše slike…',
         noScreenshot: 'Snimka zaslona neće biti priložena.',
@@ -516,10 +516,9 @@ export const hr: Messages = {
     },
     imageProblems: {
         type: 'Odaberite sliku PNG, JPEG ili WebP.',
-        size: 'Odaberite sliku od najviše 512 KB.',
+        size: 'Odaberite sliku od najviše 25 MB.',
         read: 'Slika nije pročitana. Ponovno je prenesite.',
-        open: 'Ova slika se ne može otvoriti. Odaberite valjanu sliku PNG, JPEG ili WebP.',
-        dimensions: 'Odaberite sliku od najviše 4096 piksela po stranici.'
+        open: 'Ova slika se ne može otvoriti. Odaberite valjanu sliku PNG, JPEG ili WebP.'
     },
     pin: {
         label: (number: number | undefined, messages: number | undefined, status: string | undefined) =>
@@ -587,7 +586,7 @@ export const hr: Messages = {
         alt: 'Snimka zaslona komentiranog dijela stranice',
         imageAlt: 'Komentirani dio stranice',
         replyImageAlt: 'Slika priložena odgovoru',
-        limits: 'PNG, JPEG ili WebP. Do 512 KB i 4096 piksela po stranici.',
+        limits: 'PNG, JPEG ili WebP. Do 25 MB. Velike slike se smanjuju.',
         replaced: 'Snimka zaslona je zamijenjena.',
         notSaved: 'Slika nije spremljena.',
         notConfirmed: (reason: string) => `${reason} Zamjena nije potvrđena. Ponovno učitajte stranicu kako biste provjerili spremljenu sliku ili pokušajte ponovno.`,

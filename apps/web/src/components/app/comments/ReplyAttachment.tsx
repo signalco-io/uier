@@ -15,7 +15,7 @@ export function ReplyAttachment({ attachment }: { attachment: ReturnType<typeof 
     const limits = useId();
     const { image, reading } = attachment;
     return <>
-        <span id={limits} className="sr-only">{t("PNG, JPEG or WebP, up to 512 KB and 4096 pixels on each side.")}</span>
+        <span id={limits} className="sr-only">{t("PNG, JPEG or WebP, up to 25 MB. Large images are made smaller.")}</span>
         <Tooltip>
             <TooltipTrigger render={<Button variant="ghost" size={image ? 'xs' : 'icon-xs'}
                 className="min-w-0 max-w-40 shrink pointer-coarse:min-h-11 pointer-coarse:min-w-11" disabled={reading}

@@ -29,14 +29,9 @@ import { getToolbarHost } from './mount';
 import type { CommentDrawing } from './drawing';
 import { paintDrawing } from './canvas/paint';
 import { holdProposalSessions, stopProposalSession } from './proposalSession';
+import { encodeScreenshotInBackground, encodedScreenshotLimits, readAsDataUrl, type CapturedScreenshot } from './screenshotEncoding';
 
-/** A screenshot sent to the API as a data URL; shown only on saved feedback. */
-export type CapturedScreenshot = {
-    dataUrl: string;
-    /** Pixels */
-    width: number;
-    height: number;
-};
+export { encodeScreenshot, type CapturedScreenshot } from './screenshotEncoding';
 
 /** A part of the window, in CSS pixels */
 export type ScreenshotRegion = { left: number; top: number; width: number; height: number };
@@ -51,9 +46,6 @@ export type ScreenshotDrawing = { drawing: CommentDrawing; left: number; top: nu
 const regionPadding = 24;
 /** A small anchor (a word, an icon) still gets some of its surroundings */
 const minimumRegion = { width: 360, height: 200 };
-/** Under the API's limits (MAX_SCREENSHOT_BYTES, MAX_SCREENSHOT_DIMENSION) */
-const maxBytes = 480 * 1024;
-const maxSide = 2400;
 /** Sharper on high-density screens, but not larger than needed */
 const maxScale = 2;
 /** Marks elements scrolled inside the page while their copy is made */
@@ -122,15 +114,6 @@ export function commentRegion(position: CommentItemPosition): ScreenshotRegion {
 }
 
 const fontDataUrls = new Map<string, Promise<string | null>>();
-
-function readAsDataUrl(blob: Blob) {
-    return new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result));
-        reader.onerror = () => reject(reader.error);
-        reader.readAsDataURL(blob);
-    });
-}
 
 /** A font file as a data URL (kept for the next screenshot), or `null` when it can't be read */
 function fontDataUrl(url: string) {
@@ -286,59 +269,6 @@ function pageBackground() {
         }
     }
     return '#ffffff';
-}
-
-function bytesOf(dataUrl: string) {
-    return Math.floor((dataUrl.length - dataUrl.indexOf(',') - 1) * 3 / 4);
-}
-
-/** WebP (JPEG where the browser can't make WebP), smaller in quality and then in size until it fits */
-export function encodeScreenshot(source: HTMLCanvasElement): CapturedScreenshot {
-    let canvas = source;
-    for (let attempt = 0; attempt < 6; attempt++) {
-        for (const quality of [0.85, 0.7, 0.55]) {
-            let dataUrl = canvas.toDataURL('image/webp', quality);
-            if (!dataUrl.startsWith('data:image/webp')) {
-                dataUrl = canvas.toDataURL('image/jpeg', quality);
-            }
-            if (bytesOf(dataUrl) <= maxBytes) {
-                return { dataUrl, width: canvas.width, height: canvas.height };
-            }
-        }
-        canvas = resized(canvas, 0.75);
-    }
-    throw new Error('The screenshot is too large');
-}
-
-function canvasBlob(canvas: HTMLCanvasElement, type: string, quality: number) {
-    return new Promise<Blob | null>(resolve => canvas.toBlob(resolve, type, quality));
-}
-
-/** Like `encodeScreenshot`, with the browser encoding outside the page's main thread (`toBlob`) */
-async function encodeScreenshotInBackground(source: HTMLCanvasElement, signal?: AbortSignal): Promise<CapturedScreenshot> {
-    let canvas = source;
-    for (let attempt = 0; attempt < 6; attempt++) {
-        for (const quality of [0.85, 0.7, 0.55]) {
-            let blob = await canvasBlob(canvas, 'image/webp', quality);
-            if (blob?.type !== 'image/webp') {
-                blob = await canvasBlob(canvas, 'image/jpeg', quality);
-            }
-            signal?.throwIfAborted();
-            if (blob && blob.size <= maxBytes) {
-                return { dataUrl: await readAsDataUrl(blob), width: canvas.width, height: canvas.height };
-            }
-        }
-        canvas = resized(canvas, 0.75);
-    }
-    throw new Error('The screenshot is too large');
-}
-
-function resized(source: HTMLCanvasElement, factor: number) {
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.max(1, Math.round(source.width * factor));
-    canvas.height = Math.max(1, Math.round(source.height * factor));
-    canvas.getContext('2d')?.drawImage(source, 0, 0, canvas.width, canvas.height);
-    return canvas;
 }
 
 /** After the next frame (the composer that started the capture) is painted; soon, when the tab is hidden */
@@ -563,8 +493,9 @@ async function captureOriginalScreenshot(region: ScreenshotRegion, exclude: Elem
         for (const element of marked) element.removeAttribute(scrollAttribute);
     }
 
-    // The region, at most `maxSide` pixels on a side
-    const fit = Math.min(1, maxSide / (region.width * scale), maxSide / (region.height * scale));
+    // The region, at most `encodedScreenshotLimits.side` pixels on a side
+    const { side } = encodedScreenshotLimits;
+    const fit = Math.min(1, side / (region.width * scale), side / (region.height * scale));
     const crop = document.createElement('canvas');
     crop.width = Math.max(1, Math.round(region.width * scale * fit));
     crop.height = Math.max(1, Math.round(region.height * scale * fit));

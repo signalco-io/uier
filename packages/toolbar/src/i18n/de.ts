@@ -486,7 +486,7 @@ export const de: Messages = {
         }
     },
     attachments: {
-        imageLimits: 'PNG, JPEG oder WebP, bis 512 KB und 4096 Pixel pro Seite.',
+        imageLimits: 'PNG, JPEG oder WebP, bis 25 MB. Große Bilder werden verkleinert.',
         imageInstead: (name: string) => `Ihr Bild ${name} wird statt eines Screenshots angehängt.`,
         reading: 'Ihr Bild wird gelesen…',
         noScreenshot: 'Es wird kein Screenshot angehängt.',
@@ -515,10 +515,9 @@ export const de: Messages = {
     },
     imageProblems: {
         type: 'Wählen Sie ein PNG-, JPEG- oder WebP-Bild.',
-        size: 'Wählen Sie ein Bild mit höchstens 512 KB.',
+        size: 'Wählen Sie ein Bild mit höchstens 25 MB.',
         read: 'Das Bild konnte nicht gelesen werden. Laden Sie es erneut hoch.',
-        open: 'Dieses Bild konnte nicht geöffnet werden. Wählen Sie ein gültiges PNG-, JPEG- oder WebP-Bild.',
-        dimensions: 'Wählen Sie ein Bild mit höchstens 4096 Pixeln pro Seite.'
+        open: 'Dieses Bild konnte nicht geöffnet werden. Wählen Sie ein gültiges PNG-, JPEG- oder WebP-Bild.'
     },
     pin: {
         label: (number: number | undefined, messages: number | undefined, status: string | undefined) =>
@@ -586,7 +585,7 @@ export const de: Messages = {
         alt: 'Screenshot des kommentierten Teils der Seite',
         imageAlt: 'Kommentierter Teil der Seite',
         replyImageAlt: 'An die Antwort angehängtes Bild',
-        limits: 'PNG, JPEG oder WebP. Bis 512 KB und 4096 Pixel pro Seite.',
+        limits: 'PNG, JPEG oder WebP. Bis 25 MB. Große Bilder werden verkleinert.',
         replaced: 'Screenshot ersetzt.',
         notSaved: 'Das Bild konnte nicht gespeichert werden.',
         notConfirmed: (reason: string) => `${reason} Das Ersetzen wurde nicht bestätigt. Laden Sie neu, um das gespeicherte Bild zu prüfen, oder versuchen Sie es erneut.`,

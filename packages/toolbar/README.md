@@ -391,7 +391,7 @@ error boundary, so one bad comment never breaks the toolbar.
   The text box's corner has **Attach** (a menu: Attach image, Record screen, Upload recording) and the screenshot's
   small thumbnail (a placeholder while it is taken), which opens a larger preview, with **Remove screenshot**: removed,
   only the text is posted and no image is sent for that comment; **Attach screenshot** (a camera) takes a new one. **Attach image**, or pasting an image into the
-  form, sends the reviewer's own PNG, JPEG or WebP (up to 512 KB and 4096 pixels on each side) instead of the
+  form, sends the reviewer's own PNG, JPEG or WebP (up to 25 MB; larger than 512 KB or 4096 pixels on a side, it is made smaller first) instead of the
   screenshot; the corner names the file and removes it again. Posting waits for that capture attempt (up to 15 seconds);
   a failed capture still saves the text. Reopening or restoring a draft refreshes its capture and viewport from the current page, and
   discarding it saves no image. Replies and edits keep the original screenshot. Saved threads and the inbox
