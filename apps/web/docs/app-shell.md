@@ -184,7 +184,13 @@ the separately bundled review toolbar owns its own query cache.
   sent: the link signs in as the invited address.
 
 - `ProjectMark` (project cards, the sidebar, the project header, the breadcrumbs) shows the site's favicon, on a light tile
-  in both themes, with the project's first letter until one loads or when the site has none. It takes the
+  in both themes, with the project's first letter until one loads or when the site has none. A favicon that is light ink
+  on transparency (at least a tenth of it transparent and most of what shows lighter than 0.4 relative luminance) draws
+  on a dark tile in both themes instead ([uier #496](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects&comment=comment_i9OZDPFdxK1fDXPIrczIe)):
+  `src/lib/app/iconTile.ts` measures the same-origin image once per address when it loads, in the same render that shows
+  it, and `imageCache` saves that tile with the copy (copies saved before are measured before they draw, until their daily refresh saves the tile), so the
+  tile never changes after the icon shows. The tile is `data-tile="light|dark"`, and an SVG that follows the colour
+  scheme draws its version for that tile. It takes the
   project's id and address and loads `/api/projects/<id>/icon?site=<address>` (`projectIconUrl`), so the
   browser never contacts the site and app pages need no `img-src https:`. The route answers members only,
   for one of the project's stored addresses. `src/lib/app/siteIcons.ts` finds the icon the way a browser tab
@@ -373,7 +379,8 @@ saves the new version, so a copy is never more than one load behind.
 - **Images.** A mark keeps one `<img>` with its usual `src` and `srcset`; until that image loads, the copy draws as a
   background in the letter's place (`ProjectMark`) or the uier icon's (`WorkspaceMark`), and stays there offline. Larger
   tiles pad both layers with `[&>[data-mark-icon]]:p-*`. A copy older than a day is refetched in the background; marks
-  inside the cached shell (`CachedShellContext`) draw their copy and request nothing.
+  inside the cached shell (`CachedShellContext`) draw their copy and request nothing. Each copy keeps the tile its
+  image measured (`tile`, `iconTile.ts`), so a project's copy draws on the same light or dark tile; a refetch measures again.
 - **Privacy.** Signing out removes the account's copies, and so does deleting the account; signing out of the last or
   of every account removes every copy and image. The sign-in page forgets `shell-current` (and every copy when no account is left), so someone signing
   in never sees another account's copy. The first save in each document removes the copies of accounts no longer signed
