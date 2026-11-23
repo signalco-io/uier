@@ -65,8 +65,10 @@ screen it opens in a scrollable bottom sheet that keeps the target visible above
 
 ### An element suggestion
 
-Point at an element to open its comment, then choose **Suggest a change** (pencil icon). The action follows the
-project's Rewrite tool visibility. `ProposalFields.tsx` is the editor; its inputs are in `components/proposal/` and
+Point at an element to open its comment, then choose **Suggest a change**: a pencil icon button in the header,
+left of Expand, named and tooltipped "Suggest a change"
+([uier #505](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_mh0wLesK1sgPe_AOp-jEU)).
+When the element has nothing to suggest, the body says so. The action follows the project's Rewrite tool visibility. `ProposalFields.tsx` is the editor; its inputs are in `components/proposal/` and
 the values they read and write in `src/styleValues.ts`.
 
 - **Where it opens.** The pin moves to the element's top-right corner (any saved element suggestion's pin is

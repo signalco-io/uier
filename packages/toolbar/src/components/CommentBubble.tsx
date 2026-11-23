@@ -1,7 +1,6 @@
 'use client';
 
 import { useContext, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type MouseEvent, type PointerEvent, type Ref } from 'react';
-import { Button } from '@signalco/ui-primitives/Button';
 import { Add, Close, Edit, ListTodo, Undo } from '@signalco/ui-icons';
 import { Popper } from '@signalco/ui-primitives/Popper';
 import { Divider } from '@signalco/ui-primitives/Divider';
@@ -767,12 +766,7 @@ export function CommentBubble(props: CommentBubbleProps) {
     const suggestionControls = suggesting && proposalEditor
         ? <ProposalFields {...proposalEditor} invalid={elementChanges?.invalid ?? []} onChange={updateProposal}
             element={proposalElement} suggestions={supportsSuggestions ? rewrite : undefined} />
-        : canSuggest && <>
-            <Button type="button" size="sm" variant="outlined" data-uier-suggest-change=""
-                startDecorator={<Edit size={14} aria-hidden="true" />}
-                className="self-start pointer-coarse:min-h-11" onClick={openProposalEditor}>{t.proposal.suggest}</Button>
-            {proposalUnavailable && <p role="status" className="m-0 text-xs text-muted-foreground">{t.proposal.unavailable}</p>}
-        </>;
+        : canSuggest && proposalUnavailable && <p role="status" className="m-0 text-xs text-muted-foreground">{t.proposal.unavailable}</p>;
 
     // A pasted (or dropped, `onImageDrop`) image file is attached to a new comment, instead of its screenshot
     const composer = (
@@ -790,6 +784,13 @@ export function CommentBubble(props: CommentBubbleProps) {
                     </span>}
                     attachment={attachment}
                     actions={<>
+                        {/* Suggest a change: an icon in the header, beside Expand (uier #505) */}
+                        {canSuggest && !suggesting && <IconTooltip label={t.proposal.suggest}>
+                            <IconButton variant="plain" size="xs" type="button" aria-label={t.proposal.suggest} data-uier-suggest-change=""
+                                className={composerIconButtonClassName} onClick={openProposalEditor}>
+                                <Edit size={16} aria-hidden="true" />
+                            </IconButton>
+                        </IconTooltip>}
                         {suggesting && <IconTooltip label={t.proposal.remove}>
                             <IconButton variant="plain" size="xs" type="button" aria-label={t.proposal.remove} data-uier-proposal-remove=""
                                 className={composerIconButtonClassName} onClick={clearProposal}>
