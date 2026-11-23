@@ -5,7 +5,8 @@ import { pathToFileURL } from 'node:url';
  * Project sites for the icon tiles (`ProjectMark`). With `UIER_SITE_ICONS_TEST_UPSTREAM` the test server
  * (local runtime only) sends every site icon request here, the site's host in `Host`, instead of to
  * the internet. `icon.example.com` is set up like the site of uier #47: its address redirects to a
- * sign-in page that declares an SVG icon at a hashed path, and it has no `/favicon.ico`. Any other
+ * sign-in page that declares an SVG icon at a hashed path, and it has no `/favicon.ico`. `light.example.com`
+ * has a white icon on transparency at `/favicon.svg`, which draws on a dark tile (uier #496). Any other
  * host has no icon (an HTML not-found page for every path), so tiles show the project's letter.
  */
 
@@ -16,6 +17,12 @@ const iconSite: Record<string, { status: number; headers: Record<string, string>
     '/sign-in': { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8' },
         body: '<!doctype html><html><head><title>Sign in</title><link rel="icon" href="/_next/static/media/favicon.0a1b2c.svg" sizes="any" type="image/svg+xml"/></head><body>Sign in</body></html>' },
     '/_next/static/media/favicon.0a1b2c.svg': { status: 200, headers: { 'Content-Type': 'image/svg+xml' }, body: STUB_ICON_SVG }
+};
+
+export const STUB_LIGHT_ICON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill="#fff"/></svg>';
+
+const lightIconSite: Record<string, { status: number; headers: Record<string, string>; body?: string }> = {
+    '/favicon.svg': { status: 200, headers: { 'Content-Type': 'image/svg+xml' }, body: STUB_LIGHT_ICON_SVG }
 };
 
 const notFound = { status: 404, headers: { 'Content-Type': 'text/html; charset=utf-8' }, body: '<!doctype html><html><head><title>Not found</title></head><body>Not found</body></html>' };
@@ -29,7 +36,8 @@ export async function startSiteIconsStub(port = 0) {
             response.end('Site icons stub');
             return;
         }
-        const reply = host === 'icon.example.com' ? iconSite[request.url ?? ''] ?? notFound : notFound;
+        const site = host === 'icon.example.com' ? iconSite : host === 'light.example.com' ? lightIconSite : {};
+        const reply = site[request.url ?? ''] ?? notFound;
         response.writeHead(reply.status, reply.headers);
         response.end(reply.body);
     });

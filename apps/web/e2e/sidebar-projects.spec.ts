@@ -217,6 +217,51 @@ test('an order saved before Sort and Group reads as the same choice', async ({ p
     await expect(option(menu, 'Group', 'Client')).toHaveAttribute('aria-checked', 'true');
 });
 
+// uier #496: a light favicon on transparency draws on a dark tile in both themes, and this browser's copy keeps that tile
+test('light favicons on transparency draw on a dark tile, others on a light one', async ({ page }) => {
+    // e2e/support/siteIconsStub.ts: light.example.com has a white circle on transparency, icon.example.com a black square
+    await signIn(page, uniqueEmail('project-icon-tiles'));
+    await createProject(page, { urls: ['light.example.com'], name: 'Light' });
+    await createProject(page, { urls: ['icon.example.com'], name: 'Ink' });
+    await page.goto('/app/projects');
+    const cards = page.getByRole('list', { name: 'Active projects' }).getByRole('listitem');
+    const tileOf = (name: string) => cards.filter({ has: page.getByRole('link', { name, exact: true }) })
+        .locator('span[aria-hidden="true"]:has(> img)');
+    const light = tileOf('Light');
+    const ink = tileOf('Ink');
+    await expect(light.locator('img')).toBeVisible();
+    await expect(ink.locator('img')).toBeVisible();
+    await expect(light).toHaveAttribute('data-tile', 'dark');
+    await expect(ink).toHaveAttribute('data-tile', 'light');
+
+    const background = (tile: Locator) => tile.evaluate(element => getComputedStyle(element).backgroundColor);
+    for (const colorScheme of ['light', 'dark'] as const) {
+        await page.emulateMedia({ colorScheme });
+        await expect.poll(() => background(light)).toBe(colorScheme === 'dark' ? 'rgb(0, 0, 0)' : 'rgb(10, 10, 10)');
+        await expect.poll(() => background(ink)).toBe(colorScheme === 'dark' ? 'rgb(237, 237, 237)' : 'rgb(255, 255, 255)');
+    }
+
+    // The copy (`imageCache`) is saved with the loaded image's tile, so it draws on the same one
+    const tiles = () => page.evaluate(() => new Promise<Record<string, string | undefined>>((resolve, reject) => {
+        const request = indexedDB.open('uier-app');
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => {
+            const store = request.result.transaction('entries').objectStore('entries');
+            const keys = store.getAllKeys();
+            const values = store.getAll();
+            values.onsuccess = () => {
+                request.result.close();
+                resolve(Object.fromEntries(keys.result.map((key, index) => [String(key), (values.result[index] as { tile?: string })?.tile])));
+            };
+            values.onerror = () => reject(values.error);
+        };
+    }));
+    const tileFor = async (host: string) => Object.entries(await tiles())
+        .find(([key]) => key.startsWith('image:') && key.includes(`site=https%3A%2F%2F${host}&size=26`))?.[1];
+    await expect.poll(() => tileFor('light.example.com')).toBe('dark');
+    await expect.poll(() => tileFor('icon.example.com')).toBe('light');
+});
+
 /** Where a sidebar link's parts are: its leading icon (a page's icon, a project's tile) and its label */
 function linkParts(link: Locator) {
     return link.evaluate(element => {
