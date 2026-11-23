@@ -6,9 +6,10 @@ import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { compareVersions, validateTag } from './store-api.mjs';
 
-/** Only toolbar implementation changes trigger daily releases. Other changes ride the next release. */
+/** Toolbar implementation, build config and bundled kit source trigger daily releases. */
 export const shippedPaths = ['packages/toolbar/src', 'packages/toolbar/tailwind.config.js',
-    'packages/toolbar/postcss.config.mjs', 'packages/toolbar/tsup.config.ts'];
+    'packages/toolbar/postcss.config.mjs', 'packages/toolbar/tsup.config.ts',
+    'packages/js/src', 'packages/ui-icons/src', 'packages/ui-primitives/src', 'packages/ui-themes-minimal/src'];
 const packages = ['apps/extension/package.json', 'apps/extension-firefox/package.json'];
 const webVersion = 'apps/web/src/lib/extension/release.ts';
 export const versionPaths = [...packages, webVersion];
@@ -71,7 +72,7 @@ export function pullRequestBody({ version, tag, changes }, repository = 'https:/
         `Prepares extension ${version}. Shipped source changed since \`${tag}\`:`, '',
         ...(changes.length ? changes.map(change => `- ${change}`) : ['- No source changes; a manual run asked for a release.']), '',
         'The daily release automation synchronizes this version-only branch with the repository deploy key to start **CI**. After it passes, **Extension release finish** verifies that this PR changes only the three recorded versions, merges it, creates the immutable release tag, and starts store submission and the website deployment.', '',
-        'Store review and signing may still be pending after submission. No release is prepared when the toolbar has no changes since the last release.',
+        'Store review and signing may still be pending after submission. Scheduled runs need a net change to shipped toolbar or kit code or toolbar build configuration.',
         `See [regular releases](${repository}/blob/main/docs/browser-extension-release.md#regular-releases).`
     ].join('\n');
 }

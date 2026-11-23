@@ -12,3 +12,6 @@ This folder owns Chrome release/store scripts, artwork and persistent Chromium a
 root typecheck/build/short tests, shared package tests, validate/package and the unchanged production
 ZIP suite after runtime changes. Do not infer hosted or Firefox acceptance from Chromium.
 Never remove pre-write store receipts or retry ambiguous store writes.
+
+The daily release planner checks toolbar implementation and build configuration plus the source of
+its bundled kit packages. See [regular releases](../../docs/browser-extension-release.md#regular-releases).
