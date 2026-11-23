@@ -17,6 +17,7 @@ import {
     type DbUser,
     type DbWorkspace
 } from './model';
+import { matchesProjectNameConfirmation } from './projectNameConfirmation';
 import { isProjectId } from './projects';
 import { ensureProjectPublicId, pointProjectPublicIds } from './projectPublicIds';
 import {
@@ -159,7 +160,7 @@ export async function transferProject(context: AppContext, projectId: string, to
         throw new UserFacingError(adminOnly);
     if (target?.doc.type !== 'workspace' || targetMember?.doc.type !== 'member' || targetMember.doc.role !== 'admin')
         throw new UserFacingError('Choose a workspace where you are an admin.');
-    if (confirmation.trim() !== project.name)
+    if (!matchesProjectNameConfirmation(confirmation, project.name))
         throw new UserFacingError('Type the project name exactly as it is shown.');
     // A copy a transfer left behind is not the project: its code names where it lives
     if (await projectCode(projectId, store) !== from)

@@ -13,7 +13,7 @@ async function switchWorkspace(page: import('@playwright/test').Page, name: RegE
 
 test('an admin of two workspaces transfers a project from the danger zone', async ({ page }) => {
     await signIn(page, uniqueEmail('transfer-project'));
-    const projectId = await createProject(page, { urls: ['moving.example.com'], name: 'Moving site' });
+    const projectId = await createProject(page, { urls: ['moving.example.com'], name: 'Moving  site' });
     const publicId = await projectPublicId(page, projectId);
     const danger = page.getByRole('region', { name: 'Danger zone' });
     const open = danger.getByRole('button', { name: 'Transfer project' });
@@ -36,6 +36,7 @@ test('an admin of two workspaces transfers a project from the danger zone', asyn
     await page.goto(`/app/projects/${projectId}/settings/danger-zone`);
     await open.click();
     const dialog = page.getByRole('alertdialog', { name: 'Transfer Moving site?' });
+    await expect(dialog.getByRole('heading', { level: 2 })).toHaveText(/^Transfer Moving  site\?$/, { useInnerText: true });
     // The only workspace is chosen, so the name is next
     await expect(dialog.getByRole('combobox', { name: 'Workspace' })).toContainText('Agency');
     await expect(dialog.getByRole('list', { name: 'Stays in this workspace' }).getByRole('listitem'))
@@ -49,6 +50,8 @@ test('an admin of two workspaces transfers a project from the danger zone', asyn
 
     await name.fill('moving site');
     await expect(confirm).toBeDisabled();
+    await name.fill('Moving  site');
+    await expect(confirm).toBeEnabled();
     await name.fill('Moving site');
     await expect(confirm).toBeEnabled();
     await name.press('Enter');

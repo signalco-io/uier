@@ -15,6 +15,7 @@ import { Spinner } from '@/src/components/ui/spinner';
 import { KnownPageLinks, KnownPages } from '../../../knownPages';
 import { destructiveTextClassName } from '../PageHeader';
 import type { ProjectStatus } from '../../../lib/app/model';
+import { matchesProjectNameConfirmation } from '../../../lib/app/projectNameConfirmation';
 import { deleteProjectAction, transferProjectAction, setProjectStatusAction } from './actions';
 import type { TransferPreview, TransferTarget } from '../../../lib/app/projectTransfer';
 
@@ -47,7 +48,7 @@ export function DeleteProjectButton({ projectId, name }: { projectId: string; na
     const [open, setOpen] = useState(false);
     const [confirmation, setConfirmation] = useState('');
     const [pending, startTransition] = useTransition();
-    const confirmed = confirmation.trim() === name;
+    const confirmed = matchesProjectNameConfirmation(confirmation, name);
 
     const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
@@ -75,7 +76,7 @@ export function DeleteProjectButton({ projectId, name }: { projectId: string; na
             <AlertDialogContent initialFocus={input}>
                 <form className="contents" onSubmit={handleSubmit}>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>{t("Delete")}{' '}{name}?</AlertDialogTitle>
+                        <AlertDialogTitle>{t("Delete")}{' '}<span className="whitespace-pre-wrap wrap-anywhere">{name}</span>?</AlertDialogTitle>
                         <AlertDialogDescription>{t("Its comments, screenshots, review links, access and integration settings are deleted, and the toolbar stops working on its sites. Copies already sent to Notion, GitHub, Linear, Azure DevOps or Slack stay there. This can't be undone.")}</AlertDialogDescription>
                     </AlertDialogHeader>
                     <Field>
@@ -124,7 +125,7 @@ export function TransferProjectButton({ projectId, name, targets, preview }: { p
     const [confirmation, setConfirmation] = useState('');
     const [pending, startTransition] = useTransition();
     const target = targets.find(option => option.id === workspaceId);
-    const confirmed = Boolean(target) && confirmation.trim() === name;
+    const confirmed = Boolean(target) && matchesProjectNameConfirmation(confirmation, name);
 
     const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
@@ -151,7 +152,7 @@ export function TransferProjectButton({ projectId, name, targets, preview }: { p
             <AlertDialogContent initialFocus={targets.length === 1 ? input : undefined} className="max-h-[calc(100dvh-2rem)] overflow-y-auto">
                 <form className="contents" onSubmit={handleSubmit}>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>{t("Transfer")}{' '}{name}?</AlertDialogTitle>
+                        <AlertDialogTitle>{t("Transfer")}{' '}<span className="whitespace-pre-wrap wrap-anywhere">{name}</span>?</AlertDialogTitle>
                         <AlertDialogDescription>{t("It moves with its comments, replies, screenshots, read state, review links and settings.")}{preview.client ? t(" Its client, {value0}, becomes that workspace's client with the same name.", { value0: preview.client }) : ''}{' '}{t("Its address in the app stays the same. In the new workspace, admins and people with access to all projects can open it.")}</AlertDialogDescription>
                     </AlertDialogHeader>
                     <FieldGroup>

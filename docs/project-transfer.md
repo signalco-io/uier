@@ -3,8 +3,9 @@
 A workspace admin moves a project to another workspace in **Settings → Danger zone → Transfer
 project**. The person must be an admin of both workspaces. The dialog offers every other workspace
 they administer (the first one is chosen when there is only one), lists what stays behind and asks
-for the project's name. The server checks both admin roles from the stored memberships, the name and
-the target again. After the transfer the app opens the target workspace at the project, at the same
+for the project's name and shows its saved spacing. A single space is enough where the name has several.
+The server checks both admin roles from the stored memberships, the name and the target again.
+After the transfer the app opens the target workspace at the project, at the same
 address. uier's feedback projects (`uier00000001`, `uier00000002`) and the public workspace never move, in
 either direction.
 
@@ -79,7 +80,7 @@ nothing before the switch and the old one nothing after it, however a run is int
 
 ## Order
 
-1. **Checks.** Admin of both workspaces (stored memberships), the exact name, a project code that names
+1. **Checks.** Admin of both workspaces (stored memberships), a matching name, a project code that names
    the old workspace, and no pending deletion. An old project gets its public id now, as its first
    read would.
 2. **Intent.** A `project-transfer` record (`pk: project-transfer`, id = the project id) stores only the
@@ -133,7 +134,7 @@ Locally there is no scheduled worker; a new transfer or deletion settles an inte
 ## Tests
 
 `e2e/project-transfer.api.spec.ts` covers admin-only access in both workspaces from the stored
-memberships, the exact name, other workspaces' projects, the public project and workspace, action
+memberships, name checks, other workspaces' projects, the public project and workspace, action
 input validation, a full move (comments, replies, image, numbers, read state, notification settings,
 ids, links, settings, client by name and its details), who sees it before and after, the grants,
 services, coding tools and webhooks left behind, the preview's counts, activity sentences, moving
@@ -144,7 +145,7 @@ meanwhile, the sweep finishing one and giving another up, a new transfer replaci
 one, a retry the sweep leaves alone, a run a give-up overtakes stopping before the links move, and the
 sweep settling transfers whose requester's account is gone. `e2e/notificationWorker.api.spec.ts` checks the worker runs the sweep.
 `e2e/project-transfer.spec.ts` (full suite, Desktop and Mobile Chrome) covers the Danger zone row
-without another workspace, the dialog, the typed name, the redirect into the new workspace, the
+without another workspace, the dialog, the displayed and typed spacing, the redirect into the new workspace, the
 unchanged public id and the old workspace without the project.
 
 A project managed by a workspace Notion database becomes manual in the target workspace. Its source

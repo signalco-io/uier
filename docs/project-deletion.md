@@ -1,8 +1,9 @@
 # Project deletion
 
 A workspace admin deletes a project in **Settings → Danger zone → Delete project**. The dialog asks
-for the project's name; the server checks the name and the admin role again. After the deletion the
-app opens the projects list. uier's feedback projects (`uier00000001`, `uier00000002`) and anything in the
+for the project's name and shows its saved spacing. A single space is enough where the name has several.
+The server checks the name and the admin role again. After the deletion the app opens the projects
+list. uier's feedback projects (`uier00000001`, `uier00000002`) and anything in the
 public workspace cannot be deleted.
 
 The service is [`apps/web/src/lib/app/projectDeletion.ts`](../apps/web/src/lib/app/projectDeletion.ts);
@@ -74,12 +75,12 @@ Locally there is no scheduled worker: a failed deletion stays pending in the mem
 
 ## Tests
 
-`e2e/project-deletion.api.spec.ts` covers admin-only access by exact name, the public project refusal,
+`e2e/project-deletion.api.spec.ts` covers admin-only access and name checks, the public project refusal,
 removal of comments, images, public ids, grants, invitations, coding tool selections and integration
 records, the retained other project, tombstone discovery and the retry sweep. `e2e/page-checks-site.api.spec.ts`
 covers the page check summaries.
-`e2e/project-deletion.spec.ts` (full suite, Desktop Chrome) covers the confirm dialog, cancel, the
-typed name, the redirect and toast, and that the code and public id stop resolving.
+`e2e/project-deletion.spec.ts` (full suite) covers the confirm dialog, cancel, the displayed and
+typed spacing, the redirect and toast, and that the code and public id stop resolving.
 
 Projects imported from a workspace Notion database keep their identifier-only `notion-project-row`
 receipt after deletion. The retained row-to-project association prevents the next scheduled import

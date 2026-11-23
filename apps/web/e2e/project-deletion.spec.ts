@@ -5,7 +5,7 @@ import { createProject, projectPublicId, signIn, uniqueEmail } from './support/a
 test('an admin deletes a project from the danger zone after typing its name', async ({ page }) => {
     await signIn(page, uniqueEmail('delete-project'));
     const keptId = await createProject(page, { urls: ['kept.example.com'], name: 'Kept site' });
-    const projectId = await createProject(page, { urls: ['old.example.com'], name: 'Old site' });
+    const projectId = await createProject(page, { urls: ['old.example.com'], name: 'Old  site' });
     const publicId = await projectPublicId(page, projectId);
     await page.goto(`/app/projects/${projectId}/settings/danger-zone`);
 
@@ -14,6 +14,7 @@ test('an admin deletes a project from the danger zone after typing its name', as
     const open = danger.getByRole('button', { name: 'Delete project' });
     await open.click();
     const dialog = page.getByRole('alertdialog', { name: 'Delete Old site?' });
+    await expect(dialog.getByRole('heading')).toHaveText(/^Delete Old  site\?$/, { useInnerText: true });
     await expect(dialog).toContainText('Copies already sent to Notion, GitHub, Linear, Azure DevOps or Slack stay there.');
     const name = dialog.getByLabel('Type the project name to confirm');
     const confirm = dialog.getByRole('button', { name: 'Delete project' });
@@ -23,7 +24,8 @@ test('an admin deletes a project from the danger zone after typing its name', as
     await expectNoAxeViolations(page);
 
     // Cancel keeps the project and forgets the typed name
-    await name.fill('Old site');
+    await name.fill('Old  site');
+    await expect(confirm).toBeEnabled();
     await dialog.getByRole('button', { name: 'Cancel' }).click();
     await expect(dialog).toBeHidden();
     await expect(open).toBeFocused();
