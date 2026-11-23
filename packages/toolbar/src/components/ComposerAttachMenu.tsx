@@ -16,7 +16,7 @@ import { keepMovedFocus } from '../toolbarReview';
 import { useToolbarPortalContainer } from './CommentsBootstrapperContext';
 import { IconTooltip, useIconTooltip } from './IconTooltip';
 import { useInkContainer } from './InkScope';
-import { composerIconButtonClassName } from './ComposerAttachments';
+import { ComposerThumbnail, composerIconButtonClassName } from './ComposerAttachments';
 import { RecordingIcon } from './RecordingIcon';
 import { floatingShadowClassName } from './@types/Comments';
 
@@ -25,7 +25,8 @@ import { floatingShadowClassName } from './@types/Comments';
  * menu offers what can be added now, so the corner holds one control instead of one per kind
  * (docs/recordings.md, docs/screenshots.md):
  * - Attach image: the reviewer's own image, sent instead of the screenshot (or with a reply). Once one
- *   is attached, its name with a remove button follows the button and the item leaves the menu.
+ *   is attached, its thumbnail (which opens it) with a remove button follows the button and the item
+ *   leaves the menu.
  * - Record screen, where the browser can capture, and Upload recording: one recording, whose capture
  *   and preview show above the text (`ComposerRecordingPreview`); both leave the menu meanwhile.
  * With nothing left to add, the button goes. The file inputs stay outside the menu, so a pick still
@@ -109,20 +110,27 @@ export function ComposerAttachMenu({ image, recording, disabled }: {
             <Stack>{items}</Stack>
         </Popper></>}
         {attachment && attached && (
-            <IconTooltip label={image?.reply ? t.attachments.replyImageRemove : t.attachments.imageRemove}>
-                <Button
-                    variant="plain"
-                    size="xs"
-                    type="button"
-                    aria-label={t.attachments.removeImage(attached.name)}
-                    className="min-w-0 max-w-40 gap-1 rounded-md font-normal text-muted-foreground hover:text-foreground pointer-coarse:min-h-11 [&>svg]:shrink-0"
-                    startDecorator={<Paperclip size={14} aria-hidden="true" />}
-                    endDecorator={<Close size={14} aria-hidden="true" />}
-                    onClick={attachment.remove}>
-                    {/* A tight row truncates the name; the icons keep their size */}
-                    <span className="min-w-0 truncate">{attached.name}</span>
-                </Button>
-            </IconTooltip>
+            // Like the screenshot's chip: a thumbnail that opens the image, and its X (uier #506)
+            <span data-uier-attached-image="" className="flex shrink-0 items-center rounded-md bg-background ring-1 ring-border">
+                <ComposerThumbnail
+                    data={attached.dataUrl}
+                    label={t.attachments.previewImage(attached.name)}
+                    viewerLabel={attached.name}
+                    closeLabel={t.attachments.closeImage}
+                    expandedAlt={t.attachments.expandedImage(attached.name)}
+                    data-uier-image-preview="" />
+                <IconTooltip label={image?.reply ? t.attachments.replyImageRemove : t.attachments.imageRemove}>
+                    <IconButton
+                        variant="plain"
+                        size="xs"
+                        type="button"
+                        aria-label={t.attachments.removeImage(attached.name)}
+                        className="h-7 w-6 shrink-0 rounded-none rounded-r-md text-muted-foreground hover:text-foreground pointer-coarse:size-11"
+                        onClick={attachment.remove}>
+                        <Close size={12} aria-hidden="true" />
+                    </IconButton>
+                </IconTooltip>
+            </span>
         )}
         {attachment && <input
             ref={imageInput}

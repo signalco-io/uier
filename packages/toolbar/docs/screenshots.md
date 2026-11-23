@@ -44,9 +44,10 @@ box's bottom-left corner after Attach ([uier #391](https://uier.io/app/review/ui
 - Nothing shows while a capture that failed is not removed, nor while an image is attached.
 
 **Attach image**, an item of Attach's menu (`ComposerAttachMenu`), sends the reviewer's own image, picked or pasted
-into the form, as `screenshot` instead of the capture. Once one is attached, its name with a remove button follows
-Attach and the item leaves the menu. No preview of the reviewer's own image. In a tight row the name truncates and the chip's icons keep their
-size ([uier #396](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1%2Fpage-checks&comment=comment_7u8PpdTZvoj6z0h3M0fEy)).
+into the form, as `screenshot` instead of the capture. Once one is attached, a chip like the screenshot's follows
+Attach and the item leaves the menu: its thumbnail (`ComposerThumbnail`, a button named **Preview attached image** and
+the file's name) opens it in [the viewer](#the-viewer), titled with that name, and its X removes it (**Remove attached
+image** and the name) ([uier #506](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_gkdJSkWPR3jhvVCFEOmab)).
 
 One [screen recording](recordings.md) can be attached alongside the screenshot or supplied image.
 Record screen and Upload recording are items of the same Attach menu; a recording has its own preview and limits.
@@ -86,7 +87,8 @@ Record screen and Upload recording are items of the same Attach menu; a recordin
 
 ## The viewer
 
-`components/ScreenshotViewer.tsx` shows every larger image: a saved thumbnail's and the composer's screenshot ([uier #497](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects&comment=comment_ZARYEuzrlcExd87wEYnaI), [uier #500](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_5VhIq3zftw4fCxaXVLMEW)):
+`components/ScreenshotViewer.tsx` shows every larger image: a saved thumbnail's, the composer's screenshot and an
+attached image ([uier #497](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects&comment=comment_ZARYEuzrlcExd87wEYnaI), [uier #500](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_5VhIq3zftw4fCxaXVLMEW)):
 
 - In the middle of the window over a blurred backdrop like the composer modal's; a press on the backdrop closes it.
   It is still the UI kit's popover, so Escape closes only it (not the thread or form it opened from) and the focus
@@ -94,7 +96,7 @@ Record screen and Upload recording are items of the same Attach menu; a recordin
   `toolbar-theme.css` fills the window with its popover's positioned wrapper, which is the backdrop.
 - Above every toolbar popover: `z-[78]`, the threads of comments on the toolbar, and later in the shadow root than the
   thread it opened from, so above that one too. Tooltips and point mode stay above it; pins under it.
-- A header with its title and Close, an X icon button with a tooltip (**Close screenshot**). The
+- A header with its title and Close, an X icon button with a tooltip (**Close screenshot**, **Close image**). The
   header drags it, with a mouse, pen or touch; part of the header always stays in the window, and every opening starts
   in the middle again.
 - On uier's own pages presses go through the backdrop, so the pill's Add comment reaches the viewer, and a press in
@@ -102,7 +104,7 @@ Record screen and Upload recording are items of the same Attach menu; a recordin
 
 ## Tests
 
-`apps/web/e2e/screenshots.spec.ts`: Attach, the screenshot's thumbnail, its preview and Remove screenshot in the text box.
+`apps/web/e2e/screenshots.spec.ts`: Attach, the screenshot's thumbnail, its preview and Remove screenshot in the text box, an attached image's thumbnail and preview.
 `toolbar-review.spec.ts`: the viewer above a toolbar comment's thread, dragged by its header, and that thread kept open. `thread-attachments.spec.ts`:
 Attach to comment on a saved thread; `screenshot-replacement.spec.ts`: saved images, their errors and redaction. `screenshot-performance.spec.ts`: capture yields
 to the browser ([capture responsiveness](composer-popovers.md#capture-responsiveness)).

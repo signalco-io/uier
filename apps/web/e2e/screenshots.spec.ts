@@ -448,7 +448,15 @@ test('screenshots: the reviewer attaches their own image instead, from the text 
     await expect(draft.getByRole('alert')).toHaveCount(0);
     await expect(omit).toHaveCount(0);
     await expect(draft.getByRole('button', { name: 'Remove screenshot' })).toHaveCount(0);
-    // Named, never previewed
+    // A thumbnail like the screenshot's, named by its button, which opens the image in the same viewer (uier #506)
+    const previewImage = draft.getByRole('button', { name: 'Preview attached image evidence.png' });
+    await previewImage.click();
+    const viewer = page.getByRole('dialog', { name: 'evidence.png', exact: true });
+    await expect(viewer.getByRole('img', { name: 'Attached image evidence.png' })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(viewer).toBeHidden();
+    await expect(draft).toBeVisible();
+    await expect(previewImage).toBeFocused();
     await expect(draft.getByRole('img')).toHaveCount(0);
     await expectNoAxeViolations(page);
     const body = nextCreatedComment(page);
