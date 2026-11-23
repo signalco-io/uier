@@ -12,7 +12,8 @@
   and page filter) and `statusCounts` (no status tabs, and no Status filter on its board, which groups by category).
   A project's comments pass neither `projects` nor `onView`.
 - On a project's comments the filter row ends in the app's divider (`filtersDivider` in `CommentsViewToggle.tsx`,
-  `border-border`, as wide as the row, in the list and the board, the loading header too) and sits 12 px under the
+  `border-border`, in the list and the board, the loading header too; it runs to the panel's edges like the project
+  tabs' line, [uier #498](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_DvH58cXN9VAYoaM_B5KcQ)) and sits 12 px under the
   project's tabs instead of the other pages' 24 px (`data-project-comments` on the comments, read by the project layout;
   [uier #495](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_LR-sL0UFZLeYvt-vbZbdS)).
 - The comments' filter bar (`CommentFilters.tsx`): in the list the status tabs first, left-aligned at the list's left edge
