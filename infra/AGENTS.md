@@ -115,6 +115,9 @@ unchanged. See [storage rollout](../docs/screenshot-storage.md) before merging o
   `pnpm preview` does both.
 - Keep the Pulumi CLI version pinned in `.github/workflows/pulumi_reusable.yml` equal to
   `@pulumi/pulumi` in `package.json`.
+- Before either stack command, CI installs the Vercel plugin at the exact `@pulumiverse/vercel`
+  version from `package.json`. It uses the job's GitHub token for the API request and retries
+  through the public release URL if the API install fails.
 - Backup policy changes follow the [Backups and restore](../docs/backups-and-restore.md)
   runbook. Periodic to continuous is one-way: use a policy-only PR without auto-merge and require
   the owner's approval of the exact CI preview (one in-place account update, no other changes).

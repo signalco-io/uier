@@ -273,7 +273,7 @@ CI applies changes (`pulumi up`); do not run it locally. See [CI/CD](#cicd).
 | [`ci.yml`](../.github/workflows/ci.yml) | pull requests, manual | Web: parallel checks, API and browser jobs, plus a Vercel preview deployment (URL in the job summary). Extension: unit and packaged runtime checks. Infra: `pulumi preview` against `uier-production`, posted as a PR comment. `CI OK` aggregates all jobs. |
 | [`deploy.yml`](../.github/workflows/deploy.yml) | push to `main`, manual | Builds the website alongside `pulumi up`, then deploys to Vercel production (`uier.io`) only after both succeed. |
 | [`deploy-current_reusable.yml`](../.github/workflows/deploy-current_reusable.yml) | called | Checks for a newer eligible production workflow run, before building/applying and before uploading. |
-| [`pulumi_reusable.yml`](../.github/workflows/pulumi_reusable.yml) | called | Installs and builds `infra/`, logs into Azure (OIDC) and runs `pulumi preview` / `up`. |
+| [`pulumi_reusable.yml`](../.github/workflows/pulumi_reusable.yml) | called | Installs and builds `infra/`, preinstalls the Vercel plugin, logs into Azure (OIDC) and runs `pulumi preview` / `up`. |
 | [`vercel-build_reusable.yml`](../.github/workflows/vercel-build_reusable.yml) | called | Builds with public settings and no deployment credentials; uploads only the prebuilt output for this workflow run and attempt. |
 | [`vercel-deploy_reusable.yml`](../.github/workflows/vercel-deploy_reusable.yml) | called | Validates and deploys this run's prebuilt output in an environment-bound job, without checking out the repository. |
 | [`notifications.yml`](../.github/workflows/notifications.yml) | manual | Runs recovery and preview/legacy maintenance with the separate data-only GitHub identity. Production scheduling uses the private Vercel worker; see [notifications](review-notifications.md). |
@@ -288,6 +288,12 @@ The credential-free web build runs alongside infrastructure. The final upload re
 succeed because the Vercel project settings (root directory, environment variables, domains) are managed
 by Pulumi. Pull-request previews use the same build and upload workflows in sequence. Deployments are
 made by the Vercel CLI from GitHub Actions; the Vercel project is not connected to Vercel's Git integration.
+
+If infrastructure fails at **Install the Vercel resource plugin**, check that step's log before
+retrying the newest eligible deploy. The workflow uses the version pinned in `infra/package.json`
+and authenticates GitHub API requests with the job token. After an install failure, it retries
+from the public release URL after 5, 10 and 20 seconds. If all attempts fail, the job stops before
+opening the stack.
 
 Concurrency: one production workflow runs at a time, with only the newest pending run retained;
 `pulumi up` runs are serialized. A new push to a pull request cancels its previous CI run. Production
