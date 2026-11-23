@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
-import { LoaderSpinner } from '@signalco/ui-icons';
+import { LoaderSpinner } from '@uier/ui-icons';
 import { auditAvailable, loadChecks } from '../../../checks/axeLoader';
 import type { LazyChecks } from '../../../checks/lazy';
 import type { SectionContext, SectionReport } from '../../../checks/lazy/api';

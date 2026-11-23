@@ -4,11 +4,11 @@ import { useMessages, type Messages } from '../i18n';
 import { agentDescription } from '../i18n/format';
 
 import { useRef, useState, useSyncExternalStore, type ReactNode, type RefObject } from 'react';
-import { Typography } from '@signalco/ui-primitives/Typography';
-import { Stack } from '@signalco/ui-primitives/Stack';
-import { Row } from '@signalco/ui-primitives/Row';
-import { Avatar } from '@signalco/ui-primitives/Avatar';
-import { cx } from '@signalco/ui-primitives/cx';
+import { Typography } from '@uier/ui-primitives/Typography';
+import { Stack } from '@uier/ui-primitives/Stack';
+import { Row } from '@uier/ui-primitives/Row';
+import { Avatar } from '@uier/ui-primitives/Avatar';
+import { cx } from '@uier/ui-primitives/cx';
 import { CommentTime } from './CommentTime';
 import { useComments } from '../hooks/useComments';
 import { CommentThreadItemMenu } from './CommentThreadItemMenu';

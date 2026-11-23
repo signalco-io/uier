@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState, useSyncExternalStore } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Button } from '@signalco/ui-primitives/Button';
+import { Button } from '@uier/ui-primitives/Button';
 import { apiRequest, required } from '../hooks/api';
 import { toolbarConfig } from '../config';
 import { useMessages, useToolbarLanguage } from '../i18n';

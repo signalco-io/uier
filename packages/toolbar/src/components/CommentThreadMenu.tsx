@@ -1,13 +1,13 @@
 'use client';
 
 import { useLayoutEffect, useRef, useState, type ReactNode, type Ref } from 'react';
-import { Popper } from '@signalco/ui-primitives/Popper';
-import { IconButton } from '@signalco/ui-primitives/IconButton';
-import { Button } from '@signalco/ui-primitives/Button';
-import { Stack } from '@signalco/ui-primitives/Stack';
-import { cx } from '@signalco/ui-primitives/cx';
-import { Row } from '@signalco/ui-primitives/Row';
-import { ArrowDownToLine, ArrowUp, Check, Delete, Edit, ExternalLink, Mail, MoreHorizontal, Mute, MyLocation, Pin, PinOff, Undo, User, Verified, Volume2 } from '@signalco/ui-icons';
+import { Popper } from '@uier/ui-primitives/Popper';
+import { IconButton } from '@uier/ui-primitives/IconButton';
+import { Button } from '@uier/ui-primitives/Button';
+import { Stack } from '@uier/ui-primitives/Stack';
+import { cx } from '@uier/ui-primitives/cx';
+import { Row } from '@uier/ui-primitives/Row';
+import { ArrowDownToLine, ArrowUp, Check, Delete, Edit, ExternalLink, Mail, MoreHorizontal, Mute, MyLocation, Pin, PinOff, Undo, User, Verified, Volume2 } from '@uier/ui-icons';
 import { useToolbarPortalContainer } from './CommentsBootstrapperContext';
 import { destructiveTextClassName, floatingShadowClassName } from './@types/Comments';
 import { useIconTooltip } from './IconTooltip';

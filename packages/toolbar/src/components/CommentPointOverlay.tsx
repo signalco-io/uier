@@ -6,7 +6,7 @@ import { getToolbarHost } from '../mount';
 import { activeModalDialog, isInActiveModal } from '../modalLayer';
 import { useLayoutVersion } from '../hooks/useLayoutVersion';
 import { CommentIcon } from './CommentIcon';
-import { cx } from '@signalco/ui-primitives/cx';
+import { cx } from '@uier/ui-primitives/cx';
 
 type CommentPointOverlayProps = {
     /** With the element it is on (a toolbar part's opener is found from it, `layerAnchor.ts`) */

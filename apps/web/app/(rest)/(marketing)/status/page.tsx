@@ -1,7 +1,7 @@
 import { publicPageMetadata } from '@/src/lib/metadata';
 import { Suspense } from 'react';
 import { connection } from 'next/server';
-import { cx } from '@signalco/ui-primitives/cx';
+import { cx } from '@uier/ui-primitives/cx';
 import { brand } from '@uier/brand';
 import { InlineLink, PageHeader, PageSection, Panel } from '../../../../src/components/marketing/ContentPage';
 import { getServiceStatus, serviceDefinitions, STATUS_CACHE_SECONDS, type ServiceDefinition, type ServiceState } from '../../../../src/lib/status/serviceStatus';

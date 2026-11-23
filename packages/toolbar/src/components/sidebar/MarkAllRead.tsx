@@ -1,6 +1,6 @@
-import { Approved as CheckCheck } from '@signalco/ui-icons';
-import { Button } from '@signalco/ui-primitives/Button';
-import { cx } from '@signalco/ui-primitives/cx';
+import { Approved as CheckCheck } from '@uier/ui-icons';
+import { Button } from '@uier/ui-primitives/Button';
+import { cx } from '@uier/ui-primitives/cx';
 import { useReadComment, useSiteComments } from '../../hooks/useComments';
 import type { CommentItem } from '../@types/Comments';
 import { useAnnounce } from '../Announcer';

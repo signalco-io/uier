@@ -6,17 +6,15 @@
 /* State variants of the shadcn/ui components in src/components/ui (the app) */
 @import '../src/styles/shadcn.css';
 
-/* JS preset from @signalco/ui-themes-minimal (colors, radius, dark mode, tailwindcss-animate) */
+/* JS preset from @uier/ui-themes-minimal (colors, radius, dark mode, tailwindcss-animate) */
 @config '../tailwind.config.js';
 
 /* next-themes puts `dark` on <html> next to the font classes, so match it as one class of several */
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* The UI kit ships precompiled class names; node_modules is not scanned automatically */
-@source '../node_modules/@signalco/ui/dist';
-@source '../node_modules/@signalco/ui-primitives/dist';
-@source '../node_modules/@signalco/ui-notifications/dist';
-@source '../node_modules/@signalco/cms-core/dist';
+/* The UI kit's and the brand's class names; workspace packages are not scanned automatically */
+@source '../node_modules/@uier/ui/src';
+@source '../node_modules/@uier/ui-primitives/src';
 @source '../node_modules/@uier/brand/src';
 /* The message editor's document classes (ProseMirror's nodes, made outside React) */
 @source '../node_modules/@uier/toolbar/src/editor';

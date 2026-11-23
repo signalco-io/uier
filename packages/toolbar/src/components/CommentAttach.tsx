@@ -2,12 +2,12 @@
 
 import { createContext, useContext, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Popper } from '@signalco/ui-primitives/Popper';
-import { IconButton } from '@signalco/ui-primitives/IconButton';
-import { Button } from '@signalco/ui-primitives/Button';
-import { Stack } from '@signalco/ui-primitives/Stack';
-import { cx } from '@signalco/ui-primitives/cx';
-import { Paperclip, Upload } from '@signalco/ui-icons';
+import { Popper } from '@uier/ui-primitives/Popper';
+import { IconButton } from '@uier/ui-primitives/IconButton';
+import { Button } from '@uier/ui-primitives/Button';
+import { Stack } from '@uier/ui-primitives/Stack';
+import { cx } from '@uier/ui-primitives/cx';
+import { Paperclip, Upload } from '@uier/ui-icons';
 import { canRecordScreen, recordingContentTypes, useRecording, type RecordingState } from '../recordings';
 import { screenshotContentTypes } from '../screenshotPolicy';
 import { SuppliedImageError, suppliedScreenshot } from '../suppliedScreenshot';

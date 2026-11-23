@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react';
-import { cx } from '@signalco/ui-primitives/cx';
+import { cx } from '@uier/ui-primitives/cx';
 import { avatarText } from './CommentThreadItem';
 import type { CommentItem } from './@types/Comments';
 

@@ -15,9 +15,10 @@ const browserTargets = [...new Set(browserslist(undefined, { path: fileURLToPath
 }))];
 
 /**
- * esbuild ends a bundle with every bundled file's license comment, and the UI kit's bundles repeat
- * lucide-react's notice for each of their icons (over 40 KB of the review bundle). Keeps each distinct
- * notice once in each file's comment, with the first file that has it; the code is unchanged.
+ * esbuild ends a bundle with every bundled file's license comment, and a dependency that is itself a
+ * bundle repeats a notice for each file it bundled (the npm UI kit did for each lucide-react icon, over
+ * 40 KB of the review bundle). Keeps each distinct notice once in each file's comment, with the first
+ * file that has it; the code is unchanged.
  */
 function withDistinctLicenses(js: string) {
     const start = js.lastIndexOf('/*! Bundled license information:');

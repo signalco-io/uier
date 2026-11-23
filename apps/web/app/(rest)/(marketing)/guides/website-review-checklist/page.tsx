@@ -1,4 +1,4 @@
-import { Button } from '@signalco/ui-primitives/Button';
+import { Button } from '@uier/ui-primitives/Button';
 import { InlineLink, PageSection, Panel, Tile } from '@/src/components/marketing/ContentPage';
 import { CodeWindow, GuideHeader, GuidePicture, GuideStep, GuideSteps, StepText } from '@/src/components/marketing/guides/GuideLayout';
 import { CopyableGuideText } from '@/src/components/marketing/guides/CopyableGuideText';

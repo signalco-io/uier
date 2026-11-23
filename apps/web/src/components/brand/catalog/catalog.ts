@@ -18,7 +18,7 @@ export type CatalogEntry = {
 export type CatalogGroup = { id: 'brand-marks' | 'site-kit' | 'app-kit' | 'app-patterns'; title: string; lead: string; entries: CatalogEntry[] };
 
 const ui = (file: string) => `apps/web/src/components/ui/${file}.tsx`;
-const primitive = (name: string) => `@signalco/ui-primitives/${name}`;
+const primitive = (name: string) => `packages/ui-primitives/src/${name}/${name}.tsx`;
 
 export const catalog: CatalogGroup[] = [
     {
@@ -34,7 +34,7 @@ export const catalog: CatalogGroup[] = [
     {
         id: 'site-kit',
         title: 'Public site',
-        lead: 'The signalco UI kit and the building blocks of uier.io’s public pages.',
+        lead: 'The UI kit (@uier/ui-primitives) and the building blocks of uier.io’s public pages.',
         entries: [
             { id: 'site-button', name: 'Button', source: primitive('Button') },
             { id: 'site-icon-button', name: 'Icon button', source: primitive('IconButton') },
@@ -117,9 +117,9 @@ export function catalogEntry(id: string): CatalogEntry {
     return entry;
 }
 
-/** A repository path links to its source on GitHub; a package name links to npm */
+/** A repository path links to its source on GitHub */
 export function sourceUrl(source: string) {
-    return source.startsWith('@') ? `https://www.npmjs.com/package/${source.split('/').slice(0, 2).join('/')}` : `${brand.repository}/blob/main/${source}`;
+    return `${brand.repository}/blob/main/${source}`;
 }
 
 /** `data-anchor` of a state: unique on the page, so a comment's selector survives reordering */

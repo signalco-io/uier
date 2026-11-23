@@ -1,5 +1,5 @@
 import { useState, type KeyboardEvent } from 'react';
-import { cx } from '@signalco/ui-primitives/cx';
+import { cx } from '@uier/ui-primitives/cx';
 import type { ChangeStyleProperty } from '../../changeProposal';
 import { useMessages } from '../../i18n';
 import {

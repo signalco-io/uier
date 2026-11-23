@@ -1,7 +1,7 @@
 'use client';
 
 import { useActionState } from 'react';
-import { Button } from '@signalco/ui-primitives/Button';
+import { Button } from '@uier/ui-primitives/Button';
 import { notificationAction } from './actions';
 
 export function NotificationForm({ token, mode }: { token: string; mode: 'verify' | 'subscription' | 'project' }) {

@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { Button } from '@signalco/ui-primitives/Button';
-import { IconButton } from '@signalco/ui-primitives/IconButton';
-import { Popper } from '@signalco/ui-primitives/Popper';
-import { Stack } from '@signalco/ui-primitives/Stack';
-import { cx } from '@signalco/ui-primitives/cx';
-import { Copy, FileText, Link } from '@signalco/ui-icons';
+import { Button } from '@uier/ui-primitives/Button';
+import { IconButton } from '@uier/ui-primitives/IconButton';
+import { Popper } from '@uier/ui-primitives/Popper';
+import { Stack } from '@uier/ui-primitives/Stack';
+import { cx } from '@uier/ui-primitives/cx';
+import { Copy, FileText, Link } from '@uier/ui-icons';
 import { useToolbarPortalContainer } from './CommentsBootstrapperContext';
 import { floatingShadowClassName } from './@types/Comments';
 import { useIconTooltip } from './IconTooltip';

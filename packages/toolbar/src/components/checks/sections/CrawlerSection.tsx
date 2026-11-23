@@ -1,4 +1,4 @@
-import { Down } from '@signalco/ui-icons';
+import { Down } from '@uier/ui-icons';
 import type { AiCrawlerVerdict } from '../../../checks/lazy/crawler';
 import { CheckItem, CheckSection } from '../ChecksParts';
 import { defineSection, ReportSection, useSection, type SectionDefinition } from './sections';

@@ -1,7 +1,7 @@
 'use client';
 
-import { Close, ExpandDown, Search } from '@signalco/ui-icons';
-import { cx } from '@signalco/ui-primitives/cx';
+import { Close, ExpandDown, Search } from '@uier/ui-icons';
+import { cx } from '@uier/ui-primitives/cx';
 import { Pin } from '@uier/brand/Pin';
 import { StatusBadge, type Stage } from '../LandingSpecimens';
 import { appear, fade, FeatureCover, type CoverCaption } from './FeatureCover';

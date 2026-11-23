@@ -1,7 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { cx } from '@signalco/ui-primitives/cx';
+import { cx } from '@uier/ui-primitives/cx';
 import { PaperclipIcon, SendIcon, XIcon } from 'lucide-react';
 import { Pin } from '@uier/brand/Pin';
 import { DeviceDetails, DeviceIcon, BrowserMark, type DeviceTile } from '@uier/toolbar/device-details';

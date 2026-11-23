@@ -16,6 +16,7 @@ comments are pinned to elements or selected text and stored per domain.
 | `apps/extension-firefox` | `@uier/extension-firefox` | Firefox packaging and Mozilla publishing | [apps/extension-firefox/AGENTS.md](apps/extension-firefox/AGENTS.md) |
 | `packages/extension` | `@uier/extension-core` | shared extension runtime, UI and build tools | [packages/extension/AGENTS.md](packages/extension/AGENTS.md) |
 | `packages/toolbar` | `@uier/toolbar` | the review toolbar bundle (tsup, React, shadow DOM) | [packages/toolbar/AGENTS.md](packages/toolbar/AGENTS.md), [area notes](packages/toolbar/docs/README.md) |
+| `packages/ui-primitives`, `ui`, `ui-icons`, `ui-notifications`, `ui-themes-minimal`, `cms-core`, `js` | `@uier/ui-primitives` and six more | the UI kit of the public pages, the toolbar and the extension popup (source-only packages) | [packages/ui-primitives/AGENTS.md](packages/ui-primitives/AGENTS.md) |
 | `packages/brand` | `@uier/brand` | **the brand: tokens, logo, constants, assets, `BRAND.md`** | [packages/brand/AGENTS.md](packages/brand/AGENTS.md) |
 | `infra` | `@uier/infra` | Pulumi (Vercel project, Cloudflare DNS, Cosmos DB); not in the pnpm workspace | [infra/AGENTS.md](infra/AGENTS.md) |
 
@@ -37,7 +38,7 @@ that append to the same file conflict.
   through the UI kit's semantic classes (`text-muted-foreground`, `border-border`,
   `rounded-xl`); the logo is `<Logo />` / `<Mark />` / `<Pin />` from `@uier/brand`. Never
   hardcode a hex, redraw the mark, or write "Uier".
-- **Use the UI kit.** Public pages use `@signalco/ui` and `@signalco/ui-primitives` (npm). The signed-in
+- **Use the UI kit.** Public pages use `@uier/ui` and `@uier/ui-primitives` (local packages, [guide](packages/ui-primitives/AGENTS.md)). The signed-in
   app (`/app`) uses the [shadcn/ui](https://ui.shadcn.com) components in `apps/web/src/components/ui`,
   built on [Base UI](https://base-ui.com) (`base-vega` style; compose with `render`, not `asChild`).
   Add more with `pnpm dlx shadcn@latest add <name>` in `apps/web`; the project skill is

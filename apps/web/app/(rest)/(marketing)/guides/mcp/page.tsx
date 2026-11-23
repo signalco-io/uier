@@ -1,4 +1,4 @@
-import { Button } from '@signalco/ui-primitives/Button';
+import { Button } from '@uier/ui-primitives/Button';
 import { brand } from '@uier/brand';
 import { InlineLink, PageSection, Panel, Tile } from '@/src/components/marketing/ContentPage';
 import { AgentSpecimen } from '@/src/components/marketing/AiSpecimens';

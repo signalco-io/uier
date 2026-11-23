@@ -1,4 +1,4 @@
-import { cx } from '@signalco/ui-primitives/cx';
+import { cx } from '@uier/ui-primitives/cx';
 import { Pin } from '@uier/brand/Pin';
 import { AssigneeAvatar, floating, Message, ThreadHeader } from './LandingSpecimens';
 

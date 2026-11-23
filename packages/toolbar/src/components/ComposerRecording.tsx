@@ -1,10 +1,10 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { Button } from '@signalco/ui-primitives/Button';
-import { cx } from '@signalco/ui-primitives/cx';
-import { IconButton } from '@signalco/ui-primitives/IconButton';
-import { Close } from '@signalco/ui-icons';
+import { Button } from '@uier/ui-primitives/Button';
+import { cx } from '@uier/ui-primitives/cx';
+import { IconButton } from '@uier/ui-primitives/IconButton';
+import { Close } from '@uier/ui-icons';
 import { MAX_RECORDING_DURATION, recordingClock, recordingLength, type RecordingState } from '../recordings';
 import { useMessages } from '../i18n';
 import { IconTooltip } from './IconTooltip';

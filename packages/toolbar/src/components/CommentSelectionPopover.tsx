@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useCallback, useRef, useState } from 'react';
-import { Button } from '@signalco/ui-primitives/Button';
-import { Row } from '@signalco/ui-primitives/Row';
+import { Button } from '@uier/ui-primitives/Button';
+import { Row } from '@uier/ui-primitives/Row';
 import { lowestRect } from '../hooks/useCommentItemRects';
 import { popoverWidth, popoverWindowMargin } from './@types/Comments';
 import { CommentIcon } from './CommentIcon';

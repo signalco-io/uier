@@ -1,5 +1,5 @@
 import { SVGProps } from 'react';
-import { AI, Bookmark, Bug, Comment, Info, Lightning, Replace, Rocket } from '@signalco/ui-icons';
+import { AI, Bookmark, Bug, Comment, Info, Lightning, Replace, Rocket } from '@uier/ui-icons';
 import { commentKindIcon, type FeedbackTypeSnapshot } from '../feedbackTypes';
 import { useMessages } from '../i18n';
 import { commentKindText } from '../i18n/format';

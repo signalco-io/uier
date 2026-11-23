@@ -1,13 +1,13 @@
 // Vendored from @signalco/cms-components-marketing (signalco monorepo sources): the published
 // npm build (0.1.2) bundles Next.js' CommonJS next/link and breaks App Router prerendering.
 // Adjusted for the uier brand: lockup instead of a text logo, short copyright line with signalco's mark.
-import { Typography } from '@signalco/ui-primitives/Typography';
-import { Stack } from '@signalco/ui-primitives/Stack';
-import { Link } from '@signalco/ui-primitives/Link';
-import { Divider } from '@signalco/ui-primitives/Divider';
-import { cx } from '@signalco/ui-primitives/cx';
-import { Container } from '@signalco/ui-primitives/Container';
-import { SectionData } from '@signalco/cms-core/SectionData';
+import { Typography } from '@uier/ui-primitives/Typography';
+import { Stack } from '@uier/ui-primitives/Stack';
+import { Link } from '@uier/ui-primitives/Link';
+import { Divider } from '@uier/ui-primitives/Divider';
+import { cx } from '@uier/ui-primitives/cx';
+import { Container } from '@uier/ui-primitives/Container';
+import { SectionData } from '@uier/cms-core/SectionData';
 import { brand } from '@uier/brand';
 import { Logo } from '@uier/brand/Logo';
 import { Ctas2 } from './Ctas2';

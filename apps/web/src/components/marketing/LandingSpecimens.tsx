@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
-import { AI, Close, Copy, ExpandDown, MoreHorizontal, Search } from '@signalco/ui-icons';
-import { cx } from '@signalco/ui-primitives/cx';
+import { AI, Close, Copy, ExpandDown, MoreHorizontal, Search } from '@uier/ui-icons';
+import { cx } from '@uier/ui-primitives/cx';
 import { FlagIcon, GitPullRequestIcon } from 'lucide-react';
 import { Pin } from '@uier/brand/Pin';
 import type { IntegrationProviderId } from '@/src/lib/integrations/model';

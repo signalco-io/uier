@@ -1,6 +1,6 @@
 'use client';
 
-import { Button } from '@signalco/ui-primitives/Button';
+import { Button } from '@uier/ui-primitives/Button';
 import { openToolbarFeedback } from '../toolbar/ToolbarScript';
 
 /** Opens the showcase toolbar's feedback form, where visitors suggest the next integration */

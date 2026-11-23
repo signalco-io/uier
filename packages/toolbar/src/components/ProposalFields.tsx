@@ -1,8 +1,8 @@
 import { useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { Button } from '@signalco/ui-primitives/Button';
-import { IconButton } from '@signalco/ui-primitives/IconButton';
-import { cx } from '@signalco/ui-primitives/cx';
-import { AI, Down, Link, LinkOff, Reset, Up } from '@signalco/ui-icons';
+import { Button } from '@uier/ui-primitives/Button';
+import { IconButton } from '@uier/ui-primitives/IconButton';
+import { cx } from '@uier/ui-primitives/cx';
+import { AI, Down, Link, LinkOff, Reset, Up } from '@uier/ui-icons';
 import { changeProposalTextMaxLength, type ChangeStyleProperty } from '../changeProposal';
 import { proposalEdits, type ProposalTarget } from '../proposalDraft';
 import type { ProposalElement } from '../proposalPreview';

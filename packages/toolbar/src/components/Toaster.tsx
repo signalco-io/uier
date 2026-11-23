@@ -1,8 +1,8 @@
 import { useSyncExternalStore } from 'react';
-import { Button } from '@signalco/ui-primitives/Button';
-import { IconButton } from '@signalco/ui-primitives/IconButton';
-import { Close, ExternalLink } from '@signalco/ui-icons';
-import { cx } from '@signalco/ui-primitives/cx';
+import { Button } from '@uier/ui-primitives/Button';
+import { IconButton } from '@uier/ui-primitives/IconButton';
+import { Close, ExternalLink } from '@uier/ui-icons';
+import { cx } from '@uier/ui-primitives/cx';
 import { destructiveTextClassName } from './@types/Comments';
 import { useMessages } from '../i18n';
 import { InkScope } from './InkScope';

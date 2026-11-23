@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState, useSyncExternalStore, type PropsWithChildren, type KeyboardEvent, type ReactNode } from 'react';
-import { IconButton } from '@signalco/ui-primitives/IconButton';
-import { cx } from '@signalco/ui-primitives/cx';
-import { Drag, PanelRightClose } from '@signalco/ui-icons';
+import { IconButton } from '@uier/ui-primitives/IconButton';
+import { cx } from '@uier/ui-primitives/cx';
+import { Drag, PanelRightClose } from '@uier/ui-icons';
 import { readPreference, savePreference, useReviewDrag, useReviewViewport } from '../hooks/useReviewMovement';
 import { useAnnounce } from './Announcer';
 import { useMessages } from '../i18n';

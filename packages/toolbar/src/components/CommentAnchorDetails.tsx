@@ -1,7 +1,7 @@
 import { useProjectViewer } from '../project/ProjectGate';
 import { createContext, useContext } from 'react';
-import { Button } from '@signalco/ui-primitives/Button';
-import { Info } from '@signalco/ui-icons';
+import { Button } from '@uier/ui-primitives/Button';
+import { Info } from '@uier/ui-icons';
 import { useCommentPlacement } from '../hooks/useCommentItemRects';
 import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
 import { isCommentArea, type CommentItem, type CommentItemPosition } from './@types/Comments';

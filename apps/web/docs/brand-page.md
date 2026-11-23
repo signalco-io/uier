@@ -22,7 +22,7 @@ copies, no screenshots), so it changes when they do.
   page, which the toolbar's anchor selector prefers over positions. A comment therefore stays on
   its state when states are added or reordered. Do not rename an entry id or a state label that has
   comments; add a new state instead.
-- Group files: `SiteSpecimens.tsx` (brand marks, signalco primitives, `ContentPage` blocks),
+- Group files: `SiteSpecimens.tsx` (brand marks, `@uier/ui-primitives`, `ContentPage` blocks),
   `AppKitSpecimens.tsx` (`src/components/ui`), `AppPatternSpecimens.tsx` (`src/components/app`).
   When you add a component to the UI kit or a shared app component, add its entry and its states.
   Specimens take only example content (the imaginary restaurant site), never app data, actions or

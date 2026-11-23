@@ -2,14 +2,14 @@
 
 import { useContext } from 'react';
 import { useIconTooltip } from './IconTooltip';
-import { Popper } from '@signalco/ui-primitives/Popper';
-import { IconButton } from '@signalco/ui-primitives/IconButton';
-import { Stack } from '@signalco/ui-primitives/Stack';
-import { Row } from '@signalco/ui-primitives/Row';
-import { Avatar } from '@signalco/ui-primitives/Avatar';
-import { Typography } from '@signalco/ui-primitives/Typography';
-import { cx } from '@signalco/ui-primitives/cx';
-import { UserCircle } from '@signalco/ui-icons';
+import { Popper } from '@uier/ui-primitives/Popper';
+import { IconButton } from '@uier/ui-primitives/IconButton';
+import { Stack } from '@uier/ui-primitives/Stack';
+import { Row } from '@uier/ui-primitives/Row';
+import { Avatar } from '@uier/ui-primitives/Avatar';
+import { Typography } from '@uier/ui-primitives/Typography';
+import { cx } from '@uier/ui-primitives/cx';
+import { UserCircle } from '@uier/ui-icons';
 import { useVisitor } from '../hooks/useVisitor';
 import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
 import { useInkContainer } from './InkScope';

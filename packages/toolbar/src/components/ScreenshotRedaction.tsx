@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
-import { Button } from '@signalco/ui-primitives/Button';
-import { Input } from '@signalco/ui-primitives/Input';
+import { Button } from '@uier/ui-primitives/Button';
+import { Input } from '@uier/ui-primitives/Input';
 import { decodeScreenshot } from '../screenshotImage';
 import { encodeScreenshot } from '../screenshot';
 import { destructiveTextClassName } from './@types/Comments';

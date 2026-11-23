@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { Pause, Play } from '@signalco/ui-icons';
-import { Button } from '@signalco/ui-primitives/Button';
-import { cx } from '@signalco/ui-primitives/cx';
+import { Pause, Play } from '@uier/ui-icons';
+import { Button } from '@uier/ui-primitives/Button';
+import { cx } from '@uier/ui-primitives/cx';
 
 // Plays the loops of the landing's feature tiles (apps/web/docs/landing-page.md, "The tiles play").
 // Each animated specimen is a `[data-motion-loop]` with its length in seconds, and its moving parts

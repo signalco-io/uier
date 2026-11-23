@@ -2,13 +2,13 @@
 
 import { useContext, useEffect, useEffectEvent, useRef, useState } from 'react';
 import { useIconTooltip } from './IconTooltip';
-import { Popper } from '@signalco/ui-primitives/Popper';
-import { IconButton } from '@signalco/ui-primitives/IconButton';
-import { Button } from '@signalco/ui-primitives/Button';
-import { Row } from '@signalco/ui-primitives/Row';
-import { Typography } from '@signalco/ui-primitives/Typography';
-import { cx } from '@signalco/ui-primitives/cx';
-import { Add, ListTodo, Megaphone } from '@signalco/ui-icons';
+import { Popper } from '@uier/ui-primitives/Popper';
+import { IconButton } from '@uier/ui-primitives/IconButton';
+import { Button } from '@uier/ui-primitives/Button';
+import { Row } from '@uier/ui-primitives/Row';
+import { Typography } from '@uier/ui-primitives/Typography';
+import { cx } from '@uier/ui-primitives/cx';
+import { Add, ListTodo, Megaphone } from '@uier/ui-icons';
 import { useComments } from '../hooks/useComments';
 import { feedbackDraftKey, useDrafts } from '../hooks/useDrafts';
 import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';

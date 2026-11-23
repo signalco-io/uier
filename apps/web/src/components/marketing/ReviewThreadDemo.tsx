@@ -1,6 +1,6 @@
-import { ExpandDown } from '@signalco/ui-icons';
-import { Avatar } from '@signalco/ui-primitives/Avatar';
-import { Typography } from '@signalco/ui-primitives/Typography';
+import { ExpandDown } from '@uier/ui-icons';
+import { Avatar } from '@uier/ui-primitives/Avatar';
+import { Typography } from '@uier/ui-primitives/Typography';
 
 // A static example of an open comment thread, as the review layer shows it on a page: guest names
 // with their code as the avatar, "You" for your own messages, and the quoted text of a text comment,

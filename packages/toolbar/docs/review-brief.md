@@ -6,8 +6,8 @@ landing hint's dismissal is browser-local (`uier:showcase-hint-dismissed`, boole
 mode must keep its requested form focused on mount. Briefs render only as text nodes with preserved
 line breaks. No linkification or rich text.
 
-The composite UI CSS source scan covers only `Timeago`, the sole `@signalco/ui` import. Add another
-component's source if importing one; primitives retain their full source scan. Lightning CSS merges
+The UI kit's CSS source scan covers `@uier/ui-primitives` (`src/index.css`); add a `@source` line
+when importing from another kit package that has class names. Lightning CSS merges
 equivalent rules before CSS injection; unused shadow-root `@property` registrations are removed,
 but retain the unconditional properties fallback. All review shadow roots share one constructed
 sheet; do not add plain style elements or require the host's `unsafe-inline` permission.

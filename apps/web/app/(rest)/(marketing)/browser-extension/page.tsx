@@ -1,4 +1,4 @@
-import { Button } from '@signalco/ui-primitives/Button';
+import { Button } from '@uier/ui-primitives/Button';
 import { brand } from '@uier/brand';
 import { CheckList, Chip, InlineLink, PageHeader, PageSection, Panel, Tile } from '../../../../src/components/marketing/ContentPage';
 import { ExtensionStoreButton, FirefoxExtensionStoreButton, extensionPage } from '../../../../src/components/marketing/BrowserExtension';

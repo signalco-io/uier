@@ -1,6 +1,6 @@
 'use client';
 
-import { cx } from '@signalco/ui-primitives/cx';
+import { cx } from '@uier/ui-primitives/cx';
 import { MailIcon } from 'lucide-react';
 import { Mark } from '@uier/brand/Mark';
 import { AssigneeAvatar, floating, Message, ThreadHeader, type Stage } from '../LandingSpecimens';

@@ -13,7 +13,7 @@ The browser, OS and screen a comment was left from, shown in the thread's header
   their marks.
 - `src/deviceDetails/` (`@uier/toolbar/device-details`) is the popover's content, shared with the app's
   `CommentDevice` (uier #428): `DeviceDetails`, `deviceTiles`, `BrowserMark` / `OsMark` and the Lucide icons it draws
-  inline (`icons.ts`; `@signalco/ui-icons` lacks some, and `lucide-react` is not in the review bundle). It has no UI-kit
+  inline (`icons.ts`; `@uier/ui-icons` lacks some, and `lucide-react` is not in the review bundle). It has no UI-kit
   imports and takes every word from the caller; each surface keeps its own popover, time and copy button. The app's
   Tailwind reads its classes through `@source`, so keep them full strings.
 

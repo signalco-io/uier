@@ -1,4 +1,4 @@
-import { Button } from '@signalco/ui-primitives/Button';
+import { Button } from '@uier/ui-primitives/Button';
 import { InlineLink, NumberedList, PageHeader, PageSection, Panel, StepsPanel, Tile } from '@/src/components/marketing/ContentPage';
 import { FixVerificationSpecimen } from '@/src/components/marketing/FixVerificationSpecimen';
 import { ReviewChecklistSpecimen } from '@/src/components/marketing/guides/PracticalReviewSpecimens';

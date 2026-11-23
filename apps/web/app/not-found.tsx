@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Button } from '@signalco/ui-primitives/Button';
+import { Button } from '@uier/ui-primitives/Button';
 import { KnownPages } from '../src/knownPages';
 import { StatusPage } from '../src/components/StatusPage';
 

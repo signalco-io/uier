@@ -1,4 +1,4 @@
-import { cx } from '@signalco/ui-primitives/cx';
+import { cx } from '@uier/ui-primitives/cx';
 import type { ChecksAttention, ChecksPanelId } from './PageChecks';
 import { messages } from '../../i18n';
 

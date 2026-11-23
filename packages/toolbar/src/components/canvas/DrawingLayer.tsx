@@ -1,7 +1,7 @@
 'use client';
 
 import { memo, type CSSProperties, type ReactNode } from 'react';
-import { cx } from '@signalco/ui-primitives/cx';
+import { cx } from '@uier/ui-primitives/cx';
 import type { DrawingColor, DrawingShape, TextShape } from '../../drawing';
 import { blurRadius, semiFillOpacity, shapeParts, textFont, textMetrics, textPadding, textWeight } from '../../canvas/geometry';
 

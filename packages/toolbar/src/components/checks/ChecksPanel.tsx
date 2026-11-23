@@ -1,9 +1,9 @@
 import { useContext, useState, type ReactNode } from 'react';
-import { Stack } from '@signalco/ui-primitives/Stack';
-import { Row } from '@signalco/ui-primitives/Row';
-import { IconButton } from '@signalco/ui-primitives/IconButton';
-import { cx } from '@signalco/ui-primitives/cx';
-import { Reset } from '@signalco/ui-icons';
+import { Stack } from '@uier/ui-primitives/Stack';
+import { Row } from '@uier/ui-primitives/Row';
+import { IconButton } from '@uier/ui-primitives/IconButton';
+import { cx } from '@uier/ui-primitives/cx';
+import { Reset } from '@uier/ui-icons';
 import { DockablePanel, PanelCloseIcon, PanelHandle, panelEnter, panelExit, usePanelSlidesIn } from '../DockablePanel';
 import { IconTooltip } from '../IconTooltip';
 import { InkScope } from '../InkScope';

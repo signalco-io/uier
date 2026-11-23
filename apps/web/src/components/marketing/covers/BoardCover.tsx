@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, type ReactNode } from 'react';
-import { cx } from '@signalco/ui-primitives/cx';
+import { cx } from '@uier/ui-primitives/cx';
 import { FlagIcon, GitPullRequestIcon } from 'lucide-react';
 import { AssigneeAvatar, Avatar, floating, StatusDot, stageLabels, type Stage } from '../LandingSpecimens';
 import { centerOf, fade, FeatureCover, Pointer, useBoxes, type CoverCaption, type Point } from './FeatureCover';

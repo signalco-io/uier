@@ -1,5 +1,5 @@
 import { CheckIcon, ChevronDownIcon, CircleCheckIcon, FlagIcon, KanbanIcon, ListFilterIcon, ListIcon, RotateCcwIcon, SearchIcon, UserIcon, XIcon } from 'lucide-react';
-import { cx } from '@signalco/ui-primitives/cx';
+import { cx } from '@uier/ui-primitives/cx';
 import { Avatar, floating, Specimen, StatusDot, stageLabels, type Stage } from './LandingSpecimens';
 
 // A static picture of a project's feedback in the app, for /features/feedback-triage: the search, the

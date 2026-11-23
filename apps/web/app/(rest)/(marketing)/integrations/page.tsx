@@ -1,6 +1,6 @@
 import type { PropsWithChildren } from 'react';
 import { publicPageMetadata } from '@/src/lib/metadata';
-import { ArrowRight, Code } from '@signalco/ui-icons';
+import { ArrowRight, Code } from '@uier/ui-icons';
 import { CheckList, Chip, InlineLink, PageHeader, PageSection, Panel } from '../../../../src/components/marketing/ContentPage';
 import { SuggestIntegrationButton } from '../../../../src/components/marketing/SuggestIntegrationButton';
 import { IntegrationLogo } from '../../../../src/components/app/integrations/IntegrationLogo';

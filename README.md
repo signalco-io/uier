@@ -129,6 +129,7 @@ This is a TypeScript monorepo using pnpm and Turborepo.
 | [`apps/extension`](apps/extension) · [`apps/extension-firefox`](apps/extension-firefox) | Thin browser packaging targets |
 | [`packages/extension`](packages/extension) | Shared extension runtime, UI and build tools |
 | [`packages/brand`](packages/brand) | Shared design tokens, logo components, copy and assets |
+| [`packages/ui-primitives`](packages/ui-primitives) and [the packages beside it](packages/ui-primitives/AGENTS.md) | UI kit of the public pages, the toolbar and the extension popup |
 | [`infra`](infra) | Pulumi infrastructure for Vercel, Cloudflare, Azure Cosmos DB and Blob Storage |
 
 The pnpm workspace includes `apps/*` and `packages/*`. Infrastructure has its own dependencies
@@ -197,7 +198,7 @@ For product help, email [contact@uier.io](mailto:contact@uier.io). The
 ## License
 
 The website and API in `apps/web`, and files without an explicit license, use
-[AGPL-3.0-only](LICENSE). The toolbar, brand package and infrastructure use MIT, as declared in
+[AGPL-3.0-only](LICENSE). The toolbar, brand package, UI kit and infrastructure use MIT, as declared in
 their `package.json` files. [The open source page](https://uier.io/open-source) explains the licenses.
 
 A [signalco](https://signalco.io) project.

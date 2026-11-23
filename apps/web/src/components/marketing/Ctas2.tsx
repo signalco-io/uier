@@ -1,6 +1,6 @@
-import { Row } from '@signalco/ui-primitives/Row';
-import { IconButton } from '@signalco/ui-primitives/IconButton';
-import { type SectionData } from '@signalco/cms-core/SectionData';
+import { Row } from '@uier/ui-primitives/Row';
+import { IconButton } from '@uier/ui-primitives/IconButton';
+import { type SectionData } from '@uier/cms-core/SectionData';
 
 export function Ctas2({ ctas }: { ctas: SectionData['ctas']; }) {
     if (!ctas?.length) {

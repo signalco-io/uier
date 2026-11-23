@@ -11,6 +11,8 @@ the separately bundled review toolbar owns its own query cache.
 - **Notification landmark.** App pages mount only the shadcn Sonner toaster. The public layout
   mounts `PublicNotifications` inside the theme provider; `ClientProvider` does not import that
   notification implementation into app routes. Both containers otherwise expose the same "Notifications alt+T" region, even when empty.
+  The public container (`@uier/ui-notifications`) has its own toaster id, so the app's `toast()` calls never show in it:
+  a public page that also mounts the app's toaster (`/brand/components`) shows each toast once.
   `e2e/app.spec.ts` checks one notification region and axe `landmark-unique` on the project, projects
   list and account pages. This rule is outside the WCAG tags used by the general accessibility scan.
 - **Layout.** `(shell)/layout.tsx` is the sidebar (`AppSidebar`: workspace switcher (its menu lists the

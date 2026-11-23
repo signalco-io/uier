@@ -1,5 +1,5 @@
 import { Fragment } from 'react';
-import { cx } from '@signalco/ui-primitives/cx';
+import { cx } from '@uier/ui-primitives/cx';
 import { changeStyleProperties, isChangeStyleValue, type ChangeProposal, type ChangeStyleProperty } from '../changeProposal';
 import { useMessages } from '../i18n';
 import { proposalEdits, type ProposalDraft } from '../proposalDraft';

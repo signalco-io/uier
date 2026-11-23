@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState, type PropsWithChildren } from 'react';
-import { Button } from '@signalco/ui-primitives/Button';
+import { Button } from '@uier/ui-primitives/Button';
 
 /** The document stays server-rendered. Only its explicit copy action needs client code. */
 export function CopyableGuideText({ text, label, children }: PropsWithChildren<{ text: string; label: string }>) {

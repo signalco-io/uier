@@ -1,10 +1,10 @@
 import { createContext, useContext, useRef, useState } from 'react';
-import { Popper } from '@signalco/ui-primitives/Popper';
-import { Button } from '@signalco/ui-primitives/Button';
-import { Stack } from '@signalco/ui-primitives/Stack';
-import { Typography } from '@signalco/ui-primitives/Typography';
-import { cx } from '@signalco/ui-primitives/cx';
-import { Check, ExpandDown, Inbox } from '@signalco/ui-icons';
+import { Popper } from '@uier/ui-primitives/Popper';
+import { Button } from '@uier/ui-primitives/Button';
+import { Stack } from '@uier/ui-primitives/Stack';
+import { Typography } from '@uier/ui-primitives/Typography';
+import { cx } from '@uier/ui-primitives/cx';
+import { Check, ExpandDown, Inbox } from '@uier/ui-icons';
 import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
 import { useInkContainer } from './InkScope';
 import { AccessibilityIcon, SeoIcon, ConsentIcon } from './checks/ChecksIcons';

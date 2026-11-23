@@ -1,8 +1,8 @@
 import { useId, useRef, useSyncExternalStore, type ReactNode } from 'react';
-import { Stack } from '@signalco/ui-primitives/Stack';
-import { Button } from '@signalco/ui-primitives/Button';
-import { IconButton } from '@signalco/ui-primitives/IconButton';
-import { Close, Edit, Send } from '@signalco/ui-icons';
+import { Stack } from '@uier/ui-primitives/Stack';
+import { Button } from '@uier/ui-primitives/Button';
+import { IconButton } from '@uier/ui-primitives/IconButton';
+import { Close, Edit, Send } from '@uier/ui-icons';
 import { useDrafts } from '../../hooks/useDrafts';
 import { hasDraftContent, hasDraftProposal } from '../../hooks/draftStorage';
 import { useCommentPlacement } from '../../hooks/useCommentItemRects';

@@ -1,4 +1,4 @@
-import { Button } from '@signalco/ui-primitives/Button';
+import { Button } from '@uier/ui-primitives/Button';
 import { brand } from '@uier/brand';
 import { KnownPages } from '../../knownPages';
 import { CheckList, InlineLink, Panel } from './ContentPage';

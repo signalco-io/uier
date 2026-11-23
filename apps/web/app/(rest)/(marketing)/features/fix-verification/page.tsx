@@ -1,6 +1,6 @@
 import { publicPageMetadata } from '@/src/lib/metadata';
-import { Bug, ListTodo, UserCircle } from '@signalco/ui-icons';
-import { Button } from '@signalco/ui-primitives/Button';
+import { Bug, ListTodo, UserCircle } from '@uier/ui-icons';
+import { Button } from '@uier/ui-primitives/Button';
 import { brand } from '@uier/brand';
 import { CheckList, InlineLink, PageHeader, PageSection, Panel, Tile } from '../../../../../src/components/marketing/ContentPage';
 import { FaqPanel, type Question } from '../../../../../src/components/marketing/LandingFaq';

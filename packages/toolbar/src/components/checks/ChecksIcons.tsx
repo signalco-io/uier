@@ -1,4 +1,4 @@
-export { Shield as ConsentIcon } from '@signalco/ui-icons';
+export { Shield as ConsentIcon } from '@uier/ui-icons';
 import type { SVGAttributes } from 'react';
 
 type IconProps = SVGAttributes<SVGElement> & { size?: number | undefined };

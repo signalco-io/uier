@@ -1,5 +1,5 @@
 import { ArrowRight, Check, CircleHelp, CircleMinus, Info } from 'lucide-react';
-import { Button } from '@signalco/ui-primitives/Button';
+import { Button } from '@uier/ui-primitives/Button';
 import { KnownPageLinks, KnownPages } from '@/src/knownPages';
 import { InlineLink, PageHeader, PageSection, Panel, Tile } from '../ContentPage';
 import { ComparisonCover } from './ComparisonCover';

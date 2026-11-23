@@ -1,11 +1,11 @@
 import { publicPageMetadata } from '@/src/lib/metadata';
 import type { ComponentProps, PropsWithChildren } from 'react';
-import { Typography } from '@signalco/ui-primitives/Typography';
-import { Button } from '@signalco/ui-primitives/Button';
-import { Input } from '@signalco/ui-primitives/Input';
-import { Checkbox } from '@signalco/ui-primitives/Checkbox';
-import { Chip } from '@signalco/ui-primitives/Chip';
-import { Avatar } from '@signalco/ui-primitives/Avatar';
+import { Typography } from '@uier/ui-primitives/Typography';
+import { Button } from '@uier/ui-primitives/Button';
+import { Input } from '@uier/ui-primitives/Input';
+import { Checkbox } from '@uier/ui-primitives/Checkbox';
+import { Chip } from '@uier/ui-primitives/Chip';
+import { Avatar } from '@uier/ui-primitives/Avatar';
 import { brand } from '@uier/brand';
 import { priorities } from '@uier/toolbar/triage';
 import { feedbackStages } from '@uier/toolbar/verification';
@@ -267,7 +267,7 @@ export default function BrandPage() {
                 </div>
             </Section>
 
-            <Section id="components" title="The signalco UI kit, with the tokens applied." lead="Real components from @signalco/ui-primitives. Solid is ink, outlined is the border, plain is nothing until hovered. Do not build parallel components.">
+            <Section id="components" title="The UI kit, with the tokens applied." lead="Real components from @uier/ui-primitives. Solid is ink, outlined is the border, plain is nothing until hovered. Do not build parallel components.">
                 <div className="flex flex-col gap-8 rounded-2xl border p-6">
                     <div className="flex flex-wrap items-center gap-2.5">
                         <Button variant="solid">Get started</Button>

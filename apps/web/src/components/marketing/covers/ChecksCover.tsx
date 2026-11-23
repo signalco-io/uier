@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef } from 'react';
-import { cx } from '@signalco/ui-primitives/cx';
+import { cx } from '@uier/ui-primitives/cx';
 import { Pin } from '@uier/brand/Pin';
 import { ToolbarIllustration } from '../../brand/ToolbarIllustration';
 import { AccessibilityPanelSpecimen } from '../ChecksSpecimens';

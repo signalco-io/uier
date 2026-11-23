@@ -48,16 +48,6 @@
             ]
         },
         {
-            "description": "Release @signalco UI kit packages together",
-            "groupName": "signalco UI kit",
-            "matchManagers": [
-                "npm"
-            ],
-            "matchPackageNames": [
-                "@signalco/**"
-            ]
-        },
-        {
             "description": "infra/ is a standalone pnpm project with its own lockfile: keep its updates in separate PRs",
             "matchFileNames": [
                 "infra/**"

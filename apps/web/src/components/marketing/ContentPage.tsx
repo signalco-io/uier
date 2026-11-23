@@ -1,6 +1,6 @@
 import type { PropsWithChildren, ReactNode } from 'react';
-import { Check } from '@signalco/ui-icons';
-import { cx } from '@signalco/ui-primitives/cx';
+import { Check } from '@uier/ui-icons';
+import { cx } from '@uier/ui-primitives/cx';
 
 // Building blocks of the public pages (the landing page, security, open source, status, brand):
 // one type scale and section rhythm from BRAND.md ("Typography", "Space"), whitespace between
@@ -67,7 +67,7 @@ export function Panel({ as: Component = 'div', className, children }: PropsWithC
 }
 
 /** A titled cell of a Panel, with an optional `label` chip beside the title */
-/** `icon` goes above the title: an outlined icon from `@signalco/ui-icons`, e.g. `<Bug size={20} strokeWidth={1.75} />` */
+/** `icon` goes above the title: an outlined icon from `@uier/ui-icons`, e.g. `<Bug size={20} strokeWidth={1.75} />` */
 export function Tile({ title, label, icon, children }: PropsWithChildren<{ title: string; label?: string; icon?: ReactNode; }>) {
     return (
         <div className="flex flex-col gap-2 p-6">

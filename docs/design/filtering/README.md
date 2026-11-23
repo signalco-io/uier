@@ -237,7 +237,7 @@ continues to identify unread, links and focus. Keep status dots and priority fla
 The toolbar inbox stays inside its ink theme, including its menus.
 
 Use the existing app shadcn/Base UI controls (`render`, not `asChild`) and toolbar
-`@signalco/ui`/primitives inside the shadow root. Reuse FilterChip, LocationFilter/LocationPicker,
+`@uier/ui-primitives` inside the shadow root. Reuse FilterChip, LocationFilter/LocationPicker,
 Popover/Popper, checkbox, roving focus and announcement helpers. Share the query logic rather
 than importing the app component bundle into the embeddable toolbar.
 

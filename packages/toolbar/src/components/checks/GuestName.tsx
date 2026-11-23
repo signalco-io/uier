@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useRef, useState, type Dispatch, type PropsWithChildren, type SetStateAction } from 'react';
-import { Input } from '@signalco/ui-primitives/Input';
-import { cx } from '@signalco/ui-primitives/cx';
+import { Input } from '@uier/ui-primitives/Input';
+import { cx } from '@uier/ui-primitives/cx';
 import { useProjectViewer } from '../../project/ProjectGate';
 import { getGuestName, setGuestName } from '../../project/projectSession';
 import { destructiveTextClassName, inputFocusRingClassName } from '../@types/Comments';

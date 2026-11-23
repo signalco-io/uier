@@ -1,10 +1,10 @@
-import { Popper } from '@signalco/ui-primitives/Popper';
+import { Popper } from '@uier/ui-primitives/Popper';
 import { useToolbarPortalContainer } from './CommentsBootstrapperContext';
 import { floatingShadowClassName } from './@types/Comments';
-import { Button } from '@signalco/ui-primitives/Button';
-import { Avatar } from '@signalco/ui-primitives/Avatar';
-import { cx } from '@signalco/ui-primitives/cx';
-import { Check, LoaderSpinner, User } from '@signalco/ui-icons';
+import { Button } from '@uier/ui-primitives/Button';
+import { Avatar } from '@uier/ui-primitives/Avatar';
+import { cx } from '@uier/ui-primitives/cx';
+import { Check, LoaderSpinner, User } from '@uier/ui-icons';
 import { useParticipants } from '../hooks/useParticipants';
 import { useComments } from '../hooks/useComments';
 import { CommentsErrorMessage } from './CommentsErrorMessage';

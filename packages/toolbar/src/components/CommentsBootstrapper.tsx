@@ -1,5 +1,5 @@
 import { useMemo, useEffect, useRef } from 'react';
-import { Button } from '@signalco/ui-primitives/Button';
+import { Button } from '@uier/ui-primitives/Button';
 import { InkScope } from './InkScope';
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { usePagePath } from '../hooks/usePagePath';

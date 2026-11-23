@@ -1,11 +1,11 @@
-import { Add, Copy, Search, Settings, Share } from '@signalco/ui-icons';
-import { Avatar } from '@signalco/ui-primitives/Avatar';
-import { Button } from '@signalco/ui-primitives/Button';
-import { Checkbox } from '@signalco/ui-primitives/Checkbox';
-import { Chip } from '@signalco/ui-primitives/Chip';
-import { IconButton } from '@signalco/ui-primitives/IconButton';
-import { Input } from '@signalco/ui-primitives/Input';
-import { Typography } from '@signalco/ui-primitives/Typography';
+import { Add, Copy, Search, Settings, Share } from '@uier/ui-icons';
+import { Avatar } from '@uier/ui-primitives/Avatar';
+import { Button } from '@uier/ui-primitives/Button';
+import { Checkbox } from '@uier/ui-primitives/Checkbox';
+import { Chip } from '@uier/ui-primitives/Chip';
+import { IconButton } from '@uier/ui-primitives/IconButton';
+import { Input } from '@uier/ui-primitives/Input';
+import { Typography } from '@uier/ui-primitives/Typography';
 import { Logo } from '@uier/brand/Logo';
 import { Mark } from '@uier/brand/Mark';
 import { Pin } from '@uier/brand/Pin';
@@ -14,7 +14,7 @@ import { ReviewThreadDemo } from '../../marketing/ReviewThreadDemo';
 import { CheckList, Chip as LabelChip, InlineLink, NumberedList, Panel, StepsPanel, Tile } from '../../marketing/ContentPage';
 import { Specimen, State } from './Specimen';
 
-// The brand marks and the public site's kit: @signalco/ui-primitives and the ContentPage blocks.
+// The brand marks and the public site's kit: @uier/ui-primitives and the ContentPage blocks.
 
 export function BrandMarkSpecimens() {
     return (

@@ -1,6 +1,6 @@
 /**
  * Lucide icons (ISC, lucide.dev; lucide-react 1.72.0) for the device details, as Lucide's own element lists: the
- * toolbar's icon set (`@signalco/ui-icons`) lacks some of them and the app's (`lucide-react`) is not in the review
+ * toolbar's icon set (`@uier/ui-icons`) lacks some of them and the app's (`lucide-react`) is not in the review
  * bundle, so the shared `DeviceDetails` draws them itself. Names say what they stand for, not the Lucide name.
  */
 

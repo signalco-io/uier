@@ -1,6 +1,6 @@
 import { ArrowRightLeftIcon, BanIcon, CircleStopIcon, GlobeIcon, LayersIcon, LogOutIcon, MessageSquareIcon, MessageSquareOffIcon, MessageSquarePlusIcon, MonitorIcon, PlayIcon, RotateCcwIcon, SearchXIcon, UserIcon, UserXIcon, WifiOffIcon } from 'lucide-react';
 import { brand } from '@uier/brand';
-import { Button } from '@signalco/ui-primitives/Button';
+import { Button } from '@uier/ui-primitives/Button';
 import { CheckList, InlineLink, PageSection, Panel, Tile } from '@/src/components/marketing/ContentPage';
 import { ExtensionStoreButton, FirefoxExtensionStoreButton } from '@/src/components/marketing/BrowserExtension';
 import { GuideCard, GuideHeader, GuidePicture, GuideStep, GuideSteps, StepNumber, StepText, Tips, UiLabel as Label, type Tip } from '@/src/components/marketing/guides/GuideLayout';

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { cx } from '@signalco/ui-primitives/cx';
+import { cx } from '@uier/ui-primitives/cx';
 
 type TokenSwatchProps = {
     /** CSS custom property holding an HSL triplet, e.g. `--foreground`. */

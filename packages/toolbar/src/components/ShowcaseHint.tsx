@@ -1,13 +1,13 @@
 'use client';
 
 import React, { RefObject, useId, useLayoutEffect, useRef, useState } from 'react';
-import { Stack } from '@signalco/ui-primitives/Stack';
-import { Row } from '@signalco/ui-primitives/Row';
-import { Typography } from '@signalco/ui-primitives/Typography';
-import { Button } from '@signalco/ui-primitives/Button';
-import { IconButton } from '@signalco/ui-primitives/IconButton';
-import { cx } from '@signalco/ui-primitives/cx';
-import { Close } from '@signalco/ui-icons';
+import { Stack } from '@uier/ui-primitives/Stack';
+import { Row } from '@uier/ui-primitives/Row';
+import { Typography } from '@uier/ui-primitives/Typography';
+import { Button } from '@uier/ui-primitives/Button';
+import { IconButton } from '@uier/ui-primitives/IconButton';
+import { cx } from '@uier/ui-primitives/cx';
+import { Close } from '@uier/ui-icons';
 import { floatingShadowClassName } from './@types/Comments';
 import { useMessages } from '../i18n';
 

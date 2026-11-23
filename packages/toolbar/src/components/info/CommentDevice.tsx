@@ -1,9 +1,9 @@
 import type { CommentDeviceSize, CommentItem } from '../@types/Comments';
 import { useEffect, useState } from 'react';
-import { Popper } from '@signalco/ui-primitives/Popper';
-import { Button } from '@signalco/ui-primitives/Button';
-import { cx } from '@signalco/ui-primitives/cx';
-import { Check, Copy, Desktop, Mobile, Tablet } from '@signalco/ui-icons';
+import { Popper } from '@uier/ui-primitives/Popper';
+import { Button } from '@uier/ui-primitives/Button';
+import { cx } from '@uier/ui-primitives/cx';
+import { Check, Copy, Desktop, Mobile, Tablet } from '@uier/ui-icons';
 import { useAnnounce } from '../Announcer';
 import { useToolbarPortalContainer } from '../CommentsBootstrapperContext';
 import { CommentTime } from '../CommentTime';

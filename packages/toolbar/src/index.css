@@ -6,11 +6,9 @@
 /* Inherited text styles reset and reduced motion; after the tokens so it reads them */
 @import './styles/toolbar-theme.css';
 
-/* JS preset from @signalco/ui-themes-minimal (colors, radius, dark mode, tailwindcss-animate) */
+/* JS preset from @uier/ui-themes-minimal (colors, radius, dark mode, tailwindcss-animate) */
 @config '../tailwind.config.js';
 
-/* The UI kit ships precompiled class names; node_modules is not scanned automatically */
-/* Timeago is the only composite UI import; do not scan unrelated app components. */
-@source '../node_modules/@signalco/ui/dist/Timeago';
-@source '../node_modules/@signalco/ui-primitives/dist';
+/* The UI kit's and the brand's class names; workspace packages are not scanned automatically */
+@source '../node_modules/@uier/ui-primitives/src';
 @source '../node_modules/@uier/brand/src';

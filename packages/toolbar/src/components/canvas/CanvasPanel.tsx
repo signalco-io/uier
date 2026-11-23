@@ -1,12 +1,12 @@
 'use client';
 
 import { useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
-import { IconButton } from '@signalco/ui-primitives/IconButton';
-import { Button } from '@signalco/ui-primitives/Button';
-import { Divider } from '@signalco/ui-primitives/Divider';
-import { Popper } from '@signalco/ui-primitives/Popper';
-import { cx } from '@signalco/ui-primitives/cx';
-import { Delete, Redo, Undo } from '@signalco/ui-icons';
+import { IconButton } from '@uier/ui-primitives/IconButton';
+import { Button } from '@uier/ui-primitives/Button';
+import { Divider } from '@uier/ui-primitives/Divider';
+import { Popper } from '@uier/ui-primitives/Popper';
+import { cx } from '@uier/ui-primitives/cx';
+import { Delete, Redo, Undo } from '@uier/ui-icons';
 import { drawingColors, drawingSizes, type DrawingColor, type DrawingShapeType, type DrawingSize, type DrawingStyle } from '../../drawing';
 import { strokeWidths } from '../../canvas/geometry';
 import { rovingIndex } from '../../keyboard';

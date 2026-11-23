@@ -32,7 +32,7 @@ const test = base.extend<{ newVisitor: (options?: VisitorOptions) => Promise<API
     }
 });
 
-// Selectors in the form the toolbar creates them (`getElementSelector` from @signalco/js)
+// Selectors in the form the toolbar creates them
 const pointPosition = { type: 'point', selector: 'body>main>h1,#hero>h1', xNormal: 0.5, yNormal: 0.25 };
 const selectionPosition = {
     type: 'text',

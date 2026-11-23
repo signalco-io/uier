@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
-import { cx } from '@signalco/ui-primitives/cx';
-import { Down, Up } from '@signalco/ui-icons';
+import { cx } from '@uier/ui-primitives/cx';
+import { Down, Up } from '@uier/ui-icons';
 import { isChangeStyleValue, type ChangeStyleProperty } from '../../changeProposal';
 import { useMessages } from '../../i18n';
 import { pageColors } from '../../pageColors';
