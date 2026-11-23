@@ -498,7 +498,7 @@ Unassignment targets the previous assignee, subject to the same rules.
 - Colors come from `@uier/brand/tokens.css`. The pill, the pins and the inbox sidebar are always ink
   (`src/components/InkScope.tsx`); thread popovers and the hint follow the system light/dark theme.
   `src/styles/toolbar-theme.css` keeps the page's inherited text styles out and honours reduced motion.
-- UI components come from the `@signalco/*` UI kit; `src/styles/tailwind-v3-compat.css` keeps the kit's
+- UI components come from the UI kit (`@uier/ui-primitives`, `@uier/ui-icons`); `src/styles/tailwind-v3-compat.css` keeps the kit's
   Tailwind v3 class names rendering as they did with Tailwind v3.
 - The embedded bundle maps the kit's `next/link` to a ref-forwarding native anchor. All toolbar
   links use browser navigation on the reviewed site, keeping the framework router out of the

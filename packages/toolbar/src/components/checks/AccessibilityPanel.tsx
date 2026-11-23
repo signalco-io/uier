@@ -1,6 +1,6 @@
 import { useId, useState } from 'react';
-import { Button } from '@signalco/ui-primitives/Button';
-import { Check, ExternalLink, Info, LoaderSpinner, Search, Warning } from '@signalco/ui-icons';
+import { Button } from '@uier/ui-primitives/Button';
+import { Check, ExternalLink, Info, LoaderSpinner, Search, Warning } from '@uier/ui-icons';
 import { impacts, type AccessibilityReport, type AccessibilityRule, type Impact } from '../../checks/accessibility';
 import { ChecksPanel } from './ChecksPanel';
 import { GuestNameField } from './GuestName';

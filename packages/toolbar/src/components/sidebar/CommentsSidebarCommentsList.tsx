@@ -1,10 +1,10 @@
 import { useRecording } from '../../recordings';
 import { ReactNode, RefObject, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { defaultRangeExtractor, useVirtualizer } from '@tanstack/react-virtual';
-import { Stack } from '@signalco/ui-primitives/Stack';
-import { Button } from '@signalco/ui-primitives/Button';
-import { cx } from '@signalco/ui-primitives/cx';
-import { ArrowUpRight, File, MapPin } from '@signalco/ui-icons';
+import { Stack } from '@uier/ui-primitives/Stack';
+import { Button } from '@uier/ui-primitives/Button';
+import { cx } from '@uier/ui-primitives/cx';
+import { ArrowUpRight, File, MapPin } from '@uier/ui-icons';
 import { CommentThread } from '../CommentThread';
 import { stopProposalSession } from '../../proposalSession';
 import { CommentErrorBoundary } from '../CommentErrorBoundary';

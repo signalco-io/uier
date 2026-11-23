@@ -1,7 +1,7 @@
 import type { PropsWithChildren } from 'react';
-import { Button } from '@signalco/ui-primitives/Button';
-import { IconButton } from '@signalco/ui-primitives/IconButton';
-import { Close } from '@signalco/ui-icons';
+import { Button } from '@uier/ui-primitives/Button';
+import { IconButton } from '@uier/ui-primitives/IconButton';
+import { Close } from '@uier/ui-icons';
 import { InkScope } from './InkScope';
 import { useMessages } from '../i18n';
 

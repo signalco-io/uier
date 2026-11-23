@@ -3,6 +3,7 @@ import { resolve, join } from 'node:path';
 import { Script } from 'node:vm';
 import assert from 'node:assert/strict';
 import { createManifest } from './manifest.mjs';
+import { checkPackagedNotices, noticesFile } from './notices.mjs';
 export async function validate(directory, { root, browser = 'chrome' }) {
     directory ??= resolve(root, 'dist');
     const manifest = JSON.parse(await readFile(join(directory, 'manifest.json'), 'utf8'));
@@ -24,8 +25,10 @@ export async function validate(directory, { root, browser = 'chrome' }) {
         }
     }
     await visit(directory);
-    const required = ['worker.js', 'content.js', 'audit.js', 'popup.js', 'helper.js', 'popup.html', 'helper.html', 'popup.css', 'LICENSE', ...Object.values(manifest.icons), 'icons/active-16.png', 'icons/active-32.png', 'icons/active-48.png'];
+    const required = ['worker.js', 'content.js', 'audit.js', 'popup.js', 'helper.js', 'popup.html', 'helper.html', 'popup.css', 'LICENSE', noticesFile, ...Object.values(manifest.icons), 'icons/active-16.png', 'icons/active-32.png', 'icons/active-48.png'];
     for (const file of required) assert(files.includes(file), `Missing packaged file ${file}`);
+    // The bundled UI kit is MIT (signalco): its notice ships in the package, not only in the repository.
+    await checkPackagedNotices(directory);
     for (const file of files.filter(f => /\.(js|html|css)$/.test(f))) {
         const text = await readFile(join(directory, file), 'utf8');
         // axe-core keeps its MPL notice, so it marks its code: only in the audit asset, which the worker

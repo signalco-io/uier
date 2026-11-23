@@ -6,7 +6,7 @@ import { CommentsApiError } from '../hooks/api';
 import { useCallback, useEffect, useEffectEvent, useId, useMemo, useRef, useState } from 'react';
 import { anchorSelector } from '../anchorSelector';
 import { closeToolbarLayers, toolbarReviewTarget, watchToolbarPresses } from '../toolbarReview';
-import { Button } from '@signalco/ui-primitives/Button';
+import { Button } from '@uier/ui-primitives/Button';
 import { commentKey, useComments, useSiteComments, useCommentsRefresh, useActivitySummary } from '../hooks/useComments';
 import { isPageDraftKey, newDraftKey, newDrawingDraftKey, useDrafts } from '../hooks/useDrafts';
 import { hasDraftContent, hasDraftProposal } from '../hooks/draftStorage';

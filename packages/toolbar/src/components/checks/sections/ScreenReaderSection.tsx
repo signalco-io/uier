@@ -1,8 +1,8 @@
 import { useContext, useId, useState } from 'react';
-import { Button } from '@signalco/ui-primitives/Button';
-import { IconButton } from '@signalco/ui-primitives/IconButton';
-import { cx } from '@signalco/ui-primitives/cx';
-import { Down, MyLocation } from '@signalco/ui-icons';
+import { Button } from '@uier/ui-primitives/Button';
+import { IconButton } from '@uier/ui-primitives/IconButton';
+import { cx } from '@uier/ui-primitives/cx';
+import { Down, MyLocation } from '@uier/ui-icons';
 import { withAxe } from '../../../checks/accessibility';
 import type { OutlineItem } from '../../../checks/lazy/screenReader';
 import { IconTooltip } from '../../IconTooltip';

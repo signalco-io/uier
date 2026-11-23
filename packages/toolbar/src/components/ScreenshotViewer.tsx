@@ -1,10 +1,10 @@
 'use client';
 
 import { useId, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactElement, type ReactNode } from 'react';
-import { Popper } from '@signalco/ui-primitives/Popper';
-import { IconButton } from '@signalco/ui-primitives/IconButton';
-import { cx } from '@signalco/ui-primitives/cx';
-import { Close } from '@signalco/ui-icons';
+import { Popper } from '@uier/ui-primitives/Popper';
+import { IconButton } from '@uier/ui-primitives/IconButton';
+import { cx } from '@uier/ui-primitives/cx';
+import { Close } from '@uier/ui-icons';
 import { canReviewToolbar, holdsLayersAttribute, type toolbarSurface } from '../toolbarReview';
 import { IconTooltip } from './IconTooltip';
 import { useMessages } from '../i18n';

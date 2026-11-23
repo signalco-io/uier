@@ -44,8 +44,9 @@ const nextConfig: NextConfig = {
         '/api/proof-mail': proofProcessorAssets,
         '/proof-pdf/**': ['./node_modules/pdfjs-dist/{cmaps,standard_fonts,wasm}/**/*']
     },
-    // @uier/brand ships TypeScript sources (tokens, Mark, Logo); Next compiles them like app code.
-    transpilePackages: ['@uier/brand', '@uier/comments-query'],
+    // @uier/brand and the UI kit ship TypeScript sources (tokens, Mark, Logo; Button, Stack, the icons);
+    // Next compiles them like app code.
+    transpilePackages: ['@uier/brand', '@uier/comments-query', '@uier/cms-core', '@uier/js', '@uier/ui', '@uier/ui-icons', '@uier/ui-notifications', '@uier/ui-primitives'],
     images: {
         dangerouslyAllowSVG: true,
         contentSecurityPolicy: 'default-src \'self\'; script-src \'none\'; sandbox;',

@@ -1,6 +1,6 @@
 import { CheckIcon, CodeIcon, GlobeIcon, ShieldCheckIcon } from 'lucide-react';
 import { brand } from '@uier/brand';
-import { Button } from '@signalco/ui-primitives/Button';
+import { Button } from '@uier/ui-primitives/Button';
 import { InlineLink, PageSection } from '@/src/components/marketing/ContentPage';
 import { CodeWindow, GuideHeader, GuidePicture, GuideStep, GuideSteps, StepText, Tips } from '@/src/components/marketing/guides/GuideLayout';
 import { InstallationCheckSpecimen, ProjectCodeSpecimen } from '@/src/components/marketing/guides/GuideSpecimens';

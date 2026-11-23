@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { gzipSync } from 'node:zlib';
 import { expect, test } from '@playwright/test';
+import { kitLicense, kitNoticeTitle } from '@uier/ui-primitives/notice';
 import { publishToolbar } from '../scripts/toolbar-assets.mjs';
 
 test('the bootstrap stays small and pins the exact integrity-checked review script', async () => {
@@ -15,6 +16,16 @@ test('the bootstrap stays small and pins the exact integrity-checked review scri
     expect(gzipSync(loader).length).toBeLessThan(3_100);
     expect(loader.toString()).toContain(`/toolbar/${createHash('sha256').update(review).digest('hex')}.js`);
     expect(loader.toString()).toContain(`sha384-${createHash('sha384').update(review).digest('base64')}`);
+});
+
+test('the review script carries the UI kit\'s MIT notice in its closing legal comments', async ({ request }) => {
+    const review = await readFile(new URL('../../../packages/toolbar/dist/review.js', import.meta.url));
+    expect(kitLicense).toContain('Copyright (c) signalco');
+    // The whole notice, in a comment minifiers and CDNs keep, in the bytes reviewed sites load
+    expect(review.toString().endsWith(`/*! ${kitNoticeTitle}\n\n${kitLicense}*/\n`)).toBe(true);
+    const served = await request.get(`/toolbar/${createHash('sha256').update(review).digest('hex')}.js`);
+    expect(served.status()).toBe(200);
+    expect(Buffer.compare(await served.body(), review)).toBe(0);
 });
 
 test('the accessibility audit (axe-core) is its own pinned, integrity-checked asset, never in the loader or the review script', async ({ request }) => {

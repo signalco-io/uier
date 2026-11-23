@@ -77,6 +77,8 @@ does, and the rules that apply only to it, live in [`docs/`](docs/README.md), on
   only filled icon; everything else is a 1.75-stroke outline.
 - `@uier/brand` is TypeScript source; it is in `transpilePackages` in `next.config.ts` and in a
   `@source` line in `global.css` so Tailwind sees its class names.
+- The public pages' UI kit (`@uier/ui-primitives`, `@uier/ui`, `@uier/ui-icons` and the packages beside
+  them) is TypeScript source in the same two places ([kit guide](../../packages/ui-primitives/AGENTS.md)).
 
 ## App rules
 
@@ -89,7 +91,7 @@ does, and the rules that apply only to it, live in [`docs/`](docs/README.md), on
   a raw `var(--x)` as a colour needs `hsl(var(--x))`. Resting surfaces get a border, not a shadow
   (BRAND.md). Icons come from `lucide-react` (1.75 stroke, set in the theme). A person (Users, assignees,
   invites) is `User` / `UserPlus`, a team is `Users`, and your own account is `CircleUser`, in the app and
-  the toolbar (`@signalco/ui-icons` `User`, `UserCircle`). Toasts are `sonner`
+  the toolbar (`@uier/ui-icons` `User`, `UserCircle`). Toasts are `sonner`
   (`toast()`), mounted with the tooltip provider in the app layout. A change that shows in place (a
   thread's assignee, agent or priority) gets no success toast, only an error toast when it fails;
   confirm with a toast only what nothing on screen shows (a copied link, a deleted comment).

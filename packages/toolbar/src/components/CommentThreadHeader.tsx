@@ -4,13 +4,13 @@ import { selectedWorkflowStatus, useWorkflowStatus, type WorkflowStatus } from '
 
 import { feedbackStage, feedbackStages, type FeedbackStage } from '../verification';
 import { useContext, useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
-import { Row } from '@signalco/ui-primitives/Row';
-import { Stack } from '@signalco/ui-primitives/Stack';
-import { IconButton } from '@signalco/ui-primitives/IconButton';
-import { cx } from '@signalco/ui-primitives/cx';
-import { Check, Play } from '@signalco/ui-icons';
-import { Popper } from '@signalco/ui-primitives/Popper';
-import { Button } from '@signalco/ui-primitives/Button';
+import { Row } from '@uier/ui-primitives/Row';
+import { Stack } from '@uier/ui-primitives/Stack';
+import { IconButton } from '@uier/ui-primitives/IconButton';
+import { cx } from '@uier/ui-primitives/cx';
+import { Check, Play } from '@uier/ui-icons';
+import { Popper } from '@uier/ui-primitives/Popper';
+import { Button } from '@uier/ui-primitives/Button';
 import { newLocalId, useComments, useReadComment, useUnreadComment } from '../hooks/useComments';
 import { commentPriority, type CommentPriority as CommentPriorityValue } from '../triage';
 import { commentLink } from '../review';

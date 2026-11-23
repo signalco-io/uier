@@ -1,10 +1,10 @@
 import { publicPageMetadata } from '@/src/lib/metadata';
 import { SiteStructuredData } from '@/src/components/marketing/SiteStructuredData';
 import type { ReactNode } from 'react';
-import { Typography } from '@signalco/ui-primitives/Typography';
-import { Button } from '@signalco/ui-primitives/Button';
-import { ArrowRight, Bug, Filter, Layers, Lock, MyLocation, UI } from '@signalco/ui-icons';
-import { cx } from '@signalco/ui-primitives/cx';
+import { Typography } from '@uier/ui-primitives/Typography';
+import { Button } from '@uier/ui-primitives/Button';
+import { ArrowRight, Bug, Filter, Layers, Lock, MyLocation, UI } from '@uier/ui-icons';
+import { cx } from '@uier/ui-primitives/cx';
 import { brand } from '@uier/brand';
 import { InlineLink, Panel, SectionHeading } from '../../../src/components/marketing/ContentPage';
 import { FeatureExamples } from '../../../src/components/marketing/FeatureExamples';
@@ -102,7 +102,7 @@ const features: { title: string; text: ReactNode; visual: ReactNode; href: strin
     }
 ];
 
-// Six details the feature tiles above do not show, each with an outlined icon from @signalco/ui-icons.
+// Six details the feature tiles above do not show, each with an outlined icon from @uier/ui-icons.
 // Keep it to six: two rows of three at lg, three of two at md.
 const details: { title: string; text: ReactNode; icon: ReactNode }[] = [
     {

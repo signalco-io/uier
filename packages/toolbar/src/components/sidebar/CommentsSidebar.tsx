@@ -1,7 +1,7 @@
 import React, { useContext, useEffect, useId, useRef, useState } from 'react';
-import { Stack } from '@signalco/ui-primitives/Stack';
+import { Stack } from '@uier/ui-primitives/Stack';
 import { useActivitySummary } from '../../hooks/useComments';
-import { cx } from '@signalco/ui-primitives/cx';
+import { cx } from '@uier/ui-primitives/cx';
 import { useProjectViewer } from '../../project/ProjectGate';
 import { CommentsSidebarHeader, CommentsStatusTabs, FilterChip } from './CommentsSidebarHeader';
 import { CommentsSidebarCommentsList } from './CommentsSidebarCommentsList';

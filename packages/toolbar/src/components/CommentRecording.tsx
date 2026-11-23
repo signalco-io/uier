@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Button } from '@signalco/ui-primitives/Button';
+import { Button } from '@uier/ui-primitives/Button';
 import { RecordingIcon } from './RecordingIcon';
 import { apiRequest, required, currentReviewerRevision } from '../hooks/api';
 import { commentUrl } from '../hooks/useComments';

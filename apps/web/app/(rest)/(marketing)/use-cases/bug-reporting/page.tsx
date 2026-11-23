@@ -1,4 +1,4 @@
-import { Button } from '@signalco/ui-primitives/Button';
+import { Button } from '@uier/ui-primitives/Button';
 import { InlineLink, NumberedList, PageHeader, PageSection, Panel, Tile } from '@/src/components/marketing/ContentPage';
 import { ContextSpecimen } from '@/src/components/marketing/LandingSpecimens';
 import { KnownPages } from '@/src/knownPages';

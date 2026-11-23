@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState, type ReactNode, type RefObject } from 'react';
-import { Button } from '@signalco/ui-primitives/Button';
-import { Input } from '@signalco/ui-primitives/Input';
+import { Button } from '@uier/ui-primitives/Button';
+import { Input } from '@uier/ui-primitives/Input';
 import { useComments, newLocalId } from '../hooks/useComments';
 import { useParticipants } from '../hooks/useParticipants';
 import { displayedVerification, readyForReview } from '../verification';

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Down } from '@signalco/ui-icons';
+import { Down } from '@uier/ui-icons';
 import { auditAvailable } from '../../checks/axeLoader';
 import type { SeoReport } from '../../checks/seo';
 import type { CheckState, PageCheck } from '../../checks/types';

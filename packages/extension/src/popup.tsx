@@ -1,11 +1,11 @@
 import { createRoot } from 'react-dom/client';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Button } from '@signalco/ui-primitives/Button';
-import { cx } from '@signalco/ui-primitives/cx';
-import { Input } from '@signalco/ui-primitives/Input';
-import { List } from '@signalco/ui-primitives/List';
-import { ListItem } from '@signalco/ui-primitives/ListItem';
-import { Check, Disabled, ExternalLink, Globe, LoaderSpinner, LogOut, Warning } from '@signalco/ui-icons';
+import { Button } from '@uier/ui-primitives/Button';
+import { cx } from '@uier/ui-primitives/cx';
+import { Input } from '@uier/ui-primitives/Input';
+import { List } from '@uier/ui-primitives/List';
+import { ListItem } from '@uier/ui-primitives/ListItem';
+import { Check, Disabled, ExternalLink, Globe, LoaderSpinner, LogOut, Warning } from '@uier/ui-icons';
 import { brand } from '@uier/brand';
 import { Logo } from '@uier/brand/Logo';
 import { apiOrigin, message } from './environment';

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
-import { Check, Info, LoaderSpinner, MyLocation, PanelRightClose, Reset, Warning } from '@signalco/ui-icons';
-import { cx } from '@signalco/ui-primitives/cx';
+import { Check, Info, LoaderSpinner, MyLocation, PanelRightClose, Reset, Warning } from '@uier/ui-icons';
+import { cx } from '@uier/ui-primitives/cx';
 import { AddCommentIcon } from '../brand/ToolbarIllustration';
 import { Specimen } from './LandingSpecimens';
 import { LoopPointer, specimenLoop, Swap, type SpecimenLoop } from './specimenMotion';

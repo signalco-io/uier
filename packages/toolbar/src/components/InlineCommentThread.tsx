@@ -1,7 +1,7 @@
 import { useRecording } from '../recordings';
 import { useContext, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Divider } from '@signalco/ui-primitives/Divider';
+import { Divider } from '@uier/ui-primitives/Divider';
 import { useComments } from '../hooks/useComments';
 import { useLayoutVersion } from '../hooks/useLayoutVersion';
 import { useAnnounce } from './Announcer';

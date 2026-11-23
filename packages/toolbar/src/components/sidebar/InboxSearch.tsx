@@ -1,8 +1,8 @@
 import { useEffect, useRef, type FocusEvent, type KeyboardEvent } from 'react';
-import { IconButton } from '@signalco/ui-primitives/IconButton';
-import { Input } from '@signalco/ui-primitives/Input';
-import { cx } from '@signalco/ui-primitives/cx';
-import { Search } from '@signalco/ui-icons';
+import { IconButton } from '@uier/ui-primitives/IconButton';
+import { Input } from '@uier/ui-primitives/Input';
+import { cx } from '@uier/ui-primitives/cx';
+import { Search } from '@uier/ui-icons';
 import { IconTooltip } from '../IconTooltip';
 import { floatingShadowClassName } from '../@types/Comments';
 import { useMessages } from '../../i18n';

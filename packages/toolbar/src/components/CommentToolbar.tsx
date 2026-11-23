@@ -2,12 +2,12 @@
 
 import React, { useCallback, useContext, Ref, useEffect, useRef, useSyncExternalStore } from 'react';
 import { IconTooltip, useIconTooltip } from './IconTooltip';
-import { Row } from '@signalco/ui-primitives/Row';
-import { IconButton } from '@signalco/ui-primitives/IconButton';
-import { Button } from '@signalco/ui-primitives/Button';
-import { Divider } from '@signalco/ui-primitives/Divider';
-import { cx } from '@signalco/ui-primitives/cx';
-import { Down, Drag, Edit, Inbox, Info } from '@signalco/ui-icons';
+import { Row } from '@uier/ui-primitives/Row';
+import { IconButton } from '@uier/ui-primitives/IconButton';
+import { Button } from '@uier/ui-primitives/Button';
+import { Divider } from '@uier/ui-primitives/Divider';
+import { cx } from '@uier/ui-primitives/cx';
+import { Down, Drag, Edit, Inbox, Info } from '@uier/ui-icons';
 import { Mark } from '@uier/brand';
 import type { ToolbarMode } from '../config';
 import { CommentIcon } from './CommentIcon';

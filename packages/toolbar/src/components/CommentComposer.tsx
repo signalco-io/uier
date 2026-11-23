@@ -2,13 +2,13 @@
 
 import { useEffect, useId, useImperativeHandle, useRef, useState, useSyncExternalStore, type FormEvent, type ReactNode, type Ref } from 'react';
 import { IconTooltip } from './IconTooltip';
-import { Stack } from '@signalco/ui-primitives/Stack';
-import { Row } from '@signalco/ui-primitives/Row';
-import { IconButton } from '@signalco/ui-primitives/IconButton';
-import { Button } from '@signalco/ui-primitives/Button';
-import { Input } from '@signalco/ui-primitives/Input';
-import { cx } from '@signalco/ui-primitives/cx';
-import { Check, Close, Send } from '@signalco/ui-icons';
+import { Stack } from '@uier/ui-primitives/Stack';
+import { Row } from '@uier/ui-primitives/Row';
+import { IconButton } from '@uier/ui-primitives/IconButton';
+import { Button } from '@uier/ui-primitives/Button';
+import { Input } from '@uier/ui-primitives/Input';
+import { cx } from '@uier/ui-primitives/cx';
+import { Check, Close, Send } from '@uier/ui-icons';
 import { useParticipants, type Participant } from '../hooks/useParticipants';
 import { MarkdownEditor, type MarkdownEditorHandle, type MentionQuery } from '../editor/MarkdownEditor';
 import type { EditorMention } from '../editor/markdownDoc';

@@ -66,7 +66,7 @@ It states that a workspace admin first enables verification in Project settings 
 then members request optional checks on individual threads. Turning the setting off preserves history
 and makes pending checks display as Open or In progress; it does not create a confirmation. Custom
 status names never change these rules. The specimen illustrates a project with verification enabled.
-Its "Where it helps" cards each carry an outlined `@signalco/ui-icons` icon through `Tile`'s `icon`
+Its "Where it helps" cards each carry an outlined `@uier/ui-icons` icon through `Tile`'s `icon`
 (20 px, 1.75 stroke); other feature pages have no use-case section.
 `e2e/fix-verification-page.spec.ts` covers its copy, links, responsive layout and accessibility.
 

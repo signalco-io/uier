@@ -1,6 +1,6 @@
 'use client';
 
-import { cx } from '@signalco/ui-primitives/cx';
+import { cx } from '@uier/ui-primitives/cx';
 
 type CommentAreaHighlightProps = {
     rect: DOMRect;

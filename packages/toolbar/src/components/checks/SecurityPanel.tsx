@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Button } from '@signalco/ui-primitives/Button';
+import { Button } from '@uier/ui-primitives/Button';
 import { useMessages } from '../../i18n';
 import type { CheckState } from '../../checks/types';
 import { ChecksPanel } from './ChecksPanel';

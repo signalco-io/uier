@@ -1,11 +1,11 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Stack } from '@signalco/ui-primitives/Stack';
-import { Button } from '@signalco/ui-primitives/Button';
-import { Input } from '@signalco/ui-primitives/Input';
-import { cx } from '@signalco/ui-primitives/cx';
-import { AI } from '@signalco/ui-icons';
+import { Stack } from '@uier/ui-primitives/Stack';
+import { Button } from '@uier/ui-primitives/Button';
+import { Input } from '@uier/ui-primitives/Input';
+import { cx } from '@uier/ui-primitives/cx';
+import { AI } from '@uier/ui-icons';
 import { CommentsApiError } from '../hooks/api';
 import { useRewriteSuggestions } from '../hooks/useRewriteSuggestions';
 import { CommentsErrorMessage, retryAfterText, UsageLink } from './CommentsErrorMessage';

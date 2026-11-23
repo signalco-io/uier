@@ -1,9 +1,9 @@
 import { useId, useRef, useState, type ReactNode } from 'react';
-import { Button } from '@signalco/ui-primitives/Button';
-import { IconButton } from '@signalco/ui-primitives/IconButton';
-import { Info } from '@signalco/ui-icons';
+import { Button } from '@uier/ui-primitives/Button';
+import { IconButton } from '@uier/ui-primitives/IconButton';
+import { Info } from '@uier/ui-icons';
 import { useIconTooltip } from '../IconTooltip';
-import { cx } from '@signalco/ui-primitives/cx';
+import { cx } from '@uier/ui-primitives/cx';
 import { useRovingFocus } from '../../focusKeys';
 import type { ChecksPanelId } from './PageChecks';
 import { useMessages } from '../../i18n';

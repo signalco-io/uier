@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react';
-import { cx } from '@signalco/ui-primitives/cx';
+import { cx } from '@uier/ui-primitives/cx';
 
 // The script of a feature tile's loop on the landing page (apps/web/docs/landing-page.md, "The tiles
 // play"). A specimen stays the still picture it is everywhere else; with a loop, its moving parts carry

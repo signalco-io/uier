@@ -2,9 +2,9 @@ import { ScreenshotImage } from '../screenshotImage';
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Button } from '@signalco/ui-primitives/Button';
-import { Upload } from '@signalco/ui-icons';
-import { Input } from '@signalco/ui-primitives/Input';
+import { Button } from '@uier/ui-primitives/Button';
+import { Upload } from '@uier/ui-icons';
+import { Input } from '@uier/ui-primitives/Input';
 import { useToolbarPortalContainer } from './CommentsBootstrapperContext';
 import { useQuery } from '@tanstack/react-query';
 import { getCommentScreenshot } from '../hooks/useComments';

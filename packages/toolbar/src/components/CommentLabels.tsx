@@ -1,7 +1,7 @@
 import { useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Button } from '@signalco/ui-primitives/Button';
-import { Popper } from '@signalco/ui-primitives/Popper';
+import { Button } from '@uier/ui-primitives/Button';
+import { Popper } from '@uier/ui-primitives/Popper';
 import { toolbarConfig } from '../config';
 import { useProjectViewer } from '../project/ProjectGate';
 import { apiRequest, required, currentReviewerRevision, commentsQueryKeyPrefix } from '../hooks/api';

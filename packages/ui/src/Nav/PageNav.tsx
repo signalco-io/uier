@@ -1,0 +1,77 @@
+import { PropsWithChildren, ReactElement, ReactNode } from 'react';
+import { Stack } from '@uier/ui-primitives/Stack';
+import { Row } from '@uier/ui-primitives/Row';
+import { Link } from '@uier/ui-primitives/Link';
+import { Container } from '@uier/ui-primitives/Container';
+import { Button } from '@uier/ui-primitives/Button';
+import { Menu } from '@uier/ui-icons';
+
+type PageNavProps = PropsWithChildren<{
+    logo: ReactNode;
+    links?: (NavLinkItem | ReactElement)[];
+}>;
+
+export type NavLinkItem = {
+    href: string,
+    text: string
+};
+
+export function PageNav({ logo, links, children }: PageNavProps) {
+    return (
+        <div>
+            <input type="checkbox" id="mobile-menu-toggle" className="peer hidden" aria-label="Toggle menu" />
+            <header className="fixed inset-x-0 top-0 z-10 flex h-16 items-center border-b border-muted/30 backdrop-blur-md transition-all peer-checked:border-border peer-checked:bg-card">
+                <Container>
+                    <Row justifyContent="space-between">
+                        <div className="flex h-full flex-col items-center">
+                            <Link href="/">
+                                {logo}
+                            </Link>
+                        </div>
+                        <Row spacing={1}>
+                            <nav className="hidden md:block">
+                                <Row spacing={1}>
+                                    {links?.map(nl => 'text' in nl ? (
+                                        <Button
+                                            variant="plain"
+                                            size="lg"
+                                            href={nl.href}
+                                            key={nl.href}>
+                                            {nl.text}
+                                        </Button>
+                                    ) : (
+                                        nl
+                                    ))}
+                                </Row>
+                            </nav>
+                            <label htmlFor="mobile-menu-toggle" className="block md:hidden">
+                                <Menu />
+                            </label>
+                            {children && (
+                                <div className="ml-2">
+                                    {children}
+                                </div>
+                            )}
+                        </Row>
+                    </Row>
+                </Container>
+            </header>
+            <nav className="hidden peer-checked:block md:hidden">
+                <div className="fixed inset-x-2 top-16 z-10 mt-2 rounded-lg border bg-card shadow-lg animate-in fade-in slide-in-from-top-2">
+                    <Stack>
+                        {links?.map(nl => 'text' in nl ? (
+                            <Button
+                                variant="plain"
+                                size="lg"
+                                fullWidth
+                                href={nl.href}
+                                key={nl.href}>
+                                {nl.text}
+                            </Button>
+                        ) : (nl))}
+                    </Stack>
+                </div>
+            </nav>
+        </div>
+    );
+}

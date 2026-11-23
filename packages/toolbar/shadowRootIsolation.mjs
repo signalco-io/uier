@@ -47,17 +47,18 @@ shadowRootIsolation.postcss = true;
 const inlineRem = /`\$\{([^`{}]+)\}rem`/g;
 
 /**
- * esbuild: the UI kit also writes `rem` into inline styles (`Row` and `Stack` set `--s-gap` to
- * `${spacing / 2}rem`), which no stylesheet can change. This gives them `--uier-rem` too.
+ * esbuild: the UI kit (packages/ui-primitives, packages/ui) also writes `rem` into inline styles (`Row`
+ * and `Stack` set `--s-gap` to `${spacing / 2}rem`), which no stylesheet can change. This gives them
+ * `--uier-rem` too. The website keeps the kit's plain `rem`: there it is the page's own root font size.
  * @type {import('esbuild').Plugin}
  */
 export const uiKitInlineRem = {
     name: 'uier-ui-kit-inline-rem',
     setup(build) {
-        build.onLoad({ filter: /[\\/]@signalco[\\/]ui[^\\/]*[\\/]dist[\\/].*\.js$/ }, async ({ path }) => {
+        build.onLoad({ filter: /[\\/](?:packages|@uier)[\\/]ui(?:-primitives)?[\\/]src[\\/].*\.tsx$/ }, async ({ path }) => {
             const source = await readFile(path, 'utf8');
             const contents = source.replace(inlineRem, (_, value) => `\`calc(\${${value}} * var(--uier-rem, 1rem))\``);
-            return contents === source ? undefined : { contents, loader: 'js' };
+            return contents === source ? undefined : { contents, loader: 'tsx' };
         });
     }
 };

@@ -1,5 +1,5 @@
 import { FileCodeIcon, MessagesSquareIcon, MousePointerClickIcon, PuzzleIcon } from 'lucide-react';
-import { Button } from '@signalco/ui-primitives/Button';
+import { Button } from '@uier/ui-primitives/Button';
 import { brand } from '@uier/brand';
 import { IntegrationLogo } from '@/src/components/app/integrations/IntegrationLogo';
 import { InlineLink, PageSection, Panel, Tile } from '@/src/components/marketing/ContentPage';

@@ -1,9 +1,9 @@
 import { useContext, useRef, useState, type Ref } from 'react';
-import { Popper } from '@signalco/ui-primitives/Popper';
-import { Button } from '@signalco/ui-primitives/Button';
-import { IconButton } from '@signalco/ui-primitives/IconButton';
-import { Stack } from '@signalco/ui-primitives/Stack';
-import { cx } from '@signalco/ui-primitives/cx';
+import { Popper } from '@uier/ui-primitives/Popper';
+import { Button } from '@uier/ui-primitives/Button';
+import { IconButton } from '@uier/ui-primitives/IconButton';
+import { Stack } from '@uier/ui-primitives/Stack';
+import { cx } from '@uier/ui-primitives/cx';
 import { CommentsBootstrapperContext } from '../CommentsBootstrapperContext';
 import { useInkContainer } from '../InkScope';
 import { useIconTooltip } from '../IconTooltip';

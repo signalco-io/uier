@@ -9,10 +9,10 @@
     "node": "26.x"
   },
   "dependencies": {
-    "@signalco/ui-icons": "0.2.2",
-    "@signalco/ui-primitives": "0.6.5",
     "@uier/brand": "workspace:*",
     "@uier/toolbar": "workspace:*",
+    "@uier/ui-icons": "workspace:*",
+    "@uier/ui-primitives": "workspace:*",
     "react": "19.3.1",
     "react-dom": "19.3.1"
   },
@@ -33,6 +33,7 @@
     "./validate": "./scripts/validate.mjs",
     "./package": "./scripts/package.mjs",
     "./audit-asset": "./scripts/audit-asset.mjs",
+    "./notices": "./scripts/notices.mjs",
     "./protocol": "./src/protocol.ts",
     "./release": "./scripts/release.mjs"
   },

@@ -1,10 +1,10 @@
 'use client';
 
 import { useContext, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type MouseEvent, type PointerEvent, type Ref } from 'react';
-import { Add, Close, Edit, ListTodo, Undo } from '@signalco/ui-icons';
-import { Popper } from '@signalco/ui-primitives/Popper';
-import { Divider } from '@signalco/ui-primitives/Divider';
-import { cx } from '@signalco/ui-primitives/cx';
+import { Add, Close, Edit, ListTodo, Undo } from '@uier/ui-icons';
+import { Popper } from '@uier/ui-primitives/Popper';
+import { Divider } from '@uier/ui-primitives/Divider';
+import { cx } from '@uier/ui-primitives/cx';
 import { Pin } from '@uier/brand';
 import { useMessages, useToolbarLanguage } from '../i18n';
 import { newLocalId, useComments } from '../hooks/useComments';
@@ -35,7 +35,7 @@ import { usePinShift, type PinBox } from '../pinLayout';
 import { RewriteSuggestions, useRewriteSuggestionsState } from './RewriteSuggestions';
 import { ComposerAttachmentsHeader, ComposerScreenshot, composerIconButtonClassName, useAttachedImage, type AttachedImage } from './ComposerAttachments';
 import { ComposerModal, ExpandComposerButton } from './ComposerModal';
-import { IconButton } from '@signalco/ui-primitives/IconButton';
+import { IconButton } from '@uier/ui-primitives/IconButton';
 import { IconTooltip } from './IconTooltip';
 import { DrawingLayer } from './canvas/DrawingLayer';
 import { DrawIcon } from './canvas/CanvasIcons';

@@ -1,7 +1,7 @@
 import type { PropsWithChildren, ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { ArrowLeftIcon, ArrowRightIcon, FileCodeIcon } from 'lucide-react';
-import { cx } from '@signalco/ui-primitives/cx';
+import { cx } from '@uier/ui-primitives/cx';
 import { KnownPages } from '../../../knownPages';
 import { Chip } from '../ContentPage';
 

@@ -19,7 +19,8 @@ isolated content-script world with explicit configuration; it never loads toolba
 review runtime. Page CSP cannot control worker API transport. The toolbar uses the system font.
 The popup and verification helper are extension pages: their stylesheet (`src/popup.css`) is
 compiled from the toolbar's Tailwind setup and brand tokens, and Geist ships in the package
-(`fonts/`, with its license), so they load nothing remote. They follow the system theme. The popup
+(`fonts/`, with its license), so they load nothing remote. `THIRD-PARTY-NOTICES.txt` in the package
+holds the notices of the bundled software, the UI kit's MIT notice first. They follow the system theme. The popup
 shows the active tab's site, the matching projects, an active review with Exit review, and Open uier
 and Sign out. It opens in two steps. The worker answers `tab` from the browser alone (the stored
 sign-in, the active tab and the review that is on in it; no request to uier and no access renewal), and

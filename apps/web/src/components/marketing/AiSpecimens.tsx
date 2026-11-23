@@ -1,5 +1,5 @@
-import { AI, Send } from '@signalco/ui-icons';
-import { cx } from '@signalco/ui-primitives/cx';
+import { AI, Send } from '@uier/ui-icons';
+import { cx } from '@uier/ui-primitives/cx';
 import { GitPullRequestIcon } from 'lucide-react';
 import { AssigneeAvatar, floating, Message, Specimen, ThreadHeader } from './LandingSpecimens';
 import { specimenLoop, type SpecimenLoop } from './specimenMotion';

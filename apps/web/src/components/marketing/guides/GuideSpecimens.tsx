@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { ArrowRightIcon, CameraIcon, CheckIcon, ChevronDownIcon, CopyIcon, ExternalLinkIcon, FileCodeIcon, GlobeIcon, LogOutIcon, MaximizeIcon, PaperclipIcon, PlusIcon, PuzzleIcon, RotateCcwIcon, SendIcon } from 'lucide-react';
-import { cx } from '@signalco/ui-primitives/cx';
+import { cx } from '@uier/ui-primitives/cx';
 import { brand } from '@uier/brand';
 import { Logo } from '@uier/brand/Logo';
 import { Mark } from '@uier/brand/Mark';

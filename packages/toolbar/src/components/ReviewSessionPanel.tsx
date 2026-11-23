@@ -1,10 +1,10 @@
 import { useId, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Button } from '@signalco/ui-primitives/Button';
-import { IconButton } from '@signalco/ui-primitives/IconButton';
-import { Input } from '@signalco/ui-primitives/Input';
-import { Popper } from '@signalco/ui-primitives/Popper';
-import { Delete, ListTodo } from '@signalco/ui-icons';
+import { Button } from '@uier/ui-primitives/Button';
+import { IconButton } from '@uier/ui-primitives/IconButton';
+import { Input } from '@uier/ui-primitives/Input';
+import { Popper } from '@uier/ui-primitives/Popper';
+import { Delete, ListTodo } from '@uier/ui-icons';
 import { newLocalId } from '../hooks/useComments';
 import { useMessages } from '../i18n';
 import { useProjectViewer } from '../project/ProjectGate';

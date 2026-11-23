@@ -1,5 +1,5 @@
-import { Down, Drag, Inbox, Megaphone, MoreHorizontal, UserCircle } from '@signalco/ui-icons';
-import { cx } from '@signalco/ui-primitives/cx';
+import { Down, Drag, Inbox, Megaphone, MoreHorizontal, UserCircle } from '@uier/ui-icons';
+import { cx } from '@uier/ui-primitives/cx';
 import { PIN_PATH, PIN_VIEWBOX } from '@uier/brand';
 
 // A static picture of the review toolbar, expanded, in the order packages/toolbar CommentToolbar

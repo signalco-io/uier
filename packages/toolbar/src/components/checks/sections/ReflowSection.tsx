@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useState } from 'react';
-import { Button } from '@signalco/ui-primitives/Button';
-import { cx } from '@signalco/ui-primitives/cx';
+import { Button } from '@uier/ui-primitives/Button';
+import { cx } from '@uier/ui-primitives/cx';
 import type { LazyChecks } from '../../../checks/lazy';
 import { pageCheck } from '../../../checks/lazy/api';
 import { useAnnounce } from '../../Announcer';

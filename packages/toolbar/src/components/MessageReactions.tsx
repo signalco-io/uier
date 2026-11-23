@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type PointerEvent, type Ref } from 'react';
-import { Popper } from '@signalco/ui-primitives/Popper';
-import { IconButton } from '@signalco/ui-primitives/IconButton';
-import { cx } from '@signalco/ui-primitives/cx';
+import { Popper } from '@uier/ui-primitives/Popper';
+import { IconButton } from '@uier/ui-primitives/IconButton';
+import { cx } from '@uier/ui-primitives/cx';
 import { useMessages, useToolbarLanguage } from '../i18n';
 import { messageReactions, reactionEmoji, reactionIds, reactionPeople, type MessageReaction, type ReactionId } from '../reactions';
 import { useReaction } from '../hooks/useReactions';

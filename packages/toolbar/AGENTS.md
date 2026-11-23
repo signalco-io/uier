@@ -79,7 +79,8 @@ every change in the package.
   The loader bytes produce `dist/bundle.json` (`@uier/toolbar/bundle`): its SHA-256 path and SHA-384 SRI.
   Each language but English (`dist/language-<code>.js`) is pinned in the review script the same way ([docs/localization.md](docs/localization.md)).
   The review script's closing license comment keeps each distinct notice once per bundled file (`withDistinctLicenses`):
-  the UI kit's bundles repeat lucide-react's notice for every icon.
+  a dependency that is itself a bundle repeats a notice for every file it bundled.
+  The UI kit's MIT notice (signalco) closes the script after them (`../ui-primitives/src/notice`, `e2e/toolbar-assets.api.spec.ts`).
   The web build publishes default/pinned loaders and the review, audit and language assets, retaining them in its archive. Keep
   production pins/API compatibility for one year after last release as current (docs/api.md).
 - UI-kit `next/link` imports in the embedded IIFE resolve to `components/ToolbarLink.tsx`, a
@@ -192,8 +193,8 @@ text. Drafts are local to each browser origin and expire after seven days.
   identity, tokens or page path/query/hash in it; keep the manual clipboard fallback and announcement.
   Ended sessions carry the fetched `signInUrl` and page-state policy on their error. Both sign-in
   notices send only `location.origin` plus `pagePath` with that policy, never the raw page URL.
-- UI comes from `@signalco/ui-primitives` / `@signalco/ui`; icons from `@signalco/ui-icons`
-  (Lucide, 1.75 stroke). Do not add Next.js-only imports; this runs in any page.
+- UI comes from `@uier/ui-primitives`; icons from `@uier/ui-icons` (Lucide, 1.75 stroke), the local
+  UI kit ([its guide](../ui-primitives/AGENTS.md)). Do not add Next.js-only imports; this runs in any page.
 - Icon-only controls show their names with `IconTooltip` / `useIconTooltip`, never `title`
   ([docs/comment-thread.md](docs/comment-thread.md#icon-buttons)).
 - Keep the loader below 7.5 KB raw / 3.1 KB gzip (`e2e/toolbar-assets.api.spec.ts`). React, styles,

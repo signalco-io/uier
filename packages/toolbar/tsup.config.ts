@@ -6,6 +6,7 @@ import browserslist from 'browserslist';
 import { defineConfig } from 'tsup';
 import { toolbarLanguages } from './src/languages';
 import { assertNoInlineRem, uiKitInlineRem } from './shadowRootIsolation.mjs';
+import { kitLicense, kitNoticeTitle } from '../ui-primitives/src/notice/index';
 
 // Share the rolling browser policy with Next.js. A Safari/iOS version can be a range;
 // esbuild needs its earliest version, and calls Browserslist's ios_saf engine "ios".
@@ -15,9 +16,10 @@ const browserTargets = [...new Set(browserslist(undefined, { path: fileURLToPath
 }))];
 
 /**
- * esbuild ends a bundle with every bundled file's license comment, and the UI kit's bundles repeat
- * lucide-react's notice for each of their icons (over 40 KB of the review bundle). Keeps each distinct
- * notice once in each file's comment, with the first file that has it; the code is unchanged.
+ * esbuild ends a bundle with every bundled file's license comment, and a dependency that is itself a
+ * bundle repeats a notice for each file it bundled (the npm UI kit did for each lucide-react icon, over
+ * 40 KB of the review bundle). Keeps each distinct notice once in each file's comment, with the first
+ * file that has it; the code is unchanged.
  */
 function withDistinctLicenses(js: string) {
     const start = js.lastIndexOf('/*! Bundled license information:');
@@ -113,8 +115,11 @@ export default defineConfig(({ env }) => {
             if (js.includes('__uier_audit_')) throw new Error('Audit placeholder is not a JavaScript string literal');
             if (js.includes('__uier_language_assets__') || !js.includes(JSON.stringify(languageAssets))) throw new Error('Language placeholder is not a JavaScript string literal');
             // Function replacer so `$` sequences in CSS are not treated as replacement patterns
-            const injected = js.replace(/(["'])__uier_toolbar_css__\1/g, () => JSON.stringify(css));
-            if (injected === js) throw new Error('CSS placeholder is not a JavaScript string literal');
+            const withCss = js.replace(/(["'])__uier_toolbar_css__\1/g, () => JSON.stringify(css));
+            if (withCss === js) throw new Error('CSS placeholder is not a JavaScript string literal');
+            // The UI kit is MIT (signalco) and its sources carry no comment for esbuild to keep, so its
+            // notice closes the review script after the bundled files' own (e2e/toolbar-assets.api.spec.ts).
+            const injected = `${withCss.trimEnd()}\n/*! ${kitNoticeTitle}\n\n${kitLicense}*/\n`;
             new Script(injected); // Parse the final bytes, including CSS, before publishing them.
             writeFileSync(`./${outDir}/review.js`, injected);
             // Keep the existing CSS export for workspace consumers.

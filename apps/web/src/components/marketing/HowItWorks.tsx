@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useLayoutEffect, useRef, useState, type Ref } from 'react';
-import { Check, Copy, ExpandDown, MoreHorizontal, Pause, Play } from '@signalco/ui-icons';
-import { Button } from '@signalco/ui-primitives/Button';
-import { cx } from '@signalco/ui-primitives/cx';
+import { Check, Copy, ExpandDown, MoreHorizontal, Pause, Play } from '@uier/ui-icons';
+import { Button } from '@uier/ui-primitives/Button';
+import { cx } from '@uier/ui-primitives/cx';
 import { brand } from '@uier/brand';
 import { Pin } from '@uier/brand/Pin';
 import { AddCommentIcon, ToolbarIllustration } from '../brand/ToolbarIllustration';

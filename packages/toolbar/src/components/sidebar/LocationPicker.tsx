@@ -1,9 +1,9 @@
 import { useContext, useMemo, useState, type HTMLAttributes, type KeyboardEvent, type ReactNode } from 'react';
-import { Popper } from '@signalco/ui-primitives/Popper';
-import { Button } from '@signalco/ui-primitives/Button';
-import { Input } from '@signalco/ui-primitives/Input';
-import { cx } from '@signalco/ui-primitives/cx';
-import { Check, ExpandDown, File, Globe, Layers, Search } from '@signalco/ui-icons';
+import { Popper } from '@uier/ui-primitives/Popper';
+import { Button } from '@uier/ui-primitives/Button';
+import { Input } from '@uier/ui-primitives/Input';
+import { cx } from '@uier/ui-primitives/cx';
+import { Check, ExpandDown, File, Globe, Layers, Search } from '@uier/ui-icons';
 import { CommentsBootstrapperContext } from '../CommentsBootstrapperContext';
 import { useInkContainer } from '../InkScope';
 import type { CommentsPageFilter } from './CommentsFilter';

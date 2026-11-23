@@ -1,6 +1,6 @@
 import { cloneElement, useEffect, useLayoutEffect, useRef, useState, type FocusEvent, type KeyboardEvent, type MouseEvent, type PointerEvent, type ReactElement } from 'react';
 import { createPortal } from 'react-dom';
-import { cx } from '@signalco/ui-primitives/cx';
+import { cx } from '@uier/ui-primitives/cx';
 import { useToolbarPortalContainer } from './CommentsBootstrapperContext';
 
 const showDelayMs = 300;

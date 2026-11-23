@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
-import { Check, ExternalLink, Globe, LogOut } from '@signalco/ui-icons';
-import { cx } from '@signalco/ui-primitives/cx';
+import { Check, ExternalLink, Globe, LogOut } from '@uier/ui-icons';
+import { cx } from '@uier/ui-primitives/cx';
 import { Logo } from '@uier/brand/Logo';
 import { Mark } from '@uier/brand/Mark';
 import { Pin } from '@uier/brand/Pin';

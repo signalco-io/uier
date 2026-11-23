@@ -1,0 +1,28 @@
+{
+    "name": "@uier/ui-themes-minimal",
+    "description": "uier UI kit - the Tailwind CSS preset (colours, radius, dark mode, animations)",
+    "version": "0.0.0",
+    "private": true,
+    "license": "MIT",
+    "type": "module",
+    "sideEffects": false,
+    "engines": {
+        "node": "26.x"
+    },
+    "exports": {
+        "./config": "./src/config.ts"
+    },
+    "scripts": {
+        "typecheck": "tsc --noEmit"
+    },
+    "dependencies": {
+        "tailwindcss-animate": "1.0.7"
+    },
+    "peerDependencies": {
+        "tailwindcss": ">=4"
+    },
+    "devDependencies": {
+        "tailwindcss": "4.3.5",
+        "typescript": "7.0.2"
+    }
+}

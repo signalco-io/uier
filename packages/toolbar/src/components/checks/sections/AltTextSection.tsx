@@ -1,8 +1,8 @@
 import { useContext, useState } from 'react';
-import { Button } from '@signalco/ui-primitives/Button';
-import { IconButton } from '@signalco/ui-primitives/IconButton';
-import { cx } from '@signalco/ui-primitives/cx';
-import { MyLocation, Warning } from '@signalco/ui-icons';
+import { Button } from '@uier/ui-primitives/Button';
+import { IconButton } from '@uier/ui-primitives/IconButton';
+import { cx } from '@uier/ui-primitives/cx';
+import { MyLocation, Warning } from '@uier/ui-icons';
 import type { AltTextDetails, AltTextImage } from '../../../checks/lazy/altText';
 import type { SectionReport } from '../../../checks/lazy/api';
 import type { PageIssue } from '../../../checks/types';

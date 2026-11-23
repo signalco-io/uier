@@ -1,4 +1,4 @@
-import { cx } from '@signalco/ui-primitives/cx';
+import { cx } from '@uier/ui-primitives/cx';
 import { useMessages } from '../i18n';
 import { InkScope } from './InkScope';
 

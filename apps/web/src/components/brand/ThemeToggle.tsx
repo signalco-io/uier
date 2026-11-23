@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useTheme } from 'next-themes';
-import { Button } from '@signalco/ui-primitives/Button';
-import { Row } from '@signalco/ui-primitives/Row';
+import { Button } from '@uier/ui-primitives/Button';
+import { Row } from '@uier/ui-primitives/Row';
 
 const options = [
     { value: 'light', label: 'Light' },

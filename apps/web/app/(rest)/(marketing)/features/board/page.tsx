@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { publicPageMetadata } from '@/src/lib/metadata';
-import { Button } from '@signalco/ui-primitives/Button';
+import { Button } from '@uier/ui-primitives/Button';
 import { brand } from '@uier/brand';
 import { CheckList, InlineLink, NumberedList, PageHeader, PageSection, Panel, StepsPanel, Tile } from '../../../../../src/components/marketing/ContentPage';
 import { FaqPanel, type Question } from '../../../../../src/components/marketing/LandingFaq';

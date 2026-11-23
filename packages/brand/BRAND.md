@@ -260,7 +260,7 @@ Two levels only.
 
 ### Icons
 
-Lucide (the UI kit's `@signalco/ui-icons`), 1.75 px stroke, 16 inline with text, 20 in buttons,
+Lucide (the UI kit's `@uier/ui-icons`), 1.75 px stroke, 16 inline with text, 20 in buttons,
 24 in the toolbar. Outlined only; the pin is the one filled shape.
 
 ### Motion
@@ -305,7 +305,7 @@ only while its thread is open.
 
 ## Components
 
-Public pages use `@signalco/ui` and `@signalco/ui-primitives`; the signed-in app uses the
+Public pages use `@uier/ui` and `@uier/ui-primitives`; the signed-in app uses the
 shadcn/ui components in `apps/web/src/components/ui`. Both run on these tokens; do not build
 parallel components. The app is a sidebar (one step off the page colour) beside an inset panel
 with a 1 px border. Solid buttons are ink (white on dark), outlined buttons are the border, plain

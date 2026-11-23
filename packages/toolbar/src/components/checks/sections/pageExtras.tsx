@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react';
-import { Button } from '@signalco/ui-primitives/Button';
-import { LoaderSpinner } from '@signalco/ui-icons';
+import { Button } from '@uier/ui-primitives/Button';
+import { LoaderSpinner } from '@uier/ui-icons';
 import { auditAvailable } from '../../../checks/axeLoader';
 import { largestPaintElement } from '../../../checks/webVitals';
 import { CheckItem } from '../ChecksParts';

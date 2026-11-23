@@ -9,7 +9,9 @@ checks delivery, format, contact, expiry and the redirect. See
 
 `/security` lists only controls that are in place and can be checked in this repository; remove a
 control from it when it stops being true, and add one only when it ships. `/open-source` mirrors the
-licenses in each `package.json`, the root `LICENSE` and the README "License" section. Both have the
+licenses in each `package.json`, the root `LICENSE` and the README "License" section. Its
+"Third-party notices" section is where the website serves the UI kit's MIT notice (signalco,
+`@uier/ui-primitives/notice`): keep the whole text on the page. Both have the
 repository's `SECURITY.md` and `CONTRIBUTING.md` as counterparts; keep them saying the same thing.
 `e2e/pages.spec.ts` checks them.
 

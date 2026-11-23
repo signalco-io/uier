@@ -24,7 +24,7 @@ separate infrastructure setup, credentials and CI/CD.
   `text-muted-foreground`, `border-border` and `rounded-xl`. Use the existing `<Logo />`, `<Mark />`
   and `<Pin />` components. Keep copy in sentence case, use short sentences and no exclamation marks,
   and make only claims the product can back. The name is always **uier**, lowercase.
-- **UI kit.** Public pages use `@signalco/ui` and `@signalco/ui-primitives`. The signed-in app uses
+- **UI kit.** Public pages use `@uier/ui` and `@uier/ui-primitives` (the local packages in `packages/`). The signed-in app uses
   the shadcn/ui components in `apps/web/src/components/ui`, built on Base UI. Do not build parallel
   buttons, inputs or menus. See [the web guide](apps/web/AGENTS.md#styling-rules) for styling and component details.
 - **Dependencies.** Use exact versions and the pinned pnpm version. Renovate keeps dependencies
@@ -103,4 +103,4 @@ messages (`signalco-io/signalco#1234`) point to the original repository.
 
 By contributing you agree that your contribution is licensed under the license of the package you change:
 AGPL-3.0-only for `apps/web` and anything without its own license, MIT for `packages/toolbar`,
-`packages/brand` and `infra`.
+`packages/brand`, the UI kit packages (`packages/ui-primitives` and those listed in its guide) and `infra`.

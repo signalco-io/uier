@@ -1,5 +1,5 @@
 import type { CSSProperties, InputHTMLAttributes } from 'react';
-import { cx } from '@signalco/ui-primitives/cx';
+import { cx } from '@uier/ui-primitives/cx';
 
 /**
  * A slider for the suggestion editor: a native range input, so it has its name, its value text and the keyboard

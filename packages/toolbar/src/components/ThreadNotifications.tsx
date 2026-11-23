@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Button } from '@signalco/ui-primitives/Button';
-import { Input } from '@signalco/ui-primitives/Input';
+import { Button } from '@uier/ui-primitives/Button';
+import { Input } from '@uier/ui-primitives/Input';
 import { toolbarConfig } from '../config';
 import { apiRequest, commentsQueryKeyPrefix } from '../hooks/api';
 import { CommentsErrorMessage } from './CommentsErrorMessage';

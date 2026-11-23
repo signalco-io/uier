@@ -1,5 +1,5 @@
 import { brand } from '@uier/brand';
-import { Button } from '@signalco/ui-primitives/Button';
+import { Button } from '@uier/ui-primitives/Button';
 import { FileCodeIcon, GlobeIcon, ShieldCheckIcon } from 'lucide-react';
 import { KnownPages } from '@/src/knownPages';
 import { embedScript, cspSnippet } from '@/src/lib/app/integration';

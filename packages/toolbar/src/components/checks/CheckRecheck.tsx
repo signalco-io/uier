@@ -1,7 +1,7 @@
 import { useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { Button } from '@signalco/ui-primitives/Button';
-import { cx } from '@signalco/ui-primitives/cx';
-import { LoaderSpinner } from '@signalco/ui-icons';
+import { Button } from '@uier/ui-primitives/Button';
+import { cx } from '@uier/ui-primitives/cx';
+import { LoaderSpinner } from '@uier/ui-icons';
 import { canRecheck, recheck, type Recheck } from '../../checks/recheck';
 import { useWebVitals, type WebVitals } from '../../checks/webVitals';
 import { useMessages } from '../../i18n';

@@ -1,8 +1,8 @@
 import { ClientProvider } from '@/src/components/providers/ClientProvider';
 import { PublicNotifications } from '@/src/components/providers/PublicNotifications';
-import { Container } from '@signalco/ui-primitives/Container';
-import { PageNav } from '@signalco/ui/Nav';
-import { Button } from '@signalco/ui-primitives/Button';
+import { Container } from '@uier/ui-primitives/Container';
+import { PageNav } from '@uier/ui/Nav';
+import { Button } from '@uier/ui-primitives/Button';
 import { Logo } from '@uier/brand/Logo';
 import { SiteFooter } from '../../../src/components/marketing/SiteFooter';
 import { KnownPages } from '../../../src/knownPages';

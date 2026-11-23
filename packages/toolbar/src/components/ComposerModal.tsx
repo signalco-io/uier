@@ -4,8 +4,8 @@ import { useMessages } from '../i18n';
 
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { IconButton } from '@signalco/ui-primitives/IconButton';
-import { cx } from '@signalco/ui-primitives/cx';
+import { IconButton } from '@uier/ui-primitives/IconButton';
+import { cx } from '@uier/ui-primitives/cx';
 import { IconTooltip } from './IconTooltip';
 import { ModalPortalContext } from './CommentsBootstrapperContext';
 import { composerIconButtonClassName } from './ComposerAttachments';

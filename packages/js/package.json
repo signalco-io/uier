@@ -1,0 +1,21 @@
+{
+    "name": "@uier/js",
+    "description": "uier UI kit - string helpers the kit components share",
+    "version": "0.0.0",
+    "private": true,
+    "license": "MIT",
+    "type": "module",
+    "sideEffects": false,
+    "engines": {
+        "node": "26.x"
+    },
+    "exports": {
+        ".": "./src/index.ts"
+    },
+    "scripts": {
+        "typecheck": "tsc --noEmit"
+    },
+    "devDependencies": {
+        "typescript": "7.0.2"
+    }
+}

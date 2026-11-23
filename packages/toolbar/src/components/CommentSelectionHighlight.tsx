@@ -1,7 +1,7 @@
 'use client';
 
 import { HTMLAttributes } from 'react';
-import { cx } from '@signalco/ui-primitives/cx';
+import { cx } from '@uier/ui-primitives/cx';
 import { useCommentItemRects } from '../hooks/useCommentItemRects';
 import { CommentSelection } from './@types/Comments';
 

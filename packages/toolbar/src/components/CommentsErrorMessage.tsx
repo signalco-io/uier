@@ -1,4 +1,4 @@
-import { cx } from '@signalco/ui-primitives/cx';
+import { cx } from '@uier/ui-primitives/cx';
 import { CommentsApiError } from '../hooks/api';
 import { commentTextMaxLength, destructiveTextClassName } from './@types/Comments';
 import type { ToastAction } from './Toaster';

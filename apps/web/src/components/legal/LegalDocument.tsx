@@ -1,5 +1,5 @@
 import type { PropsWithChildren } from 'react';
-import { cx } from '@signalco/ui-primitives/cx';
+import { cx } from '@uier/ui-primitives/cx';
 import { KnownPages } from '../../knownPages';
 
 export const legalDocuments = [

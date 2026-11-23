@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useEffectEvent, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
-import { cx } from '@signalco/ui-primitives/cx';
+import { cx } from '@uier/ui-primitives/cx';
 import { drawingLimits, drawingText, isStyledShape, type DrawingShape, type DrawingStyle, type StyledShape, type TextShape } from '../../drawing';
 import {
     boxBetween, finishFreehand, hitsShape, lineEnd, moveShape, newSeed, resizeShape, shapeAt, shapeBounds, shapeHandles, textMetrics,

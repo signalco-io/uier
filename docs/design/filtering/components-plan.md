@@ -40,7 +40,7 @@ Sources: [shadcn Base UI Combobox](https://ui.shadcn.com/docs/components/base/co
 [Field](https://ui.shadcn.com/docs/components/base/field),
 [Sheet](https://ui.shadcn.com/docs/components/base/sheet).
 
-The toolbar continues with `@signalco/ui` / `@signalco/ui-primitives`, its `Popper`, existing
+The toolbar continues with `@uier/ui-primitives`, its `Popper`, existing
 Input/Button/IconButton and native controls where appropriate. Share semantics and option
 rendering data, not app shadcn components, Base UI, cmdk or a second overlay system. Dates can use
 native date/range inputs plus the same presets without introducing the app calendar dependency.

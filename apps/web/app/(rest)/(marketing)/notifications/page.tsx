@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
-import { Button } from '@signalco/ui-primitives/Button';
+import { Button } from '@uier/ui-primitives/Button';
 import { PageHeader } from '@/src/components/marketing/ContentPage';
 import { inspectNotificationToken } from '@/src/lib/notifications/preferences';
 import { NotificationForm } from './NotificationForm';

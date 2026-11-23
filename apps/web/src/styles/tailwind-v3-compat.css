@@ -1,9 +1,9 @@
 /*
  * Tailwind CSS v3 -> v4 compatibility layer.
  *
- * The @signalco UI kit (@signalco/ui, ui-primitives, ui-notifications, cms-core) is published
- * precompiled with class names written for Tailwind CSS v3. Several of those names changed
- * meaning in v4, so this file restores the v3 values for everything the kit relies on.
+ * The UI kit (@uier/ui, @uier/ui-primitives; local copies of the @signalco packages) is written
+ * with class names for Tailwind CSS v3. Several of those names changed meaning in v4, so this
+ * file restores the v3 values for everything the kit relies on.
  * Based on https://tailwindcss.com/docs/upgrade-guide. Remove once the kit targets v4.
  */
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, type ReactNode } from 'react';
-import { cx } from '@signalco/ui-primitives/cx';
+import { cx } from '@uier/ui-primitives/cx';
 import { catalogEntry, sourceUrl, stateAnchor } from './catalog';
 
 // A catalog entry and its states. Comments from the review toolbar anchor to these elements: the

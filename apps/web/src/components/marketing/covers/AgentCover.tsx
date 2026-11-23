@@ -1,6 +1,6 @@
 'use client';
 
-import { cx } from '@signalco/ui-primitives/cx';
+import { cx } from '@uier/ui-primitives/cx';
 import { GitPullRequestIcon } from 'lucide-react';
 import { AssigneeAvatar, floating, Message, ThreadHeader, type Stage } from '../LandingSpecimens';
 import { appear, fade, FeatureCover, type CoverCaption } from './FeatureCover';

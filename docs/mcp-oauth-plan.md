@@ -225,7 +225,7 @@ The same text appears in Account for each connected app. A short allowlist of kn
 - If the person already has a connection from the same `client_id`, or one with the same name, an option to replace it, selected for the same `client_id`.
 - "Allow access" and "Cancel". Cancel returns `error=access_denied`.
 
-Extract the project and operation picker from `McpCredentials.tsx` into one shadcn component used by consent, Account editing and (phase 3) the manual credential form; the current form still uses `@signalco/ui-primitives` controls, which `/app` should not. Copy follows `BRAND.md`: sentence case, short sentences, no exclamation marks.
+Extract the project and operation picker from `McpCredentials.tsx` into one shadcn component used by consent, Account editing and (phase 3) the manual credential form; the current form still uses `@uier/ui-primitives` controls, which `/app` should not. Copy follows `BRAND.md`: sentence case, short sentences, no exclamation marks.
 
 Approval is a server action that rechecks the session user, reloads the request (unexpired, unused), validates every chosen workspace and project against current access, consumes the request with its etag and creates an authorization code (section 9). It then renders a same-origin return page, "Returning to Claude Code. You can close this tab.", which navigates to `redirect_uri?code=…&state=…&iss=https%3A%2F%2Fuier.io` with a nonce script and offers the same link without JavaScript. A redirect straight from the form submission is not used: `form-action 'self'` in `proxy.ts` also applies to redirects after a form post, so a 303 to a loopback or `claude.ai` callback would be blocked, and widening `form-action` per request is not worth it. Test the return in Chromium and WebKit.
 

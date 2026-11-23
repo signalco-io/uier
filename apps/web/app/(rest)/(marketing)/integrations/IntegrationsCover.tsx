@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
-import { Pause, Play } from '@signalco/ui-icons';
-import { Button } from '@signalco/ui-primitives/Button';
-import { cx } from '@signalco/ui-primitives/cx';
+import { Pause, Play } from '@uier/ui-icons';
+import { Button } from '@uier/ui-primitives/Button';
+import { cx } from '@uier/ui-primitives/cx';
 import { Pin } from '@uier/brand/Pin';
 import { IntegrationLogo } from '../../../../src/components/app/integrations/IntegrationLogo';
 import { floating, Message, StatusDot, ThreadHeader, type Stage } from '../../../../src/components/marketing/LandingSpecimens';
