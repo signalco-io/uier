@@ -679,8 +679,8 @@ importers:
         specifier: workspace:*
         version: link:../ui-icons
       classix:
-        specifier: 2.2.2
-        version: 2.2.2
+        specifier: 2.2.28
+        version: 2.2.28
       tailwind-merge:
         specifier: 2.6.0
         version: 2.6.0
@@ -3098,8 +3098,8 @@ packages:
   class-variance-authority@0.7.1:
     resolution: {integrity: sha512-Ka+9Trutv7G8M6WT6SeiRWz792K5qEqIGEGzXKhAE6xOWAY6pPH8U+9IY3oCMv6kqTmLsv7Xh/2w2RigkePMsg==}
 
-  classix@2.2.2:
-    resolution: {integrity: sha512-sHfNzza/LoiecpfDAjnVyan2SG4Q9fhcO0TrbnjK7nh5rvA9E9k/kFk4WGHdI24upUyzSBSxq+uy4oUPR9Mgig==}
+  classix@2.2.28:
+    resolution: {integrity: sha512-XQS1i22GmdfWG1pGQxLSOh79oq+5G56Sb/kuEJPDGCwhDGojXQHk+XS+z3yh8Rq/PII1Ks++7crVImprNSX4Lw==}
 
   cli-boxes@3.0.0:
     resolution: {integrity: sha512-/lzGpEWL/8PfI0BmBOPRwp0c/wFNX1RdUML3jK/RcSBA9T8mZDdQpqYBKtCFTOfQbwPqWEOpjqW+Fnayc0969g==}
@@ -8089,7 +8089,7 @@ snapshots:
     dependencies:
       clsx: 2.1.1
 
-  classix@2.2.2: {}
+  classix@2.2.28: {}
 
   cli-boxes@3.0.0: {}
 
