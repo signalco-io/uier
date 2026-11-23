@@ -609,6 +609,8 @@ export const de: Messages = {
         label: 'Screenshot',
         expand: 'Screenshot vergrößern',
         close: 'Screenshot schließen',
+        move: 'Screenshot verschieben',
+        moveHelp: 'Mit den Pfeiltasten verschieben. Mit gedrückter Umschalttaste in größeren Schritten. Die Eingabetaste setzt ihn zurück in die Mitte.',
         expanded: 'Vergrößerter Screenshot',
         redact: 'Screenshot schwärzen',
         uploadInput: 'Screenshot-Bild hochladen'

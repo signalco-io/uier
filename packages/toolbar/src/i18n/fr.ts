@@ -609,6 +609,8 @@ export const fr: Messages = {
         label: 'Capture d’écran',
         expand: 'Agrandir la capture d’écran',
         close: 'Fermer la capture d’écran',
+        move: 'Déplacer la capture d’écran',
+        moveHelp: 'Déplacez-la avec les flèches. Maintenez Maj pour des pas plus grands. Entrée la remet au centre.',
         expanded: 'Capture d’écran agrandie',
         redact: 'Masquer des parties de la capture',
         uploadInput: 'Importer une image de capture d’écran'

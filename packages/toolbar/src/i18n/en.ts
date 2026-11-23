@@ -629,6 +629,8 @@ export const en = {
         label: 'Screenshot',
         expand: 'Expand screenshot',
         close: 'Close screenshot',
+        move: 'Move screenshot',
+        moveHelp: 'Use the arrow keys to move it. Hold Shift for larger steps. Enter puts it back in the middle.',
         expanded: 'Expanded screenshot',
         redact: 'Redact screenshot',
         uploadInput: 'Upload screenshot image'

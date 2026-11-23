@@ -94,7 +94,9 @@ export function ComposerAttachMenu({ image, recording, disabled }: {
             aria-label={t.attachments.attach}
             // Like a menu: ↑ and ↓ move between its buttons
             onKeyDown={moveFocusInMenu}
-            className={cx('z-[80] w-auto min-w-40 max-w-64 rounded-xl p-1', floatingShadowClassName)}
+            // The level of toolbar comments' threads and the screenshot viewer, where the newest is on top: above the
+            // form it opens from, and under a viewer opened after it (that press closes it anyway)
+            className={cx('z-[78] w-auto min-w-40 max-w-64 rounded-xl p-1', floatingShadowClassName)}
             // Back to Attach, unless the focus moved on meanwhile: Stop of a capture that started from the menu
             {...{ onCloseAutoFocus: keepMovedFocus }}
             trigger={(

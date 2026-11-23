@@ -610,6 +610,8 @@ export const es: Messages = {
         label: 'Captura de pantalla',
         expand: 'Ampliar la captura de pantalla',
         close: 'Cerrar la captura de pantalla',
+        move: 'Mover la captura de pantalla',
+        moveHelp: 'Muévela con las teclas de flecha. Mantén Mayús para pasos más grandes. Intro la devuelve al centro.',
         expanded: 'Captura de pantalla ampliada',
         redact: 'Ocultar partes de la captura',
         uploadInput: 'Subir imagen de captura de pantalla'

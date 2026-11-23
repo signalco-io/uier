@@ -24,7 +24,7 @@ import { ReattachContext } from './CommentAnchorDetails';
 import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
 import { useAnnounce } from './Announcer';
 import { getDeviceInfo } from './info/getDeviceInfo';
-import { holdsLayersAttribute, isToolbarAnchor, pressableToolbarOpener, toolbarPinId, toolbarSurface } from '../toolbarReview';
+import { holdsLayersAttribute, isScreenshotViewerAnchor, isToolbarAnchor, pressableToolbarOpener, toolbarPinId, toolbarSurface } from '../toolbarReview';
 import { isPointing } from './CommentPointOverlay';
 import { PinStatus } from './PinStatus';
 import { statusLabel } from './CommentThreadHeader';
@@ -654,6 +654,8 @@ export function CommentBubble(props: CommentBubbleProps) {
     // On uier's own pages: a comment on a part of the toolbar, whose pin, thread and composer keep
     // that part's popover open, above the toolbar's popovers and menus (toolbarReview.ts)
     const onToolbar = isToolbarAnchor(position);
+    // On the screenshot viewer, which is above the threads of comments on the toolbar: its pin and drawing go above it
+    const onViewer = isScreenshotViewerAnchor(position);
     const composerError = mutation.error ?? props.draft?.sendError;
     const sessionRejected = creating && isReviewSessionRejection(composerError);
     const addToSession = creating && Boolean(reviewSession?.draftId);
@@ -925,14 +927,14 @@ export function CommentBubble(props: CommentBubbleProps) {
             {isCommentArea(position) && lastRect && !closedLayer && drawing && (
                 <DrawingLayer
                     data-uier-drawing-comment={commentItem?.id ?? ''}
-                    className={onToolbar ? 'z-[74]' : 'z-[47]'}
+                    className={onViewer ? 'z-[79]' : onToolbar ? 'z-[74]' : 'z-[47]'}
                     shapes={drawing.shapes}
                     left={lastRect.left}
                     top={lastRect.top} />
             )}
             {elementProposal && open && liveBox && (
                 <ProposalTargetOutline rect={liveBox} tag={proposalElement?.tag} count={suggesting ? editCount : proposalChangeCount(saved)}
-                    className={onToolbar ? 'z-[74]' : 'z-[47]'} />
+                    className={onViewer ? 'z-[79]' : onToolbar ? 'z-[74]' : 'z-[47]'} />
             )}
             {/* The outline only while the pin is hovered or focused, or its thread is open (or previewed);
                 a drawing marks its area itself, so it keeps showing (uier #375) */}
@@ -975,7 +977,8 @@ export function CommentBubble(props: CommentBubbleProps) {
                             'group fixed cursor-pointer rounded-full pointer-coarse:p-1.5',
                             upsideDown ? 'rounded-bl-none' : 'rounded-tl-none',
                             // A hovered or focused pin comes in front of the pins it overlaps
-                            onToolbar ? 'z-[75] hover:z-[76] focus-visible:z-[76]' : 'z-[48] hover:z-[49] focus-visible:z-[49]',
+                            onViewer ? 'z-[79] hover:z-[80] focus-visible:z-[80]'
+                                : onToolbar ? 'z-[75] hover:z-[76] focus-visible:z-[76]' : 'z-[48] hover:z-[49] focus-visible:z-[49]',
                             sending && 'opacity-70',
                             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
                             className

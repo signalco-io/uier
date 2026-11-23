@@ -245,3 +245,15 @@ export function isToolbarAnchor(position: CommentItemPosition) {
     const selectors = position.type === 'point' ? [position.selector] : [position.startSelector, position.endSelector];
     return [...selectors, position.layer?.opener].some(selector => selector?.startsWith(toolbarAnchorPrefix));
 }
+
+const viewerAnchor = new RegExp(`^${toolbarAnchorPrefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}div\\.uier-screenshot(?![\\w-])`);
+
+/**
+ * Whether a comment is on the saved screenshot viewer (`div.uier-screenshot`): its pin and drawing go
+ * above the viewer, which is above the threads of other comments on the toolbar (docs/screenshots.md)
+ */
+export function isScreenshotViewerAnchor(position: CommentItemPosition) {
+    if (position.type === 'page') return false;
+    const selectors = position.type === 'point' ? [position.selector] : [position.startSelector, position.endSelector];
+    return selectors.some(selector => selector !== undefined && viewerAnchor.test(selector));
+}

@@ -610,6 +610,8 @@ export const hr: Messages = {
         label: 'Snimka zaslona',
         expand: 'Povećaj snimku zaslona',
         close: 'Zatvori snimku zaslona',
+        move: 'Pomakni snimku zaslona',
+        moveHelp: 'Pomičite je strelicama. Držite Shift za veće korake. Enter je vraća u sredinu.',
         expanded: 'Povećana snimka zaslona',
         redact: 'Zacrni dijelove snimke',
         uploadInput: 'Prenesi sliku snimke zaslona'

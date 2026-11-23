@@ -95,16 +95,23 @@ attached image ([uier #497](https://uier.io/app/review/uier00000002?url=https%3A
   goes back to its thumbnail; it takes the focus itself when it opens, so Close's tooltip does not show at once.
   `toolbar-theme.css` fills the window with its popover's positioned wrapper, which is the backdrop.
 - Above every toolbar popover: `z-[78]`, the threads of comments on the toolbar, and later in the shadow root than the
-  thread it opened from, so above that one too. Tooltips and point mode stay above it; pins under it.
-- A header with its title and Close, an X icon button with a tooltip (**Close screenshot**, **Close image**). The
-  header drags it, with a mouse, pen or touch; part of the header always stays in the window, and every opening starts
-  in the middle again.
+  thread it opened from, so above that one too. Tooltips and point mode stay above it, and so do the pins and drawings
+  of comments on the viewer itself (`isScreenshotViewerAnchor`, `z-[79]`, `z-[80]` hovered); other pins are under it.
+  Attach's menu shares the `z-[78]` level, so it is above the form it opens from, a new comment on the viewer too.
+- A header with **Move screenshot**, its title and Close, an X icon button with a tooltip (**Close screenshot**,
+  **Close image**). The header drags it, with a mouse, pen or touch; part of the header always stays in the window, and
+  every opening starts in the middle again. Without dragging (WCAG 2.5.7), Move takes the arrow keys (16 px, 64 px
+  with Shift), and a press on it (Enter, Space, a click that did not drag) puts the viewer back in the middle.
+- Its parts are in the header and a body under it, so saved toolbar anchors from before the header, by position
+  from `div.uier-screenshot` (its Close button, its image), no longer match by selector: they go through
+  [anchor recovery](anchor-recovery.md) like any changed page. Anchors on the viewer itself still match.
 - On uier's own pages presses go through the backdrop, so the pill's Add comment reaches the viewer, and a press in
   the viewer keeps the toolbar's other popovers open (`data-uier-holds-layers`).
 
 ## Tests
 
 `apps/web/e2e/screenshots.spec.ts`: Attach, the screenshot's thumbnail, its preview and Remove screenshot in the text box, an attached image's thumbnail and preview.
-`toolbar-review.spec.ts`: the viewer above a toolbar comment's thread, dragged by its header, and that thread kept open. `thread-attachments.spec.ts`:
+`toolbar-review.spec.ts`: the viewer above a toolbar comment's thread, dragged by its header, and that thread kept open;
+moved with the keyboard and back to the middle; a comment on it, whose Attach menu and pin are above it. `thread-attachments.spec.ts`:
 Attach to comment on a saved thread; `screenshot-replacement.spec.ts`: saved images, their errors and redaction. `screenshot-performance.spec.ts`: capture yields
 to the browser ([capture responsiveness](composer-popovers.md#capture-responsiveness)).

@@ -610,6 +610,8 @@ export const it: Messages = {
         label: 'Screenshot',
         expand: 'Ingrandisci lo screenshot',
         close: 'Chiudi lo screenshot',
+        move: 'Sposta lo screenshot',
+        moveHelp: 'Spostalo con i tasti freccia. Tieni premuto Maiusc per passi più grandi. Invio lo riporta al centro.',
         expanded: 'Screenshot ingrandito',
         redact: 'Oscura parti dello screenshot',
         uploadInput: 'Carica un’immagine come screenshot'
