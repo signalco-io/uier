@@ -64,7 +64,7 @@ test('priority shows a flag in its colour in the thread, its menu, list rows and
     const thread = await openComment(page, numbers[0]!);
     const control = thread.getByRole('button', { name: 'Priority: Normal. Change priority', exact: true });
     await expect(control).toHaveText('Normal');
-    // The default Normal is "not set": muted text and flag, like Unassigned and Link a pull request
+    // The default Normal is "not set": muted text and flag, like Unassigned and No linked pull request
     await expect(control).toHaveAttribute('data-unset', '');
     await expect(control).toHaveCSS('color', await tokenColor(page, '--muted-foreground'));
     await expectFlag(control, 'normal', '--muted-foreground');

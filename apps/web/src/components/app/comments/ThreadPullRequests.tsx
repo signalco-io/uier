@@ -3,7 +3,7 @@
 import { useAppI18n } from '@/src/lib/i18n/client';
 
 import { useEffect, useRef, useState, useSyncExternalStore, type MouseEvent, type RefObject } from 'react';
-import { ArrowUpRightIcon, GitPullRequestIcon, PlusIcon, XIcon } from 'lucide-react';
+import { ArrowUpRightIcon, GitPullRequestIcon, XIcon } from 'lucide-react';
 import { useActionState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/src/components/ui/button';
@@ -153,7 +153,7 @@ function PullRequestValues({ projectId, commentId, links, revision, comment, rea
             })}
             {/* One row tall like the links above, so the control is centred on the label */}
             {comment.permissions.triage && <div className="flex min-h-8 w-full min-w-0 items-center pointer-coarse:min-h-11">
-                <LinkPullRequest projectId={projectId} commentId={commentId} />
+                <LinkPullRequest projectId={projectId} commentId={commentId} linked={links.length > 0} />
             </div>}
         </dd>
     );
@@ -171,10 +171,12 @@ export function ThreadPullRequests({ projectId, comment, readStates = true }: { 
 }
 
 /**
- * A quiet "Link a pull request" control, like the Assignees row's Unassigned: an icon and muted text, no outline.
- * Choosing it shows the URL field with focus in it; Escape or leaving it empty closes it and gives focus back.
+ * A quiet control in muted text, no icon or outline, like the Labels row's No labels: "No linked pull request" while
+ * the thread has none (named "No linked pull request. Link a pull request", as Unassigned is "Unassigned. Change
+ * assignee"), "Link a pull request" below the links once it has some. Choosing it shows the URL field with focus in
+ * it; Escape or leaving it empty closes it and gives focus back.
  */
-function LinkPullRequest({ projectId, commentId }: { projectId: string; commentId: string }) {
+function LinkPullRequest({ projectId, commentId, linked }: { projectId: string; commentId: string; linked: boolean }) {
     const { t } = useAppI18n();
     const [open, setOpen] = useState(false);
     const [url, setUrl] = useState('');
@@ -197,9 +199,9 @@ function LinkPullRequest({ projectId, commentId }: { projectId: string; commentI
 
     if (!open) return (
         <Button ref={trigger} type="button" variant="ghost" size="sm" onClick={() => setOpen(true)}
+            aria-label={linked ? undefined : t("No linked pull request. Link a pull request")}
             data-unset="" className={cn('-ml-1.5 h-7 min-w-0 gap-1.5 px-1.5 font-normal pointer-coarse:min-h-11', unsetValueClass)}>
-            <PlusIcon aria-hidden="true" data-icon="inline-start" />
-            {t("Link a pull request")}
+            {linked ? t("Link a pull request") : t("No linked pull request")}
         </Button>
     );
     return <form action={action} className="flex w-full min-w-0 flex-wrap items-center gap-2"

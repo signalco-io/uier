@@ -272,6 +272,8 @@ const messages: Record<keyof typeof en, string> = {
     "Light": "Svijetla",
     "Link": "Poveži",
     "Link a pull request": "Poveži pull request",
+    "No linked pull request": "Nema povezanog pull requesta",
+    "No linked pull request. Link a pull request": "Nema povezanog pull requesta. Poveži pull request",
     "Link copied. It opens the page at this comment.": "Poveznica kopirana. Otvara stranicu na ovom komentaru.",
     "Linked pull request": "Povezani pull request",
     "List": "Popis",

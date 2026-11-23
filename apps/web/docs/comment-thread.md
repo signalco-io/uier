@@ -30,7 +30,7 @@
   brings the AI title back), and a thread without a title shows a quiet Add a title. Otherwise, without a title
   there is no heading, as the first message shows in full below. Then the details, from the most abstract to the most
   detailed: Page, On, Assignees, Priority, Labels, Pull requests, then Integrations. Every value still unset or at its default (Unassigned,
-  the default Normal priority, Link a pull request) has one "not set" look (`unsetValue.ts`, `data-unset`): muted text
+  the default Normal priority, No linked pull request) has one "not set" look (`unsetValue.ts`, `data-unset`): muted text
   with its icon in the same colour, ink on hover for a control; set values are ink. `e2e/thread-details.spec.ts` checks it. On (what it was left on, with the selector or
   the selected text; `SelectorCode` shows a selector longer than 28 characters as its start and end,
   `#comments>…>dd.m-0>code.ml-2`, one line on a phone, and Show full selector / Shorten selector toggles it; only
@@ -255,7 +255,9 @@ assignee card, with Open in T3 Code or another desktop session link, at the top 
   after an item was chosen keeps the keyboard and stays open. `e2e/project-review.spec.ts` covers both.
 
 Project triagers can paste a supported pull request URL in the open thread properties. The row shows a quiet
-Link a pull request ghost control (plus icon, the shared "not set" look), in a row one control tall so it
+ghost control without an icon (the shared "not set" look): No linked pull request while the thread has none (named
+"No linked pull request. Link a pull request", like "Unassigned. Change assignee"), Link a pull request below the links
+once it has some, in a row one control tall so it
 is centred on the Pull requests label like every other row's control; choosing it reveals the
 Pull request URL field with focus in it, Escape closes it and returns focus, and a saved link closes it. Manually linked PRs persist separately from messages, deduplicate with message links and appear in the row/card hover or tap card with the same provider icons and state badges as detected links. Once a state is known, the link's icon and name take the
 badge's colour (Open green, Merged violet, Closed red, Draft muted; `data-pull-request-color`); a closed one's name stays

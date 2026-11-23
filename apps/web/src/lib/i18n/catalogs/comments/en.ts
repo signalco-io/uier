@@ -272,6 +272,8 @@ const messages = {
     "Light": "Light",
     "Link": "Link",
     "Link a pull request": "Link a pull request",
+    "No linked pull request": "No linked pull request",
+    "No linked pull request. Link a pull request": "No linked pull request. Link a pull request",
     "Link copied. It opens the page at this comment.": "Link copied. It opens the page at this comment.",
     "Linked pull request": "Linked pull request",
     "List": "List",
