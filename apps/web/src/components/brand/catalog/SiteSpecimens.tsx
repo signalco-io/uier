@@ -69,6 +69,12 @@ export function SiteKitSpecimens() {
                 <State label="Outlined"><IconButton variant="outlined" aria-label="Copy"><Copy size={20} strokeWidth={1.75} /></IconButton></State>
                 <State label="Solid"><IconButton variant="solid" aria-label="Settings"><Settings size={20} strokeWidth={1.75} /></IconButton></State>
                 <State label="Disabled"><IconButton variant="outlined" disabled aria-label="Copy, disabled"><Copy size={20} strokeWidth={1.75} /></IconButton></State>
+                <State label="Sizes">
+                    <IconButton variant="outlined" size="xs" aria-label="Copy, extra small"><Copy size={16} strokeWidth={1.75} /></IconButton>
+                    <IconButton variant="outlined" size="sm" aria-label="Copy, small"><Copy size={16} strokeWidth={1.75} /></IconButton>
+                    <IconButton variant="outlined" size="md" aria-label="Copy, medium"><Copy size={20} strokeWidth={1.75} /></IconButton>
+                    <IconButton variant="outlined" size="lg" aria-label="Copy, large"><Copy size={24} strokeWidth={1.75} /></IconButton>
+                </State>
             </Specimen>
             <Specimen id="site-input">
                 <State label="Empty"><Input label="Email" placeholder="you@company.com" type="email" fullWidth /></State>
