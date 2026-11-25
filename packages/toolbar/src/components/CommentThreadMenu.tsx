@@ -12,7 +12,7 @@ import { useToolbarPortalContainer } from './CommentsBootstrapperContext';
 import { destructiveTextClassName, floatingShadowClassName } from './@types/Comments';
 import { useIconTooltip } from './IconTooltip';
 import { commentPriority, priorities, type CommentPriority } from '../triage';
-import { keepMovedFocus, toolbarSurface } from '../toolbarReview';
+import { keepMovedFocus, toolbarSurface, usePopoverTriggerPress } from '../toolbarReview';
 import { moveFocusInMenu } from '../focusKeys';
 import { useMessages } from '../i18n';
 import { useInkContainer } from './InkScope';
@@ -72,6 +72,7 @@ export function CommentThreadMenu({ className, actions, triggerRef }: { classNam
     const [confirming, setConfirming] = useState(false);
     const firstRef = useRef<HTMLButtonElement>(null);
     const confirmRef = useRef<HTMLButtonElement>(null);
+    const triggerPress = usePopoverTriggerPress();
     // The edit form and reattachment panel take focus as they open.
     const leaveFocus = useRef(false);
     const requestVerification = useRef<(() => void) | undefined>(undefined);
@@ -128,11 +129,13 @@ export function CommentThreadMenu({ className, actions, triggerRef }: { classNam
                     className={className}
                     aria-label={t.thread.options}
                     data-uier-thread-control=""
+                    onPointerDownCapture={triggerPress.onPointerDown}
                     {...triggerProps}>
                     <MoreHorizontal size={16} />
                 </IconButton>
             )}
-            {...contentProps}>
+            {...contentProps}
+            {...{ onPointerDownOutside: triggerPress.onPointerDownOutside }}>
             {confirming && remove ? (
                 <Stack spacing={1} className="p-2">
                     <p className="m-0 text-sm text-foreground">{remove.confirmText}</p>

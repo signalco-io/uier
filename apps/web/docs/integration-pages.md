@@ -19,6 +19,8 @@ disclosures, not runtime feature flags. Update the dated repository records firs
 provider acceptance or listing decision justifies a stronger claim. Never refresh dates on build.
 `e2e/integration-pages.spec.ts` covers the public guides, their features and settings, the logos, the suggestion
 form, support/setup links and accessibility.
+Provider guides and their feature checks use the public entries in the catalog. Group review sessions stays
+app-only until each provider passes hosted acceptance, as specified in the [review-session design](../../../docs/design/review-sessions.md).
 
 Each provider has a static page that passes its catalog key to `IntegrationGuide`. The heading,
 workflow, permissions and setup steps must be visible on a direct visit with JavaScript disabled.

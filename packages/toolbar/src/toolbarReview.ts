@@ -1,3 +1,4 @@
+import { useRef, type PointerEvent as ReactPointerEvent } from 'react';
 import { toolbarConfig } from './config';
 import { getToolbarHost } from './mount';
 import { toolbarAnchorPrefix, toolbarParts, toolbarPartsSelector, toolbarPartSegment, toolbarPinPrefix, type ToolbarPart } from './toolbarParts';
@@ -203,6 +204,20 @@ export function closeToolbarLayers(anchor: Element | null | undefined) {
 export function keepMovedFocus(event: Event) {
     const active = reviewedRoot()?.activeElement;
     if (active && !(event.target instanceof Node && event.target.contains(active))) event.preventDefault();
+}
+
+/** A deferred Radix outside press sees the shadow host instead of the trigger it came from. */
+export function usePopoverTriggerPress() {
+    const press = useRef<PointerEvent>(null);
+    return {
+        onPointerDown: (event: ReactPointerEvent) => { press.current = event.nativeEvent; },
+        onPointerDownOutside: (event: CustomEvent<{ originalEvent: PointerEvent }>) => {
+            if (event.detail.originalEvent === press.current) {
+                press.current = null;
+                event.preventDefault();
+            }
+        }
+    };
 }
 
 /**

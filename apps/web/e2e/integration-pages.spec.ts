@@ -54,9 +54,11 @@ for (const provider of ['notion', 'github', 'linear', 'azure-devops', 'slack']) 
         await expect(setup.getByRole('listitem')).toHaveCount(4);
         if (!isIntegrationCatalogKey(provider)) throw new Error(provider);
         const integration = integrationCatalog[provider];
+        const publicFeatures = integration.features.filter(feature => !feature.appOnly);
+        const features = page.getByRole('region', { name: 'What it does' });
         await expect(page.getByRole('main').locator(`header [data-integration-logo="${provider}"]`)).toBeVisible();
-        await expect(page.getByRole('region', { name: 'What it does' }).getByRole('heading', { level: 3 })).toHaveText(integration.features.map(feature => feature.title));
-        await expect(page.getByRole('region', { name: 'What it does' }).getByText('Optional', { exact: true })).toHaveCount(integration.features.filter(feature => feature.optional).length);
+        await expect(features.getByRole('heading', { level: 3 })).toHaveText(publicFeatures.map(feature => feature.title));
+        await expect(features.getByText('Optional', { exact: true })).toHaveCount(publicFeatures.filter(feature => feature.optional).length);
         await expect(page.getByRole('region', { name: 'What you can configure' }).locator('dt')).toHaveText(integration.settings.map(setting => setting.name + (setting.required ? 'Required' : '')));
         await expect(page.getByRole('main').getByRole('link', { name: /^Set up / })).toHaveAttribute('href', '/app');
         const qualification = page.getByRole('region', { name: 'Availability and verification' });

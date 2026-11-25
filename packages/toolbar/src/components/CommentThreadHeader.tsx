@@ -28,7 +28,7 @@ import { IconTooltip } from './IconTooltip';
 import { useThreadNotificationActions } from './ThreadNotifications';
 import { useShortcutsEnabled } from '../shortcuts';
 import { assignShortcutEvent } from '../threadShortcuts';
-import { keepMovedFocus, toolbarSurface } from '../toolbarReview';
+import { keepMovedFocus, toolbarSurface, usePopoverTriggerPress } from '../toolbarReview';
 import { moveFocusInMenu } from '../focusKeys';
 import { useMessages, type Messages } from '../i18n';
 
@@ -104,6 +104,7 @@ function CommentStatusMenu({ stage, allowed, pending, shortcut, onChange, status
     const t = useMessages();
     const [open, setOpen] = useState(false);
     const currentRef = useRef<HTMLButtonElement>(null);
+    const triggerPress = usePopoverTriggerPress();
     // Ready to verify waits for the menu to close: its form then takes the focus
     const requesting = useRef<string | false>(false);
     const options = feedbackStages.filter(category => verificationEnabled || category !== 'ready').flatMap(category => {
@@ -153,6 +154,7 @@ function CommentStatusMenu({ stage, allowed, pending, shortcut, onChange, status
                     className="h-6 shrink-0 gap-1.5 whitespace-nowrap rounded-full px-2 text-xs font-medium pointer-coarse:h-8 pointer-coarse:px-3"
                     aria-label={t.thread.changeStatus(label)}
                     aria-keyshortcuts={shortcut ? 'S' : undefined}
+                    onPointerDown={triggerPress.onPointerDown}
                     data-uier-status=""
                     data-uier-thread-control="">
                     <GlowingStatusDot stage={stage} />
@@ -160,7 +162,8 @@ function CommentStatusMenu({ stage, allowed, pending, shortcut, onChange, status
                     {label}
                 </Button>
             )}
-            {...contentProps}>
+            {...contentProps}
+            {...{ onPointerDownOutside: triggerPress.onPointerDownOutside }}>
             <Stack role="group" aria-label={t.thread.setStatus}>
                 {localizedOptions.map((option, index) => {
                     const current = option.id === selected?.id;

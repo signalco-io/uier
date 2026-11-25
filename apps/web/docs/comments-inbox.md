@@ -317,6 +317,8 @@ spinner uses muted semantic tokens and stops rotating with reduced motion. `Spin
 (not `size-4`), so inside a button it takes the size of the icon it replaces: Archive all's pending spinner in the
 `icon-xs` header button is 12 px like the column's progress, at full strength while it saves (uier #441). Header geometry, mounted
 nodes, focus, failure/retry and data-only idle checks are guarded in `realtime.spec.ts`.
+The sort-position check measures the control and its column together because moving focus can scroll
+the board sideways on phones.
 
 The fingerprint includes the effective label catalog once at snapshot level and omits each
 comment's duplicate `availableLabels`, like its duplicate `workflow`. Per-thread labels and IDs
