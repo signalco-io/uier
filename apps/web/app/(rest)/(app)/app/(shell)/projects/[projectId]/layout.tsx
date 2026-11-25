@@ -84,8 +84,8 @@ async function ProjectLayoutContent({ children, params }: LayoutProps<'/app/proj
                     </span>
                 )} />
             <ProjectTabs projectId={project.id} publicId={project.publicId} hasSites={hasSites} filesEnabled={project.workspaceId !== PUBLIC_WORKSPACE_ID} install={hasSites && !feedback} />
-            {/* The comments' filter row sits closer under the tabs than the other pages (uier #495) */}
-            <div className="flex flex-col gap-6 pt-6 has-[[data-project-comments]]:pt-3">
+            {/* The comments' filter row sits closer under the tabs than the other pages (uier #495), as far under them as its divider is under it (8 px, uier #511) */}
+            <div className="flex flex-col gap-6 pt-6 has-[[data-project-comments]]:pt-2">
                 {children}
             </div>
         </div>
