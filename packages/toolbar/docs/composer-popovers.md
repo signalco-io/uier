@@ -42,6 +42,8 @@ character counter near the limit, Discard while there is text, and Send.
 Discard and Send are plain icon buttons with their tooltips: an X, since Discard has no labeled button beside
 Send, and Send, since Enter sends. They are 44 px on touch screens. `beforeText` goes between the quote and the
 box ([a rewrite's suggestions](#a-rewrite)). Screenshots and Attach image: [screenshots](screenshots.md#the-form).
+When the controls need more room, Discard and Send wrap together to a second line at the right, leaving the
+attachment controls and their touch targets clear.
 
 ### A rewrite
 

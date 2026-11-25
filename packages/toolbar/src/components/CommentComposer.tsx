@@ -356,8 +356,8 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, submitIc
                     }}
                     textClassName={cx('overflow-y-auto rounded-t-lg px-3 pb-1 pt-2.5 text-sm text-foreground', tall ? tallTextClassName : textClassName)}
                     placeholderClassName="px-3 pt-2.5 text-sm text-muted-foreground" />
-                <Row justifyContent="space-between" spacing={1} className={cx('py-1.5 pr-1.5', image || recording || attachments ? 'pl-1.5' : 'pl-3')}>
-                    <Row spacing={1} className="min-w-0">
+                <Row spacing={1} className={cx('flex-wrap gap-y-1 py-1.5 pr-1.5', image || recording || attachments ? 'pl-1.5' : 'pl-3')}>
+                    <Row spacing={1} className="min-w-0 max-w-full">
                     {(image || recording) && <ComposerAttachMenu image={image} recording={recording} disabled={waiting || busy || sharedPending} />}
                     {attachments}
                     <span
@@ -374,7 +374,7 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, submitIc
                         ) : isMember && <span className="sr-only">{t.composer.mentionHelp}</span>}
                     </span>
                     </Row>
-                    <Row spacing={0.5} className="shrink-0">
+                    <Row spacing={0.5} className="ml-auto shrink-0">
                         {onCancel && <IconTooltip label={t.common.cancel}><IconButton
                             variant="plain"
                             size="xs"
