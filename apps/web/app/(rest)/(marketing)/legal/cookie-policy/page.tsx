@@ -77,18 +77,53 @@ const items = [
         duration: '30 days'
     },
     {
+        name: '__Host-uier_account_1 … __Host-uier_account_4',
+        type: 'Cookies (first party, HttpOnly)',
+        when: 'You sign in to more than one account in this browser',
+        purpose: 'Hold signed credentials for up to four additional accounts so you can switch back to them. Switching keeps the original expiry. Sign out of all accounts removes these credentials.',
+        duration: 'Remaining time on each sign-in, up to 30 days'
+    },
+    {
         name: '__Host-uier_last_sign_in',
         type: 'Cookie (first party, HttpOnly)',
         when: 'You sign in to the app',
-        purpose: 'Marks the option you signed in with (passkey, Google, Microsoft or email) as “Last used” on the sign-in page. Holds only that option’s name, with nothing about you; signing out keeps it.',
+        purpose: 'Automatically marks the method you chose (passkey, Google, Microsoft or email) as “Last used” the next time you see the sign-in page. It contains the method name and stays after sign-out. You can sign in with any method if you clear it.',
         duration: 'One year'
+    },
+    {
+        name: '__Host-uier-proof-visitor',
+        type: 'Cookie (first party, HttpOnly)',
+        when: 'You redeem a guest file-review link or an external file-approval invitation',
+        purpose: 'Recognises this browser as the same guest across file reviews. Each file still requires its own access permission.',
+        duration: 'One year from the latest exchange'
+    },
+    {
+        name: '__Host-uier-proof-<projectId>',
+        type: 'Cookie (first party, HttpOnly)',
+        when: 'You redeem a guest file-review link or an external file-approval invitation',
+        purpose: 'Carries the guest session for the project and the access granted by the file or collection share.',
+        duration: 'Up to 30 days, capped by the share expiry'
+    },
+    {
+        name: '__Host-uier-proof-returning-<scopeHash>',
+        type: 'Cookie (first party, HttpOnly)',
+        when: 'You redeem a return link from a file-review notification',
+        purpose: 'Restores access to the file discussion associated with your verified guest subscription.',
+        duration: 'Up to 30 days, capped by the share expiry'
+    },
+    {
+        name: '__Host-uier-approval-<projectId>',
+        type: 'Cookie (first party, HttpOnly)',
+        when: 'You verify your identity from an emailed file-approval link',
+        purpose: 'Associates your decision with the external reviewer assigned to this file version.',
+        duration: 'Up to 30 days, capped by the share expiry'
     },
     {
         name: '__Secure-uier_review_sso',
         type: 'Cookie (HttpOnly, Secure, SameSite=None)',
         when: 'You sign in or visit the signed-in app',
-        purpose: 'Lets an empty uier frame sign you into a project on a configured site when your browser allows cross-site cookies. It cannot sign you into the app. The server checks your current project access; signing out of the app removes it.',
-        duration: 'Until the app session expires, at most 30 days'
+        purpose: 'Lets a uier frame check your access to a project on a configured site when your browser allows cross-site cookies. After you sign out of all accounts, a signed-out marker tells the frame that you signed out.',
+        duration: 'Until the active sign-in expires, up to 30 days. The signed-out marker lasts 30 days.'
     },
     {
         name: '__Host-uier_workspace',
@@ -103,6 +138,27 @@ const items = [
         when: 'You sort or group the projects in the app’s sidebar',
         purpose: 'Remembers how the sidebar lists your active projects: by recent activity or alphabetically, and whether they are grouped by client. Holds only that choice, with nothing about you.',
         duration: 'One year'
+    },
+    {
+        name: '__Host-uier_comments_view',
+        type: 'Cookie (first party, readable by the app)',
+        when: 'You choose List or Board for project comments',
+        purpose: 'Lets the server open project comments in your chosen view.',
+        duration: 'One year'
+    },
+    {
+        name: '__Host-uier_board_collapse',
+        type: 'Cookie (first party, readable by the app)',
+        when: 'You collapse project board columns or the app restores saved folds',
+        purpose: 'Lets the server restore the collapsed columns for each project. Holds project and status identifiers.',
+        duration: 'One year from the last change, or until all project folds are cleared'
+    },
+    {
+        name: 'uier:comments-view, uier:my-work-view and uier:board-collapsed',
+        type: 'Local storage',
+        when: 'You choose List or Board, or collapse board columns',
+        purpose: 'Remembers your project and My work layouts and which status columns you folded.',
+        duration: 'Until you change the layout, expand the columns or clear site data'
     },
     {
         name: 'uier-app',
@@ -171,10 +227,10 @@ const items = [
 
 export default function CookiePolicyPage() {
     return (
-        <LegalDocument href={KnownPages.LegalCookiePolicy} title="Cookie policy" effective="20 November 2026">
+        <LegalDocument href={KnownPages.LegalCookiePolicy} title="Cookie policy" effective="25 November 2026">
             <p>
                 {brand.domain} uses cookies and browser storage for the actions and preferences listed below. None of them is set
-                when you only read the site, and none is used for advertising or to follow you to other sites.
+                when you only read the public marketing pages, and none is used for advertising or to follow you to other sites.
             </p>
 
             <p>
@@ -204,8 +260,9 @@ export default function CookiePolicyPage() {
                 ))}
             </ul>
             <p>
-                All of them are needed for something you chose to do, so we do not ask for consent first.
-                The cookies are <code>HttpOnly</code> (scripts on the page cannot read them), <code>Secure</code>
+                Session and security cookies support sign-in and access checks. Other entries above remember
+                preferences, such as the sign-in method shown as last used.
+                Cookies marked <code>HttpOnly</code> cannot be read by scripts on the page. In production the cookies use <code>Secure</code>
                 and <code>SameSite=Lax</code>, except the separate background sign-in cookie described above,
                 which uses <code>SameSite=None</code> and is restricted to the review API.
             </p>
@@ -272,8 +329,8 @@ export default function CookiePolicyPage() {
                 You can delete cookies and site data in your browser settings at any time. If you delete
                 the <code>__Host-uier_visitor</code> cookie and <code>uier:visitor</code> local storage, the server can no longer tell that your earlier comments are
                 yours: you will not be able to resolve or delete them, and your next comment starts a new guest
-                name. Visitor threads stay public until they expire 90 days after their last change, or until you ask us to
-                remove them. Replies to our starter threads stay with the thread unless you delete them or ask us to remove them. If you delete the <code>__Host-uier_session</code> cookie, you are signed out of the app.
+                name. Guest feedback on our public pages normally expires 90 days after the thread&rsquo;s last
+                change. In customer projects, feedback follows the project&rsquo;s access settings and stays until deleted. Replies to our starter threads stay with the thread unless you delete them or ask us to remove them. If you delete the <code>__Host-uier_session</code> cookie, you are signed out of the app.
             </p>
 
             <h2>Contact</h2>

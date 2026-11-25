@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { KnownPages } from '../../../knownPages';
 import { configuredAppBaseUrl } from '../../app/deployment';
 import { getAppStore, type AppStore } from '../../app/store';
 import { getUser } from '../../app/users';
@@ -68,6 +69,7 @@ function messageFor(context: Exclude<Awaited<ReturnType<typeof recipient>>, null
     return layoutEmail({ to: email, subject: titles[purpose],
         paragraphs: [`Review version ${versionNumber} of ${assetName}.`, ...(deadline ? [deadline] : [])],
         action: { label: reviewer.kind === 'external' ? 'Verify and open file' : 'Open file', url: url.href },
+        footerAction: { label: 'File review privacy', url: new URL(`${KnownPages.LegalPrivacyPolicy}#file-reviews`, baseUrl).href },
         footnote: reviewer.kind === 'external' ? 'The link works once and expires within seven days. If you did not expect this request, ignore this email.'
             : 'You are receiving this because you were named as a reviewer for this version.' });
 }

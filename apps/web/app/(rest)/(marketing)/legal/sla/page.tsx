@@ -13,7 +13,7 @@ export const metadata = publicPageMetadata('/legal/sla', {
 
 export default function SlaPage() {
     return (
-        <LegalDocument href={KnownPages.LegalSla} title="Service level agreement" effective="25 October 2026">
+        <LegalDocument href={KnownPages.LegalSla} title="Service level agreement" effective="25 November 2026">
             <p>
                 {brand.name} has no service level agreement. It is free and provided as is, so we make no
                 commitments about:
@@ -21,10 +21,10 @@ export default function SlaPage() {
             <ul>
                 <li>availability or uptime;</li>
                 <li>response or resolution times for problems or questions;</li>
-                <li>keeping visitor threads: they are deleted 90 days after their last change, and may be removed earlier. Our starter threads and their replies do not expire;</li>
+                <li>keeping threads indefinitely. Feedback on uier&rsquo;s own projects expires 90 days after its last change, apart from starter threads and their replies. Customer project feedback stays until deleted;</li>
                 <li>advance notice of maintenance or changes.</li>
             </ul>
-            <p>There are no service credits or other compensation for downtime.</p>
+            <p>We do not offer service credits for downtime. Mandatory legal rights and the commitments in the <a href={`${KnownPages.LegalTermsOfService}#data-processing`}>data processing agreement</a> still apply.</p>
 
             <h2>What you can expect</h2>
             <ul>

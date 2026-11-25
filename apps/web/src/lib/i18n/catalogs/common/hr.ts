@@ -1,5 +1,9 @@
 import type en from './en';
 const messages: Record<keyof typeof en, string> = {
+    "Data processing agreement": "Ugovor o obradi osobnih podataka",
+    "Read the agreement": "Pročitajte ugovor",
+    "Draft acceptance email": "Sastavite e-poruku o prihvaćanju",
+    "By signing in, you agree to the terms of service.": "Prijavom prihvaćate uvjete korištenja.",
     "Delete account": "Izbriši račun",
     "Delete your account?": "Želite li izbrisati račun?",
     "Sign in to the same account to continue.": "Prijavite se istim računom za nastavak.",

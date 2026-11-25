@@ -10,17 +10,18 @@ export const metadata = publicPageMetadata('/legal/acceptable-use-policy', {
 
 export default function AcceptableUsePolicyPage() {
     return (
-        <LegalDocument href={KnownPages.LegalAcceptableUsePolicy} title="Acceptable use policy" effective="12 November 2026">
+        <LegalDocument href={KnownPages.LegalAcceptableUsePolicy} title="Acceptable use policy" effective="25 November 2026">
             <p>
-                Comments on {brand.domain} are public and anonymous, so they only work if people use them in good
-                faith. This policy is part of the <a href={KnownPages.LegalTermsOfService}>terms of service</a>.
+                Guest feedback on uier&rsquo;s public pages is public under a guest name. Signed-in feedback
+                there is private to its author and the uier team. In a customer project, access depends
+                on the project settings. This policy is part of the <a href={KnownPages.LegalTermsOfService}>terms of service</a>.
             </p>
 
             <h2>Do not post</h2>
             <ul>
                 <li>anything illegal, or anything that infringes someone else&rsquo;s rights;</li>
                 <li>harassment, threats, hate speech or content that sexualises minors;</li>
-                <li>personal information about anyone, including yourself: names, addresses, phone numbers, account details;</li>
+                <li>personal information in public feedback, or personal information you lack authority to share in a customer project. Keep special-category and criminal-offence data out of projects;</li>
                 <li>passwords, keys or other secrets;</li>
                 <li>spam, advertising or links to malware or scams;</li>
                 <li>content that pretends to come from {brand.name}, {brand.parent.name} or someone else.</li>
@@ -35,8 +36,8 @@ export default function AcceptableUsePolicyPage() {
 
             <h2>What we do</h2>
             <p>
-                We may remove any comment or reply and block requests from anyone who breaks this policy, without
-                notice. We may report illegal content to the authorities.
+                We may remove any comment or reply and block requests from anyone who breaks this policy. Where required by law,
+                we explain the decision and how to challenge it. We may report illegal content to the authorities.
             </p>
 
             <h2>Report abuse</h2>

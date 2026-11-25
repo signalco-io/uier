@@ -1,4 +1,8 @@
 const messages = {
+    "Data processing agreement": "Data processing agreement",
+    "Read the agreement": "Read the agreement",
+    "Draft acceptance email": "Draft acceptance email",
+    "By signing in, you agree to the terms of service.": "By signing in, you agree to the terms of service.",
     "Delete account": "Delete account",
     "Delete your account?": "Delete your account?",
     "Sign in to the same account to continue.": "Sign in to the same account to continue.",
