@@ -24,7 +24,7 @@ import { ReattachContext } from './CommentAnchorDetails';
 import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
 import { useAnnounce } from './Announcer';
 import { getDeviceInfo } from './info/getDeviceInfo';
-import { holdsLayersAttribute, isScreenshotViewerAnchor, isToolbarAnchor, pressableToolbarOpener, toolbarPinId, toolbarSurface } from '../toolbarReview';
+import { holdsLayersAttribute, isScreenshotViewerAnchor, isToolbarAnchor, pressableToolbarOpener, toolbarPinId, toolbarSurface, usePopoverTriggerPress } from '../toolbarReview';
 import { isPointing } from './CommentPointOverlay';
 import { PinStatus } from './PinStatus';
 import { statusLabel } from './CommentThreadHeader';
@@ -573,7 +573,7 @@ export function CommentBubble(props: CommentBubbleProps) {
     // Touch and the keyboard open the thread at once, as before.
     const [previewing, setPreviewing] = useState(false);
     const preview = previewing && !open;
-    const previewPinPress = useRef<PointerEvent['nativeEvent']>(null);
+    const pinPress = usePopoverTriggerPress();
     // The last time the popover opened, it was a preview: closing it leaves the focus where it is
     const previewedRef = useRef(false);
     const previewTimer = useRef<number>(undefined);
@@ -971,7 +971,7 @@ export function CommentBubble(props: CommentBubbleProps) {
                         onBlur={() => setPinFocused(false)}
                         onPointerEnter={handlePreviewEnter}
                         onPointerLeave={handlePreviewLeave}
-                        onPointerDown={preview ? event => { previewPinPress.current = event.nativeEvent; } : undefined}
+                        onPointerDown={pinPress.onPointerDown}
                         onClick={handlePinClick}
                         className={cx(
                             // The pin's shape, so the focus ring follows it: round but for the sharp corner
@@ -1015,12 +1015,7 @@ export function CommentBubble(props: CommentBubbleProps) {
                 {...holdsLayers}
                 {...surface}
                 // Passed through to the Radix popover content, like `collisionPadding`
-                {...{ onInteractOutside: (event: CustomEvent<{ originalEvent: Event }>) => {
-                    // Radix reports the pin's press after its click promoted the preview to a thread.
-                    // The original event's target is retargeted to the shadow host by then.
-                    if (event.detail.originalEvent === previewPinPress.current) event.preventDefault();
-                    else if ('onInteractOutside' in surface) surface.onInteractOutside?.(event);
-                } }}
+                {...{ onPointerDownOutside: pinPress.onPointerDownOutside }}
                 {...{ onCloseAutoFocus: handleCloseAutoFocus }}
                 {...{ onEscapeKeyDown: (event: Event) => {
                     for (const capture of [recording, evidenceRecording])
