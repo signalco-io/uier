@@ -121,6 +121,8 @@ their own, at the right, rather than cover the status. `e2e/toolbar-thread.spec.
   a new tab ([uier #445](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_z-D8sz84XrnMwNuGLXLMF)).
   Each item has a 16 px icon, like the toolbar's other menus. Opened from the inbox, the menu renders in the ink
   scope, so it stays dark like the inbox; a thread on the page opens it in the toolbar root, in the thread's theme.
+  The menu can reopen while its previous close animation is still running. The packaged extension's strict-CSP
+  test changes priority and immediately reopens Thread options to archive the thread.
 
 ## Message options
 
