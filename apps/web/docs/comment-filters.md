@@ -13,8 +13,8 @@
   A project's comments pass neither `projects` nor `onView`.
 - On a project's comments the filter row ends in the app's divider (`filtersDivider` in `CommentsViewToggle.tsx`,
   `border-border`, in the list and the board, the loading header too; it runs to the panel's edges like the project
-  tabs' line, [uier #498](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_DvH58cXN9VAYoaM_B5KcQ)) and sits 12 px under the
-  project's tabs instead of the other pages' 24 px (`data-project-comments` on the comments, read by the project layout;
+  tabs' line, [uier #498](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_DvH58cXN9VAYoaM_B5KcQ)) and sits 8 px under the
+  project's tabs instead of the other pages' 24 px, as far as its divider is under it, so the row's space above and below is equal at every width ([uier #511](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_WjVDsvTtrJ6DEVmHUB-Yo)) (`data-project-comments` on the comments, read by the project layout;
   [uier #495](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_LR-sL0UFZLeYvt-vbZbdS)).
 - The comments' filter bar (`CommentFilters.tsx`): in the list the status tabs first, left-aligned at the list's left edge
   ([uier #405](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_fQEilWWPBW-H35qpwStTM); below), then at the right end of that row the filters in

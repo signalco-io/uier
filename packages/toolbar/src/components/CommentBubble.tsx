@@ -166,8 +166,8 @@ type PopoverPlacement = { side: 'top' | 'right' | 'bottom' | 'left'; align: 'sta
  */
 function popoverPlacement(left: number, top: number, upsideDown: boolean, wide: boolean): PopoverPlacement {
     const inset = bubbleHalfHitArea() - bubbleHalfSize;
-    // The popover's width (`w-72`, Popper), in the page's rem
-    const width = (wide ? 24 : 18) * (Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16);
+    // The popover's width (`popoverClassName`), in the page's rem
+    const width = (wide ? 24 : 20) * (Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16);
     const align = upsideDown ? 'end' : 'start';
     if (document.documentElement.clientWidth - popoverCollisionPadding.right - (left + bubbleHalfSize) >= width) {
         return { side: 'right', align, sideOffset: -inset, alignOffset: inset };
@@ -734,7 +734,8 @@ export function CommentBubble(props: CommentBubbleProps) {
     const popoverClassName = cx(
         onToolbar ? 'z-[78]' : 'z-[60]',
         'flex max-h-[min(var(--radix-popover-content-available-height),36rem)] flex-col rounded-xl',
-        wideProposal && 'w-[min(24rem,calc(100vw-16px))]',
+        // 20rem: room for the header's status, number, author and actions (uier #510); a suggestion wider still
+        wideProposal ? 'w-[min(24rem,calc(100vw-16px))]' : 'w-[min(20rem,calc(100vw-16px))]',
         // A rewrite (suggestions and text box) scrolls as a whole: when it is clipped, the
         // browser would scroll the page to show the caret, and the popover follows its pin
         rewriting || suggesting ? 'overflow-y-auto overscroll-contain' : 'overflow-hidden',
