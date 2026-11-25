@@ -54,7 +54,7 @@ jobs:
         if: inputs.feature == 'mail'
         env:
           # renovate: datasource=npm depName=wrangler
-          WRANGLER_VERSION: '4.166.0'
+          WRANGLER_VERSION: '4.168.0'
           WRANGLER_SEND_METRICS: 'false'
         run: |
           npm install --global --ignore-scripts --include=optional --no-audit --no-fund --prefix "$RUNNER_TEMP/proof-clis" "wrangler@$WRANGLER_VERSION"
