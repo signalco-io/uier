@@ -8,7 +8,6 @@ import { Typography } from '@uier/ui-primitives/Typography';
 import { Stack } from '@uier/ui-primitives/Stack';
 import { Row } from '@uier/ui-primitives/Row';
 import { Avatar } from '@uier/ui-primitives/Avatar';
-import { cx } from '@uier/ui-primitives/cx';
 import { CommentTime } from './CommentTime';
 import { useComments } from '../hooks/useComments';
 import { CommentThreadItemMenu } from './CommentThreadItemMenu';
@@ -40,7 +39,7 @@ function MessageAgent({ agent }: { agent: MessageAgentView }) {
     const { triggerProps, tooltip } = useIconTooltip(t.thread.writtenBy(details));
     return <>
         <span role="img" tabIndex={-1} aria-label={t.thread.viaAgent(details)} data-message-agent={agent.kind} {...triggerProps}
-            className="inline-flex shrink-0 items-center gap-1 text-sm text-muted-foreground">
+            className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-sm text-muted-foreground">
             {t.thread.via}
             <span className="inline-flex items-center gap-1 text-foreground"><AgentMark kind={agent.kind} />{agent.label}</span>
         </span>
@@ -141,7 +140,7 @@ export function CommentThreadItem({ comment, threadItem, first, header, optionsR
 
     // The author deleted it after others replied: a placeholder, without author or actions
     if (threadItem.deleted) {
-        const placeholder = <Typography level="body1" className={cx('text-sm text-muted-foreground', !merged && 'pl-8')}>{t.thread.commentDeleted}</Typography>;
+        const placeholder = <Typography level="body1" className="text-sm text-muted-foreground">{t.thread.commentDeleted}</Typography>;
         return merged ? <div className="flex flex-col gap-1">{header?.({})}{placeholder}</div> : placeholder;
     }
 
@@ -199,8 +198,10 @@ export function CommentThreadItem({ comment, threadItem, first, header, optionsR
         setEditing({ originalText: snapshot?.originalText ?? text });
     };
 
+    // In a wrapping row: a long name truncates on a line of its own, and "via" the agent and the time move
+    // under it, each whole, never over the actions (uier #510)
     const authorLine = <>
-        <Typography level="body2" semiBold noWrap className="min-w-0 text-foreground" title={authorName}>
+        <Typography level="body2" semiBold noWrap className="min-w-0 max-w-full text-foreground" title={authorName}>
             {isMe ? t.thread.you : agent ? person : authorName}
         </Typography>
         {agent && <MessageAgent agent={agent} />}
@@ -260,33 +261,35 @@ export function CommentThreadItem({ comment, threadItem, first, header, optionsR
         );
     }
 
+    // The avatar starts the header line and the message takes the full width under it, as the first message does
+    // (uier #510). The author line and the message almost touch (uier #240); the rest keeps its spacing
     return (
-        <div ref={rootRef} className="flex gap-2">
-            <MessageAuthorAvatar name={authorName} person={isMe ? t.thread.authorYou(person) : person} agent={agent} />
-            {/* The author line and the message almost touch (uier #240); the rest keeps its spacing */}
-            <div className="flex min-w-0 flex-1 flex-col">
-                <Row spacing={1} justifyContent="space-between" className="min-h-6">
-                    <Row spacing={1} className="min-w-0">
+        <div ref={rootRef} className="flex min-w-0 flex-col">
+            <Row spacing={1} justifyContent="space-between" alignItems="start">
+                {/* As tall as the actions (24 px, 44 px on touch), the avatar and the author centred on them */}
+                <div className="flex min-h-6 min-w-0 items-center gap-2 pointer-coarse:min-h-11">
+                    <MessageAuthorAvatar name={authorName} person={isMe ? t.thread.authorYou(person) : person} agent={agent} />
+                    <div className="flex min-w-0 flex-wrap items-center gap-x-1">
                         {authorLine}
-                    </Row>
-                    <Row spacing={0.5} className="shrink-0">
-                        {!editing && <ReactionPicker comment={comment} item={threadItem} disabled={pending} />}
-                        {first && !editing && <CommentAttach comment={comment} panel={attachPanel} disabled={pending} />}
-                        {(canDelete || canEdit) && !editing && (
-                            <CommentThreadItemMenu
-                                triggerRef={menuRef}
-                                kind={first ? 'comment' : 'reply'}
-                                own={isMe}
-                                confirmText={deleteConfirmText(comment, first, t)}
-                                disabled={pending}
-                                onDelete={canDelete ? handleDelete : undefined}
-                                onReattach={first && reattach.available ? reattach.request : undefined}
-                                onEdit={canEdit ? startEdit : undefined} />
-                        )}
-                    </Row>
+                    </div>
+                </div>
+                <Row spacing={0.5} className="shrink-0">
+                    {!editing && <ReactionPicker comment={comment} item={threadItem} disabled={pending} />}
+                    {first && !editing && <CommentAttach comment={comment} panel={attachPanel} disabled={pending} />}
+                    {(canDelete || canEdit) && !editing && (
+                        <CommentThreadItemMenu
+                            triggerRef={menuRef}
+                            kind={first ? 'comment' : 'reply'}
+                            own={isMe}
+                            confirmText={deleteConfirmText(comment, first, t)}
+                            disabled={pending}
+                            onDelete={canDelete ? handleDelete : undefined}
+                            onReattach={first && reattach.available ? reattach.request : undefined}
+                            onEdit={canEdit ? startEdit : undefined} />
+                    )}
                 </Row>
-                {body}
-            </div>
+            </Row>
+            {body}
         </div>
     );
 }

@@ -97,6 +97,19 @@
             position: absolute;
             inset: -6px 0;
         }
+
+        /* The thread's status menu (components/CommentThreadHeader.tsx) is a 32 px pill on its 44 px header line,
+           not a 44 px blob; its hit area reaches 44 px, 6 px above and below (uier #510) */
+        [data-uier-root] button[data-uier-status] {
+            position: relative;
+            min-height: 32px;
+        }
+
+        [data-uier-root] button[data-uier-status]::after {
+            content: "";
+            position: absolute;
+            inset: -7px 0;
+        }
     }
 }
 

@@ -149,6 +149,54 @@ test('in landscape the sidebar stays, the thread opens beside the list and proje
     expect(await noSidewaysScroll(page)).toBe(true);
 });
 
+test('the comments\' filter row has equal space above and below, and a pin\'s thread keeps its header lines tidy by touch (uier #510, #511)', async ({ page, request }) => {
+    await page.setViewportSize({ width: 805, height: 787 });
+    const project = await projectWithThreads(page, request, []);
+    const headers = await verifiedReviewHeaders(request, project, site.origin());
+    const posted = await request.post(`/api/review/${project}/comments`, { headers, data: {
+        path: `/${project}/pricing`, text: 'Should have an avatar for created by', authorName: 'Reviewer', position: { type: 'point', selector: 'h1', xNormal: 0.5, yNormal: 0.5 }
+    } });
+    expect(posted.status()).toBe(201);
+
+    // The row between the project's tabs and its divider: as far from the tabs as from the divider (uier #511)
+    await page.reload();
+    const search = page.locator('[data-slot="input-group"]').filter({ has: page.locator('#feedback-search') });
+    await expect(search).toBeVisible();
+    const gaps = await search.evaluate(element => {
+        const row = element.closest('[data-project-comments]')!.firstElementChild!.firstElementChild!;
+        const tabs = row.closest('[data-project-comments]')!.closest('section')!.parentElement!.previousElementSibling!.getBoundingClientRect();
+        const box = row.getBoundingClientRect();
+        const controls = [...row.querySelectorAll('button, input, [role=tablist]')].map(control => control.getBoundingClientRect()).filter(rect => rect.height > 0 && rect.top < box.top + 60);
+        return { above: Math.min(...controls.map(rect => rect.top)) - tabs.bottom, below: box.bottom - Math.max(...controls.map(rect => rect.bottom)) };
+    });
+    expect(gaps.above).toBeCloseTo(gaps.below, 0);
+
+    // The pin's thread (uier #510): a little wider than before, the status a 32 px pill rather than a 44 px blob,
+    // a reply's author line clear of its actions and its text as far left as the first message's
+    await page.goto(`/app/review/${project}?url=${encodeURIComponent(`${site.origin()}/${project}/pricing`)}`);
+    await page.getByRole('button', { name: /^Comment #\d+, 1 message/ }).tap();
+    const thread = page.getByRole('dialog', { name: /^(?!Copy$|Thread options$)/ });
+    const reply = thread.getByRole('textbox', { name: 'Reply', exact: true });
+    await reply.fill('This came in through the import, so there is no one to show.');
+    await reply.press('Enter');
+    const replyText = thread.getByText('This came in through the import, so there is no one to show.');
+    await expect(replyText).toBeVisible();
+    await animationsFinished(thread);
+    expect((await box(thread)).width).toBe(320);
+    const status = await box(thread.getByRole('button', { name: /^Status: Open/ }));
+    expect(status.height).toBe(32);
+    const firstText = await box(thread.getByText('Should have an avatar for created by'));
+    expect((await box(replyText)).x).toBeCloseTo(firstText.x, 0);
+    // The reply's own header: its time ends before its Add reaction starts
+    const [timeEnd, reactionStart] = await replyText.evaluate(element => {
+        let message = element.parentElement!;
+        while (!message.querySelector('time') || !message.querySelector('button[aria-label="Add reaction"]')) message = message.parentElement!;
+        return [message.querySelector('time')!.getBoundingClientRect().right, message.querySelector('button[aria-label="Add reaction"]')!.getBoundingClientRect().left];
+    });
+    expect(timeEnd).toBeLessThanOrEqual(reactionStart);
+    await expectNoAxeViolations(page);
+});
+
 test('comparison tables stay within the page on portrait and landscape tablets', async ({ page }) => {
     for (const viewport of [{ width: 768, height: 1024 }, { width: 1024, height: 768 }]) {
         await page.setViewportSize(viewport);

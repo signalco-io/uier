@@ -150,7 +150,7 @@ function CommentStatusMenu({ stage, allowed, pending, shortcut, onChange, status
                 <Button
                     variant="outlined"
                     size="xs"
-                    className="h-6 shrink-0 gap-1.5 rounded-full px-2 text-xs font-medium"
+                    className="h-6 shrink-0 gap-1.5 whitespace-nowrap rounded-full px-2 text-xs font-medium pointer-coarse:h-8 pointer-coarse:px-3"
                     aria-label={t.thread.changeStatus(label)}
                     aria-keyshortcuts={shortcut ? 'S' : undefined}
                     data-uier-status=""
@@ -383,6 +383,9 @@ export function CommentThreadHeader({ comment, message, onMarkedUnread, onReques
                 instead of covering the status: the left part's flex basis is its narrowest width */}
             <Row spacing={1} justifyContent="space-between" alignItems="start" className="flex-wrap gap-y-1">
                 <Row spacing={1} className="min-w-min grow basis-0 flex-wrap gap-y-1">
+                    {/* The first line is as tall as the actions (28 px, 44 px on touch), so its status, number and author
+                        centre on them; the strut takes no width, its margin undoes the gap (uier #510) */}
+                    <span aria-hidden="true" className="-mr-1 h-7 pointer-coarse:h-11" />
                     {canChangeStatus && !comment.archivedAt
                         ? <CommentStatusMenu verificationEnabled={comment.verificationEnabled === true} stage={stage} allowed={allowed} statuses={custom.workflow.data?.statuses} selectedId={selectedStatus?.id} shortcut={shortcuts}
                             pending={archive.isPending || custom.mutation.isPending || resolve.isPending || progress.isPending || verificationMutation.isPending}
@@ -416,8 +419,8 @@ export function CommentThreadHeader({ comment, message, onMarkedUnread, onReques
                     {comment.reviewSession?.held &&
                         <span className="rounded-full border px-2 py-0.5 text-xs text-muted-foreground">{t.reviewSessions.notSent}</span>}
                     <PriorityBadge comment={comment} />
-                    {/* Wraps under the status as one piece when the line is too narrow for it */}
-                    {message?.author && <span className="flex min-w-0 max-w-full items-center gap-1" data-uier-thread-author="">{message.author}</span>}
+                    {/* Wraps under the status when the line is too narrow for it, its time under the name when that is too (uier #510) */}
+                    {message?.author && <span className="flex min-w-0 max-w-full flex-wrap items-center gap-x-1" data-uier-thread-author="">{message.author}</span>}
                 </Row>
                 {/* Always on the first line: the device marks and the actions (uier #470) */}
                 <Row className="-mr-1 ml-auto shrink-0">

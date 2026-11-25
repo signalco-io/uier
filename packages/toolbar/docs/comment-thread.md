@@ -36,7 +36,9 @@ Checked in `apps/web/e2e/toolbar-thread.spec.ts`.
   ([uier #470](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fwl3q4fzid2uh&comment=comment_9tXqLlAhDRyRV0Y8QbPLq)):
   its author, time and device are in [the header](#the-header) line and its text starts right under that line, at
   full width (`CommentThreadItem`'s `header`). Replies keep their avatar, their own header line with Add reaction
-  and More options.
+  and More options; the avatar starts that line and the reply's text is under it at full width, as far left as the
+  first message's ([uier #510](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_dEvtVlyuZ9dEGt5nvKoTm)). In the reply's line the name truncates on a line of its own when it is long, and "via" the
+  agent and the time each move under it whole, so nothing runs under the actions.
 - A longer thread shows its first and last message with "Show all N messages" between them, set between two
   `bg-border` lines so the gap reads as hidden messages (uier #443). Using it shows them and moves focus to the first.
 - No thread activity (who changed what): that history is in the app only (uier #374).
@@ -80,11 +82,15 @@ original page. Thread access and inbox visibility follow the same rules as other
 ## The header
 
 `CommentThreadHeader.tsx` is one line, the thread's and its first message's together (uier #470). It wraps only
-where it is too narrow, as in a pin's 288 px popover: the first message's author and time move under the status as
-one piece, its name truncated, and the device marks and actions stay on the first line. Where even the status and
-the actions don't fit side by side (a 320 px phone, whose touch targets are 44 px), the actions wrap to a line of
-their own, at the right, rather than cover the status. `e2e/toolbar-thread.spec.ts` checks it at 320 px.
+where it is too narrow, as in a pin's 320 px popover (20rem, [uier #510](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_dEvtVlyuZ9dEGt5nvKoTm); a suggestion's is 24rem): the first message's author and time move under the status,
+its name truncated and the time under it where that line is too narrow too, and the device marks and actions stay on the first line. Where even the status and
+the actions don't fit side by side (touch screens, whose targets are 44 px, in a pin's popover), the actions wrap to a line of
+their own, at the right, rather than cover the status. `e2e/toolbar-thread.spec.ts` checks it at 320 px, and
+`e2e/tablet.spec.ts` the popover's width, the status pill and a reply's header on an 805 px touch screen.
 
+- The status: a 24 px pill (32 px on a touch screen, whose hit area still reaches 44 px: not the 44 px blob every
+  other touch button is, [uier #510](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_dEvtVlyuZ9dEGt5nvKoTm)). The first line is as tall as the actions (28 px, 44 px on touch), so the status, number
+  and author centre on them.
 - The status: a menu like the app's `StateMenu` (Open, In progress, Ready to verify, Done) for those who may
   change it, else a badge ([status changes](optimistic-status.md)). Its dot glows like the app's status chip
   (`GlowingStatusDot`, the app's `GlowingStateDot`, [uier #462](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_nq7Ckm6_THp5pfj30OEra)); the menu's options do not. The menu's button
