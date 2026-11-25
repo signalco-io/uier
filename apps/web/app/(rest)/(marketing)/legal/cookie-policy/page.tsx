@@ -77,6 +77,13 @@ const items = [
         duration: '30 days'
     },
     {
+        name: '__Host-uier_account_1 … __Host-uier_account_4',
+        type: 'Cookies (first party, HttpOnly)',
+        when: 'You sign in to more than one account in this browser',
+        purpose: 'Hold signed credentials for up to four additional accounts so you can switch back to them. Switching keeps the original expiry. Sign out of all accounts removes these credentials.',
+        duration: 'Remaining time on each sign-in, up to 30 days'
+    },
+    {
         name: '__Host-uier_last_sign_in',
         type: 'Cookie (first party, HttpOnly)',
         when: 'You sign in to the app',
@@ -115,8 +122,8 @@ const items = [
         name: '__Secure-uier_review_sso',
         type: 'Cookie (HttpOnly, Secure, SameSite=None)',
         when: 'You sign in or visit the signed-in app',
-        purpose: 'Lets an empty uier frame sign you into a project on a configured site when your browser allows cross-site cookies. It cannot sign you into the app. The server checks your current project access; signing out of the app removes it.',
-        duration: 'Until the app session expires, at most 30 days'
+        purpose: 'Lets a uier frame check your access to a project on a configured site when your browser allows cross-site cookies. After you sign out of all accounts, a signed-out marker tells the frame that you signed out.',
+        duration: 'Until the active sign-in expires, up to 30 days. The signed-out marker lasts 30 days.'
     },
     {
         name: '__Host-uier_workspace',
@@ -131,6 +138,27 @@ const items = [
         when: 'You sort or group the projects in the app’s sidebar',
         purpose: 'Remembers how the sidebar lists your active projects: by recent activity or alphabetically, and whether they are grouped by client. Holds only that choice, with nothing about you.',
         duration: 'One year'
+    },
+    {
+        name: '__Host-uier_comments_view',
+        type: 'Cookie (first party, readable by the app)',
+        when: 'You choose List or Board for project comments',
+        purpose: 'Lets the server open project comments in your chosen view.',
+        duration: 'One year'
+    },
+    {
+        name: '__Host-uier_board_collapse',
+        type: 'Cookie (first party, readable by the app)',
+        when: 'You collapse project board columns or the app restores saved folds',
+        purpose: 'Lets the server restore the collapsed columns for each project. Holds project and status identifiers.',
+        duration: 'One year from the last change, or until all project folds are cleared'
+    },
+    {
+        name: 'uier:comments-view, uier:my-work-view and uier:board-collapsed',
+        type: 'Local storage',
+        when: 'You choose List or Board, or collapse board columns',
+        purpose: 'Remembers your project and My work layouts and which status columns you folded.',
+        duration: 'Until you change the layout, expand the columns or clear site data'
     },
     {
         name: 'uier-app',
@@ -234,7 +262,7 @@ export default function CookiePolicyPage() {
             <p>
                 Session and security cookies support sign-in and access checks. Other entries above remember
                 preferences, such as the sign-in method shown as last used.
-                The cookies are <code>HttpOnly</code> (scripts on the page cannot read them), <code>Secure</code>
+                Cookies marked <code>HttpOnly</code> cannot be read by scripts on the page. In production the cookies use <code>Secure</code>
                 and <code>SameSite=Lax</code>, except the separate background sign-in cookie described above,
                 which uses <code>SameSite=None</code> and is restricted to the review API.
             </p>

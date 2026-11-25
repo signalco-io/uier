@@ -82,6 +82,10 @@ Before changing a subprocessor, follow the advance notice and objection procedur
 
 ## Operating the agreement
 
+The cookie inventory also covers parked accounts, the signed-out review marker, the List/Board
+and collapsed-column preferences, and the guest access and verification cookies for file reviews.
+The one-year last-used sign-in method only labels a button. The app sets it automatically.
+
 Workspace admins can open the agreement and draft a versioned acceptance email from Workspace →
 Settings. The representative fills in the customer's legal name and their name and role, then sends
 the message. Opening a link or signing in as an ordinary member creates no acceptance record.

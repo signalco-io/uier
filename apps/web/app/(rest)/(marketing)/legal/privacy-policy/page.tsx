@@ -290,6 +290,8 @@ export default function PrivacyPolicyPage() {
                 you signed in. The <code>__Host-uier_last_sign_in</code> cookie remembers only which option you
                 signed in with, so the sign-in page can mark it; it stays after you sign out.
                 The <code>__Host-uier_workspace</code> cookie remembers your selected workspace.
+                If you sign in to several accounts in this browser, up to four additional cookies
+                hold their signed credentials for account switching. Each expires with its original sign-in.
                 The <a href={KnownPages.LegalCookiePolicy}>cookie policy</a> lists lifetimes and the temporary reads of old cookie names. We count
                 sign-in emails per address and per IP address to stop abuse, in the same way as comments below.
             </p>
