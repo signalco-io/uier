@@ -350,6 +350,8 @@ once for Check again too, the panel lists the page's issues, and the page has no
 element and requested nothing for it; a smaller page gets its button's issue count from the background audit.
 The runtime test polls the saved comment count after draft submission: optimistic message text
 can appear before the worker finishes saving, including a committed-but-lost write retry.
+The selected-text check waits for Escape to return focus from the saved thread to its pin before
+setting the page selection programmatically.
 The strict-CSP posting/reload check waits for the toolbar's `Comment posted` success announcement
 before reloading. Visible text alone can be the optimistic thread while screenshot/device capture
 is still pending; reloading then interrupts the send and correctly leaves a recoverable draft.
