@@ -171,7 +171,7 @@ const items = [
 
 export default function CookiePolicyPage() {
     return (
-        <LegalDocument href={KnownPages.LegalCookiePolicy} title="Cookie policy" effective="20 November 2026">
+        <LegalDocument href={KnownPages.LegalCookiePolicy} title="Cookie policy" effective="25 November 2026">
             <p>
                 {brand.domain} uses cookies and browser storage for the actions and preferences listed below. None of them is set
                 when you only read the site, and none is used for advertising or to follow you to other sites.
@@ -204,7 +204,8 @@ export default function CookiePolicyPage() {
                 ))}
             </ul>
             <p>
-                All of them are needed for something you chose to do, so we do not ask for consent first.
+                Session and security cookies support sign-in and access checks. Other entries above remember
+                preferences, such as the sign-in method shown as last used.
                 The cookies are <code>HttpOnly</code> (scripts on the page cannot read them), <code>Secure</code>
                 and <code>SameSite=Lax</code>, except the separate background sign-in cookie described above,
                 which uses <code>SameSite=None</code> and is restricted to the review API.
@@ -272,8 +273,8 @@ export default function CookiePolicyPage() {
                 You can delete cookies and site data in your browser settings at any time. If you delete
                 the <code>__Host-uier_visitor</code> cookie and <code>uier:visitor</code> local storage, the server can no longer tell that your earlier comments are
                 yours: you will not be able to resolve or delete them, and your next comment starts a new guest
-                name. Visitor threads stay public until they expire 90 days after their last change, or until you ask us to
-                remove them. Replies to our starter threads stay with the thread unless you delete them or ask us to remove them. If you delete the <code>__Host-uier_session</code> cookie, you are signed out of the app.
+                name. Guest feedback on our public pages normally expires 90 days after the thread&rsquo;s last
+                change. In customer projects, feedback follows the project&rsquo;s access settings and stays until deleted. Replies to our starter threads stay with the thread unless you delete them or ask us to remove them. If you delete the <code>__Host-uier_session</code> cookie, you are signed out of the app.
             </p>
 
             <h2>Contact</h2>

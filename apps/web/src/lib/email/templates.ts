@@ -1,4 +1,5 @@
 import { brand } from '@uier/brand';
+import { KnownPages } from '../../knownPages';
 import type { EmailMessage } from './send';
 
 // Brand-styled emails for light and dark clients. Email clients load no CSS variables or web
@@ -184,7 +185,8 @@ export function invitationEmail({ to, url, inviterName, inviterEmail, projectNam
             `${brand.name} lets you leave comments directly on the site. Accepting signs you in as ${to}${projectName ? ' and opens the site with the toolbar' : ''}.`
         ],
         action: { label: 'Accept invitation', url },
-        footnote: 'The link works once and expires in 7 days. If you did not expect this invitation, ignore this email.'
+        footnote: 'The link works once and expires in 7 days. If you did not expect this invitation, ignore this email.',
+        footerAction: { label: 'Privacy policy', url: new URL(KnownPages.LegalPrivacyPolicy, brand.url).href }
     });
 }
 

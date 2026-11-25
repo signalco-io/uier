@@ -14,11 +14,27 @@ export const metadata = publicPageMetadata('/legal/privacy-policy', {
 
 export default function PrivacyPolicyPage() {
     return (
-        <LegalDocument href={KnownPages.LegalPrivacyPolicy} title="Privacy policy" effective="19 November 2026">
+        <LegalDocument href={KnownPages.LegalPrivacyPolicy} title="Privacy policy" effective="25 November 2026">
             <p>
-                This policy explains what {brand.domain} collects, why, where it is stored and for how long.
-                {' '}{brand.name} is a {brand.parent.name} project: {brand.parent.name} runs {brand.domain} and is
-                responsible for the data described here (&ldquo;we&rdquo;).
+                Aleksandar Toplek operates {brand.domain} from Croatia as a {brand.parent.name} project.
+                He is the data controller for accounts, sign-in, service security, support and feedback on
+                uier&rsquo;s own pages. For questions or to exercise your rights, email{' '}
+                <a href={`mailto:${brand.contact.privacy}`}>{brand.contact.privacy}</a>.
+            </p>
+            <p>
+                In a customer project, the organisation or person running the review decides why feedback is
+                collected, who can see it and which services receive it. We process project data on their
+                instructions under the <a href={`${KnownPages.LegalTermsOfService}#data-processing`}>data
+                processing agreement</a>. If a customer runs a review on behalf of a client, that client may
+                be the controller. Ask the organisation that invited you for its privacy notice. You can also
+                contact us and we will pass your request to the customer.
+            </p>
+            <p>
+                You can browse the public site without an account. To use features that require sign-in,
+                you need to provide the account details described below. If an admin invites you, we receive
+                your email address and access role from the workspace. When you choose an external sign-in
+                provider, it supplies the profile details described below. Feedback, screenshots and replies
+                can also contain information about you supplied by reviewers or connected project tools.
             </p>
 
             <h2>Browser extension</h2>
@@ -687,25 +703,25 @@ export default function PrivacyPolicyPage() {
 
             <h2>Why we use it</h2>
             <ul>
-                <li>
-                    To post your comments and show them to other visitors, as you asked by posting them, and to
-                    suggest rewrites, titles and descriptions when you ask for them: the performance of the service you use (Article 6(1)(b) GDPR).
-                </li>
-                <li>
-                    To sign you in to the app, keep your account, workspace and projects, and send the invitations
-                    an admin asks for: the performance of the service you use (Article 6(1)(b) GDPR).
-                </li>
-                <li>
-                    To protect {brand.name} from spam and abuse with rate limits, bot protection and request logs:
-                    our legitimate interest in a safe service (Article 6(1)(f) GDPR).
-                </li>
-                <li>
-                    To understand how the site is used, in totals only: our legitimate interest in improving it
-                    (Article 6(1)(f) GDPR).
-                </li>
+                <li>To provide the account or public feedback service you request under our terms, we use
+                    the sign-in details, messages and attachments needed to deliver it (Article 6(1)(b) GDPR).</li>
+                <li>When an organisation holds the agreement, we use its members&rsquo; account and
+                    contact details as necessary for our legitimate interest in administering access to
+                    the service (Article 6(1)(f)). We also rely on our legitimate interests in answering
+                    enquiries and keeping the service secure to handle support mail, moderate public
+                    feedback, limit spam and investigate abuse using request logs. We use service operation
+                    logs and usage totals to diagnose failures and manage capacity in our legitimate interest
+                    in maintaining a reliable service.</li>
+                <li>Where the law requires us to respond to a privacy request or disclose information,
+                    we use the data needed to meet that obligation (Article 6(1)(c)).</li>
             </ul>
+            <p>
+                For feedback handled on a customer&rsquo;s instructions, including workspace invitations,
+                screenshots, AI features and deliveries to connected services, the controller of the
+                review is responsible for identifying its legal basis and informing affected people.
+            </p>
 
-            <h2>Where it is stored and who processes it</h2>
+            <h2 id="providers">Where it is stored and who processes it</h2>
             <ul>
                 <li>Comments, accounts, projects and rate-limit counters: Microsoft Azure Cosmos DB in the West Europe region (the Netherlands).</li>
                 <li>Screenshots: private Microsoft Azure Blob Storage in West Europe. After checking your access, we issue a read-only link to one image for 60 seconds. Your browser downloads directly from Azure. A previously issued link can remain usable until it expires after a permission change. Earlier screenshots move from Cosmos DB in the background.</li>
@@ -713,7 +729,7 @@ export default function PrivacyPolicyPage() {
                 <li>Review delivery: GitHub-hosted workflow runners temporarily process recipient and delivery records. Workflow logs contain delivery ids and failure codes, without recipient addresses, comment text or images.</li>
                 <li>Connected services chosen by an admin: Notion, GitHub, Linear, Azure DevOps and Slack receive the feedback described above. Their access, processing locations and retention follow the connected account and service settings.</li>
                 <li>
-                    Hosting, analytics and bot protection: Vercel. The server code runs in Dublin, Ireland; pages
+                    Hosting and bot protection: Vercel. The server code runs in Dublin, Ireland; pages
                     are delivered from Vercel&rsquo;s global network.
                 </li>
                 <li>Rewrite suggestions: Anthropic receives the selected text, your instruction and any effective workspace or project style guidance to write them.</li>
@@ -724,10 +740,13 @@ export default function PrivacyPolicyPage() {
                 <li>DNS: Cloudflare answers DNS queries for {brand.domain}. It does not see the pages you visit.</li>
             </ul>
             <p>
-                These providers process the data on our behalf. Microsoft, Vercel and Anthropic are US companies; where data
-                leaves the European Economic Area, it is protected by the safeguards in their data processing
-                terms, such as the European Commission&rsquo;s standard contractual clauses. We share data with no
-                one else unless the law requires it.
+                We use service providers for the operations above. External sign-in providers also handle
+                your sign-in under their own policies. A connected service receives the information its
+                workspace admin chooses to send. Providers may process data outside the European Economic
+                Area, including in the United States. For such transfers we must rely on an applicable
+                adequacy decision or appropriate safeguards, such as the European Commission&rsquo;s standard
+                contractual clauses. Email <a href={`mailto:${brand.contact.privacy}`}>{brand.contact.privacy}</a>{' '}
+                to learn which mechanism applies to a particular transfer and obtain a copy of the safeguards.
             </p>
 
             <h2>How long we keep it</h2>
@@ -774,11 +793,23 @@ export default function PrivacyPolicyPage() {
                 You can ask us for a copy of your data, to correct or delete it, to restrict or object to how we use
                 it, and to receive it in a portable format. You can delete your own comments and replies with the
                 toolbar at any time. For anything else, email <a href={`mailto:${brand.contact.privacy}`}>{brand.contact.privacy}</a>.
-                For guest feedback, tell us the page and the comment you mean: without its browser identity, we
-                cannot link that feedback to you. For your account and signed-in feedback, write from the email
-                address you sign in with.
+                For guest feedback, identify the page and comment. Your guest browser identity helps us
+                verify the request. For signed-in feedback, writing from your account email helps.
+                If you no longer have access, tell us so we can consider another way to verify your request.
             </p>
-            <p>You can also complain to the data protection authority where you live or work.</p>
+            <p>
+                You may object on grounds relating to your circumstances when we rely on legitimate
+                interests. Where consent is the legal basis, you can withdraw it at any time. Withdrawal
+                leaves earlier lawful processing unaffected. Portability applies to data you supplied
+                that we process automatically on the basis of consent or contract.
+            </p>
+            <p>
+                We normally respond within one month. If the number or complexity of requests requires
+                more time, we explain why within that first month and may take up to two additional months.
+                You may complain directly to the <a href="https://azop.hr/kontakt/">Croatian Personal Data
+                Protection Agency (AZOP)</a> or to the supervisory authority where you usually live, work
+                or believe the infringement occurred.
+            </p>
 
             <h2>Children</h2>
             <p>{brand.domain} is not meant for children under 16.</p>

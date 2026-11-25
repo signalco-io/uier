@@ -12,9 +12,7 @@ or credits before they are decided. `e2e/legal.spec.ts` checks each document, th
 and the footer links.
 
 Public contact addresses come from `brand.contact`: privacy requests use privacy@uier.io and
-general questions use contact@uier.io. The privacy, cookie, terms and acceptable-use policies
-have an effective date of 12 November 2026 for this contact update. Keep the displayed addresses
-and mailto links aligned with the brand constants.
+general questions use contact@uier.io. Keep the displayed addresses and mailto links aligned with the brand constants.
 
 The terms cover configured customer projects, invited/guest access and coding tools. Distinguish
 public guest feedback from signed-in feedback private to its author and the uier team. Both uier
@@ -67,3 +65,17 @@ review before merge.
 The privacy and cookie policies were updated on 19 November 2026 for sign-in freshness: Google and
 Microsoft may tell uier when the person last signed in there, that time stays in the session cookie,
 and steps that need a recent sign-in use it. The existing owner review applies before merge.
+
+The 25 November 2026 revision identifies Aleksandar Toplek as the individual operator in Croatia.
+Keep the controller notice, terms and public contact addresses consistent if the operator changes.
+The customer data processing agreement is part of the terms at
+[/legal/terms-of-service#data-processing](https://uier.io/legal/terms-of-service#data-processing).
+It covers hosted customer projects. The operator acts as controller for accounts, support, security
+and uier’s own feedback. The sign-in form links the terms before authentication, and invitation
+emails link the privacy policy in both formats.
+
+Before putting this version into effect, confirm the publication date, notify existing workspace
+admins and retain the terms version and the customer’s acceptance. For an organisation accepting
+by email, retain its authorised representative’s confirmation with the workspace and version.
+Verify the contracts, transfer arrangements and locations for each provider used in production.
+Before changing a subprocessor, follow the advance notice and objection procedure in the agreement.

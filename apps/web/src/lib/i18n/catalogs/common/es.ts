@@ -1,5 +1,6 @@
 import type en from './en';
 const messages: Record<keyof typeof en, string> = {
+    "By signing in, you agree to the terms of service.": "Al iniciar sesión, aceptas las condiciones de uso.",
     "Delete account": "Eliminar cuenta",
     "Delete your account?": "¿Eliminar tu cuenta?",
     "Sign in to the same account to continue.": "Inicia sesión con la misma cuenta para continuar.",

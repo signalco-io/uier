@@ -166,3 +166,5 @@ an email code.” A provider says when someone authenticated only once that is s
 client: [Google’s session age claims](../../../docs/google-sign-in.md#session-age-claims) and
 [Microsoft’s `auth_time` claim](../../../docs/microsoft-sign-in.md#the-auth_time-claim). Until then
 their sign-ins work as before for everything else.
+
+Before the sign-in options, the card links the terms that signing in accepts. The shared frame links the privacy policy. Invitation emails also link the privacy policy for recipients who have never signed in.

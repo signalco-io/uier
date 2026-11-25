@@ -129,6 +129,11 @@ export function SignInForm({ next, alternatives, problems, withEmail = false, la
     return (
         <AuthCard title={again ? t("Sign in again") : addingAccount ? t("Add account") : t("Sign in")} description={again ? <>{t("Sign in to the same account to continue.")}{providersNeedProof && <><br />{t("A passkey or an email code always works. Google and Microsoft work only when they confirm you just signed in there.")}</>}</> : addingAccount ? t("Sign in to another account. Your other accounts stay signed in.") : <>{t("Choose how to sign in.")}<br />{t("New here? Signing in creates your account.")}</>}>
             {problems}
+            <p className="text-sm text-muted-foreground">
+                <Link href={KnownPages.LegalTermsOfService} className="underline underline-offset-4">
+                    {t("By signing in, you agree to the terms of service.")}
+                </Link>
+            </p>
             <div className="flex flex-col gap-3">
                 <PasskeySignIn next={next} autofill={emailOpen} lastUsed={lastUsed === 'passkey'} />
                 {alternatives}
