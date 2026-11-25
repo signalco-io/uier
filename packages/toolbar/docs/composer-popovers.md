@@ -299,6 +299,8 @@ its actions and its read receipt, and it then stays open like a clicked thread, 
 (`data-uier-controls-reveal`, at once with reduced motion). Only a mouse
 previews (`pointerType`), never while a button is held or in point mode (`isPointing`, `CommentPointOverlay`);
 a tap, Enter or Space opens the thread at once, as before. Closing a preview never moves the focus to the pin.
+The pin remembers the pointer-down event that promotes its preview so a deferred outside-press notification from
+the popover cannot close the thread just as the reply box opens.
 
 ## Posting: one popover
 
