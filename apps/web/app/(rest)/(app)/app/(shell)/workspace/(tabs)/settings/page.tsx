@@ -6,6 +6,8 @@ import { workspaceStatusWorkflow } from '@/src/lib/app/statusWorkflows';
 import { WorkspaceStatusWorkflowForm } from './WorkspaceStatusWorkflowForm';
 
 import { getAppI18n } from '@/src/lib/i18n/server';
+import { Section } from '@/src/components/app/PageHeader';
+import { processingAgreementEmail, processingAgreementPath } from '@/src/lib/processingAgreement';
 import { WorkspaceSettingsLoading } from '@/src/components/app/workspace/WorkspaceLoading';
 import { Suspense } from 'react';
 import { workspaceFeedbackTypes } from '@/src/lib/app/feedbackTypes';
@@ -34,7 +36,7 @@ async function WorkspaceSettingsPageContent({ searchParams }: PageProps<'/app/wo
     if (context.workspace.id === PUBLIC_WORKSPACE_ID)
         return <div className="flex max-w-3xl flex-col"><WorkspaceThreadLabelsForm labels={workspaceThreadLabels(context.workspace)} /></div>;
 
-    const [notion, query] = await Promise.all([getNotionProjectsSettings(context.workspace.id, context.user.id), searchParams]);
+    const [notion, query, { t }] = await Promise.all([getNotionProjectsSettings(context.workspace.id, context.user.id), searchParams, getAppI18n()]);
     return (
         <div className="flex max-w-3xl flex-col">
             <div className="flex flex-col gap-6">
@@ -48,6 +50,12 @@ async function WorkspaceSettingsPageContent({ searchParams }: PageProps<'/app/wo
                 <WorkspaceStatusWorkflowForm workflow={workspaceStatusWorkflow(context.workspace)} />
                 <WorkspaceDomainsSection context={context} />
                 <NotionProjectsForm view={notion} outcome={typeof query.notion === 'string' ? query.notion : undefined} />
+                <Section id="data-processing" title={t("Data processing agreement")}>
+                    <div className="flex flex-wrap gap-4 text-sm">
+                        <a className="underline" href={processingAgreementPath}>{t("Read the agreement")}</a>
+                        <a className="underline" href={processingAgreementEmail(context.workspace.id)}>{t("Draft acceptance email")}</a>
+                    </div>
+                </Section>
             </div>
         </div>
     );

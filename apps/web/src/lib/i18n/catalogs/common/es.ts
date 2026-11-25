@@ -1,5 +1,8 @@
 import type en from './en';
 const messages: Record<keyof typeof en, string> = {
+    "Data processing agreement": "Acuerdo de tratamiento de datos",
+    "Read the agreement": "Leer el acuerdo",
+    "Draft acceptance email": "Redactar correo de aceptación",
     "By signing in, you agree to the terms of service.": "Al iniciar sesión, aceptas las condiciones de uso.",
     "Delete account": "Eliminar cuenta",
     "Delete your account?": "¿Eliminar tu cuenta?",

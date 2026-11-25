@@ -79,3 +79,43 @@ admins and retain the terms version and the customer’s acceptance. For an orga
 by email, retain its authorised representative’s confirmation with the workspace and version.
 Verify the contracts, transfer arrangements and locations for each provider used in production.
 Before changing a subprocessor, follow the advance notice and objection procedure in the agreement.
+
+## Operating the agreement
+
+Workspace admins can open the agreement and draft a versioned acceptance email from Workspace →
+Settings. The representative fills in the customer's legal name and their name and role, then sends
+the message. Opening a link or signing in as an ordinary member creates no acceptance record.
+On receipt, verify the sender's authority and workspace, acknowledge the agreement, send the
+applicable text and retain the exchange with a dated copy of that text. Use the same process
+for existing customers when their agreement is required. Keep customer names, correspondence
+and account-specific evidence in the operator's restricted records.
+
+For each provider, record the product, account holder, applicable DPA and date, subprocessors,
+processing and support locations, transfer mechanism and how changes are notified. Cover the
+mailbox that receives role-address email as well as Cloudflare routing. Assess the applicable
+transfer safeguards and any supplementary measures. Revise the public notice when the actual
+arrangements change. Before an addition or replacement, notify affected admins individually,
+track delivery and objections, and resolve objections or allow return and termination before
+the provider receives the customer's data.
+
+## Requests and incidents
+
+- On receipt of a rights request, record the date, role, scope and response deadline. Use
+  proportionate identity checks. Route customer-project requests promptly to the customer
+  and assist it. For controller requests, reply within one month. Explain any permitted
+  extension within the first month and record the reason. When refusing, explain why and
+  identify the complaint and judicial remedies.
+- For access, return or erasure, identify the relevant account, workspaces, threads, file
+  versions, approval records, notification and integration records, mail and media. Verify
+  authority and third-party rights before releasing an export. Deliver through a restricted
+  channel. Record deletion jobs, retries, outside recipients and backup expiry. Apply outstanding
+  erasures before making restored records accessible. See [privacy cleanup](privacy-cleanup.md)
+  and [backup and restore](../../../docs/backups-and-restore.md).
+- For a possible breach, contain the incident and record when the operator became aware,
+  what happened, affected data and people, likely consequences, and measures taken. As
+  processor, notify affected customers without undue delay and provide updates. As controller,
+  notify the competent authority without undue delay and where feasible within 72 hours of
+  awareness unless risk to people's rights and freedoms is unlikely. Explain any delay and
+  supplement an incomplete first report. If high risk is likely, inform affected people in
+  clear language without undue delay unless an Article 34 exception applies. Record the
+  decision and its reasons for every personal data breach.

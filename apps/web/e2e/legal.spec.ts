@@ -26,15 +26,18 @@ for (const document of documents) {
             await expect(page.getByRole('main')).toContainText('captures no microphone or tab audio');
             await expect(page.getByRole('main')).toContainText('Recordings are not sent to our AI providers');
             await expect(page.getByRole('heading', { name: 'Screen recordings', exact: true })).toBeVisible();
+            await expect(page.locator('#file-reviews')).toHaveText('Files, versions and approvals');
         }
         if (document.path === '/legal/cookie-policy') {
             await expect(page.getByRole('main').getByText('__Host-uier_passkey_challenge', { exact: true })).toBeVisible();
+            await expect(page.getByRole('main').getByText('__Host-uier-approval-<projectId>', { exact: true })).toBeVisible();
             await expect(page.getByRole('main')).toContainText('Web Analytics collection is disabled and its browser SDK is not loaded');
             await expect(page.getByRole('main')).toContainText('X-Uier-Visitor');
             await expect(page.getByRole('main')).not.toContainText('so only you can resolve or delete');
         }
         if (document.path === '/legal/terms-of-service') {
             const main = page.getByRole('main');
+            await expect(main.locator('#data-processing')).toHaveText('Data processing agreement');
             await expect(main).toContainText('site owner’s authority');
             await expect(main).toContainText('including screenshots');
             await expect(main).toContainText('A separate whole-thread deletion removes the discussion');

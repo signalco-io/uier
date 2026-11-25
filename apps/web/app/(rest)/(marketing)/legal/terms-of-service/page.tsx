@@ -1,4 +1,5 @@
 import { publicPageMetadata } from '@/src/lib/metadata';
+import { processingAgreementVersion } from '@/src/lib/processingAgreement';
 import { brand } from '@uier/brand';
 import { LegalDocument } from '../../../../../src/components/legal/LegalDocument';
 import { KnownPages } from '../../../../../src/knownPages';
@@ -10,7 +11,7 @@ export const metadata = publicPageMetadata('/legal/terms-of-service', {
 
 export default function TermsOfServicePage() {
     return (
-        <LegalDocument href={KnownPages.LegalTermsOfService} title="Terms of service" effective="25 November 2026">
+        <LegalDocument href={KnownPages.LegalTermsOfService} title="Terms of service" effective={processingAgreementVersion}>
             <p>
                 These terms apply when you use {brand.domain}, its app, toolbar, browser extension and coding-tool
                 connections. Your agreement is with Aleksandar Toplek, who operates {brand.domain} from
@@ -21,7 +22,7 @@ export default function TermsOfServicePage() {
 
             <h2>The service</h2>
             <p>
-                {brand.name} lets people review live websites and discuss the feedback. You can try it on our
+                {brand.name} lets people review live websites, share files and collect decisions on file versions. You can try it on our
                 public pages without an account. Sign in to create a workspace and projects for your own sites,
                 invite people or teams, share review links and connect coding tools. Project settings determine
                 which sites and reviewers can use the toolbar. Guest access does not require an account when
@@ -49,7 +50,9 @@ export default function TermsOfServicePage() {
                 For the duration of the review service, we host, retrieve, display, transmit and delete
                 feedback as instructed. This can include reviewers&rsquo; and invitees&rsquo; names, email addresses,
                 guest identifiers, roles and activity, as well as comments, selected text, page addresses,
-                browser details, screenshots and recordings. These may also identify people visible on
+                browser details, screenshots and recordings. For file reviews we also handle originals,
+                imported frames and test emails, previews, extracted text, approval rosters, decisions
+                and their history. These may identify people in the files or emails as well as people visible on
                 the reviewed site or mentioned in a thread. The customer determines the sites, access,
                 retention instructions and destinations and is responsible for lawful collection, notices
                 and authority to give those instructions. Keep special-category data and criminal-offence
@@ -72,8 +75,9 @@ export default function TermsOfServicePage() {
             <h3>Subprocessors and transfers</h3>
             <p>
                 The customer gives general written authorisation to use Microsoft Azure for data storage
-                and email, Vercel for hosting and bot protection, GitHub Actions for notification
-                processing, and Anthropic for AI features that send project content. See the{' '}
+                and outgoing email, Vercel for hosting and bot protection, GitHub Actions for background
+                review processing and delivery to connected services, Cloudflare for inbound test email
+                when enabled, and Anthropic for AI features that send project content. See the{' '}
                 <a href={`${KnownPages.LegalPrivacyPolicy}#providers`}>provider details</a> for the data
                 each receives. We impose the same applicable data protection obligations on subprocessors
                 by written contract and remain responsible to the customer for their performance.
@@ -81,8 +85,9 @@ export default function TermsOfServicePage() {
             </p>
             <p>
                 Before adding or replacing a subprocessor, we will email affected workspace admins with
-                the provider, purpose and planned start date at least 30 days in advance. The customer may
-                object on data protection grounds during that period. We will work with the customer on an
+                the provider, purpose, processing location, planned start date and a deadline that gives
+                them a meaningful opportunity to object before processing begins. The customer may
+                object on data protection grounds by replying to the notice. We will work with the customer on an
                 alternative. If we cannot resolve the objection, the customer may end the affected service
                 and request return or deletion before the new provider processes its data.
             </p>
@@ -106,8 +111,8 @@ export default function TermsOfServicePage() {
             <p>
                 At the customer&rsquo;s choice, we return or delete all personal data processed on its behalf
                 at the end of the service and delete remaining copies unless EU or Member State law requires
-                storage. Contact us to arrange return before deleting a project. Deleted data can remain in
-                protected backups for up to seven days. If restored, it remains subject to the deletion
+                storage. Contact us to arrange return before deleting a project. Deleted database records
+                can remain in protected Cosmos DB backups for up to seven days. If restored, they remain subject to the deletion
                 instruction. Copies the customer sent to its own systems or integrations remain under its control.
             </p>
 
@@ -171,7 +176,7 @@ export default function TermsOfServicePage() {
             <p>
                 We publish updates with a new effective date. For material changes affecting existing
                 customers, we will give advance notice to affected workspace admins and obtain agreement
-                where required. Changes apply prospectively. The notice procedure below applies to
+                where required. Changes apply prospectively. The notice procedure in the data processing agreement applies to
                 changes of subprocessor.
             </p>
 

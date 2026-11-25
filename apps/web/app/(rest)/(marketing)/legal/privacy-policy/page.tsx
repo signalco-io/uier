@@ -16,7 +16,8 @@ export default function PrivacyPolicyPage() {
     return (
         <LegalDocument href={KnownPages.LegalPrivacyPolicy} title="Privacy policy" effective="25 November 2026">
             <p>
-                Aleksandar Toplek operates {brand.domain} from Croatia as a {brand.parent.name} project.
+                Aleksandar Toplek personally operates and funds {brand.domain} from Croatia as a free,
+                noncommercial {brand.parent.name} project.
                 He is the data controller for accounts, sign-in, service security, support and feedback on
                 uier&rsquo;s own pages. For questions or to exercise your rights, email{' '}
                 <a href={`mailto:${brand.contact.privacy}`}>{brand.contact.privacy}</a>.
@@ -74,7 +75,7 @@ export default function PrivacyPolicyPage() {
 
             <h2>In short</h2>
             <ul>
-                <li>Reading the site sets no cookies and stores nothing in your browser.</li>
+                <li>Reading the public marketing pages sets no cookies and stores nothing in your browser.</li>
                 <li>Guest feedback on our public pages is public. Feedback you leave while signed in to {brand.name} is private to you and the uier team.</li>
                 <li>Feedback in uier&rsquo;s own feedback projects expires 90 days after its last change, including signed-in feedback. Our starter threads and their replies stay until we remove them.</li>
                 <li>
@@ -178,6 +179,33 @@ export default function PrivacyPolicyPage() {
                 deletes are retried. Upload sessions and daily counters contain identifiers and bounded metadata,
                 and expire after cleanup. Done and Archive keep the recording with the thread. Recordings have
                 no in-product redaction; discard a draft before sending or delete the saved message.
+            </p>
+
+            <h3 id="file-reviews">Files, versions and approvals</h3>
+            <p>
+                A project member can upload a file for review or import selected Figma frames. We keep
+                the original file or imported snapshot, earlier published versions, previews and comments.
+                An original can include personal information in embedded metadata, attachments, audio or
+                email headers. The rules for stripping metadata from comment screenshots apply only to those
+                screenshots. PDF previews contain searchable text generated locally from page images.
+                For a Figma import we use the member&rsquo;s token to request the selected material from Figma.
+                We retain the source reference and selection with the version. We discard the token after the request.
+            </p>
+            <p>
+                If a project enables incoming test email, Cloudflare routes the full message and its
+                delivery address to uier. We keep the original message as a file. Its preview can show
+                the sender, subject, message text, embedded images and link destinations. Project access
+                settings control who can view each file. Someone with a valid share link can see the
+                material within its scope. Downloading an original requires permission to do so.
+            </p>
+            <p>
+                When a project asks for approval, it supplies reviewers&rsquo; account identities or external
+                reviewers&rsquo; names and email addresses. We send invitations, reminders and identity
+                verification links. We store the roster, version, deadlines, decisions, explanations and
+                decision history. Authorised reviewers can view and export the review record within their
+                access scope. Exports omit reviewer mailbox addresses from the roster. Closing a round
+                preserves its history. Deleting the file or project removes access and starts cleanup of
+                stored files, previews and approval records. Copies already exported can remain with recipients.
             </p>
 
             <h3>Teams and workspace access</h3>
@@ -695,6 +723,16 @@ export default function PrivacyPolicyPage() {
                 contains the page origin and path, plus only the query fields and hash routes the project approved.
             </p>
 
+            <h3>Writing to us</h3>
+            <p>
+                If you email our contact, privacy or security address, Cloudflare Email Routing forwards
+                your message to the operator&rsquo;s mailbox provider. The message includes your address,
+                subject, contents, attachments and routing details. We use it to handle your enquiry,
+                document the response and, where necessary, establish or defend a legal claim. We keep
+                correspondence while the matter is open, then retain only what is needed to demonstrate
+                our response, meet a legal obligation or deal with a claim within the applicable time limit.
+            </p>
+
             <h3>Request logs</h3>
             <p>
                 Like any website, our hosting provider receives the usual request details (IP address, browser
@@ -711,7 +749,10 @@ export default function PrivacyPolicyPage() {
                     enquiries and keeping the service secure to handle support mail, moderate public
                     feedback, limit spam and investigate abuse using request logs. We use service operation
                     logs and usage totals to diagnose failures and manage capacity in our legitimate interest
-                    in maintaining a reliable service.</li>
+                    in maintaining a reliable service. Where enabled on uier&rsquo;s own feedback,
+                    automatic thread titles help us find and route reports. We rely on our legitimate
+                    interest in managing that feedback. We also have a legitimate interest in keeping
+                    evidence needed to establish or defend claims.</li>
                 <li>Where the law requires us to respond to a privacy request or disclose information,
                     we use the data needed to meet that obligation (Article 6(1)(c)).</li>
             </ul>
@@ -726,7 +767,8 @@ export default function PrivacyPolicyPage() {
                 <li>Comments, accounts, projects and rate-limit counters: Microsoft Azure Cosmos DB in the West Europe region (the Netherlands).</li>
                 <li>Screenshots: private Microsoft Azure Blob Storage in West Europe. After checking your access, we issue a read-only link to one image for 60 seconds. Your browser downloads directly from Azure. A previously issued link can remain usable until it expires after a permission change. Earlier screenshots move from Cosmos DB in the background.</li>
                 <li>Sign-in, invitation, review notification and account deletion emails: sent by Microsoft Azure Communication Services, with its data stored in Europe.</li>
-                <li>Review delivery: GitHub-hosted workflow runners temporarily process recipient and delivery records. Workflow logs contain delivery ids and failure codes, without recipient addresses, comment text or images.</li>
+                <li>Review delivery: GitHub-hosted workflow runners process notification jobs and deliver project feedback to integrations enabled by an admin. Notification workflow logs contain delivery ids and failure codes, without recipient addresses, comment text or images.</li>
+                <li>File reviews: private Azure Blob Storage holds originals and previews. Azure Cosmos DB holds version, access and approval records. Microsoft Azure Communication Services sends approval emails. Figma receives requests for the frames a member chooses to import.</li>
                 <li>Connected services chosen by an admin: Notion, GitHub, Linear, Azure DevOps and Slack receive the feedback described above. Their access, processing locations and retention follow the connected account and service settings.</li>
                 <li>
                     Hosting and bot protection: Vercel. The server code runs in Dublin, Ireland; pages
@@ -737,7 +779,7 @@ export default function PrivacyPolicyPage() {
                 <li>Thread titles: Anthropic receives a thread&rsquo;s first message, its kind, what it was left on and the start of the selected text to write the title, unless titles are turned off.</li>
                 <li>Google sign-in, only if you choose it: you sign in at Google, which handles that under its own privacy policy and learns that you use {brand.name}.</li>
                 <li>Microsoft sign-in, only if you choose it: you sign in at Microsoft, which handles that under its own privacy policy and learns that you use {brand.name}.</li>
-                <li>DNS: Cloudflare answers DNS queries for {brand.domain}. It does not see the pages you visit.</li>
+                <li>Cloudflare answers DNS queries for {brand.domain}, forwards mail to our contact mailboxes and routes incoming test messages where a customer enables file review by email.</li>
             </ul>
             <p>
                 We use service providers for the operations above. External sign-in providers also handle
@@ -765,6 +807,7 @@ export default function PrivacyPolicyPage() {
                 <li>Your profile picture: until you replace or remove it on your Account page, or with your account.</li>
                 <li>Projects: until a workspace admin deletes them or you ask us to. Deletion and transfer intents contain only identifiers and expire one day after the deletion or transfer completes; the reserved code and public id contain no names or content and are kept.</li>
                 <li>Comments in customer projects: until their author or a project admin deletes them, or the project is deleted.</li>
+                <li>Review files, versions and approval records stay until the file or project is deleted. Replacing a version, closing a round or revoking a link keeps the existing review record.</li>
                 <li>Deleted data can stay in backups for up to seven days.</li>
                 <li>Sign-in links: until you use them, at most 15 minutes.</li>
                 <li>A linked Google account: until you unlink it or delete your account. Google sign-ins in progress: at most 10 minutes. A Google account waiting for an email code: at most 15 minutes.</li>
@@ -775,6 +818,10 @@ export default function PrivacyPolicyPage() {
                 <li>The <code>__Host-uier_visitor</code> cookie: one year after it is set. The <code>__Host-uier_session</code> cookie: 30 days after you sign in.</li>
                 <li>Vercel Web Analytics collection is currently disabled.</li>
             </ul>
+
+            <p>The seven-day backup window applies to the Azure Cosmos DB records described here.
+                Email already delivered to a mailbox and copies exported to other services follow
+                the retention arrangements for those systems.</p>
 
             <h2>Your rights</h2>
             <p>

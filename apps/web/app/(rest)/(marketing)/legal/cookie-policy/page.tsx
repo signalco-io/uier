@@ -80,8 +80,36 @@ const items = [
         name: '__Host-uier_last_sign_in',
         type: 'Cookie (first party, HttpOnly)',
         when: 'You sign in to the app',
-        purpose: 'Marks the option you signed in with (passkey, Google, Microsoft or email) as “Last used” on the sign-in page. Holds only that option’s name, with nothing about you; signing out keeps it.',
+        purpose: 'Automatically marks the method you chose (passkey, Google, Microsoft or email) as “Last used” the next time you see the sign-in page. It contains the method name and stays after sign-out. You can sign in with any method if you clear it.',
         duration: 'One year'
+    },
+    {
+        name: '__Host-uier-proof-visitor',
+        type: 'Cookie (first party, HttpOnly)',
+        when: 'You redeem a guest file-review link or an external file-approval invitation',
+        purpose: 'Recognises this browser as the same guest across file reviews. Each file still requires its own access permission.',
+        duration: 'One year from the latest exchange'
+    },
+    {
+        name: '__Host-uier-proof-<projectId>',
+        type: 'Cookie (first party, HttpOnly)',
+        when: 'You redeem a guest file-review link or an external file-approval invitation',
+        purpose: 'Carries the guest session for the project and the access granted by the file or collection share.',
+        duration: 'Up to 30 days, capped by the share expiry'
+    },
+    {
+        name: '__Host-uier-proof-returning-<scopeHash>',
+        type: 'Cookie (first party, HttpOnly)',
+        when: 'You redeem a return link from a file-review notification',
+        purpose: 'Restores access to the file discussion associated with your verified guest subscription.',
+        duration: 'Up to 30 days, capped by the share expiry'
+    },
+    {
+        name: '__Host-uier-approval-<projectId>',
+        type: 'Cookie (first party, HttpOnly)',
+        when: 'You verify your identity from an emailed file-approval link',
+        purpose: 'Associates your decision with the external reviewer assigned to this file version.',
+        duration: 'Up to 30 days, capped by the share expiry'
     },
     {
         name: '__Secure-uier_review_sso',
@@ -174,7 +202,7 @@ export default function CookiePolicyPage() {
         <LegalDocument href={KnownPages.LegalCookiePolicy} title="Cookie policy" effective="25 November 2026">
             <p>
                 {brand.domain} uses cookies and browser storage for the actions and preferences listed below. None of them is set
-                when you only read the site, and none is used for advertising or to follow you to other sites.
+                when you only read the public marketing pages, and none is used for advertising or to follow you to other sites.
             </p>
 
             <p>
