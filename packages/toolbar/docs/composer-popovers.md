@@ -42,6 +42,8 @@ character counter near the limit, Discard while there is text, and Send.
 Discard and Send are plain icon buttons with their tooltips: an X, since Discard has no labeled button beside
 Send, and Send, since Enter sends. They are 44 px on touch screens. `beforeText` goes between the quote and the
 box ([a rewrite's suggestions](#a-rewrite)). Screenshots and Attach image: [screenshots](screenshots.md#the-form).
+When the controls need more room, Discard and Send wrap together to a second line at the right, leaving the
+attachment controls and their touch targets clear.
 
 ### A rewrite
 
@@ -299,6 +301,8 @@ its actions and its read receipt, and it then stays open like a clicked thread, 
 (`data-uier-controls-reveal`, at once with reduced motion). Only a mouse
 previews (`pointerType`), never while a button is held or in point mode (`isPointing`, `CommentPointOverlay`);
 a tap, Enter or Space opens the thread at once, as before. Closing a preview never moves the focus to the pin.
+The pin remembers the pointer-down event that promotes its preview so a deferred outside-press notification from
+the popover cannot close the thread just as the reply box opens.
 
 ## Posting: one popover
 

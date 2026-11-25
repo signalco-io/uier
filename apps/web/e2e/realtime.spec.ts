@@ -293,13 +293,12 @@ test('background board reads preserve headers, focus and nodes through refresh, 
     const original = await open.elementHandle();
     const search = page.getByRole('searchbox', { name: 'Search feedback', exact: true });
     await search.focus();
-    const sort = open.locator('[data-board-sort]');
-    // Where the sort control sits in its column. The board itself scrolls sideways on a phone when focus moves
-    // to a card in another column, which is not a header that jumped
-    const place = async () => {
-        const [column, control] = [await open.boundingBox(), await sort.boundingBox()];
-        return { x: control!.x - column!.x, y: control!.y - column!.y, width: control!.width, height: control!.height };
-    };
+    // Read both boxes in one frame so a sideways scroll cannot shift the column between reads.
+    const place = () => open.evaluate(element => {
+        const column = element.getBoundingClientRect();
+        const control = element.querySelector('[data-board-sort]')!.getBoundingClientRect();
+        return { x: control.x - column.x, y: control.y - column.y, width: control.width, height: control.height };
+    });
     const before = await place();
     let release = () => {};
     let wait = Promise.resolve();

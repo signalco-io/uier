@@ -89,6 +89,8 @@ their own, at the right, rather than cover the status. `e2e/toolbar-thread.spec.
   change it, else a badge ([status changes](optimistic-status.md)). Its dot glows like the app's status chip
   (`GlowingStatusDot`, the app's `GlowingStateDot`, [uier #462](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_nq7Ckm6_THp5pfj30OEra)); the menu's options do not. The menu's button
   has no chevron, the outlined badge alone ([uier #501](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_a7dt7dpFEV6aNbnjhWEeD)).
+  Pressing the button again while the menu is closing reopens it. A deferred outside-press event from the same
+  shadow-root trigger leaves the reopened menu in place.
 - `#id`, then the blue unread dot, which marks the thread read.
 - A priority other than Normal.
 - The first message's author (no avatar), "via" its agent and its time.
@@ -119,6 +121,8 @@ their own, at the right, rather than cover the status. `e2e/toolbar-thread.spec.
   a new tab ([uier #445](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_z-D8sz84XrnMwNuGLXLMF)).
   Each item has a 16 px icon, like the toolbar's other menus. Opened from the inbox, the menu renders in the ink
   scope, so it stays dark like the inbox; a thread on the page opens it in the toolbar root, in the thread's theme.
+  The menu can reopen while its previous close animation is still running. The packaged extension's strict-CSP
+  test changes priority and immediately reopens Thread options to archive the thread.
 
 ## Message options
 
