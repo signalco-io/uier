@@ -49,7 +49,7 @@ export const firefoxExtensionRelease = {
  * The store can be behind while a submission is in review: the extension asks the browser for
  * the update and offers a restart only once it is downloaded (packages/extension/src/update.ts).
  */
-export const latestExtensionVersion = '0.1.12';
+export const latestExtensionVersion = '0.1.13';
 
 /** The store listing, the same address as the app's store link */
 export const extensionStoreUrl = chromeWebStoreUrl(extensionRelease.storeId);
