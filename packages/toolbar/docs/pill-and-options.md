@@ -16,6 +16,13 @@ from any page.
   they are rows of Options, [page checks](page-checks.md#where-they-open)), About, Profile, Options and Collapse / Expand.
 - The buttons are a `role="toolbar"` with one tab stop and ← → between them; the move handle is beside it
   ([keyboard](keyboard.md#composites)).
+- The pill never scrolls sideways ([uier #512](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Flegal%2Fprivacy-policy&comment=comment_vLb5jOsfnYz_DNFDXiDye)).
+  Its buttons keep their size (44 px for touch). When they don't fit the visible viewport less 32 px, Profile
+  moves into Options first, then Draw on the page, then About (`usePillRoom`, measured from the move handle).
+  Profile's name and description are then at the top of Options, and Draw and About are rows there. Closing the
+  canvas or the hint gives the focus back to Options. On a 393 px phone a guest on the landing page has Profile
+  and Draw in Options. At 320 px About is there too. A signed-in member keeps Draw from 360 px and Profile from
+  403 px.
 - The point-mode instruction (`role="status"`) shows by the pill. In its place, while a draft pin is closed,
   **Resume draft** opens the latest one ([several drafts](composer-popovers.md#several-drafts-on-a-page)).
   Both are outside the pill, so its width never changes.
@@ -41,6 +48,7 @@ inbox's state stay. Collapsing also ends canvas mode ([canvas mode](canvas-mode.
   - Reset moved toolbar, View project, Exit review and Sign out. On uier's own pages, account sign-out stays in
     the app's account menu.
 - Options always ends with "Powered by uier", a link to uier.io: the toolbar runs on other people's sites.
+- Options is never taller than the room beside the pill, and scrolls inside when a short window has less room.
 - Every options row is an `OptionButton`: a 16 px icon 8 px from its label, so the icons line up in one
   column. A list for Keyboard shortcuts, the toggle for the switch, a back arrow for All options, rotate-ccw for
   reset, the mark for "Powered by uier". Switch rows: [switches in menus](keyboard.md#switches-in-menus).

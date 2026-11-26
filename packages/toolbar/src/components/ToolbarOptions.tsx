@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useContext, useEffect, useRef, useState, type ComponentProps, type ReactNode, type Ref } from 'react';
+import { Fragment, useContext, useEffect, useRef, useState, type ComponentProps, type PointerEvent, type ReactNode, type Ref } from 'react';
 import { useIconTooltip } from './IconTooltip';
 import { Popper } from '@uier/ui-primitives/Popper';
 import { IconButton } from '@uier/ui-primitives/IconButton';
@@ -9,7 +9,7 @@ import { Stack } from '@uier/ui-primitives/Stack';
 import { Row } from '@uier/ui-primitives/Row';
 import { Divider } from '@uier/ui-primitives/Divider';
 import { cx } from '@uier/ui-primitives/cx';
-import { ArrowLeft, Check, Close, ExternalLink, Globe, Layers, LayoutList, ListTodo, LogOut, MoreHorizontal, Reset } from '@uier/ui-icons';
+import { ArrowLeft, Check, Close, ExternalLink, Globe, Info, Layers, LayoutList, ListTodo, LogOut, MoreHorizontal, Reset } from '@uier/ui-icons';
 import { BRAND_URL, Mark } from '@uier/brand';
 import { useDrafts } from '../hooks/useDrafts';
 import { useVisitor } from '../hooks/useVisitor';
@@ -21,10 +21,12 @@ import { floatingShadowClassName } from './@types/Comments';
 import { toolbarConfig } from '../config';
 import { setShortcutsEnabled, toolbarShortcuts, useKeyboardLikely, useShortcutsEnabled } from '../shortcuts';
 import { moveFocusInMenu } from '../focusKeys';
-import { keepMovedFocus, toolbarSurface } from '../toolbarReview';
+import { keepMovedFocus, toolbarSurface, usePopoverTriggerPress } from '../toolbarReview';
 import { AccessibilityIcon, SeoIcon, ConsentIcon } from './checks/ChecksIcons';
 import type { ChecksAttention, ChecksPanelId } from './checks/PageChecks';
 import { AttentionDot, checksButtonLabel } from './checks/ChecksAttention';
+import { DrawIcon } from './canvas/CanvasIcons';
+import { ProfileSummary } from './ToolbarProfile';
 import { useMessages, type Messages } from '../i18n';
 import { useLanguageChoice } from '../hooks/useLanguageChoice';
 import { toolbarLanguageNames, toolbarLanguages } from '../languages';
@@ -44,6 +46,12 @@ type ToolbarOptionsProps = {
     triggerRef?: Ref<HTMLButtonElement>;
     /** A narrow screen: the Accessibility (where it can load) and SEO panels open from here, not from the pill */
     pageChecks?: { accessibility: boolean; seo: boolean; consent: boolean; attention?: ChecksAttention; onOpen: (panel: ChecksPanelId) => void };
+    /** The pill has no room for Profile: who the visitor comments as shows at the top here */
+    profile?: boolean;
+    /** The pill has no room for About uier: it opens the first-run hint from here */
+    about?: { open: boolean; controls?: string; onClick: () => void };
+    /** The pill has no room for Draw on the page: it is a row here, pressed in canvas mode */
+    draw?: { pressed: boolean; onClick: () => void };
 };
 
 /** The keyboard shortcuts, by what they do (`toolbarShortcuts`); the single keys are marked off while they are */
@@ -152,7 +160,7 @@ function EnvironmentOption({ origin, label, href, current, onCurrent }: { origin
  * apply), and always a link to uier.io, since the toolbar shows on other people's sites. ↑ and ↓ move
  * between its buttons.
  */
-export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition, shortcutsRequested = false, onShortcutsRequestHandled, triggerRef, pageChecks }: ToolbarOptionsProps) {
+export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition, shortcutsRequested = false, onShortcutsRequestHandled, triggerRef, pageChecks, profile = false, about, draw }: ToolbarOptionsProps) {
     const { rootElement, mode, review } = useContext(CommentsBootstrapperContext);
     const t = useMessages();
     const languages = useLanguageChoice();
@@ -246,6 +254,16 @@ export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition, shor
         pageChecks?.onOpen(panel);
     };
 
+    const handleAbout = () => {
+        handleOpenChange(false);
+        about?.onClick();
+    };
+
+    const handleDraw = () => {
+        handleOpenChange(false);
+        draw?.onClick();
+    };
+
     const handleExitReview = () => {
         handleOpenChange(false);
         onExitReview?.();
@@ -267,6 +285,8 @@ export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition, shor
     );
 
     const tip = useIconTooltip(t.options.label);
+    // A tap that opens Options is not a press outside it (the focus may already be on its button: it closes canvas mode)
+    const triggerPress = usePopoverTriggerPress();
     return (
         <>{tip.tooltip}<Popper
             container={container}
@@ -284,19 +304,20 @@ export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition, shor
                 event.preventDefault();
                 shortcutsHeadingRef.current?.focus();
             } }}
-            {...toolbarSurface('uier-options', cx('w-auto min-w-48 max-w-80 rounded-xl p-1', floatingShadowClassName))}
+            {...toolbarSurface('uier-options', cx('max-h-[var(--radix-popover-content-available-height)] w-auto min-w-48 max-w-80 overflow-y-auto overscroll-contain rounded-xl p-1', floatingShadowClassName))}
             {...{ onCloseAutoFocus: (event: Event) => {
                 if (openingPanelRef.current) {
                     openingPanelRef.current = false;
                     event.preventDefault();
                 } else keepMovedFocus(event);
-            } }}
+            }, onPointerDownOutside: triggerPress.onPointerDownOutside }}
             trigger={(
                 <IconButton
                     ref={triggerRef}
                     variant="plain"
                     className="rounded-full"
                     {...tip.triggerProps}
+                    onPointerDown={(event: PointerEvent) => { tip.triggerProps.onPointerDown(event); triggerPress.onPointerDown(event); }}
                     aria-label={t.options.label}>
                     <MoreHorizontal />
                 </IconButton>
@@ -376,6 +397,10 @@ export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition, shor
                 </Stack>
             ) : (
                 <Stack>
+                    {profile && <>
+                        <ProfileSummary className="p-2" />
+                        <Divider role="separator" className="my-1" />
+                    </>}
                     {reviewSessionsAvailable && !reviewSession && <>
                         <OptionButton icon={<ListTodo size={16} />} disabled={sessionCommand.isPending} onClick={async () => {
                             try {
@@ -409,6 +434,19 @@ export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition, shor
                         </OptionButton>
                     )}
                     <Divider role="separator" className="my-1" />
+                    {(about || draw) && <>
+                        {draw && (
+                            <OptionButton icon={<DrawIcon size={16} />} aria-pressed={draw.pressed} onClick={handleDraw}>
+                                {t.toolbar.draw}
+                            </OptionButton>
+                        )}
+                        {about && (
+                            <OptionButton icon={<Info size={16} />} aria-expanded={about.open} aria-controls={about.controls} onClick={handleAbout}>
+                                {t.toolbar.about}
+                            </OptionButton>
+                        )}
+                        <Divider role="separator" className="my-1" />
+                    </>}
                     {pageChecks && (pageChecks.accessibility || pageChecks.seo || pageChecks.consent) && <>
                         {pageChecks.accessibility && (
                             <OptionButton icon={<AccessibilityIcon size={16} />} onClick={() => handleOpenPanel('accessibility')}

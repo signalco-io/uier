@@ -5,7 +5,7 @@ import { extensionRelease, firefoxExtensionRelease } from '../src/lib/extension/
 import { expectNoAxeViolations } from './accessibility';
 import { projectPublicId, appNavigation, workspaceMenu, openFeedbackWorkspace, closeAppNavigation, createProject, hydrated, openEmailSignIn, openProjectInvite, requestSignInEmail, setProjectAccess, signIn, uniqueEmail, backToComments, commentRowLink, inBackground, openComment, openCommentFilters } from './support/app';
 import { pngImage } from './support/images';
-import { animationsFinished, newVisitor, showcaseHint, toolbar } from './support/toolbar';
+import { animationsFinished, newVisitor, openProfile, showcaseHint, toolbar } from './support/toolbar';
 
 // The signed-in app (issue #34): sign-in, onboarding, the sidebar, projects, project settings and the account.
 
@@ -791,11 +791,11 @@ test('feedback on the app opens uier\'s toolbar and stays private', async ({ pag
         expect(await (await guestContext.request.get(new URL('/api/visitor?path=%2Fapplication', page.url()).href)).json()).toMatchObject({ privateAppFeedback: false });
     } finally { await guestContext.close(); }
     await expect(showcaseHint(page)).toHaveCount(0);
-    await toolbar(page).getByRole('button', { name: 'Profile', exact: true }).click();
-    await expect(page.getByRole('dialog', { name: 'Profile', exact: true })).toContainText(name);
-    await expect(page.getByRole('dialog', { name: 'Profile', exact: true })).toContainText('You are signed in to uier.');
+    const profile = await openProfile(page);
+    await expect(profile).toContainText(name);
+    await expect(profile).toContainText('You are signed in to uier.');
     await page.keyboard.press('Escape');
-    await expect(page.getByRole('dialog', { name: 'Profile', exact: true })).toBeHidden();
+    await expect(profile).toBeHidden();
     await expectNoAxeViolations(page);
 
     // App pages show private projects: only the author (and the team, in the app) sees it

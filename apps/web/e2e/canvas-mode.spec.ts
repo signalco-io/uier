@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { isolatedOrigin, newVisitor, openLanding, openThread, toolbar } from './support/toolbar';
+import { drawOpener, isolatedOrigin, newVisitor, openLanding, openThread, startDrawing, toolbar } from './support/toolbar';
 import { expectNoAxeViolations } from './accessibility';
 
 // Canvas mode (packages/toolbar/docs/canvas-mode.md): drawing on the page with the toolbar, then one
@@ -47,8 +47,9 @@ test('canvas mode: draw shapes and a note, undo and redo, comment, and see the d
     const heading = page.getByRole('heading', { level: 1 });
     const box = (await heading.boundingBox())!;
 
-    await toolbar(page).getByRole('button', { name: 'Draw on the page' }).click();
-    await expect(toolbar(page).getByRole('button', { name: 'Draw on the page' })).toHaveAttribute('aria-pressed', 'true');
+    await startDrawing(page);
+    // A phone's pill may have no room for it: then it is a row of Options (uier #512)
+    if (!testInfo.project.use.hasTouch) await expect(toolbar(page).getByRole('button', { name: 'Draw on the page' })).toHaveAttribute('aria-pressed', 'true');
     await expect(panel(page)).toBeVisible();
     await expect(surface(page)).toBeFocused();
     // The pen is the first tool; Comment waits for a shape
@@ -139,13 +140,13 @@ test('canvas mode: draw shapes and a note, undo and redo, comment, and see the d
 test('canvas mode: the keyboard adds, moves and deletes shapes; Esc and Discard leave', async ({ browser }, testInfo) => {
     const { context, page } = await newVisitor(browser, testInfo);
     await openLanding(page, isolatedOrigin(testInfo), { dismissHint: true });
-    await toolbar(page).getByRole('button', { name: 'Draw on the page' }).click();
+    await startDrawing(page);
     await expect(surface(page)).toBeFocused();
 
     // Esc with nothing drawn leaves canvas mode
     await page.keyboard.press('Escape');
     await expect(panel(page)).toHaveCount(0);
-    await toolbar(page).getByRole('button', { name: 'Draw on the page' }).click();
+    await startDrawing(page);
     await expect(surface(page)).toBeFocused();
 
     // R chooses the rectangle, Enter adds one in the middle of the window, focused and selected
@@ -179,18 +180,18 @@ test('canvas mode: the keyboard adds, moves and deletes shapes; Esc and Discard 
     await expect(panel(page)).toBeVisible();
 
     // Draw on the page again goes to Comment instead of losing the drawing; Discard leaves
-    await toolbar(page).getByRole('button', { name: 'Draw on the page' }).click();
+    await startDrawing(page);
     await expect(panel(page).getByRole('button', { name: 'Comment' })).toBeFocused();
     await panel(page).getByRole('button', { name: 'Discard' }).click();
     await expect(panel(page)).toHaveCount(0);
-    await expect(toolbar(page).getByRole('button', { name: 'Draw on the page' })).toBeFocused();
+    await expect(await drawOpener(page)).toBeFocused();
     await context.close();
 });
 
 test('canvas mode: Edit drawing goes back to the shapes with the comment text kept @mobile-smoke', async ({ browser }, testInfo) => {
     const { context, page } = await newVisitor(browser, testInfo);
     await openLanding(page, isolatedOrigin(testInfo), { dismissHint: true });
-    await toolbar(page).getByRole('button', { name: 'Draw on the page' }).click();
+    await startDrawing(page);
     // The tools fit the window, on a phone too
     const tools = (await panel(page).boundingBox())!;
     expect(tools.x).toBeGreaterThanOrEqual(0);
@@ -215,7 +216,7 @@ test('canvas mode: Edit drawing goes back to the shapes with the comment text ke
 test('canvas mode: Draw on the page with a drawing\'s comment unsent goes on with that drawing', async ({ browser }, testInfo) => {
     const { context, page } = await newVisitor(browser, testInfo);
     await openLanding(page, isolatedOrigin(testInfo), { dismissHint: true });
-    await toolbar(page).getByRole('button', { name: 'Draw on the page' }).click();
+    await startDrawing(page);
     await surface(page).focus();
     await page.keyboard.press('o');
     await page.keyboard.press('Enter');
@@ -224,7 +225,7 @@ test('canvas mode: Draw on the page with a drawing\'s comment unsent goes on wit
     await draft.getByRole('textbox', { name: 'Comment' }).fill('Both drawings.');
 
     // A new session takes the unsent drawing's shapes: one session, one comment, nothing lost
-    await toolbar(page).getByRole('button', { name: 'Draw on the page' }).click();
+    await startDrawing(page);
     await expect(surface(page).getByRole('button', { name: 'Ellipse 1' })).toBeAttached();
     await surface(page).focus();
     await page.keyboard.press('r');
@@ -260,7 +261,7 @@ test('canvas mode: Edit drawing keeps the shapes on the scrolled content they we
     const target = page.locator('#canvas-scroller-target');
     const box = (await target.boundingBox())!;
 
-    await toolbar(page).getByRole('button', { name: 'Draw on the page' }).click();
+    await startDrawing(page);
     await panel(page).getByRole('button', { name: 'Rectangle' }).click();
     await drag(page, { x: box.x + 20, y: box.y + 20 }, { x: box.x + 200, y: box.y + 90 });
     await panel(page).getByRole('button', { name: 'Comment' }).click();

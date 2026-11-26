@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useContext, Ref, useEffect, useRef, useSyncExternalStore } from 'react';
+import React, { useCallback, useContext, Ref, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { IconTooltip, useIconTooltip } from './IconTooltip';
 import { Row } from '@uier/ui-primitives/Row';
 import { IconButton } from '@uier/ui-primitives/IconButton';
@@ -105,6 +105,40 @@ function subscribeRoomy(listener: () => void) {
 }
 const isRoomy = () => window.matchMedia(roomyQuery).matches;
 
+function assignRef<T>(ref: Ref<T> | undefined, element: T | null) {
+    if (typeof ref === 'function') ref(element);
+    else if (ref) (ref as { current: T | null }).current = element;
+}
+
+/**
+ * How many of the pill's optional buttons fit beside the ones it always shows (uier #512): the pill never scrolls
+ * sideways on a phone, and every button keeps its size (44 px for touch). The rest are rows of Options.
+ * `optional` is the number it could show, kept first to last.
+ */
+function usePillRoom(navRef: React.RefObject<HTMLElement | null>, groupRef: React.RefObject<HTMLElement | null>,
+    buttonRef: React.RefObject<HTMLElement | null>, maxWidth: number, optional: number, active: boolean) {
+    const [fit, setFit] = useState(Number.MAX_SAFE_INTEGER);
+    const shown = Math.min(fit, optional);
+    useLayoutEffect(() => {
+        const nav = navRef.current, group = groupRef.current;
+        if (!active || !nav || !group) return;
+        const measure = () => {
+            const size = buttonRef.current?.offsetWidth;
+            if (!size) return;
+            const navStyle = getComputedStyle(nav), groupStyle = getComputedStyle(group);
+            const room = maxWidth - parseFloat(navStyle.paddingLeft) - parseFloat(navStyle.paddingRight);
+            // The pill without its optional buttons: the ones it always shows, the divider, its padding and border
+            const fixed = group.scrollWidth + parseFloat(groupStyle.borderLeftWidth) + parseFloat(groupStyle.borderRightWidth) - shown * size;
+            setFit(Math.max(0, Math.floor((room - fixed) / size)));
+        };
+        measure();
+        const observer = new ResizeObserver(measure);
+        observer.observe(group);
+        return () => observer.disconnect();
+    }, [navRef, groupRef, buttonRef, maxWidth, optional, shown, active]);
+    return shown;
+}
+
 function countText(count: number, capped: boolean) {
     return capped ? `${count}+` : String(count);
 }
@@ -142,11 +176,24 @@ export function CommentToolbar({
     ] as const).filter((panel): panel is ChecksPanelId => Boolean(panel));
     // One button opens them all: closing any of their panels gives it the focus back
     const pageChecksButtonRef = useCallback((element: HTMLButtonElement | null) => {
-        for (const ref of [accessibilityButtonRef, seoButtonRef, consentButtonRef]) {
-            if (typeof ref === 'function') ref(element);
-            else if (ref) (ref as { current: HTMLButtonElement | null }).current = element;
-        }
+        for (const ref of [accessibilityButtonRef, seoButtonRef, consentButtonRef]) assignRef(ref, element);
     }, [accessibilityButtonRef, seoButtonRef, consentButtonRef]);
+    // A narrow pill keeps About, then Draw, then Profile; the ones that do not fit are rows of Options (uier #512)
+    const groupRef = useRef<HTMLDivElement>(null);
+    const optional = [showAbout && 'about', onDraw && 'draw', 'profile'].filter(Boolean);
+    const shownOptional = optional.slice(0, usePillRoom(navRef, groupRef, moveRef, Number(movement.style.maxWidth), optional.length, !collapsed));
+    const aboutInPill = showAbout && shownOptional.includes('about');
+    const drawInPill = Boolean(onDraw) && shownOptional.includes('draw');
+    const profileInPill = shownOptional.includes('profile');
+    // In Options, About and Draw on the page give their focus (and the first-run hint's arrow) to Options
+    // (Stable while they stay where they are: a new ref every render would move the Options popover's anchor)
+    const aboutInOptions = showAbout && !aboutInPill;
+    const drawInOptions = Boolean(onDraw) && !drawInPill;
+    const optionsTriggerRef = useCallback((element: HTMLButtonElement | null) => {
+        assignRef(optionsButtonRef, element);
+        if (aboutInOptions) assignRef(hintButtonRef, element);
+        if (drawInOptions) assignRef(drawButtonRef, element);
+    }, [optionsButtonRef, hintButtonRef, drawButtonRef, aboutInOptions, drawInOptions]);
     const capped = commentsCountCapped;
     const badgeText = commentsCount > 99 && !capped ? '99+' : countText(commentsCount, capped);
     const commentsLabel = commentsCount ? t.toolbar.unread(badgeText, commentsCount, capped) : undefined;
@@ -222,8 +269,10 @@ export function CommentToolbar({
                 aria-label={t.toolbar.navLabel}
                 style={{ ...movement.style, width: 'max-content' }}
                 className="fixed z-[51]">
-                {/* Collapsed, the pill never overflows: no scroll container, so the unread count is not clipped */}
+                {/* Collapsed, the pill never overflows: no scroll container, so the unread count is not clipped. Expanded, it scrolls
+                    only where not even the buttons it always shows fit (`usePillRoom`) */}
                 <div
+                    ref={groupRef}
                     role="group"
                     aria-label={t.toolbar.groupLabel}
                     className={cx('flex max-w-full items-center rounded-full border bg-background p-1 text-foreground shadow-(--brand-shadow-review)', !collapsed && 'overflow-x-auto')}>
@@ -270,7 +319,7 @@ export function CommentToolbar({
                                 <CommentIcon icon="add" size={24} variant="outlined" aria-hidden="true" />
                             </IconButton>
                             </IconTooltip>
-                            {onDraw && (
+                            {drawInPill && (
                                 <IconTooltip label={t.toolbar.draw}>
                                 <IconButton
                                     ref={drawButtonRef}
@@ -324,7 +373,7 @@ export function CommentToolbar({
                                 </IconButton>
                                 </IconTooltip>
                             )}
-                            {showAbout && (
+                            {aboutInPill && (
                                 <IconTooltip label={t.toolbar.about}>
                                 <IconButton
                                     ref={hintButtonRef}
@@ -339,9 +388,12 @@ export function CommentToolbar({
                                 </IconTooltip>
                             )}
                             <Divider orientation="vertical" className="mx-1 h-6" />
-                            <ToolbarProfile />
+                            {profileInPill && <ToolbarProfile />}
                             <ToolbarOptions projectUrl={projectUrl} onExitReview={onExitReview} onResetPosition={movement.custom ? resetPosition : undefined}
-                                triggerRef={optionsButtonRef}
+                                triggerRef={optionsTriggerRef}
+                                profile={!profileInPill}
+                                about={aboutInOptions ? { open: Boolean(hintOpen), controls: hintOpen ? hintId : undefined, onClick: () => onToggleHint?.() } : undefined}
+                                draw={drawInOptions && onDraw ? { pressed: drawing, onClick: onDraw } : undefined}
                                 pageChecks={roomy ? undefined : { accessibility: accessibilityAvailable && features.includes('accessibility'), seo: features.includes('seo'), consent: accessibilityAvailable && features.includes('consent'), attention: checksAttention, onOpen: panel => onChecksPanelChange(panel, true) }}
                                 shortcutsRequested={shortcutsRequested} onShortcutsRequestHandled={onShortcutsRequestHandled} />
                             <IconTooltip label={t.toolbar.collapse}>

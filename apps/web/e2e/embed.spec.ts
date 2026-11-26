@@ -2,7 +2,7 @@ import { createServer } from 'node:http';
 import type { AddressInfo, Server } from 'node:net';
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { inboxSearch, toolbar } from './support/toolbar';
+import { inboxSearch, openProfile, toolbar } from './support/toolbar';
 import { createProject, setProjectAccess, signIn, uniqueEmail, openComment } from './support/app';
 import { commentBubble, newVisitor, openThread } from './support/toolbar';
 import { verifiedReviewHeaders } from './support/reviewVerification';
@@ -135,8 +135,8 @@ test('a reviewed project lists, posts and replies without third-party cookies', 
     await expect(guest.page.getByRole('link', { name: 'Open install guide' })).toHaveCount(0);
     // Third-party sites keep toolbar/inbox controls interactive and outside point targeting.
     await toolbar(guest.page).getByRole('button', { name: 'Add comment' }).click();
-    const profile = (await toolbar(guest.page).getByRole('button', { name: 'Profile' }).boundingBox())!;
-    await guest.page.mouse.move(profile.x + profile.width / 2, profile.y + profile.height / 2);
+    const options = (await toolbar(guest.page).getByRole('button', { name: 'Options', exact: true }).boundingBox())!;
+    await guest.page.mouse.move(options.x + options.width / 2, options.y + options.height / 2);
     await expect(guest.page.locator('[data-uier-outline]')).toHaveCount(0);
     await toolbar(guest.page).getByRole('button', { name: /^Inbox/ }).click();
     const inbox = guest.page.getByRole('complementary', { name: 'Comments' });
@@ -313,8 +313,7 @@ test('the toolbar mounts in its shadow root and leaves the reviewed site\'s styl
     await page.evaluate(project => { window.uierConfig = { project }; }, projectId);
     await page.addScriptTag({ url: new URL('/toolbar.js', baseURL).href });
     await expect(toolbar(page)).toBeVisible();
-    await page.getByRole('button', { name: 'Profile' }).click();
-    await expect(page.getByRole('dialog', { name: 'Profile' })).toBeVisible();
+    await openProfile(page);
 
     expect(await pageStyles(page)).toEqual(before);
     const mounted = await page.evaluate(() => {

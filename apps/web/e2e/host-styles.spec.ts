@@ -1,7 +1,7 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { createProject, signIn, uniqueEmail } from './support/app';
 import { startReviewedSite } from './support/reviewedSite';
-import { animationsFinished, inboxSearch, pageChecksButton, toolbar } from './support/toolbar';
+import { animationsFinished, inboxSearch, openProfile, pageChecksButton, toolbar } from './support/toolbar';
 
 // The toolbar looks the same on every site (packages/toolbar/docs/host-styles.md): on a project's page whose styles
 // reach its shadow root every way they can (`fixture-host-styles`, e2e/support/fixtures/hostStyles.ts) the pill and a
@@ -50,11 +50,9 @@ async function reviewPill(page: Page, project: string, hostile: boolean) {
     return looks(toolbar(page));
 }
 
-/** The Profile popover, opened from the pill and closed again */
+/** The Profile popover (Options on a phone), opened from the pill and closed again */
 async function profileLooks(page: Page) {
-    await page.getByRole('button', { name: 'Profile' }).click();
-    const profile = page.getByRole('dialog', { name: 'Profile' });
-    await expect(profile).toBeVisible();
+    const profile = await openProfile(page);
     await animationsFinished(profile);
     const popover = await looks(profile);
     await page.keyboard.press('Escape');
