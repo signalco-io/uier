@@ -49,6 +49,40 @@ export async function expectInboxListed(inbox: Locator, count: number) {
 }
 
 /** The pill's Page checks button: Accessibility, SEO and Security and compliance behind one menu (uier #353) */
+/**
+ * Where Draw on the page opens: the pill's button, or Options where a phone's pill has no room for it
+ * (uier #512). Options also gets the focus back when the canvas closes.
+ */
+export async function drawOpener(page: Page) {
+    const button = toolbar(page).getByRole('button', { name: 'Draw on the page' });
+    return await button.count() ? button : toolbar(page).getByRole('button', { name: 'Options', exact: true });
+}
+
+/** Draw on the page, from the pill or from Options */
+export async function startDrawing(page: Page) {
+    const opener = await drawOpener(page);
+    await opener.click();
+    if ((await opener.getAttribute('aria-label')) === 'Options') {
+        const options = page.getByRole('dialog', { name: 'Options' });
+        await options.getByRole('button', { name: 'Draw on the page' }).click();
+        // Gone before drawing: it fades out over the page
+        await expect(options).toBeHidden();
+    }
+}
+
+/**
+ * Opens who the visitor comments as: the pill's Profile, or Options where a phone's pill has no room for it
+ * (uier #512). Returns the popover.
+ */
+export async function openProfile(page: Page) {
+    const button = toolbar(page).getByRole('button', { name: 'Profile', exact: true });
+    const inPill = await button.count() > 0;
+    await (inPill ? button : toolbar(page).getByRole('button', { name: 'Options', exact: true })).click();
+    const popover = page.getByRole('dialog', { name: inPill ? 'Profile' : 'Options', exact: true });
+    await expect(popover).toBeVisible();
+    return popover;
+}
+
 export const pageChecksButton = (page: Page) => toolbar(page).getByRole('button', { name: /^Page checks/ });
 
 /** A page tool in the open Page checks menu, named with what its check found ("SEO, 2 to look at") */

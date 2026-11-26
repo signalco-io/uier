@@ -213,8 +213,15 @@ test('the profile shows the guest name; signing out forgets it', async ({ browse
     await openLanding(page, isolatedOrigin(testInfo), { dismissHint: true });
 
     const profileButton = page.getByRole('button', { name: 'Profile' });
-    const profile = page.getByRole('dialog', { name: 'Profile' });
-    await profileButton.click();
+    // A phone's pill has no room for Profile: who the visitor is shows at the top of Options (uier #512)
+    const inPill = await profileButton.count() > 0;
+    expect(inPill).toBe(!testInfo.project.use.hasTouch);
+    const openProfile = async () => {
+        if (!inPill) return await openOptions(page);
+        await profileButton.click();
+        return page.getByRole('dialog', { name: 'Profile' });
+    };
+    const profile = await openProfile();
     await expect(profile).toContainText('You have not commented yet.');
     await animationsFinished(profile);
     await expectNoAxeViolations(page);
@@ -225,7 +232,7 @@ test('the profile shows the guest name; signing out forgets it', async ({ browse
     // page's checks on a phone
     await page.getByRole('button', { name: 'Options', exact: true }).click();
     await expect(options(page).getByRole('link', { name: 'Powered by uier' })).toHaveAttribute('href', 'https://uier.io');
-    if (testInfo.project.use.hasTouch) await expect(options(page).locator('button')).toHaveText([/^Language/, 'Accessibility', 'SEO', 'Security and compliance']);
+    if (testInfo.project.use.hasTouch) await expect(options(page).locator('button')).toHaveText([/^Language/, 'Draw on the page', 'Accessibility', 'SEO', 'Security and compliance']);
     else {
         // The switch in its own group first, with a separator from the actions
         await expect(options(page).getByRole('switch', { name: 'Shortcuts', exact: true })).toBeChecked();
@@ -254,8 +261,7 @@ test('the profile shows the guest name; signing out forgets it', async ({ browse
 
     const { name } = await page.evaluate(async () => await (await fetch('/api/visitor')).json() as { name: string });
     expect(name).toMatch(/^Guest [0-9A-F]{4}$/);
-    await profileButton.click();
-    await expect(profile.getByText(name, { exact: true })).toBeVisible();
+    await expect((await openProfile()).getByText(name, { exact: true })).toBeVisible();
     await page.keyboard.press('Escape');
 
     // Sign out asks first

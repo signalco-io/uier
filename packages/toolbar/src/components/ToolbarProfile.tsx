@@ -18,6 +18,30 @@ import { floatingShadowClassName } from './@types/Comments';
 import { toolbarSurface } from '../toolbarReview';
 import { useMessages } from '../i18n';
 
+/** Who the visitor comments as: the profile's popover, and the top of Options when the pill has no room for Profile */
+export function ProfileSummary({ className }: { className?: string }) {
+    const { query } = useVisitor();
+    const t = useMessages();
+    const name = query.data?.name;
+    return (
+        <Stack spacing={1.5} className={className}>
+            <Row spacing={1} className="min-w-0">
+                <Avatar size="sm" aria-hidden="true" className="shrink-0 font-semibold">{avatarText(name ?? t.common.guest)}</Avatar>
+                <Typography level="body2" semiBold noWrap className="text-foreground">
+                    {name ?? t.common.guest}
+                </Typography>
+            </Row>
+            <Typography level="body2" className="text-secondary-foreground">
+                {query.data?.member
+                    ? t.profile.member
+                    : name
+                        ? t.profile.guest
+                        : t.profile.newGuest}
+            </Typography>
+        </Stack>
+    );
+}
+
 /** The toolbar's profile button: who the visitor comments as. Signed in, it shows their avatar (the app's initial), otherwise a person icon */
 export function ToolbarProfile() {
     const { rootElement } = useContext(CommentsBootstrapperContext);
@@ -47,21 +71,7 @@ export function ToolbarProfile() {
                         : <UserCircle />}
                 </IconButton>
             )}>
-            <Stack spacing={1.5}>
-                <Row spacing={1} className="min-w-0">
-                    <Avatar size="sm" aria-hidden="true" className="shrink-0 font-semibold">{avatarText(name ?? t.common.guest)}</Avatar>
-                    <Typography level="body2" semiBold noWrap className="text-foreground">
-                        {name ?? t.common.guest}
-                    </Typography>
-                </Row>
-                <Typography level="body2" className="text-secondary-foreground">
-                    {query.data?.member
-                        ? t.profile.member
-                        : name
-                            ? t.profile.guest
-                            : t.profile.newGuest}
-                </Typography>
-            </Stack>
+            <ProfileSummary />
         </Popper></>
     );
 }

@@ -70,7 +70,11 @@ test('toolbar moves with mouse or touch, persists and stays reachable after coll
     await page.reload();
     await expect(handle).toBeVisible();
     expect(await page.evaluate(() => localStorage.getItem('uier:toolbar-position:v1'))).toBe(movedCollapsed);
-    await page.setViewportSize({ width: 320, height: 480 });
+    // A phone's pill never scrolls sideways: what has no room in it opens from Options (uier #512)
+    for (const width of [430, 402, 360, 320]) {
+        await page.setViewportSize({ width, height: 480 });
+        await expect.poll(() => toolbar(page).evaluate(pill => pill.scrollWidth - pill.clientWidth)).toBe(0);
+    }
     await expectInsideViewport(page);
     await page.getByRole('button', { name: 'Options', exact: true }).click();
     await page.getByRole('button', { name: 'Reset toolbar position' }).click();
