@@ -40,7 +40,7 @@
     "@uier/ui-primitives": "workspace:*",
     "@uier/ui-themes-minimal": "workspace:*",
     "@vercel/analytics": "2.0.1",
-    "@vercel/functions": "3.11.3",
+    "@vercel/functions": "3.11.4",
     "@vercel/oidc": "4.0.9",
     "@vercel/schedules": "0.0.3",
     "botid": "1.5.13",

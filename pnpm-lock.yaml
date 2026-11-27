@@ -284,8 +284,8 @@ importers:
         specifier: 2.0.1
         version: 2.0.1(next@16.4.6(@opentelemetry/api@1.10.0)(@playwright/test@1.65.1)(@types/node@26.6.11)(babel-plugin-react-compiler@1.0.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1)(vue@3.5.46(typescript@7.0.2))
       '@vercel/functions':
-        specifier: 3.11.3
-        version: 3.11.3(ws@8.23.0)
+        specifier: 3.11.4
+        version: 3.11.4(ws@8.23.0)
       '@vercel/oidc':
         specifier: 4.0.9
         version: 4.0.9
@@ -2691,8 +2691,8 @@ packages:
     resolution: {integrity: sha512-g9XerViJ/paZujufXYcu5XYI2vU2rtB4sgdpjUHde5RnOkdmpu0ngH46LCFGHoPXO/C+qDPSczIHIRN+8Q2YKQ==}
     engines: {node: '>= 18'}
 
-  '@vercel/functions@3.11.3':
-    resolution: {integrity: sha512-WOOYeJXbA1CeqQzCu9JLCJQnNdisrGpNgS3K5qSTyMPsXlfs4y47S3EiRCyDPYw6vajPoqQffbFI05zgjYIJcQ==}
+  '@vercel/functions@3.11.4':
+    resolution: {integrity: sha512-2qi3V2qLE57l62CXUKwriRAFa4l5/HIbeRkoRpuIvmGYHqJWXdUKoTMxJP5efSRJtU0x9qV/u0iBHpm+8mGevA==}
     engines: {node: '>= 20'}
     peerDependencies:
       '@aws-sdk/credential-provider-web-identity': '*'
@@ -2713,6 +2713,10 @@ packages:
 
   '@vercel/oidc@4.0.9':
     resolution: {integrity: sha512-LBNEPlKHv3ZAhOX2Dcj1hrxdmqYrdzxukGltouKbyjU8IeJvAFSuOHn5X0ZWg0qG2huANcgrHAb03giWeUyubQ==}
+    engines: {node: '>= 20'}
+
+  '@vercel/oidc@5.0.0':
+    resolution: {integrity: sha512-lDKpcgVemApinr+DfFd3LYUac9yarx+Q/I0yJpdSfTdYQMK/Qso7BBYIc1YIgo6czRnpBi3hZTGBrmOrm/A+Xg==}
     engines: {node: '>= 20'}
 
   '@vercel/schedules@0.0.3':
@@ -7665,9 +7669,9 @@ snapshots:
     dependencies:
       execa: 5.1.1
 
-  '@vercel/functions@3.11.3(ws@8.23.0)':
+  '@vercel/functions@3.11.4(ws@8.23.0)':
     dependencies:
-      '@vercel/oidc': 4.0.9
+      '@vercel/oidc': 5.0.0
     optionalDependencies:
       ws: 8.23.0
 
@@ -7684,6 +7688,11 @@ snapshots:
       '@vercel/cli-config': 0.4.0
       '@vercel/cli-exec': 1.0.1
       jose: 5.10.0
+
+  '@vercel/oidc@5.0.0':
+    dependencies:
+      '@vercel/cli-config': 0.4.0
+      '@vercel/cli-exec': 1.0.1
 
   '@vercel/schedules@0.0.3':
     dependencies:
