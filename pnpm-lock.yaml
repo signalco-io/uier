@@ -287,8 +287,8 @@ importers:
         specifier: 3.11.4
         version: 3.11.4(ws@8.23.0)
       '@vercel/oidc':
-        specifier: 4.0.9
-        version: 4.0.9
+        specifier: 5.0.0
+        version: 5.0.0
       '@vercel/schedules':
         specifier: 0.0.3
         version: 0.0.3
@@ -2709,10 +2709,6 @@ packages:
 
   '@vercel/oidc@3.8.10':
     resolution: {integrity: sha512-sPw1kIfQEA6/2dB+zlAJHnhhNBRJ8t/t4HfFvKO+g0EPBA7NbCKyGovuhgAV6Mnl865ka7HqCEguIy596czdAw==}
-    engines: {node: '>= 20'}
-
-  '@vercel/oidc@4.0.9':
-    resolution: {integrity: sha512-LBNEPlKHv3ZAhOX2Dcj1hrxdmqYrdzxukGltouKbyjU8IeJvAFSuOHn5X0ZWg0qG2huANcgrHAb03giWeUyubQ==}
     engines: {node: '>= 20'}
 
   '@vercel/oidc@5.0.0':
@@ -7680,12 +7676,6 @@ snapshots:
   '@vercel/oidc@3.8.10':
     dependencies:
       '@vercel/cli-config': 0.3.1
-      '@vercel/cli-exec': 1.0.1
-      jose: 5.10.0
-
-  '@vercel/oidc@4.0.9':
-    dependencies:
-      '@vercel/cli-config': 0.4.0
       '@vercel/cli-exec': 1.0.1
       jose: 5.10.0
 
