@@ -89,7 +89,7 @@
     "babel-plugin-react-compiler": "1.0.0",
     "esbuild": "0.28.2",
     "next-sitemap": "4.2.3",
-    "postcss": "8.5.33",
+    "postcss": "8.5.34",
     "tailwindcss": "4.3.5",
     "typescript": "7.0.2"
   }
